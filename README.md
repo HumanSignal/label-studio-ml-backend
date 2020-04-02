@@ -1,5 +1,3 @@
-Configs and boilerplates for Label Studio's Machine Learning backend.
-
 ## Quickstart
 
 1. Place your scripts for model training & inference inside root directory. Follow the [API guidelines](#api-guidelines) described bellow. You can put everything in a single file, or create 2 separate one say `my_training_module.py` and `my_inference_module.py`
