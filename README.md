@@ -1,3 +1,15 @@
+# Label Studio ML Backend &middot; :sunny:
+
+[Website](https://labelstud.io/) • [Docs](https://labelstud.io/guide) • [Twitter](https://twitter.com/heartexlabs) • [Join Slack Community <img src="https://go.heartex.net/docs/images/slack-mini.png" width="18px"/>](https://join.slack.com/t/label-studio/shared_invite/zt-cr8b7ygm-6L45z7biEBw4HXa5A2b5pw)
+
+<br/>
+
+ **Label Studio is a swiss army knife of data labeling and annotation tools :v:**
+
+## Introduction
+
+ML Backend can be used to provide pre-labeling, automatic labeling, and active learning support. 
+
 ## Quickstart
 
 Build and start Machine Learning backend on `http://localhost:9090`
@@ -82,3 +94,18 @@ def train(input_iterator, working_dir, **kwargs):
     resources = {"model_path": "some/model/path", "labels": ["aaa", "bbb", "ccc"]}
     return resources
 ```
+
+## Ecosystem
+
+| Project | Description |
+|-|-|
+| [label-studio](https://github.com/heartexlabs/label-studio) | Server part, distributed as a pip package |
+| [label-studio-frontend](https://github.com/heartexlabs/label-studio-frontend) | Frontend part, written in JavaScript and React, can be embedded into your application | 
+| [label-studio-converter](https://github.com/heartexlabs/label-studio-converter) | Encode labels into the format of your favorite machine learning library | 
+| [label-studio-transformers](https://github.com/heartexlabs/label-studio-transformers) | Transformers library connected and configured for use with label studio | 
+
+## License
+
+This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [Heartex](https://www.heartex.ai/). 2020
+
+<img src="https://github.com/heartexlabs/label-studio/blob/master/images/opossum_looking.png?raw=true" title="Hey everyone!" height="140" width="140" />
