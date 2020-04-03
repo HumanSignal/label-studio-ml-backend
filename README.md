@@ -5,6 +5,8 @@
 <br/>
 
  **Label Studio is a swiss army knife of data labeling and annotation tools :v:**
+ 
+ <br />
 
 ## Introduction
 
