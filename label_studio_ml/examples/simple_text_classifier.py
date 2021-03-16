@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 
-from label_studio.ml import LabelStudioMLBase
+from label_studio_ml.model import LabelStudioMLBase
 
 
 class SimpleTextClassifier(LabelStudioMLBase):

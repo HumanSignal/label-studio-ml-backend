@@ -54,7 +54,7 @@ def create_dir(args):
     elif os.path.exists(output_dir):
         raise FileExistsError('Model directory already exists. Please remove it or use --force option.')
 
-    default_configs_dir = find_dir('default_configs')
+    default_configs_dir = os.path.join(os.path.dirname(__file__), 'default_configs')
     shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.tmpl'))
 
     # extract script name and model class
