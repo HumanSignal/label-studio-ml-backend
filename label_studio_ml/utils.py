@@ -14,7 +14,7 @@ from PIL import Image
 from colorama import Fore
 
 from .model import LabelStudioMLBase
-from label_studio.utils.io import get_cache_dir
+from label_studio.core.utils.io import get_cache_dir
 
 
 logger = logging.getLogger(__name__)
