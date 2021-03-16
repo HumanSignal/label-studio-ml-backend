@@ -53,7 +53,7 @@ def _setup():
 @exception_handler
 def _train():
     data = request.json
-    completions = data['completions']
+    completions = data['annotations']
     project = data.get('project')
     label_config = data.get('label_config')
     params = data.get('params', {})
