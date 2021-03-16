@@ -47,7 +47,6 @@ def get_args():
 
 
 def create_dir(args):
-
     output_dir = os.path.join(args.root_dir, args.project_name)
     if os.path.exists(output_dir) and args.force:
         shutil.rmtree(output_dir)
