@@ -28,7 +28,7 @@ def get_all_classes_inherited_LabelStudioMLBase(script_file):
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        print(Fore.YELLOW + 'File ' + module_name + '.py not found.\n'
+        print(Fore.RED + 'Can\'t import module "' + module_name + f'", reason: {e}.\n'
               'If you are looking for examples, you can find a dummy model.py here:\n' +
               Fore.LIGHTYELLOW_EX + 'https://labelstud.io/tutorials/dummy_model.html')
         module = None
