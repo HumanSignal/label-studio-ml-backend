@@ -4,14 +4,14 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
 
 0. Clone repo
    ```bash
-   git clone https://github.com/heartexlabs/label-studio  
+   git clone https://github.com/heartexlabs/label-studio-ml-backend  
    ```
    
 1. Setup environment
    ```bash
-   cd label-studio
+   cd label-studio-ml-backend
    pip install -e .
-   cd label_studio/ml/examples
+   cd label_studio_ml/examples
    pip install -r requirements.txt
    ```
    
@@ -25,11 +25,8 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
    label-studio-ml start my_ml_backend
    ```
    
-4. Run Label Studio connecting it to the running ML backend:
-    ```bash
-    label-studio start text_classification_project --init --template text_sentiment --ml-backends http://localhost:9090
-    ```
+4. Run Label Studio connecting it to the running ML backend from the project settings page
 
 ## Create your own ML backend
 
-Check examples in `label-studio/ml/examples` directory.
+Check examples in `label-studio_ml/examples` directory.

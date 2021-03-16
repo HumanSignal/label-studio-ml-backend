@@ -82,17 +82,18 @@ class SimpleTextClassifier(LabelStudioMLBase):
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}
+
         for completion in completions:
             # get input text from task data
-
-            if completion['completions'][0].get('skipped') or completion['completions'][0].get('was_cancelled'):
+            print(completion)
+            if completion['annotations'][0].get('skipped') or completion['annotations'][0].get('was_cancelled'):
                 continue
 
             input_text = completion['data'][self.value]
             input_texts.append(input_text)
 
             # get an annotation
-            output_label = completion['completions'][0]['result'][0]['value']['choices'][0]
+            output_label = completion['annotations'][0]['result'][0]['value']['choices'][0]
             output_labels.append(output_label)
             output_label_idx = label2idx[output_label]
             output_labels_idx.append(output_label_idx)
