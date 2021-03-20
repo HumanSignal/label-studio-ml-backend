@@ -29,4 +29,4 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
 
 ## Create your own ML backend
 
-Check examples in `label-studio_ml/examples` directory.
+Check examples in `label_studio_ml/examples` directory.
