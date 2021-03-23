@@ -1,6 +1,6 @@
 import random
 
-from label_studio.ml import LabelStudioMLBase
+from label_studio_ml import LabelStudioMLBase
 
 
 class DummyModel(LabelStudioMLBase):
