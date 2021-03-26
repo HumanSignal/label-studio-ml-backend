@@ -65,7 +65,7 @@ from label_studio_ml.model import LabelStudioMLBase
 class MyModel(LabelStudioMLBase):
 ```
 
-Then, define loaders in the `__init__` method. 
+Then, define loaders & initializers in the `__init__` method. 
 
 ```python
 def __init__(self, **kwargs):
@@ -74,9 +74,10 @@ def __init__(self, **kwargs):
     self.model = self.load_my_model()
 ```
 
-The inherited class contains fields for loading data specific to Label Studio:
-- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details]()
-- `self.train_output` is a Python dict with the results of the previous model training runs. Use this if you want to load the model for the next updates for active learning and model fine-tuning.
+There are special variables provided by the inherited class:
+- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details](). Use might want to use this to align your model input/output with Label Studio labeling configuration;
+- `self.label_config` is a raw labeling config string;
+- `self.train_output` is a Python dict with the results of the previous model training runs (the output of the `fit()` method described bellow) Use this if you want to load the model for the next updates for active learning and model fine-tuning.
 
 After you define the loaders, define two methods for your model:
 
