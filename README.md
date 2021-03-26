@@ -81,8 +81,49 @@ There are special variables provided by the inherited class:
 
 After you define the loaders, define two methods for your model:
 
-`predict(tasks, **kwargs)`, which takes [JSON-formatted Label Studio tasks](doc-link) and returns predictions in [format accepted by Label Studio](doc-link).
-`fit(annotations, **kwargs)`, which takes [JSON-formatted Label Studio annotations](doc-link) and returns an arbitrary dict where some information about the created model can be stored.
+
+#### Inference call
+
+Use inference call when you want to get pre-annotation from your model on-the-fly. It's obligatory to override to make it works.
+
+Override `predict(tasks, **kwargs)` which takes [JSON-formatted Label Studio tasks](doc-link) and returns predictions in [format accepted by Label Studio](doc-link).
+
+**Example**
+
+```python
+def predict(self, tasks, **kwargs):
+    predictions = []
+    # Get first annotation tag, and extract from_name/to_name keys to make predictions
+    from_name, schema = list(self.parsed_label_config.items())[0]
+    to_name = schema['to_name'][0]
+    for task in tasks:
+        # for each task, return classification results in form of "choices" pre-annotations
+        predictions.append({
+            'result': [{
+                'from_name': from_name,
+                'to_name': to_name,
+                'type': 'choices',
+                'value': {'choices': ['My Label']}
+            }],
+            # optionally you can include prediction scores - it allows you to sort out the tasks and do active learning
+            'score': 0.987
+        })
+    return predictions
+```
+
+
+#### Training call
+Use training call if you want to update your model with new annotations. It's optional to use within ML backend (for example, you may want only getting on-the-fly predictions to preannotate the tasks, without retraining the model).
+
+Override `fit(annotations, **kwargs)`, which takes [JSON-formatted Label Studio annotations](doc-link) and returns an arbitrary dict where some information about the created model can be stored.
+
+**Example**
+```python
+def fit(self, completions, workdir=None, **kwargs):
+    # ... do some heavy computations, get your model and store checkpoints and resources
+    return {'checkpoints': 'my/model/checkpoints'}  # <-- you can retrieve this dict as self.train_output in the consequent calls
+```
+
 
 After you wrap your model code with this class, define the loaders, and define the methods, you're ready to run your model as an ML backend with Label Studio. 
 
