@@ -195,7 +195,7 @@ class ImageClassifierAPI(LabelStudioMLBase):
 
     def fit(self, completions, workdir=None, batch_size=32, num_epochs=10, **kwargs):
         image_urls, image_classes = [], []
-        print('Collecting completions...')
+        print('Collecting annotations...')
         for completion in completions:
             if is_skipped(completion):
                 continue
