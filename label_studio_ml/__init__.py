@@ -1,5 +1,3 @@
-from .model import LabelStudioMLBase
-
 # Package name
 package_name = 'label-studio-ml'
 
