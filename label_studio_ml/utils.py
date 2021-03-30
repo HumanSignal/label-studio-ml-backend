@@ -65,14 +65,14 @@ def get_single_tag_keys(parsed_label_config, control_type, object_type):
 
 
 def is_skipped(completion):
-    if len(completion['completions']) != 1:
+    if len(completion['annotations']) != 1:
         return False
-    completion = completion['completions'][0]
+    completion = completion['annotations'][0]
     return completion.get('skipped', False) or completion.get('was_cancelled', False)
 
 
 def get_choice(completion):
-    return completion['completions'][0]['result'][0]['value']['choices'][0]
+    return completion['annotations'][0]['result'][0]['value']['choices'][0]
 
 
 def get_image_local_path(url, image_cache_dir=None, project_dir=None):

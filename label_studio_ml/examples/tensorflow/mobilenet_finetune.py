@@ -5,8 +5,8 @@ import tensorflow_hub as hub
 import numpy as np
 
 from PIL import Image
-from label_studio.ml import LabelStudioMLBase
-from label_studio.ml.utils import get_image_local_path, get_single_tag_keys, get_choice, is_skipped
+from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.utils import get_image_local_path, get_single_tag_keys, get_choice, is_skipped
 
 logger = logging.getLogger(__name__)
 feature_extractor_model = 'https://tfhub.dev/google/tf2-preview/mobilenet_v2/feature_vector/4'
