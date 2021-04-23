@@ -9,7 +9,7 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
    
 1. Setup environment
 
-> It is highly recommended to use `venv`, `virtualenv` or `conda` python environments. You can use the same environment as Label Studio does. 
+It is highly recommended to use `venv`, `virtualenv` or `conda` python environments. You can use the same environment as Label Studio does. [Read more](https://docs.python.org/3/tutorial/venv.html#creating-virtual-environments) about creating virtual environments via `env`.
 
    ```bash
    cd label-studio-ml-backend
