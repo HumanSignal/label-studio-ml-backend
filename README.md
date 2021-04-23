@@ -10,9 +10,12 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
 1. Setup environment
    ```bash
    cd label-studio-ml-backend
+   
+   # Install label-studio-ml and its dependencies
    pip install -e .
-   cd label_studio_ml/examples
-   pip install -r requirements.txt
+   
+   # Install example dependencies
+   pip install -r label_studio_ml/examples/requirements.txt
    ```
    
 2. Create new ML backend
