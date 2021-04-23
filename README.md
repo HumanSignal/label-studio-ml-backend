@@ -12,7 +12,7 @@ Here is a quick example tutorial on how to run the ML backend with a simple text
    cd label-studio-ml-backend
    
    # Install label-studio-ml and its dependencies
-   pip install -e .
+   pip install -U -e .
    
    # Install example dependencies
    pip install -r label_studio_ml/examples/requirements.txt
