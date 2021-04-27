@@ -15,6 +15,7 @@ from colorama import Fore
 
 from .model import LabelStudioMLBase
 from label_studio.core.utils.io import get_cache_dir
+from label_studio.core.utils.params import get_env
 
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def get_choice(completion):
 
 
 def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=None):
-    return get_local_path(url, image_cache_dir, project_dir, None, image_dir)
+    return get_local_path(url, image_cache_dir, project_dir, get_env('HOSTNAME'), image_dir)
 
 
 def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_dir=None):
