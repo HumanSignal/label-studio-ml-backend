@@ -1,19 +1,22 @@
 FROM python:3.7
-RUN pip install uwsgi supervisor
 
-ENV HOME=/app
-COPY requirements.txt ${HOME}/
-RUN pip install -r ${HOME}/requirements.txt
+WORKDIR /tmp
+COPY requirements.txt .
+
+RUN pip install --no-cache \
+                -r requirements.txt \
+                uwsgi==2.0.19.1 \
+                supervisor==4.2.2 \
+                label-studio==1.0.1 \
+                git+https://github.com/heartexlabs/label-studio-ml-backend
 
 COPY uwsgi.ini /etc/uwsgi/
 COPY supervisord.conf /etc/supervisor/conf.d/
 
-WORKDIR ${HOME}
+WORKDIR /app
 
-# RUN pip install git+https://github.com/heartexlabs/label-studio.git@master
-RUN pip install label-studio git+https://github.com/heartexlabs/label-studio-ml-backend
-
-COPY . ${HOME}/
+COPY *.py /app/
 
 EXPOSE 9090
-CMD ["supervisord"]
+
+CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
