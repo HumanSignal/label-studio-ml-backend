@@ -76,8 +76,14 @@ If you change the default upload folder (e.g. by setting `LABEL_STUDIO_BASE_DATA
 
 ## Run ML backend server on the different machine as Label Studio
 
-When running ML backend on a separate server instance and connecting it to Label Studio app via remote hostname URL, one thing you need to keep in mind that locally hosted images can't be retrieved from remote server.
-Therefore always [use image URLs and launch ML backend accordingly](#Images-are-specified-as-remote-URLs).
+When running ML backend on a separate server instance and connecting it to Label Studio app via remote hostname URL, one thing you need to keep in mind dealing with upload images is that your ML backend server needs to get the full image URLs.
+For this case, you need to provide Label Studio hostname before running ML backend:
+
+   ```bash
+   LABEL_STUDIO_HOSTNAME=http://my.label-studio.com:8080 label-studio-ml start coco-detector --with \
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth
+   ```
 
 
 ## Other parameters
