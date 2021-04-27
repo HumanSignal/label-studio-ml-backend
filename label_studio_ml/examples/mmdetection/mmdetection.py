@@ -5,7 +5,7 @@ from mmdet.apis import init_detector, inference_detector
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path, get_image_size, get_single_tag_keys
-from label_studio.core.utils.io import json_load
+from label_studio.core.utils.io import json_load, get_data_dir
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection"""
 
-    def __init__(self, config_file, checkpoint_file, labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
+    def __init__(self, config_file, checkpoint_file, image_dir=None, labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
         """
         Load MMDetection model from config and checkpoint into memory.
         (Check https://mmdetection.readthedocs.io/en/v1.2.0/GETTING_STARTED.html#high-level-apis-for-testing-images)
@@ -22,6 +22,7 @@ class MMDetection(LabelStudioMLBase):
         Optionally set mappings from COCO classes to target labels
         :param config_file: Absolute path to MMDetection config file (e.g. /home/user/mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x.py)
         :param checkpoint_file: Absolute path MMDetection checkpoint file (e.g. /home/user/mmdetection/checkpoints/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth)
+        :param image_dir: Directory where images are stored (should be used only in case you use direct file upload into Label Studio instead of URLs)
         :param labels_file: file with mappings from COCO labels to custom labels {"airplane": "Boeing"}
         :param score_threshold: score threshold to wipe out noisy results
         :param device: device (cpu, cuda:0, cuda:1, ...)
@@ -32,6 +33,10 @@ class MMDetection(LabelStudioMLBase):
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
+        # default Label Studio image upload folder
+        upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
+        self.image_dir = image_dir or upload_dir
+        logger.debug(f'{self.__class__.__name__} reads images from {self.image_dir}')
         if self.labels_file and os.path.exists(self.labels_file):
             self.label_map = json_load(self.labels_file)
         else:
@@ -52,15 +57,11 @@ class MMDetection(LabelStudioMLBase):
         print('Load new model from: ', config_file, checkpoint_file)
         self.model = init_detector(config_file, checkpoint_file, device=device)
         self.score_thresh = score_threshold
-        if self.train_output:
-            self.project_path = self.train_output['project_path']
-        else:
-            self.project_path = None
 
     def predict(self, tasks, **kwargs):
         assert len(tasks) == 1
         task = tasks[0]
-        image_path = get_image_local_path(task['data'][self.value], project_dir=self.project_path)
+        image_path = get_image_local_path(task['data'][self.value], image_dir=self.image_dir)
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
@@ -93,16 +94,8 @@ class MMDetection(LabelStudioMLBase):
                     'score': score
                 })
                 all_scores.append(score)
-        avg_score = sum(all_scores) / len(all_scores)
+        avg_score = sum(all_scores) / max(len(all_scores), 1)
         return [{
             'result': results,
             'score': avg_score
         }]
-
-    def fit(self, completions, workdir=None, **kwargs):
-        project_path = kwargs.get('project_full_path')
-        if os.path.exists(project_path):
-            logger.info('Found project in local path ' + project_path)
-        else:
-            logger.error('Project not found in local path ' + project_path + '. Serving uploaded data will fail.')
-        return {'project_path': project_path}

@@ -75,13 +75,14 @@ def get_choice(completion):
     return completion['annotations'][0]['result'][0]['value']['choices'][0]
 
 
-def get_image_local_path(url, image_cache_dir=None, project_dir=None):
-    return get_local_path(url, image_cache_dir, project_dir)
+def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=None):
+    return get_local_path(url, image_cache_dir, project_dir, None, image_dir)
 
 
-def get_local_path(url, cache_dir=None, project_dir=None, hostname=None):
+def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_dir=None):
     is_local_file = url.startswith('/data/') and '?d=' in url
     is_uploaded_file = url.startswith('/data/upload')
+    image_dir = image_dir or os.path.join(project_dir, 'upload')
 
     # File reference created with --allow-serving-local-files option
     if is_local_file:
@@ -93,11 +94,8 @@ def get_local_path(url, cache_dir=None, project_dir=None, hostname=None):
         return filepath
 
     # File uploaded via import UI
-    elif is_uploaded_file and project_dir is not None:
-        if not os.path.exists(project_dir):
-            raise FileNotFoundError(
-                "Can't find uploaded file by URL {url}: you need to pass a valid project_dir".format(url=url))
-        filepath = os.path.join(project_dir, 'upload', os.path.basename(url))
+    elif is_uploaded_file and os.path.exists(image_dir):
+        filepath = os.path.join(image_dir, os.path.basename(url))
         return filepath
 
     elif is_uploaded_file and hostname:
