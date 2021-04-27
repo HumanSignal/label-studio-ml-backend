@@ -10,8 +10,6 @@ If you just need to load static pre-annotated data into Label Studio, running an
 
 ## How it works
 
-<diagram>
-
 1. Get your model code
 2. Wrap it with the Label Studio SDK
 3. Create a running server script
@@ -28,12 +26,17 @@ Follow this example tutorial to run an ML backend with a simple text classifier:
    git clone https://github.com/heartexlabs/label-studio-ml-backend  
    ```
    
-1. Set up environment
+1. Setup environment
+    
+    It is highly recommended to use `venv`, `virtualenv` or `conda` python environments. You can use the same environment as Label Studio does. [Read more](https://docs.python.org/3/tutorial/venv.html#creating-virtual-environments) about creating virtual environments via `venv`.
    ```bash
    cd label-studio-ml-backend
-   pip install -e .
-   cd label_studio_ml/examples
-   pip install -r requirements.txt
+   
+   # Install label-studio-ml and its dependencies
+   pip install -U -e .
+   
+   # Install example dependencies
+   pip install -r label_studio_ml/examples/requirements.txt
    ```
    
 2. Initialize an ML backend based on an example script:
