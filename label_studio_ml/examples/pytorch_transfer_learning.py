@@ -13,8 +13,8 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
 
-from label_studio.ml import LabelStudioMLBase
-from label_studio.ml.utils import get_single_tag_keys, get_choice, is_skipped
+from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped
 
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -195,7 +195,7 @@ class ImageClassifierAPI(LabelStudioMLBase):
 
     def fit(self, completions, workdir=None, batch_size=32, num_epochs=10, **kwargs):
         image_urls, image_classes = [], []
-        print('Collecting completions...')
+        print('Collecting annotations...')
         for completion in completions:
             if is_skipped(completion):
                 continue

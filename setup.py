@@ -28,7 +28,7 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     install_requires=requirements,
-    python_requires='>=3.6, <3.9',
+    python_requires='>=3.6',
     entry_points={
         'console_scripts': [
             'label-studio-ml=label_studio_ml.server:main'
