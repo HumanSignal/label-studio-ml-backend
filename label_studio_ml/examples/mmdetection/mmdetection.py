@@ -86,10 +86,10 @@ class MMDetection(LabelStudioMLBase):
                     'type': 'rectanglelabels',
                     'value': {
                         'rectanglelabels': [output_label],
-                        'x': int(x / img_width * 100),
-                        'y': int(y / img_height * 100),
-                        'width': int((xmax - x) / img_width * 100),
-                        'height': int((ymax - y) / img_height * 100)
+                        'x': x / img_width * 100,
+                        'y': y / img_height * 100,
+                        'width': (xmax - x) / img_width * 100,
+                        'height': (ymax - y) / img_height * 100
                     },
                     'score': score
                 })
