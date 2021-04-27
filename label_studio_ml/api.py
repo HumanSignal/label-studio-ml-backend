@@ -73,12 +73,6 @@ def _is_training():
     return jsonify(output)
 
 
-@_server.route('/', methods=['GET'])
-@exception_handler
-def main():
-    return jsonify('Congrats! Your ML backend is running.')
-
-
 @_server.route('/health', methods=['GET'])
 @_server.route('/', methods=['GET'])
 @exception_handler
