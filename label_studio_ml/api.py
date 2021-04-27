@@ -40,6 +40,7 @@ def _predict():
 @exception_handler
 def _setup():
     data = request.json
+    logger.debug(data)
     project = data.get('project')
     schema = data.get('schema')
     force_reload = data.get('force_reload', False)
@@ -53,13 +54,13 @@ def _setup():
 @exception_handler
 def _train():
     data = request.json
-    completions = data['annotations']
+    annotations = data['annotations']
     project = data.get('project')
     label_config = data.get('label_config')
     params = data.get('params', {})
-    if len(completions) == 0:
-        return jsonify('No completions found.'), 400
-    job = _manager.train(completions, project, label_config, **params)
+    if len(annotations) == 0:
+        return jsonify('No annotations found.'), 400
+    job = _manager.train(annotations, project, label_config, **params)
     response = {'job': job.id} if job else {}
     return jsonify(response), 201
 
@@ -70,6 +71,12 @@ def _is_training():
     project = request.args.get('project')
     output = _manager.is_training(project)
     return jsonify(output)
+
+
+@_server.route('/', methods=['GET'])
+@exception_handler
+def main():
+    return jsonify('Congrats! Your ML backend is running.')
 
 
 @_server.route('/health', methods=['GET'])

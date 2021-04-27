@@ -39,7 +39,7 @@ class LabelStudioMLBase(ABC):
     def predict(self, tasks, **kwargs):
         pass
 
-    def fit(self, completions, workdir=None, **kwargs):
+    def fit(self, tasks, workdir=None, **kwargs):
         return {}
 
     def get_local_path(self, url, project_dir=None):

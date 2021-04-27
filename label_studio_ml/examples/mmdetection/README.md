@@ -39,24 +39,68 @@ means that
 2. Create and initialize directory `./coco-detector`:
 
     ```bash
-    label-studio-ml init coco-detector --from label_studio/ml/examples/mmdetection.py
+    label-studio-ml init coco-detector --from label_studio_ml/examples/mmdetection/mmdetection.py
     ```
 
 3. Download `config_file` and `checkpoint_file` from MMDetection model zoo (use [recommended Faster RCNN for quickstarting](https://mmdetection.readthedocs.io/en/latest/1_exist_data_model.html#inference-with-existing-models)).
+Note that `config_file` should be located within cloned [mmdetection repo](https://github.com/open-mmlab/mmdetection).
 
-4. Launch ML backend server:
+
+Now depending on your specific use case, there are different settings:
+
+## Run ML backend on the same machine as Label Studio
+
+#### Images are uploaded in Label Studio UI
+   ```bash
+   label-studio-ml start coco-detector --with \
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth
+   ```
+In this case, ML backend reads images from the default data upload folder.
+If you change the default upload folder (e.g. by setting `LABEL_STUDIO_BASE_DATA_DIR=/custom/data/path`), you need to explicitly specify upload folder, e.g.:
 
    ```bash
    label-studio-ml start coco-detector --with \
-   config_file=/absolute/path/to/config_file \
-   checkpoint_file=/absolute/path/to/checkpoint_file \
-   score_threshold=0.5 \
-   device=cpu
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth \
+   image_dir=/custom/data/path/media/upload
    ```
 
-> Note: It's highly recommended to use device=gpu:0 if you have a GPU available - it will significantly speed up image prelabeling.
+#### Images are specified as remote URLs
 
-> Note: Feel free to tune `score_threshold` - lower values increase sensitivity but produce more noise.
+   ```bash
+   label-studio-ml start coco-detector --with \
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth
+   ```
+
+## Run ML backend server on the different machine as Label Studio
+
+When running ML backend on a separate server instance and connecting it to Label Studio app via remote hostname URL, one thing you need to keep in mind that locally hosted images can't be retrieved from remote server.
+Therefore always [use image URLs and launch ML backend accordingly](#Images-are-specified-as-remote-URLs).
+
+
+## Other parameters
+
+#### GPU support
+It's highly recommended to use device=gpu:0 if you have a GPU available - it will significantly speed up image prelabeling. For example:
+   ```bash
+   label-studio-ml start coco-detector --with \
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth \
+   device=gpu:0
+   ```
+
+#### Bounding box thresholding
+
+Feel free to tune `score_threshold` - lower values increase sensitivity but produce more noise.
+
+   ```bash
+   label-studio-ml start coco-detector --with \
+   config_file=mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x_coco.py \
+   checkpoint_file=/absolute/path/to/downloaded/checkpoint.pth \
+   score_threshold=0.5
+   ```
      
 
 ### The full list of COCO labels
