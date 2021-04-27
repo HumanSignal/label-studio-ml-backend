@@ -80,6 +80,7 @@ def main():
 
 
 @_server.route('/health', methods=['GET'])
+@_server.route('/', methods=['GET'])
 @exception_handler
 def health():
     return jsonify({'status': 'UP', 'model_dir': _manager.model_dir})
