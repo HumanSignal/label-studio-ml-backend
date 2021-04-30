@@ -34,6 +34,7 @@ class LabelStudioMLBase(ABC):
         self.parsed_label_config = parse_config(self.label_config)
         self.train_output = train_output or {}
         self.hostname = kwargs.get('hostname', '')
+        self.access_token = kwargs.get('access_token', '')
 
     @abstractmethod
     def predict(self, tasks, **kwargs):
@@ -44,7 +45,7 @@ class LabelStudioMLBase(ABC):
 
     def get_local_path(self, url, project_dir=None):
         from label_studio_ml.utils import get_local_path
-        return get_local_path(url, project_dir=project_dir, hostname=self.hostname)
+        return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
 
 
 class LabelStudioMLManager(object):
