@@ -45,7 +45,8 @@ def _setup():
     schema = data.get('schema')
     force_reload = data.get('force_reload', False)
     hostname = data.get('hostname', '')  # host name for uploaded files and building urls
-    model = _manager.fetch(project, schema, force_reload, hostname=hostname)
+    access_token = data.get('access_token', '')  # user access token to retrieve data
+    model = _manager.fetch(project, schema, force_reload, hostname=hostname, access_token=access_token)
     logger.debug('Fetch model version: {}'.format(model.model_version))
     return jsonify({'model_version': model.model_version})
 

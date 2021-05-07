@@ -80,7 +80,7 @@ def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=
     return get_local_path(url, image_cache_dir, project_dir, get_env('HOSTNAME'), image_dir)
 
 
-def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_dir=None):
+def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_dir=None, access_token=None):
     is_local_file = url.startswith('/data/') and '?d=' in url
     is_uploaded_file = url.startswith('/data/upload')
     image_dir = image_dir or os.path.join(project_dir, 'upload')
@@ -103,6 +103,12 @@ def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_d
         url = hostname + url
         logger.info('Resolving url using hostname [' + hostname + '] from LSB: ' + url)
 
+    elif is_uploaded_file:
+        raise FileNotFoundError("Can't resolve url, neither hostname or project_dir passed: " + url)
+
+    if is_uploaded_file and not access_token:
+        raise FileNotFoundError("Can't access file, no access_token provided for Label Studio Backend")
+
     # File specified by remote URL - download and cache it
     cache_dir = cache_dir or get_cache_dir()
     parsed_url = urlparse(url)
@@ -111,7 +117,7 @@ def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_d
     filepath = os.path.join(cache_dir, url_hash + '__' + url_filename)
     if not os.path.exists(filepath):
         logger.info('Download {url} to {filepath}'.format(url=url, filepath=filepath))
-        r = requests.get(url, stream=True)
+        r = requests.get(url, stream=True, headers={'Authorization': 'Token ' + access_token})
         r.raise_for_status()
         with io.open(filepath, mode='wb') as fout:
             fout.write(r.content)
