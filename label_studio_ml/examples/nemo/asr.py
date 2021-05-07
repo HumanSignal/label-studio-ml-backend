@@ -20,19 +20,28 @@ class NemoASR(LabelStudioMLBase):
         self.model = nemo_asr.models.EncDecCTCModel.from_pretrained(model_name=model_name)
 
     def predict(self, tasks, **kwargs):
-        audio_path = self.get_local_path(tasks[0]['data'][self.value])
-        transcription = self.model.transcribe(paths2audio_files=[audio_path])[0]
-        return [{
-            'result': [{
-                'from_name': self.from_name,
-                'to_name': self.to_name,
-                'type': 'textarea',
-                'value': {
-                    'text': [transcription]
-                }
-            }],
-            'score': 1.0
-        }]
+        output = []
+        audio_paths = []
+        for task in tasks:
+            audio_path = self.get_local_path(task['data'][self.value])
+            audio_paths.append(audio_path)
+
+        # run ASR
+        transcriptions = self.model.transcribe(paths2audio_files=audio_paths)
+
+        for transcription in transcriptions:
+            output.append({
+                'result': [{
+                    'from_name': self.from_name,
+                    'to_name': self.to_name,
+                    'type': 'textarea',
+                    'value': {
+                        'text': [transcription]
+                    }
+                }],
+                'score': 1.0
+            })
+        return output
 
     def _bind_to_textarea(self):
         from_name, to_name, value = None, None, None
