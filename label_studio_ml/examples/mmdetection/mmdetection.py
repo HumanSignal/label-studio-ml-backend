@@ -6,7 +6,7 @@ from mmdet.apis import init_detector, inference_detector
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path, get_image_size, get_single_tag_keys
 from label_studio.core.utils.io import json_load, get_data_dir
-
+from label_studio.core.settings.base import DATA_UNDEFINED_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,8 @@ class MMDetection(LabelStudioMLBase):
     def predict(self, tasks, **kwargs):
         assert len(tasks) == 1
         task = tasks[0]
-        image_path = get_image_local_path(task['data'][self.value], image_dir=self.image_dir)
+        image_url = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
+        image_path = get_image_local_path(image_url, image_dir=self.image_dir)
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
