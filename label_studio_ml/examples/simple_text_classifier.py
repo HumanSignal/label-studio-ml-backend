@@ -7,6 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio.core.settings.base import DATA_UNDEFINED_NAME
 
 
 class SimpleTextClassifier(LabelStudioMLBase):
@@ -56,7 +57,8 @@ class SimpleTextClassifier(LabelStudioMLBase):
         # collect input texts
         input_texts = []
         for task in tasks:
-            input_texts.append(task['data'][self.value])
+            input_text = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
+            input_texts.append(input_text)
 
         # get model predictions
         probabilities = self.model.predict_proba(input_texts)
@@ -89,7 +91,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
             if completion['annotations'][0].get('skipped') or completion['annotations'][0].get('was_cancelled'):
                 continue
 
-            input_text = completion['data'][self.value]
+            input_text = completion['data'].get(self.value) or completion['data'].get(DATA_UNDEFINED_NAME)
             input_texts.append(input_text)
 
             # get an annotation
