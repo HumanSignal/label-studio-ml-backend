@@ -4,6 +4,8 @@ import nemo
 import nemo.collections.asr as nemo_asr
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio.core.settings.base import DATA_UNDEFINED_NAME
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,8 @@ class NemoASR(LabelStudioMLBase):
         output = []
         audio_paths = []
         for task in tasks:
-            audio_path = self.get_local_path(task['data'][self.value])
+            audio_url = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
+            audio_path = self.get_local_path(audio_url)
             audio_paths.append(audio_path)
 
         # run ASR
