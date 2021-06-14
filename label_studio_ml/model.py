@@ -15,6 +15,7 @@ from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegist
 from rq.job import Job
 
 from label_studio.core.label_config import parse_config
+from label_studio.core.utils.params import get_bool_env
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,9 @@ class LabelStudioMLManager(object):
             cls.model_dir = os.path.expanduser(cls.model_dir)
             os.makedirs(cls.model_dir, exist_ok=True)
 
-        cls._redis = cls._get_redis(redis_host, redis_port)
+        cls._redis = None
+        if get_bool_env('USE_REDIS', True):
+            cls._redis = cls._get_redis(redis_host, redis_port)
         if cls._redis:
             cls._redis_queue = Queue(name=redis_queue, connection=cls._redis)
 

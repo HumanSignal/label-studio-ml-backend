@@ -117,7 +117,8 @@ def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_d
     filepath = os.path.join(cache_dir, url_hash + '__' + url_filename)
     if not os.path.exists(filepath):
         logger.info('Download {url} to {filepath}'.format(url=url, filepath=filepath))
-        r = requests.get(url, stream=True, headers={'Authorization': 'Token ' + access_token})
+        headers = {'Authorization': 'Token ' + access_token} if access_token else {}
+        r = requests.get(url, stream=True, headers=headers)
         r.raise_for_status()
         with io.open(filepath, mode='wb') as fout:
             fout.write(r.content)
