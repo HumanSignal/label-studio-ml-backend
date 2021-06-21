@@ -14,7 +14,7 @@ from PIL import Image
 from colorama import Fore
 
 from .model import LabelStudioMLBase
-from label_studio.core.utils.io import get_cache_dir
+from label_studio.core.utils.io import get_cache_dir, get_data_dir
 from label_studio.core.utils.params import get_env
 
 
@@ -83,7 +83,9 @@ def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=
 def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_dir=None, access_token=None):
     is_local_file = url.startswith('/data/') and '?d=' in url
     is_uploaded_file = url.startswith('/data/upload')
-    image_dir = image_dir or os.path.join(project_dir, 'upload')
+    if image_dir is None:
+        upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
+        image_dir = project_dir and os.path.join(project_dir, 'upload') or upload_dir
 
     # File reference created with --allow-serving-local-files option
     if is_local_file:
