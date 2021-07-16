@@ -21,7 +21,7 @@ from isegm.inference import utils
 logger = logging.getLogger(__name__)
 
 class IteractiveSegmentation(LabelStudioMLBase):
-    """Interactive segmentation detector based on https://github.com/saic-vul/ritm_interactive_segmentation"""
+    """Interactive segmentation detector """
     def __init__(self,
                  config_file,
                  checkpoint_file,
@@ -32,9 +32,8 @@ class IteractiveSegmentation(LabelStudioMLBase):
         """
         Load segmentation model from config and checkpoint into memory.
 
-        Optionally set mappings from COCO classes to target labels
-        :param config_file: Absolute path to MMDetection config file (e.g. /home/user/mmdetection/configs/faster_rcnn/faster_rcnn_r50_fpn_1x.py)
-        :param checkpoint_file: Absolute path MMDetection checkpoint file (e.g. /home/user/mmdetection/checkpoints/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth)
+        :param config_file: Absolute path to config file
+        :param checkpoint_file: Absolute path to checkpoint file
         :param image_dir: Directory where images are stored (should be used only in case you use direct file upload into Label Studio instead of URLs)
         :param score_threshold: score threshold to wipe out noisy results
         :param device: device (cpu, cuda:0, cuda:1, ...)
