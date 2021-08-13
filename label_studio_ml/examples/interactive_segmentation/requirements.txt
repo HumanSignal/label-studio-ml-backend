@@ -1,1 +1,4 @@
 -e git+https://github.com/heartexlabs/label-studio-segmentation#egg=label-studio-segmentation
+albumentations>0.5
+easydict
+tensorboard
