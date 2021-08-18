@@ -8,6 +8,7 @@ from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path, get_image_size, get_single_tag_keys
 from label_studio.core.utils.io import json_load, get_data_dir
 from label_studio.core.settings.base import DATA_UNDEFINED_NAME
+from label_studio_converter.brush import encode_rle
 
 import torch
 import cv2
@@ -87,15 +88,17 @@ class IteractiveSegmentation(LabelStudioMLBase):
         _result_mask = np.zeros(image.shape[:2], dtype=np.uint16)
         # loading context
         context = kwargs.get('context')
-        x = context.get('x')
-        y = context.get('y')
-        is_positive = bool(context.get('is_positive'))
         # we need init mast if it's a second click
         _init_mask = context.get('mask')
-        # add clicks for Clicker object
-        click = clicker.Click(is_positive=is_positive, coords=(y, x))
-        _clicker = clicker.Clicker()
-        _clicker.add_click(click)
+        clicks = context.get('clicks', [])
+        for cl in clicks:
+            x = cl.get('x')
+            y = cl.get('y')
+            is_positive = bool(cl.get('is_positive'))
+            # add clicks for Clicker object
+            click = clicker.Click(is_positive=is_positive, coords=(y, x))
+            _clicker = clicker.Clicker()
+            _clicker.add_click(click)
         # get predictions
         pred_params = {'brs_mode': 'NoBRS',
                        'prob_thresh': 0.5,
@@ -111,6 +114,7 @@ class IteractiveSegmentation(LabelStudioMLBase):
         result_mask = _result_mask.copy()
         result_mask[pred > 0.5] = 255
         result_mask = result_mask.astype(np.uint8)
+        result_mask = encode_rle(result_mask.flatten())
 
         return [{
             'result': result_mask
