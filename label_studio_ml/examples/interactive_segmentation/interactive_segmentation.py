@@ -21,7 +21,7 @@ from isegm.inference import utils
 
 logger = logging.getLogger(__name__)
 
-class IteractiveSegmentation(LabelStudioMLBase):
+class InteractiveSegmentation(LabelStudioMLBase):
     """Interactive segmentation detector """
     def __init__(self,
                  config_file,
@@ -40,7 +40,7 @@ class IteractiveSegmentation(LabelStudioMLBase):
         :param device: device (cpu, cuda:0, cuda:1, ...)
         :param kwargs:
         """
-        super(IteractiveSegmentation, self).__init__(**kwargs)
+        super(InteractiveSegmentation, self).__init__(**kwargs)
         # config file and checkpoint for NN
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
