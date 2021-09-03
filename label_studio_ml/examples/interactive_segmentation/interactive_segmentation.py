@@ -10,6 +10,8 @@ from label_studio.core.utils.io import json_load, get_data_dir
 from label_studio.core.settings.base import DATA_UNDEFINED_NAME
 from label_studio_converter.brush import encode_rle
 
+import random
+import string
 import torch
 import cv2
 import numpy as np
@@ -24,8 +26,8 @@ logger = logging.getLogger(__name__)
 class InteractiveSegmentation(LabelStudioMLBase):
     """Interactive segmentation detector """
     def __init__(self,
-                 config_file,
-                 checkpoint_file,
+                 config_file='config.yml',
+                 checkpoint_file='coco_lvis_h18_itermask.pth',
                  image_dir=None,
                  score_threshold=0.5,
                  device='cpu',
@@ -62,6 +64,8 @@ class InteractiveSegmentation(LabelStudioMLBase):
         self.score_thresh = score_threshold
 
     def _get_image_url(self, task):
+        data_values = list(task['data'].values())
+        self.value = data_values[0]
         image_url = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
         if image_url.startswith('s3://'):
             # presign s3 url
@@ -116,6 +120,27 @@ class InteractiveSegmentation(LabelStudioMLBase):
         result_mask = result_mask.astype(np.uint8)
         result_mask = encode_rle(result_mask.flatten())
 
+        h, w, c = image.shape
+
         return [{
-            'result': result_mask
+            'result': [
+                {
+                    "original_width": w,
+                    "original_height": h,
+                    "value": {
+                        "format": "rle",
+                        "rle": result_mask,
+                    },
+                    "brushlabels": [
+                        "Airplane"
+                    ],
+                    "id": ''.join(
+                        random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)
+                        for _ in
+                        range(10)),
+                    "from_name": "tag",
+                    "to_name": "image",
+                    "type": "brushlabels"
+                },
+            ]
         }]
