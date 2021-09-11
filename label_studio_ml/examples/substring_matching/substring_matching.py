@@ -2,6 +2,8 @@ import logging
 import re
 
 from label_studio_ml.model import LabelStudioMLBase
+import random
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,10 @@ class SubstringMatcher(LabelStudioMLBase):
             if item['start'] == meta['start'] and item['end'] == meta['end']:
                 continue
             temp = {
-                'id': meta['id'],
+                'id': ''.join(
+                        random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)
+                        for _ in
+                        range(10)),
                 'from_name': meta['from_name'],
                 'to_name': meta['to_name'],
                 'type': meta['type'],
@@ -34,7 +39,7 @@ class SubstringMatcher(LabelStudioMLBase):
                     'text': item['text'],
                     'start': item['start'],
                     'end': item['end'],
-                    'labels': meta['labels'],
+                    meta['type']: meta['labels'],
                 }
             }
             results.append(temp)
@@ -68,7 +73,7 @@ class SubstringMatcher(LabelStudioMLBase):
             meta['from_name'] = data['from_name']
             meta['to_name'] = data['to_name']
             meta['type'] = data['type']
-            meta['labels'] = data['value']['labels']
+            meta['labels'] = data['value'][data['type']]
             meta['value'] = data['value']['text']
             meta['data'] = list(task['data'].values())[0]
             meta['start'] = data['value']['start']
