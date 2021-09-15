@@ -9,9 +9,9 @@ from label_studio_ml.utils import get_image_local_path, get_image_size, get_sing
 from label_studio.core.utils.io import json_load, get_data_dir
 from label_studio.core.settings.base import DATA_UNDEFINED_NAME
 from label_studio_converter.brush import encode_rle
-
-import random
 import string
+import random
+
 import torch
 import cv2
 import numpy as np
@@ -65,8 +65,7 @@ class InteractiveSegmentation(LabelStudioMLBase):
 
     def _get_image_url(self, task):
         data_values = list(task['data'].values())
-        self.value = data_values[0]
-        image_url = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
+        image_url = data_values[0]
         if image_url.startswith('s3://'):
             # presign s3 url
             r = urlparse(image_url, allow_fragments=False)
@@ -86,6 +85,7 @@ class InteractiveSegmentation(LabelStudioMLBase):
         # load image
         assert len(tasks) == 1
         task = tasks[0]
+        labels = []
         image_url = self._get_image_url(task)
         image_path = get_image_local_path(image_url, image_dir=self.image_dir)
         image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
@@ -94,11 +94,13 @@ class InteractiveSegmentation(LabelStudioMLBase):
         context = kwargs.get('context')
         # we need init mast if it's a second click
         _init_mask = context.get('mask')
-        clicks = context.get('clicks', [])
+        clicks = context.get('result', [])
         for cl in clicks:
-            x = cl.get('x')
-            y = cl.get('y')
-            is_positive = bool(cl.get('is_positive'))
+            # exctract data from click
+            x = cl['value'].get('x') * cl['original_width'] / 100
+            y = cl['value'].get('y') * cl['original_height'] / 100
+            is_positive = bool(cl.get('is_positive', True))
+            labels.extend(cl.get('brushlabels', []))
             # add clicks for Clicker object
             click = clicker.Click(is_positive=is_positive, coords=(y, x))
             _clicker = clicker.Clicker()
@@ -118,7 +120,26 @@ class InteractiveSegmentation(LabelStudioMLBase):
         result_mask = _result_mask.copy()
         result_mask[pred > 0.5] = 255
         result_mask = result_mask.astype(np.uint8)
-        result_mask = encode_rle(result_mask.flatten())
+        # convert mask to RGBA image
+        import PIL
+        got_image = PIL.Image.fromarray(result_mask)
+        rgbimg = PIL.Image.new("RGBA", got_image.size)
+        rgbimg.paste(got_image)
+
+        datas = rgbimg.getdata()
+        # make pixels transparent
+        newData = []
+        for item in datas:
+            if item[0] == 0 and item[1] == 0 and item[2] == 0:
+                newData.append((0, 0, 0, 0))
+            else:
+                newData.append(item)
+        rgbimg.putdata(newData)
+        # get pixels from image
+        pix = np.array(rgbimg)
+        # rgbimg.save("test.png")
+        # encode to rle
+        result_mask = encode_rle(pix.flatten())
 
         h, w, c = image.shape
 
@@ -130,10 +151,8 @@ class InteractiveSegmentation(LabelStudioMLBase):
                     "value": {
                         "format": "rle",
                         "rle": result_mask,
+                        "brushlabels": labels
                     },
-                    "brushlabels": [
-                        "Airplane"
-                    ],
                     "id": ''.join(
                         random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)
                         for _ in
