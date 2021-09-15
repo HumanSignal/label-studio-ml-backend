@@ -12,8 +12,9 @@ class SubstringMatcher(LabelStudioMLBase):
     def __init__(self, **kwargs):
         super(SubstringMatcher, self).__init__(**kwargs)
 
-    def predict(self, task, **kwargs):
+    def predict(self, tasks, **kwargs):
         # extract task meta data: labels, from_name, to_name and other
+        task = tasks[0]
         meta = self._extract_meta(task)
         # if no meta data extracted return empty list
         if not meta:
