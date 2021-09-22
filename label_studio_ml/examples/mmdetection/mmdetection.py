@@ -83,7 +83,7 @@ class MMDetection(LabelStudioMLBase):
         assert len(tasks) == 1
         task = tasks[0]
         image_url = self._get_image_url(task)
-        image_path = self.get_image_local_path(image_url, image_dir=self.image_dir)
+        image_path = self.get_local_path(image_url, project_dir=self.image_dir)
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
