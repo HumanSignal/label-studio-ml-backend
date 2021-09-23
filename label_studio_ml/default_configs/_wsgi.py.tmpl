@@ -1,4 +1,5 @@
 import os
+import json
 import argparse
 import logging
 import logging.config
@@ -116,11 +117,14 @@ if __name__ == "__main__":
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
+    kwargs = get_kwargs_from_config()
+
     # for uWSGI use
     app = init_app(
         model_class={model_class},
         model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
         redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
         redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
+        redis_port=os.environ.get('REDIS_PORT', 6379),
+        **kwargs
     )
