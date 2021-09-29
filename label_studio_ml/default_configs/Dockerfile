@@ -15,7 +15,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/
 
 WORKDIR /app
 
-COPY /models/*.pt /app/data/models/
+COPY ./models/*.pt /app/data/models/
 COPY *.py /app/
 COPY *.json /app/
 
