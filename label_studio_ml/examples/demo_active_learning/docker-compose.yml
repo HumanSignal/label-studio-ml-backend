@@ -1,0 +1,13 @@
+version: "3.5"
+
+services:
+  server:
+    container_name: server
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+    ports:
+      - 9090:9090
+    volumes:
+      - "./data/server:/data"
+      - "./logs:/tmp"
