@@ -22,7 +22,7 @@ def init_app(model_class, **kwargs):
 @exception_handler
 def _predict():
     data = request.json
-    tasks = data['tasks']
+    tasks = data.get('tasks')
     project = data.get('project')
     label_config = data.get('label_config')
     force_reload = data.get('force_reload', False)
@@ -55,7 +55,7 @@ def _setup():
 @exception_handler
 def _train():
     data = request.json
-    annotations = data['annotations']
+    annotations = data.get('annotations')
     project = data.get('project')
     label_config = data.get('label_config')
     params = data.get('params', {})
