@@ -18,4 +18,4 @@ COPY *.py /app/
 
 EXPOSE 9090
 
-CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["python3", "_wsgi.py"]
