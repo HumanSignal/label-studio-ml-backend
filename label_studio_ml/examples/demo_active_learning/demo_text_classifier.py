@@ -74,7 +74,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
                 load_data = pickle.load(f)
         else:
             load_data = {}
-        my_json = request.data.decode('utf8').replace("'", '"')
+        my_json = request.data.decode('utf8')
         all_data = json.loads(my_json)
         # loading config and meta data from it
         self.parsed_label_config = parse_config(all_data['project']['label_config'])
