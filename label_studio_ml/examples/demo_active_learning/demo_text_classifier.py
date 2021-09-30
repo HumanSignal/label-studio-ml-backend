@@ -28,7 +28,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         else:
             logger.info(f'Found output from the previous train run: {self.train_output}. Initialize model from there..')
             # otherwise load the model from the latest training results
-            self.model_file = 'model.pkl'
+            self.model_file = self.train_output['model_file']
             with open(self.model_file, mode='rb') as f:
                 self.model = pickle.load(f)
 
@@ -129,8 +129,8 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.model.fit(input_texts, output_labels_idx)
 
         # save output resources
-        logger.info('Save model..')
-        model_file = 'model.pkl'
+        model_file = os.path.join(workdir, 'model.pkl')
+        logger.info(f'Save model to {model_file}..')
         with open(model_file, mode='wb') as fout:
             pickle.dump(self.model, fout)
 
