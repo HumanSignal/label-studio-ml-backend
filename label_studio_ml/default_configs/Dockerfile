@@ -7,7 +7,7 @@ RUN pip install --no-cache \
                 -r requirements.txt \
                 uwsgi==2.0.19.1 \
                 supervisor==4.2.2 \
-                label-studio==1.0.1 \
+                click==7.1.2 \
                 git+https://github.com/heartexlabs/label-studio-ml-backend
 
 COPY uwsgi.ini /etc/uwsgi/
