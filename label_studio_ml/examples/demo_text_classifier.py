@@ -26,13 +26,15 @@ class SimpleTextClassifier(LabelStudioMLBase):
             logger.debug("No label config provided during init")
         self.result_type = None
         if not os.path.exists('model.pkl'):
+            logger.info('Make initial model..')
             # If there is no trainings, define cold-started the simple TF-IDF text classifier
             self.reset_model()
             # make some dummy initialization
-            self.model.fit(X=['Some fake data to initialize classifier'], y=[0])
+            self.model.fit(X=['Some fake data to initialize classifier', 'Some fake data to initialize classifier'], y=[0, 1])
         else:
             # otherwise load the model from the latest training results
             self.model_file = 'model.pkl'
+            logger.info(f'Found output from the previous train run: {self.model_file}. Initialize model from there..')
             with open(self.model_file, mode='rb') as f:
                 self.model = pickle.load(f)
 
@@ -40,6 +42,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.model = make_pipeline(TfidfVectorizer(ngram_range=(1, 3)), LogisticRegression(C=10, verbose=True))
 
     def predict(self, tasks, **kwargs):
+        logger.info(f'Predicting {len(tasks)} task(s)')
         # collect input texts
         input_texts = []
         for task in tasks:
@@ -74,7 +77,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
                 load_data = pickle.load(f)
         else:
             load_data = {}
-        my_json = request.data.decode('utf8').replace("'", '"')
+        my_json = request.data.decode('utf8')
         all_data = json.loads(my_json)
         # loading config and meta data from it
         self.parsed_label_config = parse_config(all_data['project']['label_config'])
@@ -85,6 +88,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
                 if not task['id'] in load_data:
                     load_data[task['id']] = {}
                 load_data[task['id']]['data'] = task['data']
+            logger.info(f'Received webhook {all_data["action"]}: collecting {len(all_data["tasks"])} tasks..')
         # add annotations to tasks
         if all_data["action"] in ["ANNOTATION_UPDATED", "ANNOTATION_CREATED"]:
             if all_data["annotation"]["task"] in load_data:
@@ -94,6 +98,8 @@ class SimpleTextClassifier(LabelStudioMLBase):
                 load_data[all_data["annotation"]["task"]] = {'data': {self.value: 'some fake data for unknown task'},
                                                              'annotations': []}
             load_data[all_data["annotation"]["task"]]['annotations'].append(all_data["annotation"])
+            logger.info(
+                f'Received webhook {all_data["action"]}: add 1 annotations to {len(load_data[all_data["annotation"]["task"]]["annotations"])}..')
         # saving data
         with open("ls_data.dat", mode='wb') as f:
             pickle.dump(load_data, f)
@@ -131,6 +137,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.model.fit(input_texts, output_labels_idx)
 
         # save output resources
+        logger.info('Save model..')
         model_file = 'model.pkl'
         with open(model_file, mode='wb') as fout:
             pickle.dump(self.model, fout)
