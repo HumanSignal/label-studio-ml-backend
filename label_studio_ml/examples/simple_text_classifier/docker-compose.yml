@@ -3,7 +3,6 @@ version: "3.5"
 services:
   redis:
     image: redis:alpine
-    container_name: redis
     hostname: redis
     volumes:
       - "./data/redis:/data"
