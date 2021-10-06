@@ -5,19 +5,21 @@ import json
 import redis
 import attr
 import io
+import multiprocessing as mp
 
 from abc import ABC, abstractmethod
 from datetime import datetime
 from itertools import tee
+from contextlib import contextmanager
 from redis import Redis
 from rq import Queue, get_current_job
 from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegistry
 from rq.job import Job
 
+logger = logging.getLogger(__name__)
+
 from label_studio.core.label_config import parse_config
 from label_studio.core.utils.params import get_bool_env
-
-logger = logging.getLogger(__name__)
 
 
 @attr.s
@@ -27,12 +29,192 @@ class ModelWrapper(object):
     is_training = attr.attrib(default=False)
 
 
+class JobManager(object):
+
+    def get_result(self, model_version=None):
+        job_result = None
+        if model_version:
+            try:
+                job_result = self.get_result_from_job_id(model_version)
+            except OSError as exc:
+                logger.error(exc, exc_info=True)
+        else:
+            job_result = self.get_result_from_last_job()
+        return job_result or {}
+
+    def job(self, model_class, event, data, job_id):
+        with self.start_run(event, data, job_id):
+            model_version = data.get('model_version') or data.get('project', {}).get('model_version')
+            job_result = self.get_result(model_version)
+            label_config = data.get('label_config') or data.get('project', {}).get('label_config')
+            train_output = job_result.get('train_output')
+            logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
+            model = model_class(label_config=label_config, train_output=train_output)
+            additional_params = self.get_additional_params(event, data, job_id)
+            result = model.process_event(event, data, job_id, additional_params)
+            self.post_process(event, data, job_id, result)
+
+        logger.debug(f'Finished processing event {event}! Return result: {result}')
+        return result
+
+    def get_additional_params(self, event, data, job_id):
+        return {}
+
+    @contextmanager
+    def start_run(self, event, data, job_id):
+        raise NotImplementedError
+
+    def get_result_from_job_id(self, job_id):
+        raise NotImplementedError
+
+    def get_result_from_last_job(self):
+        raise NotImplementedError
+
+    def post_process(self, event, data, job_id, result):
+        raise NotImplementedError
+
+    def run_job(self, model_class, args: tuple):
+        raise NotImplementedError
+
+
+class SimpleJobManager(JobManager):
+
+    JOB_RESULT = 'job_result.json'
+
+    def __init__(self, model_dir):
+        self.model_dir = model_dir
+
+    @contextmanager
+    def start_run(self, event, data, job_id):
+        job_dir = self._job_dir(job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        with open(os.path.join(job_dir, 'event.json'), mode='w') as f:
+            event_data = {'event': event, 'job_id': job_id}
+            if data:
+                event_data['data'] = data
+            json.dump(event_data, f, indent=2)
+        yield job_dir
+
+    # TODO: in future we could use more advanced ML trackers like MLFlow
+    # @contextmanager
+    # def start_mlflow_run(event, data, job_id):
+    #     with mlflow.start_run() as run:
+    #         yield run
+
+    def _job_dir(self, job_id):
+        return os.path.join(self.model_dir, str(job_id))
+
+    def get_additional_params(self, event, data, job_id):
+        return {'workdir': self._job_dir(job_id)}
+
+    def get_result_from_job_id(self, job_id):
+        job_dir = self._job_dir(job_id)
+        if not os.path.exists(job_dir):
+            raise IOError(f'Run directory {job_dir} specified by model_version doesn\'t exist')
+        result_file = os.path.join(job_dir, self.JOB_RESULT)
+        if not os.path.exists(result_file):
+            raise IOError(f'Result file {result_file} specified by model_version doesn\'t exist')
+        logger.debug(f'Read result from {result_file}')
+        with open(result_file) as f:
+            result = json.load(f)
+        result['job_id'] = job_id
+        return result
+
+    def get_result_from_last_job(self):
+        # sort directories by decreasing timestamps
+        logger.debug(f'Try fetching last valid job id from directory {self.model_dir}')
+        for job_id in reversed(sorted(map(int, filter(lambda d: d.isdigit(), os.listdir(self.model_dir))))):
+            logger.debug(f'Try job_id={job_id}')
+            try:
+                result = self.get_result_from_job_id(job_id)
+            except IOError as exc:
+                logger.error(exc)
+                continue
+            result['job_id'] = job_id
+            return result
+        return {}
+
+    def post_process(self, event, data, job_id, result):
+        result_file = os.path.join(self._job_dir(job_id), self.JOB_RESULT)
+        logger.debug(f'Saving job {job_id} result to file: {result_file}')
+        with open(result_file, mode='w') as f:
+            json.dump(result, f)
+
+    def run_job(self, model_class, args: tuple):
+        proc = mp.Process(target=self.job, args=tuple([model_class] + list(args)))
+        proc.daemon = True
+        proc.start()
+        logger.info(f'Subprocess {proc.pid} has been started with args={args}')
+
+
+class RQJobManager(JobManager):
+
+    def __init__(self, redis_host, redis_port, redis_queue):
+        self.redis_host = redis_host
+        self.redis_port = redis_port
+        self.redis_queue = redis_queue
+
+    def _get_redis(self, host, port, raise_on_error=False):
+        r = Redis(host=host, port=port)
+        try:
+            r.ping()
+        except redis.ConnectionError:
+            if raise_on_error:
+                raise
+            return None
+        else:
+            return r
+
+    def start_run(self, event, data, job_id):
+        yield
+
+    def run_job(self, model_class, args: tuple):
+        # Launch background job with RQ (production mode)
+        event, data, job_id = args
+        redis = self._get_redis(self.redis_host, self.redis_port)
+        queue = Queue(name=self.redis_queue, connection=redis)
+        job = queue.enqueue(
+            self.job,
+            args=(model_class, event, data, job_id),
+            job_id=job_id,
+            job_timeout='365d',
+            ttl=None,
+            result_ttl=-1,
+            failure_ttl=300)
+        assert job.id == job_id
+        logger.info(f'RQ job {job_id} has been started for event={event}')
+
+    def get_result_from_job(self, job):
+        result = job.result
+        result['job_id'] = job.id
+        return result
+
+    def get_result_from_job_id(self, job_id):
+        redis = self._get_redis(self.redis_host, self.redis_port)
+        job = Job.fetch(job_id, connection=redis)
+        return self.get_result_from_job(job)
+
+    def get_result_from_last_job(self):
+        redis = self._get_redis(self.redis_host, self.redis_port)
+        finished_jobs = FinishedJobRegistry(self.redis_queue, redis)
+        if not finished_jobs.count:
+            return {}
+        last_created_job = next(reversed(sorted(finished_jobs, key=lambda job: job.ended_at)))
+        return self.get_result_from_job(last_created_job)
+
+
 class LabelStudioMLBase(ABC):
+    
+    TRAIN_EVENTS = (
+        'ANNOTATION_CREATED',
+        'ANNOTATION_UPDATED',
+        'ANNOTATION_DELETED'
+    )
 
     def __init__(self, label_config=None, train_output=None, **kwargs):
         """Model loader"""
         self.label_config = label_config
-        self.parsed_label_config = parse_config(self.label_config)
+        self.parsed_label_config = parse_config(self.label_config) if self.label_config else {}
         self.train_output = train_output or {}
         self.hostname = kwargs.get('hostname', '')
         self.access_token = kwargs.get('access_token', '')
@@ -40,6 +222,13 @@ class LabelStudioMLBase(ABC):
     @abstractmethod
     def predict(self, tasks, **kwargs):
         pass
+
+    def process_event(self, event, data, job_id, additional_params):
+        if event in self.TRAIN_EVENTS:
+            logger.debug(f'Job {job_id}: Received event={event}: calling {self.__class__.__name__}.fit()')
+            train_output = self.fit((), event=event, data=data, job_id=job_id, **additional_params)
+            logger.debug(f'Job {job_id}: Train finished.')
+            return train_output
 
     def fit(self, tasks, workdir=None, **kwargs):
         return {}
@@ -55,6 +244,7 @@ class LabelStudioMLManager(object):
     model_dir = None
     redis_host = None
     redis_port = None
+    redis_queue = None
     train_kwargs = None
 
     _redis = None
@@ -206,15 +396,27 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
-        if cls.without_redis():
-            logger.debug('Fetch ' + project + ' from local directory')
-            job_result = cls._get_latest_job_result_from_workdir(project) or {}
-        else:
-            logger.debug('Fetch ' + project + ' from Redis')
-            job_result = cls._get_latest_job_result_from_redis(project) or {}
-        train_output = job_result.get('train_output')
-        version = job_result.get('version')
-        return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2'):
+            # TODO: Deprecated branch
+            if cls.without_redis():
+                logger.debug('Fetch ' + project + ' from local directory')
+                job_result = cls._get_latest_job_result_from_workdir(project) or {}
+            else:
+                logger.debug('Fetch ' + project + ' from Redis')
+                job_result = cls._get_latest_job_result_from_redis(project) or {}
+            train_output = job_result.get('train_output')
+            version = job_result.get('version')
+            return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
+
+        model_version = kwargs.get('model_version')
+        if not cls._current_model or model_version != cls._current_model.model_version:
+            jm = cls.get_job_manager()
+            model_version = kwargs.get('model_version')
+            job_result = jm.get_result(model_version)
+            logger.debug(f'Found job result: {job_result}')
+            model = cls.model_class(label_config=label_config, train_output=job_result)
+            cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
+        return cls._current_model
 
     @classmethod
     def job_status(cls, job_id):
@@ -267,15 +469,21 @@ class LabelStudioMLManager(object):
     def predict(
         cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
-        if try_fetch:
-            m = cls.fetch(project, label_config, force_reload)
-        else:
-            m = cls.get(project)
-            if not m:
-                raise FileNotFoundError('No model loaded. Specify "try_fetch=True" option.')
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2'):
+            if try_fetch:
+                m = cls.fetch(project, label_config, force_reload)
+            else:
+                m = cls.get(project)
+                if not m:
+                    raise FileNotFoundError('No model loaded. Specify "try_fetch=True" option.')
+            predictions = m.model.predict(tasks, **kwargs)
+            return predictions, m
 
-        predictions = m.model.predict(tasks, **kwargs)
-        return predictions, m
+        if not cls._current_model:
+            raise ValueError(f'Model is not loaded for {cls.__class__.__name__}: run setup() before using predict()')
+
+        predictions = cls._current_model.model.predict(tasks, **kwargs)
+        return predictions, cls._current_model
 
     @classmethod
     def create_data_snapshot(cls, data_iter, workdir):
@@ -381,15 +589,17 @@ class LabelStudioMLManager(object):
         return job
 
     @classmethod
-    def webhook(
-        cls, event, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
-    ):
-        if try_fetch:
-            m = cls.fetch(project, label_config, force_reload)
+    def get_job_manager(cls):
+        if cls.without_redis():
+            # Launch background job with fork (dev mode)
+            job_man = SimpleJobManager(model_dir=cls.model_dir)
         else:
-            m = cls.get(project)
-            if not m:
-                raise FileNotFoundError('No model loaded. Specify "try_fetch=True" option.')
+            # Launch background job with RQ (production mode)
+            job_man = RQJobManager(redis_host=cls.redis_host, redis_port=cls.redis_port, redis_queue=cls.redis_queue)
+        return job_man
 
-        result = m.model.webhook(event, **kwargs)
-        return result
+    @classmethod
+    def webhook(cls, event, data):
+        job_id = cls._generate_version()
+        cls.get_job_manager().run_job(cls.model_class, (event, data, job_id))
+        return {'job_id': job_id}
