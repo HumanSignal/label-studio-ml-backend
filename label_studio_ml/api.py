@@ -89,6 +89,18 @@ def metrics():
     return jsonify({})
 
 
+@_server.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    event = data.get('action')
+    project = data.get('project', {})
+    label_config = project.get('label_config')
+    project_ml_model = str(project.get('id')) + "." + str(project.get('model_version'))
+    webhook = _manager.webhook(event, project_ml_model, label_config)
+    response = {'webhook': webhook} if webhook else {}
+    return jsonify(response), 201
+
+
 @_server.errorhandler(NoSuchJobError)
 def no_such_job_error_handler(error):
     logger.warning('Got error: ' + str(error))

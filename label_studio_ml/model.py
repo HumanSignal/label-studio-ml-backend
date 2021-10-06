@@ -379,3 +379,17 @@ class LabelStudioMLManager(object):
                 cls._redis.rpush(tasks_key, json.dumps(task))
             job = cls._start_training_job(project, label_config, kwargs)
         return job
+
+    @classmethod
+    def webhook(
+        cls, event, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
+    ):
+        if try_fetch:
+            m = cls.fetch(project, label_config, force_reload)
+        else:
+            m = cls.get(project)
+            if not m:
+                raise FileNotFoundError('No model loaded. Specify "try_fetch=True" option.')
+
+        result = m.model.webhook(event, **kwargs)
+        return result
