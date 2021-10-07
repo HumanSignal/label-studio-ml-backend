@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection"""
 
-    def __init__(self, config_file, checkpoint_file, image_dir=None, labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
+    def __init__(self, config_file=None,
+                 checkpoint_file=None,
+                 image_dir=None,
+                 labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
         """
         Load MMDetection model from config and checkpoint into memory.
         (Check https://mmdetection.readthedocs.io/en/v1.2.0/GETTING_STARTED.html#high-level-apis-for-testing-images)
@@ -33,7 +36,8 @@ class MMDetection(LabelStudioMLBase):
         :param kwargs:
         """
         super(MMDetection, self).__init__(**kwargs)
-
+        config_file = config_file or os.environ['config_file']
+        checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
@@ -83,7 +87,7 @@ class MMDetection(LabelStudioMLBase):
         assert len(tasks) == 1
         task = tasks[0]
         image_url = self._get_image_url(task)
-        image_path = self.get_local_path(image_url, project_dir=self.image_dir)
+        image_path = self.get_local_path(image_url, image_dir=self.image_dir)
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
