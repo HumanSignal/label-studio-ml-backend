@@ -98,7 +98,8 @@ def get_local_path(url, cache_dir=None, project_dir=None, hostname=None, image_d
 
     # File uploaded via import UI
     elif is_uploaded_file and os.path.exists(image_dir):
-        filepath = os.path.join(image_dir, os.path.basename(url))
+        #filepath = os.path.join(image_dir, os.path.basename(url))
+        filepath = url.replace("/data/upload", image_dir)
         return filepath
 
     elif is_uploaded_file and hostname:

@@ -15,7 +15,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/
 
 WORKDIR /app
 
-COPY *.py /app/
+COPY * /app/
 
 EXPOSE 9090
 
