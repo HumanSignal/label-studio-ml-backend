@@ -7,6 +7,7 @@ import attr
 import io
 import multiprocessing as mp
 
+from typing import Dict, List
 from abc import ABC, abstractmethod
 from datetime import datetime
 from itertools import tee
@@ -30,8 +31,10 @@ class ModelWrapper(object):
 
 
 class JobManager(object):
+    """Job Manager provides a facility to spin up background jobs for LabelStudioMLBase models"""
 
     def get_result(self, model_version=None):
+        """Return job result based on specified model_version (=job_id)"""
         job_result = None
         if model_version:
             try:
@@ -42,7 +45,17 @@ class JobManager(object):
             job_result = self.get_result_from_last_job()
         return job_result or {}
 
-    def job(self, model_class, event, data, job_id):
+    def job(self, model_class, event: str, data: Dict, job_id: str):
+        """
+        Job function to be run in background. It actually does the following:
+        1. Creates model_class instance, possibly by using artefacts from previously finished jobs
+        2. Calls model_class.process_event() method
+        :param model_class: LabelStudioMLBase instance
+        :param event: event name (e.g. Label Studio webhook action name)
+        :param data: job data (e.g. Label Studio webhook payload)
+        :param job_id: user-defined job identifier
+        :return: json-serializable job result
+        """
         with self.start_run(event, data, job_id):
             model_version = data.get('model_version') or data.get('project', {}).get('model_version')
             job_result = self.get_result(model_version)
@@ -58,30 +71,61 @@ class JobManager(object):
         return result
 
     def get_additional_params(self, event, data, job_id):
+        """Dict with aux parameters required to run process_event()"""
         return {}
 
     @contextmanager
     def start_run(self, event, data, job_id):
+        """Context manager that can be used to create a separate 'run':
+        Useful to perform ML tracking, i.e. by creating a separate workspace for each job call.
+        For example, it could be implemented with MLFlow:
+        ```python
+        with mlflow.start_run() as run:
+            yield run
+        ```
+        """
         raise NotImplementedError
 
     def get_result_from_job_id(self, job_id):
+        """This is the actual function should be used further to ensure 'job_id' is included in results.
+        DON'T OVERRIDE THIS FUNCTION! Instead, override _get_result_from_job_id
+        """
+        result = self._get_result_from_job_id(job_id)
+        assert isinstance(result, dict)
+        result['job_id'] = job_id
+        return result
+
+    def _get_result_from_job_id(self, job_id):
+        """Return job result by job id"""
         raise NotImplementedError
 
     def get_result_from_last_job(self):
+        """Return job result by last successfully finished job"""
         raise NotImplementedError
 
     def post_process(self, event, data, job_id, result):
+        """Post-processing hook after calling process_event()"""
         raise NotImplementedError
 
     def run_job(self, model_class, args: tuple):
+        """Defines the logic to run job() in background"""
         raise NotImplementedError
 
 
 class SimpleJobManager(JobManager):
+    """Simple Job Manager doesn't require additional dependencies
+    and uses a native python multiprocessing for running job in background.
+    Job results / artefacts are stored as ordinary files, inside user-defined model directory:
+    model_dir:
+        |_ job_id
+            |_ event.json
+            |_ job_result.json
+            |_ artefacts.bin
+    Note, that this job manager should be used only for development purposes.
+    """
+    JOB_RESULT = 'job_result.json'  # in this file,
 
-    JOB_RESULT = 'job_result.json'
-
-    def __init__(self, model_dir):
+    def __init__(self, model_dir='.'):
         self.model_dir = model_dir
 
     @contextmanager
@@ -95,19 +139,13 @@ class SimpleJobManager(JobManager):
             json.dump(event_data, f, indent=2)
         yield job_dir
 
-    # TODO: in future we could use more advanced ML trackers like MLFlow
-    # @contextmanager
-    # def start_mlflow_run(event, data, job_id):
-    #     with mlflow.start_run() as run:
-    #         yield run
-
     def _job_dir(self, job_id):
         return os.path.join(self.model_dir, str(job_id))
 
     def get_additional_params(self, event, data, job_id):
         return {'workdir': self._job_dir(job_id)}
 
-    def get_result_from_job_id(self, job_id):
+    def _get_result_from_job_id(self, job_id):
         job_dir = self._job_dir(job_id)
         if not os.path.exists(job_dir):
             raise IOError(f'Run directory {job_dir} specified by model_version doesn\'t exist')
@@ -117,7 +155,6 @@ class SimpleJobManager(JobManager):
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)
-        result['job_id'] = job_id
         return result
 
     def get_result_from_last_job(self):
@@ -130,7 +167,6 @@ class SimpleJobManager(JobManager):
             except IOError as exc:
                 logger.error(exc)
                 continue
-            result['job_id'] = job_id
             return result
         return {}
 
@@ -148,6 +184,13 @@ class SimpleJobManager(JobManager):
 
 
 class RQJobManager(JobManager):
+    """
+    RQ-based Job Manager runs all background jobs in RQ workers and requires Redis server to be installed.
+    All jobs results are be stored and could be retrieved from Redis queue.
+    """
+
+    MAX_QUEUE_LEN = 10  # Controls a maximal amount of simultaneous jobs waiting in queue.
+    # If exceeded, new jobs are ignored
 
     def __init__(self, redis_host, redis_port, redis_queue):
         self.redis_host = redis_host
@@ -166,6 +209,7 @@ class RQJobManager(JobManager):
             return r
 
     def start_run(self, event, data, job_id):
+        # Each "job" record in queue already encapsulates each run
         yield
 
     def run_job(self, model_class, args: tuple):
@@ -173,6 +217,9 @@ class RQJobManager(JobManager):
         event, data, job_id = args
         redis = self._get_redis(self.redis_host, self.redis_port)
         queue = Queue(name=self.redis_queue, connection=redis)
+        if len(queue) >= self.MAX_QUEUE_LEN:
+            logger.warning(f'Maximal RQ queue len {self.MAX_QUEUE_LEN} reached. Job is not started.')
+            return
         job = queue.enqueue(
             self.job,
             args=(model_class, event, data, job_id),
@@ -184,15 +231,10 @@ class RQJobManager(JobManager):
         assert job.id == job_id
         logger.info(f'RQ job {job_id} has been started for event={event}')
 
-    def get_result_from_job(self, job):
-        result = job.result
-        result['job_id'] = job.id
-        return result
-
-    def get_result_from_job_id(self, job_id):
+    def _get_result_from_job_id(self, job_id):
         redis = self._get_redis(self.redis_host, self.redis_port)
         job = Job.fetch(job_id, connection=redis)
-        return self.get_result_from_job(job)
+        return job.result
 
     def get_result_from_last_job(self):
         redis = self._get_redis(self.redis_host, self.redis_port)
@@ -200,7 +242,7 @@ class RQJobManager(JobManager):
         if not finished_jobs.count:
             return {}
         last_created_job = next(reversed(sorted(finished_jobs, key=lambda job: job.ended_at)))
-        return self.get_result_from_job(last_created_job)
+        return last_created_job.result
 
 
 class LabelStudioMLBase(ABC):
