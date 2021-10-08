@@ -14,8 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped
-
+from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped, get_local_path
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -32,27 +31,11 @@ os.makedirs(image_cache_dir, exist_ok=True)
 
 
 def get_transformed_image(url):
-    is_local_file = url.startswith('/data')
-    if is_local_file:
-        filename, dir_path = url.split('/data/')[1].split('?d=')
-        dir_path = str(urllib.parse.unquote(dir_path))
-        filepath = os.path.join(dir_path, filename)
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(filepath)
-        with open(filepath, mode='rb') as f:
-            image = Image.open(f).convert('RGB')
-    else:
-        cached_file = os.path.join(image_cache_dir, hashlib.md5(url.encode()).hexdigest())
-        if os.path.exists(cached_file):
-            with open(cached_file, mode='rb') as f:
-                image = Image.open(f).convert('RGB')
-        else:
-            r = requests.get(url, stream=True)
-            r.raise_for_status()
-            with io.BytesIO(r.content) as f:
-                image = Image.open(f).convert('RGB')
-            with io.open(cached_file, mode='wb') as fout:
-                fout.write(r.content)
+    filepath = get_local_path(url)
+
+    with open(filepath, mode='rb') as f:
+        image = Image.open(f).convert('RGB')
+
     return image_transforms(image)
 
 
