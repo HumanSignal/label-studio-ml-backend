@@ -43,7 +43,7 @@ class JobManager(object):
                 logger.error(exc, exc_info=True)
         else:
             job_result = self.get_result_from_last_job()
-        return job_result or {}
+        return job_result
 
     def job(self, model_class, event: str, data: Dict, job_id: str):
         """
@@ -468,9 +468,10 @@ class LabelStudioMLManager(object):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
             job_result = jm.get_result(model_version)
-            logger.debug(f'Found job result: {job_result}')
-            model = cls.model_class(label_config=label_config, train_output=job_result)
-            cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
+            if job_result:
+                logger.debug(f'Found job result: {job_result}')
+                model = cls.model_class(label_config=label_config, train_output=job_result)
+                cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
         return cls._current_model
 
     @classmethod
