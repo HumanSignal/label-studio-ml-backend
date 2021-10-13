@@ -1,0 +1,4 @@
+torch==1.8.1
+transformers==4.4.2
+tensorboardX==1.9
+label-studio>=1.0.0
