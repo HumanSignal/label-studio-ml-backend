@@ -251,7 +251,11 @@ class RQJobManager(JobManager):
     def iter_finished_jobs(self):
         redis = self._get_redis(self.redis_host, self.redis_port)
         finished_jobs = FinishedJobRegistry(self.redis_queue, redis)
-        return (job.id for job in reversed(sorted(finished_jobs, key=lambda job: job.ended_at)))
+        jobs = []
+        for job_id in finished_jobs.get_job_ids():
+            job = Job.fetch(job_id, connection=redis)
+            jobs.append((job_id, job.ended_at))
+        return (j[0] for j in reversed(sorted(jobs, key=lambda job: job[1])))
 
 
 class LabelStudioMLBase(ABC):
