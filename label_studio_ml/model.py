@@ -331,8 +331,6 @@ class LabelStudioMLManager(object):
         if cls._redis:
             cls._redis_queue = Queue(name=redis_queue, connection=cls._redis)
 
-        cls._current_model = {}
-
     @classmethod
     def get_initialization_params(cls):
         return dict(
@@ -472,6 +470,10 @@ class LabelStudioMLManager(object):
                 logger.debug(f'Found job result: {job_result}')
                 model = cls.model_class(label_config=label_config, train_output=job_result)
                 cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
+            else:
+                logger.debug(f'Job result not found: create initial model')
+                model = cls.model_class(label_config=label_config)
+                cls._current_model = ModelWrapper(model=model, model_version=None)
         return cls._current_model
 
     @classmethod
