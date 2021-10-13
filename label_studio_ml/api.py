@@ -68,6 +68,14 @@ def _train():
     return jsonify(response), 201
 
 
+@_server.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    event = data.pop('action')
+    run = _manager.webhook(event, data)
+    return jsonify(run), 201
+
+
 @_server.route('/is_training', methods=['GET'])
 @exception_handler
 def _is_training():
