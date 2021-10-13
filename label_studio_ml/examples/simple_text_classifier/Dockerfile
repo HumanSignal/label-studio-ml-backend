@@ -12,7 +12,7 @@ RUN pip install -r requirements.txt
 
 WORKDIR /app
 
-RUN pip install -e git+https://github.com/heartexlabs/label-studio-ml-backend@9f19155f622448cdf8bb35c3c27ea9b62afa6d74#egg=label-studio-ml
+RUN pip install -e git+https://github.com/heartexlabs/label-studio-ml-backend@master#egg=label-studio-ml
 
 COPY *.py /app/
 
