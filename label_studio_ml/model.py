@@ -99,9 +99,27 @@ class JobManager(object):
         """Return job result by job id"""
         raise NotImplementedError
 
-    def get_result_from_last_job(self):
-        """Return job result by last successfully finished job"""
+    def iter_finished_jobs(self):
         raise NotImplementedError
+
+    def get_result_from_last_job(self, skip_empty_results=True):
+        """Return job result by last successfully finished job
+        when skip_empty_results is True, result is None are skipped (e.g. if fit() function makes `return` call)
+        """
+        for job_id in self.iter_finished_jobs():
+            logger.debug(f'Try job_id={job_id}')
+            try:
+                result = self.get_result_from_job_id(job_id)
+            except Exception as exc:
+                logger.error(f'{job_id} job returns exception: {exc}', exc_info=True)
+                continue
+            if skip_empty_results and result is None:
+                logger.debug(f'Skip empty result from job {job_id}')
+                continue
+            return result
+
+        # if nothing found - return empty result
+        return
 
     def post_process(self, event, data, job_id, result):
         """Post-processing hook after calling process_event()"""
@@ -157,24 +175,18 @@ class SimpleJobManager(JobManager):
             result = json.load(f)
         return result
 
-    def get_result_from_last_job(self):
-        # sort directories by decreasing timestamps
+    def iter_finished_jobs(self):
         logger.debug(f'Try fetching last valid job id from directory {self.model_dir}')
-        for job_id in reversed(sorted(map(int, filter(lambda d: d.isdigit(), os.listdir(self.model_dir))))):
-            logger.debug(f'Try job_id={job_id}')
-            try:
-                result = self.get_result_from_job_id(job_id)
-            except IOError as exc:
-                logger.error(exc)
-                continue
-            return result
-        return {}
+        return reversed(sorted(map(int, filter(lambda d: d.isdigit(), os.listdir(self.model_dir)))))
 
     def post_process(self, event, data, job_id, result):
-        result_file = os.path.join(self._job_dir(job_id), self.JOB_RESULT)
-        logger.debug(f'Saving job {job_id} result to file: {result_file}')
-        with open(result_file, mode='w') as f:
-            json.dump(result, f)
+        if isinstance(result, dict):
+            result_file = os.path.join(self._job_dir(job_id), self.JOB_RESULT)
+            logger.debug(f'Saving job {job_id} result to file: {result_file}')
+            with open(result_file, mode='w') as f:
+                json.dump(result, f)
+        else:
+            logger.info(f'Cannot save result {result}')
 
     def run_job(self, model_class, args: tuple):
         proc = mp.Process(target=self.job, args=tuple([model_class] + list(args)))
@@ -236,13 +248,10 @@ class RQJobManager(JobManager):
         job = Job.fetch(job_id, connection=redis)
         return job.result
 
-    def get_result_from_last_job(self):
+    def iter_finished_jobs(self):
         redis = self._get_redis(self.redis_host, self.redis_port)
         finished_jobs = FinishedJobRegistry(self.redis_queue, redis)
-        if not finished_jobs.count:
-            return {}
-        last_created_job = next(reversed(sorted(finished_jobs, key=lambda job: job.ended_at)))
-        return last_created_job.result
+        return (job.id for job in reversed(sorted(finished_jobs, key=lambda job: job.ended_at)))
 
 
 class LabelStudioMLBase(ABC):
