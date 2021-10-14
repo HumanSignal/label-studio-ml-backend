@@ -37,11 +37,13 @@ class JobManager(object):
         """Return job result based on specified model_version (=job_id)"""
         job_result = None
         if model_version:
+            logger.debug(f'Get result based on model_version={model_version}')
             try:
                 job_result = self.get_result_from_job_id(model_version)
-            except OSError as exc:
+            except Exception as exc:
                 logger.error(exc, exc_info=True)
         else:
+            logger.debug(f'Get result from last valid job')
             job_result = self.get_result_from_last_job()
         return job_result or {}
 
@@ -257,6 +259,9 @@ class RQJobManager(JobManager):
             job = Job.fetch(job_id, connection=redis)
             jobs.append((job_id, job.ended_at))
         return (j[0] for j in reversed(sorted(jobs, key=lambda job: job[1])))
+
+    def post_process(self, event, data, job_id, result):
+        pass
 
 
 class LabelStudioMLBase(ABC):
