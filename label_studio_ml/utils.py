@@ -271,7 +271,7 @@ def cast_bool_from_str(value):
     elif value.lower() in ['false', 'no', 'not', 'off', '0']:
         value = False
     else:
-        raise ValueError(f'Incorrect value in key "{key}" = "{value}". '
+        raise ValueError(f'Incorrect value in = "{value}". '
                          f'It should be one of [1, 0, true, false, yes, no]')
     return value
 
