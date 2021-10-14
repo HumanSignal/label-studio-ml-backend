@@ -14,8 +14,6 @@ from PIL import Image
 from lxml import etree
 from collections import defaultdict
 
-from .model import LabelStudioMLBase
-
 DATA_UNDEFINED_NAME = '$undefined$'
 
 logger = logging.getLogger(__name__)
