@@ -1,2 +1,8 @@
 scikit-learn==0.24.1
 Flask==1.1.2
+attr==0.3.1
+attrs>=19.2.0
+colorama>=0.4.4
+requests>=2.22.0,<3
+Pillow
+lxml>=4.2.5
