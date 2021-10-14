@@ -7,7 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio.core.settings.base import DATA_UNDEFINED_NAME
+from label_studio_ml.utils import DATA_UNDEFINED_NAME
 
 
 class SimpleTextClassifier(LabelStudioMLBase):

@@ -1,3 +1,2 @@
 scikit-learn==0.24.1
 Flask==1.1.2
-label-studio>=1.0.0

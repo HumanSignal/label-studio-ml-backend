@@ -5,7 +5,6 @@ import shutil
 import colorama
 
 from colorama import Fore
-from label_studio.core.utils.io import find_dir
 from .utils import get_all_classes_inherited_LabelStudioMLBase
 
 

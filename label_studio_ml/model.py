@@ -19,8 +19,7 @@ from rq.job import Job
 
 logger = logging.getLogger(__name__)
 
-from label_studio.core.label_config import parse_config
-from label_studio.core.utils.params import get_bool_env
+from .utils import get_bool_env, parse_config
 
 
 @attr.s
