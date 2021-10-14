@@ -7,7 +7,7 @@ import attr
 import io
 import multiprocessing as mp
 
-from typing import Dict, List
+from typing import Dict
 from abc import ABC, abstractmethod
 from datetime import datetime
 from itertools import tee
@@ -43,7 +43,7 @@ class JobManager(object):
                 logger.error(exc, exc_info=True)
         else:
             job_result = self.get_result_from_last_job()
-        return job_result
+        return job_result or {}
 
     def job(self, model_class, event: str, data: Dict, job_id: str):
         """
@@ -201,7 +201,7 @@ class RQJobManager(JobManager):
     All jobs results are be stored and could be retrieved from Redis queue.
     """
 
-    MAX_QUEUE_LEN = 10  # Controls a maximal amount of simultaneous jobs waiting in queue.
+    MAX_QUEUE_LEN = 1  # Controls a maximal amount of simultaneous jobs running in queue.
     # If exceeded, new jobs are ignored
 
     def __init__(self, redis_host, redis_port, redis_queue):
@@ -304,7 +304,7 @@ class LabelStudioMLManager(object):
 
     _redis = None
     _redis_queue = None
-    _current_model = None
+    _current_model = {}
 
     @classmethod
     def initialize(
@@ -473,7 +473,7 @@ class LabelStudioMLManager(object):
             else:
                 logger.debug(f'Job result not found: create initial model')
                 model = cls.model_class(label_config=label_config)
-                cls._current_model = ModelWrapper(model=model, model_version=None)
+                cls._current_model = ModelWrapper(model=model, model_version='INITIAL')
         return cls._current_model
 
     @classmethod
