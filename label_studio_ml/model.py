@@ -220,6 +220,7 @@ class RQJobManager(JobManager):
         else:
             return r
 
+    @contextmanager
     def start_run(self, event, data, job_id):
         # Each "job" record in queue already encapsulates each run
         yield
@@ -468,11 +469,11 @@ class LabelStudioMLManager(object):
             job_result = jm.get_result(model_version)
             if job_result:
                 logger.debug(f'Found job result: {job_result}')
-                model = cls.model_class(label_config=label_config, train_output=job_result)
+                model = cls.model_class(label_config=label_config, train_output=job_result, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
             else:
                 logger.debug(f'Job result not found: create initial model')
-                model = cls.model_class(label_config=label_config)
+                model = cls.model_class(label_config=label_config, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version='INITIAL')
         return cls._current_model
 

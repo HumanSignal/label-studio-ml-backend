@@ -1,6 +1,8 @@
 import pickle
 import os
 import numpy as np
+import requests
+import json
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -80,7 +82,17 @@ class SimpleTextClassifier(LabelStudioMLBase):
 
         return predictions
 
+    def _get_annotated_dataset(self, project_id):
+        download_url = f'{self.hostname.rstrip("/")}/api/projects/{project_id}/export'
+        response = requests.get(download_url, headers={'Authorization': f'Token {self.access_token}'})
+        tasks = json.loads(response.content)
+        print(len(tasks))
+        print(tasks[0])
+
     def fit(self, completions, workdir=None, **kwargs):
+        # print('!!!!', self.access_token, self.hostname, 'XXXXX')
+        project_id = kwargs['data']['project']['id']
+        self._get_annotated_dataset(project_id)
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}
