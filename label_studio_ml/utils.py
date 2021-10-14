@@ -1,6 +1,4 @@
-import importlib
-import importlib.util
-import inspect
+
 import json
 import os
 import sys
@@ -12,7 +10,7 @@ import io
 
 from urllib.parse import urlparse
 from PIL import Image
-from colorama import Fore
+
 from lxml import etree
 from collections import defaultdict
 
@@ -40,29 +38,6 @@ if sys.platform.startswith('java'):
         system = 'linux2'
 else:
     system = sys.platform
-
-
-def get_all_classes_inherited_LabelStudioMLBase(script_file):
-    names = []
-    abs_path = os.path.abspath(script_file)
-    module_name = os.path.splitext(os.path.basename(script_file))[0]
-    sys.path.append(os.path.dirname(abs_path))
-    try:
-        module = importlib.import_module(module_name)
-    except ModuleNotFoundError as e:
-        print(Fore.RED + 'Can\'t import module "' + module_name + f'", reason: {e}.\n'
-              'If you are looking for examples, you can find a dummy model.py here:\n' +
-              Fore.LIGHTYELLOW_EX + 'https://labelstud.io/tutorials/dummy_model.html')
-        module = None
-        exit(-1)
-
-    for name, obj in inspect.getmembers(module, inspect.isclass):
-        if name == LabelStudioMLBase.__name__:
-            continue
-        if issubclass(obj, LabelStudioMLBase):
-            names.append(name)
-    sys.path.pop()
-    return names
 
 
 def get_single_tag_keys(parsed_label_config, control_type, object_type):

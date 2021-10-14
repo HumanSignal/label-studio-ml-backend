@@ -1,5 +1,6 @@
 import os
 import logging
+import sys
 import time
 import json
 import redis
@@ -16,6 +17,10 @@ from redis import Redis
 from rq import Queue, get_current_job
 from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegistry
 from rq.job import Job
+from colorama import Fore
+import importlib
+import importlib.util
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -660,3 +665,26 @@ class LabelStudioMLManager(object):
         job_id = cls._generate_version()
         cls.get_job_manager().run_job(cls.model_class, (event, data, job_id))
         return {'job_id': job_id}
+
+
+def get_all_classes_inherited_LabelStudioMLBase(script_file):
+    names = []
+    abs_path = os.path.abspath(script_file)
+    module_name = os.path.splitext(os.path.basename(script_file))[0]
+    sys.path.append(os.path.dirname(abs_path))
+    try:
+        module = importlib.import_module(module_name)
+    except ModuleNotFoundError as e:
+        print(Fore.RED + 'Can\'t import module "' + module_name + f'", reason: {e}.\n'
+              'If you are looking for examples, you can find a dummy model.py here:\n' +
+              Fore.LIGHTYELLOW_EX + 'https://labelstud.io/tutorials/dummy_model.html')
+        module = None
+        exit(-1)
+
+    for name, obj in inspect.getmembers(module, inspect.isclass):
+        if name == LabelStudioMLBase.__name__:
+            continue
+        if issubclass(obj, LabelStudioMLBase):
+            names.append(name)
+    sys.path.pop()
+    return names
