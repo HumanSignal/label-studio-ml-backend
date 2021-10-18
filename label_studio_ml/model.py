@@ -332,7 +332,7 @@ class LabelStudioMLManager(object):
             os.makedirs(cls.model_dir, exist_ok=True)
 
         cls._redis = None
-        if get_bool_env('USE_REDIS', True):
+        if get_bool_env('USE_REDIS', False):
             cls._redis = cls._get_redis(redis_host, redis_port)
         if cls._redis:
             cls._redis_queue = Queue(name=redis_queue, connection=cls._redis)
