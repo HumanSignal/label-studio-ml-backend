@@ -35,6 +35,7 @@ def get_all_classes_inherited_LabelStudioMLBase(script_file):
         module = None
         exit(-1)
 
+    print(Fore.GREEN + f'Inspecting module {str(module)}')
     for name, obj in inspect.getmembers(module, inspect.isclass):
         if name == LabelStudioMLBase.__name__:
             continue
@@ -45,6 +46,7 @@ def get_all_classes_inherited_LabelStudioMLBase(script_file):
                 names.add(name)
     sys.path.pop()
     names = list(names)
+    print(Fore.GREEN + f'Found {str(names)} models!')
     return names
 
 
