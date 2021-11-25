@@ -41,3 +41,10 @@ It's recommended to start ml-backend in debug mode, printouts are being made.
 
 7. Import around 20 sentences minimum and annotate them in label-studio
 
+extra: The prediction function returns certaincy scores of the model between 0.0 and 1.0. If there are **NO entities** predicted in a sentence a score of 2.0 is returned. This way you can filter out sentences without entities while labeling or simply remove them from your dataset using the label-studio interface.\
+Make Sure to add the prediction Score column and use filter and sort functionality (see screenshot)
+
+![image](https://user-images.githubusercontent.com/43145159/143429476-e81e6986-8309-490b-91d1-e6c47a1911c1.png)
+
+![image](https://user-images.githubusercontent.com/43145159/143429611-229c6357-d83e-4e6b-a416-b101d017174f.png)
+
