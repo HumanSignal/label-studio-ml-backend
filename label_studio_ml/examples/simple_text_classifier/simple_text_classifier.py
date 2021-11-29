@@ -94,8 +94,14 @@ class SimpleTextClassifier(LabelStudioMLBase):
         return json.loads(response.content)
 
     def fit(self, completions, workdir=None, **kwargs):
-        project_id = kwargs['data']['project']['id']
-        tasks = self._get_annotated_dataset(project_id)
+        # check if training is from web hook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            tasks = self._get_annotated_dataset(project_id)
+        # ML training without web hook
+        else:
+            tasks = completions
+
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}
