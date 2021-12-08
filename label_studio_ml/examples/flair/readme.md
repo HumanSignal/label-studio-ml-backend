@@ -4,7 +4,7 @@
 Flair is a lightweight NLP task library with some cutting-edge methods and good documentation and tutorials to get started: https://github.com/flairNLP/flair
 
 If you want to train a custom Named Entity Recognition model using high performance embeddings of Flair library and use active learning, this example is for you!
-This example uses embeddings for the **DUTCH language**, but it's easy to change the embeddings to a different language.
+This example uses embeddings for the English language, but it's easy to change the embeddings to a different language.
 
 * If you want to use Flairs unique embeddings for different languages (or multi-languages) check [HERE!](https://github.com/flairNLP/flair/blob/master/resources/docs/embeddings/FLAIR_EMBEDDINGS.md).\
 Adapt the line of code in the fit function of this example [HERE!](https://github.com/AaronDeRybelHowest/label-studio-ml-backend/blob/ab0c926f1513200b60ae48d4be6b718aad9e31be/label_studio_ml/examples/flair/ner_ml_backend.py#L117)

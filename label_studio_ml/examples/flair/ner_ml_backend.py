@@ -116,8 +116,8 @@ class SequenceTaggerModel(LabelStudioMLBase):
 
         # 4. initialize embeddings, here embeddings for dutch language
         embedding_types = [
-            FlairEmbeddings('nl-forward'),
-            FlairEmbeddings('nl-backward'),
+            FlairEmbeddings('news-forward'),
+            FlairEmbeddings('news-backward'),
         ]
 
         embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
