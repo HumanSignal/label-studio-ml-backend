@@ -13,10 +13,10 @@ LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY', 'd6f8a2622d39e9d89ff0df
 
 class MyModel(LabelStudioMLBase):
     """This simple Label Studio ML backend demonstrates training & inference steps with a simple scenario:
-    on training: it gets the latest created annotation and stores it as "prediction model" artefact
-    on inference: it returns the latest annotation as preannotation for every incoming tasks
+    on training: it gets the latest created annotation and stores it as "prediction model" artifact
+    on inference: it returns the latest annotation as a pre-annotation for every incoming task
 
-    So basically, when connected to the Label Studio, it's a simple repeater model that repeat your last action on a new task
+    When connected to Label Studio, this is a simple repeater model that repeats your last action on a new task
     """
 
     def predict(self, tasks, **kwargs):
@@ -39,7 +39,7 @@ class MyModel(LabelStudioMLBase):
 
     def download_tasks(self, project):
         """
-        Download all labeled tasks from project by using Label Studio SDK.
+        Download all labeled tasks from project using the Label Studio SDK.
         Read more about SDK here https://labelstud.io/sdk/
         :param project: project ID
         :return:
@@ -51,7 +51,7 @@ class MyModel(LabelStudioMLBase):
 
     def fit(self, tasks, workdir=None, **kwargs):
         """
-        This method will be called each time new annotation created or updated
+        This method is called each time an annotation is created or updated
         :param kwargs: contains "data" and "event" key, that could be used to retrieve project ID and annotation event type
                         (read more in https://labelstud.io/guide/webhook_reference.html#Annotation-Created)
         :return: dictionary with trained model artefacts that could be used further in code with self.train_output
