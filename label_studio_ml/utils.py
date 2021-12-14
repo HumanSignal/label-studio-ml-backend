@@ -2,7 +2,7 @@ import logging
 
 from PIL import Image
 
-from label_studio_tools.core.utils.params import get_env
+from label_studio_tools.core.utils.params import get_env, get_bool_env
 from label_studio_tools.core.utils.io import get_local_path
 
 DATA_UNDEFINED_NAME = '$undefined$'
@@ -52,7 +52,3 @@ def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=
 
 def get_image_size(filepath):
     return Image.open(filepath).size
-
-
-def get_bool_env(key, default):
-    return get_env(key, default, is_bool=True)
