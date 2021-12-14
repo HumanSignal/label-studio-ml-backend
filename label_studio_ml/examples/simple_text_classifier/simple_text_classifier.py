@@ -1,6 +1,9 @@
 import pickle
 import os
 import numpy as np
+import requests
+import json
+from uuid import uuid4
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -8,6 +11,10 @@ from sklearn.pipeline import make_pipeline
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
+
+
+HOSTNAME = os.getenv('LABEL_STUDIO_HOSTNAME')
+API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
 
 class SimpleTextClassifier(LabelStudioMLBase):
@@ -80,22 +87,38 @@ class SimpleTextClassifier(LabelStudioMLBase):
 
         return predictions
 
+    def _get_annotated_dataset(self, project_id):
+        """Just for demo purposes: retrieve annotated data from Label Studio API"""
+        download_url = f'{HOSTNAME.rstrip("/")}/api/projects/{project_id}/export'
+        response = requests.get(download_url, headers={'Authorization': f'Token {API_KEY}'})
+        return json.loads(response.content)
+
     def fit(self, completions, workdir=None, **kwargs):
+        # check if training is from web hook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            tasks = self._get_annotated_dataset(project_id)
+        # ML training without web hook
+        else:
+            tasks = completions
+
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}
 
-        for completion in completions:
+        for task in tasks:
+            if not task.get('annotations'):
+                continue
+            annotation = task['annotations'][0]
             # get input text from task data
-            print(completion)
-            if completion['annotations'][0].get('skipped') or completion['annotations'][0].get('was_cancelled'):
+            if annotation.get('skipped') or annotation.get('was_cancelled'):
                 continue
 
-            input_text = completion['data'].get(self.value) or completion['data'].get(DATA_UNDEFINED_NAME)
+            input_text = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
             input_texts.append(input_text)
 
             # get an annotation
-            output_label = completion['annotations'][0]['result'][0]['value']['choices'][0]
+            output_label = annotation['result'][0]['value']['choices'][0]
             output_labels.append(output_label)
             output_label_idx = label2idx[output_label]
             output_labels_idx.append(output_label_idx)
@@ -108,11 +131,18 @@ class SimpleTextClassifier(LabelStudioMLBase):
             output_labels_idx = [label2idx[label] for label in output_labels]
 
         # train the model
+        print(f'Start training on {len(input_texts)} samples')
         self.reset_model()
         self.model.fit(input_texts, output_labels_idx)
 
         # save output resources
-        model_file = os.path.join(workdir, 'model.pkl')
+        workdir = workdir or os.getenv('MODEL_DIR')
+        model_name = str(uuid4())[:8]
+        if workdir:
+            model_file = os.path.join(workdir, f'{model_name}.pkl')
+        else:
+            model_file = f'{model_name}.pkl'
+        print(f'Save model to {model_file}')
         with open(model_file, mode='wb') as fout:
             pickle.dump(self.model, fout)
 

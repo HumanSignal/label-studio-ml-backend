@@ -41,7 +41,7 @@ Follow this example tutorial to run an ML backend with a simple text classifier:
    
 2. Initialize an ML backend based on an example script:
    ```bash
-   label-studio-ml init my_ml_backend --script label_studio_ml/examples/simple_text_classifier.py
+   label-studio-ml init my_ml_backend --script label_studio_ml/examples/simple_text_classifier/simple_text_classifier.py
    ```
    This ML backend is an example provided by Label Studio. See [how to create your own ML backend](#Create_your_own_ML_backend).
 
@@ -79,7 +79,7 @@ def __init__(self, **kwargs):
 ```
 
 There are special variables provided by the inherited class:
-- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details](). Use might want to use this to align your model input/output with Label Studio labeling configuration;
+- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details](https://github.com/heartexlabs/label-studio/blob/6bcbba7dd056533bfdbc2feab1a6f1e38ce7cf11/label_studio/core/label_config.py#L33). Use might want to use this to align your model input/output with Label Studio labeling configuration;
 - `self.label_config` is a raw labeling config string;
 - `self.train_output` is a Python dict with the results of the previous model training runs (the output of the `fit()` method described bellow) Use this if you want to load the model for the next updates for active learning and model fine-tuning.
 

@@ -41,11 +41,13 @@ class JobManager(object):
         """Return job result based on specified model_version (=job_id)"""
         job_result = None
         if model_version:
+            logger.debug(f'Get result based on model_version={model_version}')
             try:
                 job_result = self.get_result_from_job_id(model_version)
-            except OSError as exc:
+            except Exception as exc:
                 logger.error(exc, exc_info=True)
         else:
+            logger.debug(f'Get result from last valid job')
             job_result = self.get_result_from_last_job()
         return job_result or {}
 
@@ -224,6 +226,7 @@ class RQJobManager(JobManager):
         else:
             return r
 
+    @contextmanager
     def start_run(self, event, data, job_id):
         # Each "job" record in queue already encapsulates each run
         yield
@@ -260,6 +263,9 @@ class RQJobManager(JobManager):
             job = Job.fetch(job_id, connection=redis)
             jobs.append((job_id, job.ended_at))
         return (j[0] for j in reversed(sorted(jobs, key=lambda job: job[1])))
+
+    def post_process(self, event, data, job_id, result):
+        pass
 
 
 class LabelStudioMLBase(ABC):
@@ -330,7 +336,7 @@ class LabelStudioMLManager(object):
             os.makedirs(cls.model_dir, exist_ok=True)
 
         cls._redis = None
-        if get_bool_env('USE_REDIS', True):
+        if get_bool_env('USE_REDIS', False):
             cls._redis = cls._get_redis(redis_host, redis_port)
         if cls._redis:
             cls._redis_queue = Queue(name=redis_queue, connection=cls._redis)
@@ -472,11 +478,11 @@ class LabelStudioMLManager(object):
             job_result = jm.get_result(model_version)
             if job_result:
                 logger.debug(f'Found job result: {job_result}')
-                model = cls.model_class(label_config=label_config, train_output=job_result)
+                model = cls.model_class(label_config=label_config, train_output=job_result, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
             else:
                 logger.debug(f'Job result not found: create initial model')
-                model = cls.model_class(label_config=label_config)
+                model = cls.model_class(label_config=label_config, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version='INITIAL')
         return cls._current_model
 
