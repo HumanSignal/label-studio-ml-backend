@@ -24,8 +24,8 @@ import inspect
 
 logger = logging.getLogger(__name__)
 
-from .utils import get_bool_env, parse_config
-
+from .utils import get_bool_env
+from label_studio_tools.core.label_config import parse_config
 
 @attr.s
 class ModelWrapper(object):
