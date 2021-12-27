@@ -1,3 +1,9 @@
+### Quick Usage
+
+```bash
+docker-compose up -d
+```
+
 # Label Studio for Hugging Face's Transformers
 
 [Website](https://labelstud.io/) • [Docs](https://labelstud.io/guide) • [Twitter](https://twitter.com/heartexlabs) • [Join Slack Community <img src="https://go.heartex.net/docs/images/slack-mini.png" width="18px"/>](https://docs.google.com/forms/d/e/1FAIpQLSdLHZx5EeT1J350JPwnY2xLanfmvplJi6VZk65C2R4XSsRBHg/viewform?usp=sf_link)
@@ -15,8 +21,6 @@ This package provides a ready-to-use container that links together:
 
 [<img src="https://raw.githubusercontent.com/heartexlabs/label-studio-transformers/master/images/codeless.png" height="500">](https://github.com/heartexlabs/label-studio-transformers)
 
-### Quick Usage
-
 ##### Install Label Studio and other dependencies
 
 ```bash
@@ -26,12 +30,6 @@ pip install -r requirements.txt
 ##### Create ML backend with BERT classifier
 ```bash
 label-studio-ml init my-ml-backend --script models/bert_classifier.py
-cp models/utils.py my-ml-backend/utils.py
-```
-
-##### Create ML backend with BERT named entity recognizer
-```bash
-label-studio-ml init my-ml-backend --script models/ner.py
 cp models/utils.py my-ml-backend/utils.py
 ```
 
