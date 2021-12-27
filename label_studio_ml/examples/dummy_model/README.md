@@ -1,9 +1,9 @@
-## Quickstart
+## Quick usage
 
 Build and start Machine Learning backend on `http://localhost:9090`
 
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
 ## What is the Label Studio ML backend?
