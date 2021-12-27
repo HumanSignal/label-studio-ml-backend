@@ -43,3 +43,9 @@ label-studio start my-annotation-project --init --ml-backend http://localhost:90
 ## API guidelines
 
 Check out https://github.com/heartexlabs/label-studio-ml-backend/tree/master#Create_your_own_ML_backend
+
+## License
+
+This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [Heartex](https://www.heartex.ai/). 2020
+
+<img src="https://github.com/heartexlabs/label-studio/blob/master/images/opossum_looking.png?raw=true" title="Hey everyone!" height="140" width="140" />
