@@ -7,6 +7,9 @@ import redis
 import attr
 import io
 import multiprocessing as mp
+import importlib
+import importlib.util
+import inspect
 
 from typing import Dict
 from abc import ABC, abstractmethod
@@ -18,14 +21,11 @@ from rq import Queue, get_current_job
 from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegistry
 from rq.job import Job
 from colorama import Fore
-import importlib
-import importlib.util
-import inspect
+
+from label_studio_tools.core.utils.params import get_bool_env
+from label_studio_tools.core.label_config import parse_config
 
 logger = logging.getLogger(__name__)
-
-from .utils import get_bool_env
-from label_studio_tools.core.label_config import parse_config
 
 @attr.s
 class ModelWrapper(object):

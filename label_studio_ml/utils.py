@@ -2,16 +2,12 @@ import logging
 
 from PIL import Image
 
-from label_studio_tools.core.utils.params import get_env, get_bool_env
+from label_studio_tools.core.utils.params import get_env
 from label_studio_tools.core.utils.io import get_local_path
 
 DATA_UNDEFINED_NAME = '$undefined$'
 
 logger = logging.getLogger(__name__)
-
-_LABEL_TAGS = {'Label', 'Choice'}
-_NOT_CONTROL_TAGS = {'Filter',}
-_DIR_APP_NAME = 'label-studio'
 
 
 def get_single_tag_keys(parsed_label_config, control_type, object_type):
