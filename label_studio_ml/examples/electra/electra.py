@@ -1,0 +1,122 @@
+import torch
+import requests
+import json
+import os
+
+from transformers import ElectraTokenizerFast, ElectraForSequenceClassification
+from transformers import Trainer
+from transformers import TrainingArguments
+
+from label_studio_ml.model import LabelStudioMLBase
+
+HOSTNAME = "http://127.0.0.1:8080"
+API_KEY = ""
+MODEL_FILE = "my_model"
+
+class ElectraTextClassifier(LabelStudioMLBase):
+
+    def __init__(self, **kwargs):
+        super(ElectraTextClassifier, self).__init__(**kwargs)
+        self.from_name, self.info = list(self.parsed_label_config.items())[0]
+        self.to_name = self.info['to_name'][0]
+        self.value = self.info['inputs'][0]['value']
+        self.labels = sorted(self.info['labels'])
+
+        self.tokenizer = ElectraTokenizerFast.from_pretrained("google/electra-small-discriminator")
+
+        if os.path.exists(MODEL_FILE):
+            self.model = ElectraForSequenceClassification.from_pretrained("my_model")
+        else:
+            self.model = ElectraForSequenceClassification.from_pretrained("google/electra-small-discriminator")
+
+    def predict(self, tasks, **kwargs):
+        # get data for prediction from tasks
+        input_texts = ""
+        for task in tasks:
+            input_text = task['data'].get(self.value)
+            if input_text.startwith("http://"):
+                input_text = self._get_text_from_s3(input_text)
+            input_texts += input_text
+
+        labels = torch.tensor([1], dtype=torch.long)
+        # tokenize data
+        input_ids = torch.tensor(self.tokenizer.encode(input_texts, add_special_tokens=True)).unsqueeze(0)
+        # predict label
+        predictions = self.model(input_ids, labels=labels).logits
+
+        return [{
+            'result': [{
+                'from_name': self.from_name,
+                'to_name': self.to_name,
+                'type': 'choices',
+                'value': {
+                    'choices': [self.labels[torch.argmax(predictions).item()]]
+                }
+            }]
+        }]
+
+    def fit(self, completions, workdir=None, **kwargs):
+        # check if training is from web hook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            tasks = self._get_annotated_dataset(project_id)
+        # ML training without web hook
+        else:
+            tasks = completions
+        # Create training params with batch size = 1 as text are different size
+        training_args = TrainingArguments("test_trainer", per_device_train_batch_size=1, per_device_eval_batch_size=1)
+        # Prepare training data
+        input_texts = []
+        input_labels = []
+        for task in tasks:
+            if not task.get('annotations'):
+                continue
+            input_text = task['data'].get(self.value)
+            if input_text.startwith("http://"):
+                input_text = self._get_text_from_s3(input_text)
+            input_texts.append(torch.flatten(self.tokenizer.encode(input_text, return_tensors="pt")))
+            annotation = task['annotations'][0]
+            output_label = annotation['result'][0]['value']['choices'][0]
+            output_label_idx = self.labels.index(output_label)
+            output_label_idx = torch.tensor([[output_label_idx]], dtype=torch.int)
+            input_labels.append(output_label_idx)
+
+        my_dataset = Custom_Dataset((input_texts, input_labels))
+
+        trainer = Trainer(
+            model=self.model,
+            args=training_args,
+            train_dataset=my_dataset,
+            #eval_dataset=small_eval_dataset
+        )
+
+        result = trainer.train()
+
+        self.model.save_pretrained(MODEL_FILE)
+
+        train_output = {
+            'labels': self.labels,
+            'model_file': MODEL_FILE
+        }
+        return train_output
+
+    def _get_annotated_dataset(self, project_id):
+        """Just for demo purposes: retrieve annotated data from Label Studio API"""
+        download_url = f'{HOSTNAME.rstrip("/")}/api/projects/{project_id}/export'
+        response = requests.get(download_url, headers={'Authorization': f'Token {API_KEY}'})
+        return json.loads(response.content)
+
+    def _get_text_from_s3(self, url):
+        text = requests.get(url)
+        return text.text
+
+class Custom_Dataset(torch.utils.data.dataset.Dataset):
+    def __init__(self, _dataset):
+        self.dataset = _dataset
+
+    def __getitem__(self, index):
+        example, target = self.dataset[0][index], self.dataset[1][index]
+        return {"input_ids": example, "label": target}
+
+    def __len__(self):
+        return len(self.dataset)
