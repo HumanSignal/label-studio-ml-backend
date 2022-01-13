@@ -1,3 +1,10 @@
-scikit-learn==0.24.1
+attr==0.3.1
+attrs>=19.2.0
+appdirs>=1.4.3
+colorama>=0.4.4
 Flask==1.1.2
-label-studio>=1.0.0
+lxml>=4.2.5
+Pillow
+requests>=2.22.0,<3
+scikit-learn==0.24.1
+label-studio-tools==0.0.0.dev11
