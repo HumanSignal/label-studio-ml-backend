@@ -1,6 +1,6 @@
 import logging
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
 
 from .model import LabelStudioMLManager

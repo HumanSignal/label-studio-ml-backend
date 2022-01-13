@@ -5,9 +5,8 @@ import boto3
 from mmdet.apis import init_detector, inference_detector
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_image_size, get_single_tag_keys
-from label_studio.core.utils.io import json_load, get_data_dir
-from label_studio.core.settings.base import DATA_UNDEFINED_NAME
+from label_studio_ml.utils import get_image_size, \
+    get_single_tag_keys, json_load, get_data_dir, DATA_UNDEFINED_NAME
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
