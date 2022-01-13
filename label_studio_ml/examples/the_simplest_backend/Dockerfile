@@ -8,8 +8,8 @@ RUN pip install --no-cache \
                 uwsgi==2.0.19.1 \
                 supervisor==4.2.2 \
                 click==7.1.2 \
-                label-studio-ml==1.0.3 \
-                label-studio-sdk==0.0.4
+                label-studio-ml==1.0.4 \
+                label-studio-sdk==0.0.6
 
 COPY uwsgi.ini /etc/uwsgi/
 COPY supervisord.conf /etc/supervisor/conf.d/
