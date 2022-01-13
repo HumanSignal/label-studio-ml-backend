@@ -8,8 +8,9 @@ from transformers import Trainer
 from transformers import TrainingArguments
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio.core.label_config import parse_config
 
-HOSTNAME = "http://127.0.0.1:8080"
+HOSTNAME = ""
 API_KEY = ""
 MODEL_FILE = "my_model"
 
@@ -17,10 +18,13 @@ class ElectraTextClassifier(LabelStudioMLBase):
 
     def __init__(self, **kwargs):
         super(ElectraTextClassifier, self).__init__(**kwargs)
-        self.from_name, self.info = list(self.parsed_label_config.items())[0]
-        self.to_name = self.info['to_name'][0]
-        self.value = self.info['inputs'][0]['value']
-        self.labels = sorted(self.info['labels'])
+        try:
+            self.from_name, self.info = list(self.parsed_label_config.items())[0]
+            self.to_name = self.info['to_name'][0]
+            self.value = self.info['inputs'][0]['value']
+            self.labels = sorted(self.info['labels'])
+        except:
+            print("Couldn't load label config")
 
         self.tokenizer = ElectraTokenizerFast.from_pretrained("google/electra-small-discriminator")
 
@@ -29,37 +33,54 @@ class ElectraTextClassifier(LabelStudioMLBase):
         else:
             self.model = ElectraForSequenceClassification.from_pretrained("google/electra-small-discriminator")
 
+    def load_config(self, config):
+        if not self.parsed_label_config:
+            self.parsed_label_config = parse_config(config)
+        try:
+            self.from_name, self.info = list(self.parsed_label_config.items())[0]
+            self.to_name = self.info['to_name'][0]
+            self.value = self.info['inputs'][0]['value']
+            self.labels = sorted(self.info['labels'])
+        except:
+            print("Couldn't load label config")
+
     def predict(self, tasks, **kwargs):
         # get data for prediction from tasks
-        input_texts = ""
+        final_results = []
         for task in tasks:
+            input_texts = ""
             input_text = task['data'].get(self.value)
-            if input_text.startwith("http://"):
+            if input_text.startswith("http://"):
                 input_text = self._get_text_from_s3(input_text)
             input_texts += input_text
 
-        labels = torch.tensor([1], dtype=torch.long)
-        # tokenize data
-        input_ids = torch.tensor(self.tokenizer.encode(input_texts, add_special_tokens=True)).unsqueeze(0)
-        # predict label
-        predictions = self.model(input_ids, labels=labels).logits
-
-        return [{
-            'result': [{
-                'from_name': self.from_name,
-                'to_name': self.to_name,
-                'type': 'choices',
-                'value': {
-                    'choices': [self.labels[torch.argmax(predictions).item()]]
-                }
-            }]
-        }]
+            labels = torch.tensor([1], dtype=torch.long)
+            # tokenize data
+            input_ids = torch.tensor(self.tokenizer.encode(input_texts, add_special_tokens=True)).unsqueeze(0)
+            # predict label
+            predictions = self.model(input_ids, labels=labels).logits
+            label_count = torch.argmax(predictions).item()
+            final_results.append({
+                'result': [{
+                    'from_name': self.from_name,
+                    'to_name': self.to_name,
+                    'type': 'choices',
+                    'value': {
+                        'choices': [self.labels[label_count]]
+                    }
+                }],
+                "task": task['id'],
+                "score": predictions.flatten().tolist()[label_count]
+            })
+        return final_results
 
     def fit(self, completions, workdir=None, **kwargs):
         # check if training is from web hook
         if kwargs.get('data'):
             project_id = kwargs['data']['project']['id']
             tasks = self._get_annotated_dataset(project_id)
+            if not self.parsed_label_config:
+                self.load_config(kwargs['data']['project']['label_config'])
         # ML training without web hook
         else:
             tasks = completions
@@ -72,7 +93,7 @@ class ElectraTextClassifier(LabelStudioMLBase):
             if not task.get('annotations'):
                 continue
             input_text = task['data'].get(self.value)
-            if input_text.startwith("http://"):
+            if input_text.startswith("http://"):
                 input_text = self._get_text_from_s3(input_text)
             input_texts.append(torch.flatten(self.tokenizer.encode(input_text, return_tensors="pt")))
             annotation = task['annotations'][0]
@@ -80,6 +101,8 @@ class ElectraTextClassifier(LabelStudioMLBase):
             output_label_idx = self.labels.index(output_label)
             output_label_idx = torch.tensor([[output_label_idx]], dtype=torch.int)
             input_labels.append(output_label_idx)
+
+        print(f"Train dataset length: {len(tasks)}")
 
         my_dataset = Custom_Dataset((input_texts, input_labels))
 
