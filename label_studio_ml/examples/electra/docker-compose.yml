@@ -17,6 +17,7 @@ services:
       - RQ_QUEUE_NAME=default
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - USE_REDIS=true
     ports:
       - 9090:9090
     depends_on:
