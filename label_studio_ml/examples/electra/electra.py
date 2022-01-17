@@ -8,9 +8,9 @@ from transformers import Trainer
 from transformers import TrainingArguments
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio.core.label_config import parse_config
+from label_studio_tools.core.label_config import parse_config
 
-HOSTNAME = ""
+HOSTNAME = "https://app.heartex.com/"
 API_KEY = ""
 MODEL_FILE = "my_model"
 
@@ -59,6 +59,7 @@ class ElectraTextClassifier(LabelStudioMLBase):
             input_ids = torch.tensor(self.tokenizer.encode(input_texts, add_special_tokens=True)).unsqueeze(0)
             # predict label
             predictions = self.model(input_ids, labels=labels).logits
+            predictions = torch.softmax(predictions.flatten(), 0)
             label_count = torch.argmax(predictions).item()
             final_results.append({
                 'result': [{
