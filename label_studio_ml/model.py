@@ -164,7 +164,16 @@ class SimpleJobManager(JobManager):
         yield job_dir
 
     def _job_dir(self, job_id):
-        return os.path.join(self.model_dir, str(job_id))
+        _match = lambda path: str(job_id) in path
+        job_dirs = [path for path, _, _ in os.walk(self.model_dir) if _match(path)]
+        if len(job_dirs) == 0:
+            job_dirs = [os.path.join(self.model_dir, str(job_id))]
+        elif len(job_dirs) != 1:
+            job_dirs.sort(key=lambda x: len(x))
+            job_dirs = [job_dirs[-1]]
+            logger.warning(f'Duplicate folders for job id {str(job_id)} were detected.' + \
+                f'Selecting {str(job_dirs[0])} until you fix it.')
+        return str(job_dirs[0])
 
     def get_additional_params(self, event, data, job_id):
         return {'workdir': self._job_dir(job_id)}
