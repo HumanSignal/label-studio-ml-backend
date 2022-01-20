@@ -6,7 +6,14 @@ import json
 import redis
 import attr
 import io
-import multiprocessing as mp
+try:
+    import torch.multiprocessing as mp
+    try:
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass
+except ImportError:
+    import multiprocessing as mp
 import importlib
 import importlib.util
 import inspect
