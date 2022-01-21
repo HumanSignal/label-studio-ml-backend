@@ -31,6 +31,7 @@ from colorama import Fore
 
 from label_studio_tools.core.utils.params import get_bool_env
 from label_studio_tools.core.label_config import parse_config
+from label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,6 @@ class LabelStudioMLBase(ABC):
         return {}
 
     def get_local_path(self, url, project_dir=None):
-        from label_studio_ml.utils import get_local_path
         return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
 
 

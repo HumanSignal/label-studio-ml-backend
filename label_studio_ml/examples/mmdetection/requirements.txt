@@ -1,3 +1,6 @@
 torch
 torchvision
 opencv-contrib-python-headless
+rq
+redis
+boto3
