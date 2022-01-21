@@ -1,6 +1,6 @@
 import logging
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
 
 from .model import LabelStudioMLManager
@@ -66,6 +66,14 @@ def _train():
     job = _manager.train(annotations, project, label_config, **params)
     response = {'job': job.id} if job else {}
     return jsonify(response), 201
+
+
+@_server.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    event = data.pop('action')
+    run = _manager.webhook(event, data)
+    return jsonify(run), 201
 
 
 @_server.route('/is_training', methods=['GET'])
