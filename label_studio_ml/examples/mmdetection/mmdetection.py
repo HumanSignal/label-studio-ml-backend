@@ -1,12 +1,15 @@
 import os
 import logging
 import boto3
+import io
+import json
 
 from mmdet.apis import init_detector, inference_detector
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_size, \
-    get_single_tag_keys, json_load, get_data_dir, DATA_UNDEFINED_NAME
+    get_single_tag_keys, DATA_UNDEFINED_NAME
+from label_studio_tools.core.utils.io import get_data_dir
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -124,3 +127,12 @@ class MMDetection(LabelStudioMLBase):
             'result': results,
             'score': avg_score
         }]
+
+
+def json_load(file, int_keys=False):
+    with io.open(file, encoding='utf8') as f:
+        data = json.load(f)
+        if int_keys:
+            return {int(k): v for k, v in data.items()}
+        else:
+            return data
