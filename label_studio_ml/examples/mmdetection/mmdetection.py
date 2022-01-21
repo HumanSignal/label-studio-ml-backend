@@ -1,12 +1,15 @@
 import os
 import logging
 import boto3
+import io
+import json
 
 from mmdet.apis import init_detector, inference_detector
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_size, \
-    get_single_tag_keys, json_load, get_data_dir, DATA_UNDEFINED_NAME
+    get_single_tag_keys, DATA_UNDEFINED_NAME
+from label_studio_tools.core.utils.io import get_data_dir
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -17,7 +20,10 @@ logger = logging.getLogger(__name__)
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection"""
 
-    def __init__(self, config_file, checkpoint_file, image_dir=None, labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
+    def __init__(self, config_file=None,
+                 checkpoint_file=None,
+                 image_dir=None,
+                 labels_file=None, score_threshold=0.3, device='cpu', **kwargs):
         """
         Load MMDetection model from config and checkpoint into memory.
         (Check https://mmdetection.readthedocs.io/en/v1.2.0/GETTING_STARTED.html#high-level-apis-for-testing-images)
@@ -32,7 +38,8 @@ class MMDetection(LabelStudioMLBase):
         :param kwargs:
         """
         super(MMDetection, self).__init__(**kwargs)
-
+        config_file = config_file or os.environ['config_file']
+        checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
@@ -82,7 +89,7 @@ class MMDetection(LabelStudioMLBase):
         assert len(tasks) == 1
         task = tasks[0]
         image_url = self._get_image_url(task)
-        image_path = self.get_local_path(image_url, project_dir=self.image_dir)
+        image_path = self.get_local_path(image_url, image_dir=self.image_dir)
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
@@ -120,3 +127,12 @@ class MMDetection(LabelStudioMLBase):
             'result': results,
             'score': avg_score
         }]
+
+
+def json_load(file, int_keys=False):
+    with io.open(file, encoding='utf8') as f:
+        data = json.load(f)
+        if int_keys:
+            return {int(k): v for k, v in data.items()}
+        else:
+            return data
