@@ -1,1 +1,7 @@
+# required
+gunicorn==20.1.0
+label-studio-ml==1.0.4
+rq==1.10.1
+
+# optional
 scikit-learn==0.24.1
