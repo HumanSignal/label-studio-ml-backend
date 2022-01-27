@@ -58,7 +58,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
             ))
 
     def reset_model(self):
-        self.model = make_pipeline(TfidfVectorizer(ngram_range=(1, 3)), LogisticRegression(C=10, verbose=True))
+        self.model = make_pipeline(TfidfVectorizer(ngram_range=(1, 3), token_pattern=r"(?u)\b\w\w+\b|\w"), LogisticRegression(C=10, verbose=True))
 
     def predict(self, tasks, **kwargs):
         # collect input texts
