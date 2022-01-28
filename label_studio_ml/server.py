@@ -1,8 +1,10 @@
 import os
+import subprocess
 import logging
 import argparse
 import shutil
 import colorama
+import re
 
 from colorama import Fore
 from .model import get_all_classes_inherited_LabelStudioMLBase
@@ -40,6 +42,18 @@ def get_args():
     parser_start.add_argument(
         'project_name',
         help='Path to directory where project state will be initialized')
+
+    # start deploy to gcp
+    parser_deploy = subparsers.add_parser('deploy_gcp', help='Deploy Label Studio', parents=[root_parser])
+    parser_deploy.add_argument(
+        'project_name',
+        help='Path to directory where project state will be initialized')
+    parser_deploy.add_argument(
+        '--script', '--from', dest='script',
+        help='Machine learning script of the following format: /my/script/path:ModelClass')
+    parser_deploy.add_argument(
+        '--force', dest='force', action='store_true',
+        help='Force recreating the project if exists')
 
     args, subargs = parser.parse_known_args()
     return args, subargs
@@ -111,6 +125,33 @@ def start_server(args, subprocess_params):
     os.system('python ' + wsgi + ' ' + ' '.join(subprocess_params))
 
 
+def deploy_to_gcp(args):
+    # create project with
+    create_dir(args)
+    # prepare params for gcloud: dir with script, project id, region and service name
+    output_dir = os.path.join(args.root_dir, args.project_name)
+    project_id = os.environ.get("GCP_PROJECT")
+    if not project_id:
+        raise KeyError("Project id wasn't found in ENV variables!")
+    region = os.environ.get("GCP_REGION", "us-central1")
+    service_name = args.project_name
+    # check service name
+    if special_match(service_name):
+        raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")
+    # check if auth token exists
+    auth_token = subprocess.check_output(' '.join(["gcloud", "auth", "print-identity-token"]), shell=True)
+    if not auth_token:
+        raise PermissionError("You are not authentificated in gcloud! Please run gcloud auth login.")
+    # configurate project
+    subprocess.check_output(' '.join(["gcloud", "config", "set", "project", project_id]), shell=True)
+    # deploy service
+    subprocess.check_output(' '.join(["gcloud", "run", "deploy", service_name, "--source", output_dir, "--region", region]), input=b"y", shell=True)
+
+
+def special_match(strg, search=re.compile(r'[^a-z-]').search):
+     return bool(search(strg))
+
+
 def main():
     args, subargs = get_args()
 
@@ -118,6 +159,8 @@ def main():
         create_dir(args)
     elif args.command == 'start':
         start_server(args, subargs)
+    elif args.command == 'deploy_gcp':
+        deploy_to_gcp(args)
 
 
 if __name__ == '__main__':
