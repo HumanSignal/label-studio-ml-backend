@@ -1,4 +1,6 @@
 torch
 torchvision
-mmcv==1.3.6
-opencv-python
+opencv-contrib-python-headless
+rq
+redis
+boto3

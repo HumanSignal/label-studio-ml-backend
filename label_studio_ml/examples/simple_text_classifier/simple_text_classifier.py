@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio.core.settings.base import DATA_UNDEFINED_NAME
+from label_studio_ml.utils import DATA_UNDEFINED_NAME
 
 
 HOSTNAME = os.getenv('LABEL_STUDIO_HOSTNAME')
@@ -58,7 +58,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
             ))
 
     def reset_model(self):
-        self.model = make_pipeline(TfidfVectorizer(ngram_range=(1, 3)), LogisticRegression(C=10, verbose=True))
+        self.model = make_pipeline(TfidfVectorizer(ngram_range=(1, 3), token_pattern=r"(?u)\b\w\w+\b|\w"), LogisticRegression(C=10, verbose=True))
 
     def predict(self, tasks, **kwargs):
         # collect input texts
