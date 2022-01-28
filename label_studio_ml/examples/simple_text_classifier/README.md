@@ -30,8 +30,14 @@ label-studio start --init new_project --ml-backends http://localhost:9090 --temp
 label-studio-ml init my-ml-backend --script pytorch_transfer_learning/pytorch_transfer_learning.py
 ```
 
+4. Set Label Studio HOSTNAME and API_KEY
+```bash 
+export LABEL_STUDIO_HOSTNAME=http://localhost:8080 
+export LABEL_STUDIO_API_KEY=<ls-token>
+``` 
+
 4. Start ML backend at http://localhost:9090
-```bash
+```bash 
 label-studio-ml start my-ml-backend
 ```
 
