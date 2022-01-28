@@ -10,11 +10,15 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import DATA_UNDEFINED_NAME
+from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_env
 
 
-HOSTNAME = os.getenv('LABEL_STUDIO_HOSTNAME')
-API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
+HOSTNAME = get_env('HOSTNAME', 'http://localhost:8080')
+API_KEY = get_env('API_KEY')
+
+print('=> LABEL STUDIO HOSTNAME = ', HOSTNAME)
+if not API_KEY:
+    print('=> WARNING! API_KEY is not set')
 
 
 class SimpleTextClassifier(LabelStudioMLBase):
@@ -69,6 +73,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
 
         # get model predictions
         probabilities = self.model.predict_proba(input_texts)
+        print('=== probabilities >', probabilities)
         predicted_label_indices = np.argmax(probabilities, axis=1)
         predicted_scores = probabilities[np.arange(len(predicted_label_indices)), predicted_label_indices]
         predictions = []
@@ -91,16 +96,19 @@ class SimpleTextClassifier(LabelStudioMLBase):
         """Just for demo purposes: retrieve annotated data from Label Studio API"""
         download_url = f'{HOSTNAME.rstrip("/")}/api/projects/{project_id}/export'
         response = requests.get(download_url, headers={'Authorization': f'Token {API_KEY}'})
+        if response.status_code != 200:
+            raise Exception(f"Can't load task data using {download_url}, "
+                            f"response status_code = {response.status_code}")
         return json.loads(response.content)
 
-    def fit(self, completions, workdir=None, **kwargs):
+    def fit(self, annotations, workdir=None, **kwargs):
         # check if training is from web hook
         if kwargs.get('data'):
             project_id = kwargs['data']['project']['id']
             tasks = self._get_annotated_dataset(project_id)
         # ML training without web hook
         else:
-            tasks = completions
+            tasks = annotations
 
         input_texts = []
         output_labels, output_labels_idx = [], []
