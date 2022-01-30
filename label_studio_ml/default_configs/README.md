@@ -39,7 +39,6 @@ Then connect running backend to Label Studio using Machine Learning settings.
    
 ## API guidelines
 
-
 #### Inference module
 In order to create module for inference, you have to declare the following class:
 
@@ -68,6 +67,24 @@ class MyModel(BaseModel):
             predictions.append(task_prediction)
         return predictions
 ```
+
+#### Docker backend
+
+To run the backend via docker:
+
+```bash
+cd new_project
+docker-compose build
+docker-compose up
+```
+
+##### Model `checkpoint_file`
+
+When deploying the backend through docker, you can pass the path to the model's `checkpoint_file` (if required as class argument in your inference model, [see OpenMMLab example](https://labelstud.io/tutorials/object-detector.html)) in the `config.json`. Additionally, make sure to make the model's checkpoint file available inside the docker container, either by copying the file to `/app/data/models` or by creating a volume of the model's directory.   
+
+##### Cloud storage credentials
+
+If label studio is set up to read images from a cloud storage, please make sure to grant docker access to your storage credentials as `environment` parameters in `docker-compose.yml`.
 
 #### Training module
 Training could be made in a separate environment. The only one convention is that data iterator and working directory are specified as input arguments for training function which outputs JSON-serializable resources consumed later by `load()` function in inference module.
