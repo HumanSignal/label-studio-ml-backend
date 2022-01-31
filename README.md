@@ -129,3 +129,21 @@ def fit(self, completions, workdir=None, **kwargs):
 After you wrap your model code with the class, define the loaders, and define the methods, you're ready to run your model as an ML backend with Label Studio. 
 
 For other examples of ML backends, refer to the [examples in this repository](label_studio_ml/examples). These examples aren't production-ready, but can help you set up your own code as a Label Studio ML backend.
+
+## Deploy your ML backend to GCP
+
+Before you start:
+1. Install [gcloud](https://cloud.google.com/sdk/docs/install)
+2. Init billing for account if it's not [activated](https://console.cloud.google.com/project/_/billing/enable)
+3. Init gcloud, type the following commands and login in browser:
+```bash
+gcloud auth login
+```
+
+To start deployment:
+1. Create your own ML backend
+2. Start deployment to GCP:
+```bash
+label-studio-ml deploy_gcp {project_name} --from={model_script}
+```
+3. After label studio deploys the model - you will get model endpoint in console 
