@@ -54,6 +54,12 @@ def get_args():
     parser_deploy.add_argument(
         '--force', dest='force', action='store_true',
         help='Force recreating the project if exists')
+    parser_deploy.add_argument(
+        '--label-studio-host', dest='label_studio_host', default='https://app.heartex.com',
+        help='Label Studio hostname')
+    parser_deploy.add_argument(
+        '--label-studio-api-key', dest='label_studio_host', required=True,
+        help='Label Studio API key')
 
     args, subargs = parser.parse_known_args()
     return args, subargs
@@ -145,7 +151,13 @@ def deploy_to_gcp(args):
     # configurate project
     subprocess.check_output(' '.join(["gcloud", "config", "set", "project", project_id]), shell=True)
     # deploy service
-    subprocess.check_output(' '.join(["gcloud", "run", "deploy", service_name, "--source", output_dir, "--region", region]), input=b"y", shell=True)
+    subprocess.check_output(' '.join([
+        "gcloud", "run", "deploy",
+        service_name,
+        "--source", output_dir,
+        "--region", region,
+        "--update-env-vars", f"LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
+    ]), input=b"y", shell=True)
 
 
 def special_match(strg, search=re.compile(r'[^a-z-]').search):
