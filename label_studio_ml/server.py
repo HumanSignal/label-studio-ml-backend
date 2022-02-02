@@ -136,8 +136,8 @@ def deploy_to_gcp(args):
     region = os.environ.get("GCP_REGION", "us-central1")
     service_name = args.project_name
     # check service name
-    if special_match(service_name):
-        raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")
+    # if special_match(service_name):
+    #     raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")
     # check if auth token exists
     auth_token = subprocess.check_output(' '.join(["gcloud", "auth", "print-identity-token"]), shell=True)
     if not auth_token:
