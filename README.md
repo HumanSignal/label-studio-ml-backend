@@ -139,6 +139,8 @@ Before you start:
 ```bash
 gcloud auth login
 ```
+4. Add GCP_PROJECT with your GCP project name to your ENV variables 
+5. (Optional) Add GCP_REGION with your default region to your ENV variables 
 
 To start deployment:
 1. Create your own ML backend
