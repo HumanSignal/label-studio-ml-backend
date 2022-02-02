@@ -58,7 +58,7 @@ def get_args():
         '--label-studio-host', dest='label_studio_host', default='https://app.heartex.com',
         help='Label Studio hostname')
     parser_deploy.add_argument(
-        '--label-studio-api-key', dest='label_studio_host', required=True,
+        '--label-studio-api-key', dest='label_studio_api_key', required=True,
         help='Label Studio API key')
 
     args, subargs = parser.parse_known_args()

@@ -1,4 +1,5 @@
 import logging
+import os
 
 from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
@@ -88,7 +89,11 @@ def _is_training():
 @_server.route('/', methods=['GET'])
 @exception_handler
 def health():
-    return jsonify({'status': 'UP', 'model_dir': _manager.model_dir})
+    return jsonify({
+        'status': 'UP',
+        'model_dir': _manager.model_dir,
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2')
+    })
 
 
 @_server.route('/metrics', methods=['GET'])
