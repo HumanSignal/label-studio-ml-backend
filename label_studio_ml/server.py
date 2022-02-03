@@ -3,11 +3,14 @@ import subprocess
 import logging
 import argparse
 import shutil
+
 import colorama
 import re
 
 from colorama import Fore
-from .model import get_all_classes_inherited_LabelStudioMLBase
+
+
+from model import get_all_classes_inherited_LabelStudioMLBase
 
 
 colorama.init()
@@ -44,7 +47,10 @@ def get_args():
         help='Path to directory where project state will be initialized')
 
     # start deploy to gcp
-    parser_deploy = subparsers.add_parser('deploy_gcp', help='Deploy Label Studio', parents=[root_parser])
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy Label Studio', parents=[root_parser])
+    parser_deploy.add_argument(
+        'provider',
+        help='Provider where to deploy')
     parser_deploy.add_argument(
         'project_name',
         help='Path to directory where project state will be initialized')
@@ -54,6 +60,12 @@ def get_args():
     parser_deploy.add_argument(
         '--force', dest='force', action='store_true',
         help='Force recreating the project if exists')
+    parser_deploy.add_argument(
+        '--gcp_project', dest='gcp_project',
+        help='GCP project ID')
+    parser_deploy.add_argument(
+        '--gcp_region', dest='gcp_region',
+        help='GCP region')
 
     args, subargs = parser.parse_known_args()
     return args, subargs
@@ -126,14 +138,16 @@ def start_server(args, subprocess_params):
 
 
 def deploy_to_gcp(args):
+    if args.provider != 'gcp':
+        return
     # create project with
     create_dir(args)
     # prepare params for gcloud: dir with script, project id, region and service name
     output_dir = os.path.join(args.root_dir, args.project_name)
-    project_id = os.environ.get("GCP_PROJECT")
+    project_id = args.gcp_project or os.environ.get("GCP_PROJECT")
     if not project_id:
         raise KeyError("Project id wasn't found in ENV variables!")
-    region = os.environ.get("GCP_REGION", "us-central1")
+    region = args.gcp_region or os.environ.get("GCP_REGION", "us-central1")
     service_name = args.project_name
     # check service name
     if special_match(service_name):
@@ -159,7 +173,7 @@ def main():
         create_dir(args)
     elif args.command == 'start':
         start_server(args, subargs)
-    elif args.command == 'deploy_gcp':
+    elif args.command == 'deploy':
         deploy_to_gcp(args)
 
 
