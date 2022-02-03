@@ -160,7 +160,7 @@ def deploy_to_gcp(args):
     auth_token = subprocess.check_output(' '.join(["gcloud", "auth", "print-identity-token"]), shell=True)
     if not auth_token:
         raise PermissionError("You are not authentificated in gcloud! Please run gcloud auth login.")
-    # configurate project
+    # configure project
     subprocess.check_output(' '.join(["gcloud", "config", "set", "project", project_id]), shell=True)
     # deploy service
     subprocess.check_output(' '.join([
@@ -170,6 +170,8 @@ def deploy_to_gcp(args):
         "--region", region,
         "--update-env-vars", f"LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
     ]), input=b"y", shell=True)
+    print(Fore.GREEN + 'Congratulations! ML Backend service has been successfully initialized in GCP.')
+    print(Fore.GREEN + 'Get service URL, go on Project Settings -> Machine Learning and add ML backend.')
 
 
 def special_match(strg, search=re.compile(r'[^a-z-]').search):
