@@ -140,13 +140,17 @@ Before you start:
 gcloud auth login
 ```
 4. Activate your Cloud Build API
-5. Add GCP_PROJECT with your GCP project name to your ENV variables 
+5. Find your GCP project ID
 6. (Optional) Add GCP_REGION with your default region to your ENV variables 
 
 To start deployment:
 1. Create your own ML backend
 2. Start deployment to GCP:
 ```bash
-label-studio-ml deploy_gcp {project_name} --from={model_script}
+label-studio-ml deploy gcp {ml-backend-local-dir} \
+--from={model-python-script} \
+--gcp-project-id {gcp-project-id} \
+--label-studio-host {https://app.heartex.com} \
+--label-studio-api-key {YOUR-LABEL-STUDIO-API-KEY}
 ```
-3. After label studio deploys the model - you will get model endpoint in console 
+3. After label studio deploys the model - you will get model endpoint in console.
