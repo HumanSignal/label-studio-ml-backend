@@ -1,10 +1,15 @@
 import os
+import subprocess
 import logging
 import argparse
 import shutil
+
 import colorama
+import re
 
 from colorama import Fore
+
+
 from .model import get_all_classes_inherited_LabelStudioMLBase
 
 
@@ -40,6 +45,33 @@ def get_args():
     parser_start.add_argument(
         'project_name',
         help='Path to directory where project state will be initialized')
+
+    # start deploy to gcp
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy Label Studio', parents=[root_parser])
+    parser_deploy.add_argument(
+        'provider',
+        help='Provider where to deploy')
+    parser_deploy.add_argument(
+        'project_name',
+        help='Path to directory where project state will be initialized')
+    parser_deploy.add_argument(
+        '--script', '--from', dest='script',
+        help='Machine learning script of the following format: /my/script/path:ModelClass')
+    parser_deploy.add_argument(
+        '--force', dest='force', action='store_true',
+        help='Force recreating the project if exists')
+    parser_deploy.add_argument(
+        '--gcp-project-id', dest='gcp_project',
+        help='GCP project ID')
+    parser_deploy.add_argument(
+        '--gcp-region', dest='gcp_region',
+        help='GCP region')
+    parser_deploy.add_argument(
+        '--label-studio-host', dest='label_studio_host', default='https://app.heartex.com',
+        help='Label Studio hostname')
+    parser_deploy.add_argument(
+        '--label-studio-api-key', dest='label_studio_api_key', required=True,
+        help='Label Studio API key')
 
     args, subargs = parser.parse_known_args()
     return args, subargs
@@ -111,6 +143,39 @@ def start_server(args, subprocess_params):
     os.system('python ' + wsgi + ' ' + ' '.join(subprocess_params))
 
 
+def deploy_to_gcp(args):
+    # create project with
+    create_dir(args)
+    # prepare params for gcloud: dir with script, project id, region and service name
+    output_dir = os.path.join(args.root_dir, args.project_name)
+    project_id = args.gcp_project or os.environ.get("GCP_PROJECT")
+    if not project_id:
+        raise KeyError("Project id wasn't found in ENV variables!")
+    region = args.gcp_region or os.environ.get("GCP_REGION", "us-central1")
+    service_name = args.project_name
+    # check service name
+    # if special_match(service_name):
+    #     raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")
+    # check if auth token exists
+    auth_token = subprocess.check_output(' '.join(["gcloud", "auth", "print-identity-token"]), shell=True)
+    if not auth_token:
+        raise PermissionError("You are not authentificated in gcloud! Please run gcloud auth login.")
+    # configurate project
+    subprocess.check_output(' '.join(["gcloud", "config", "set", "project", project_id]), shell=True)
+    # deploy service
+    subprocess.check_output(' '.join([
+        "gcloud", "run", "deploy",
+        service_name,
+        "--source", output_dir,
+        "--region", region,
+        "--update-env-vars", f"LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
+    ]), input=b"y", shell=True)
+
+
+def special_match(strg, search=re.compile(r'[^a-z-]').search):
+     return bool(search(strg))
+
+
 def main():
     args, subargs = get_args()
 
@@ -118,6 +183,9 @@ def main():
         create_dir(args)
     elif args.command == 'start':
         start_server(args, subargs)
+    elif args.command == 'deploy':
+        if args.provider == 'gcp':
+            deploy_to_gcp(args)
 
 
 if __name__ == '__main__':
