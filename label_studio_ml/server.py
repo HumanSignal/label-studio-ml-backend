@@ -61,10 +61,10 @@ def get_args():
         '--force', dest='force', action='store_true',
         help='Force recreating the project if exists')
     parser_deploy.add_argument(
-        '--gcp_project', dest='gcp_project',
+        '--gcp-project-id', dest='gcp_project',
         help='GCP project ID')
     parser_deploy.add_argument(
-        '--gcp_region', dest='gcp_region',
+        '--gcp-region', dest='gcp_region',
         help='GCP region')
     parser_deploy.add_argument(
         '--label-studio-host', dest='label_studio_host', default='https://app.heartex.com',
@@ -144,8 +144,6 @@ def start_server(args, subprocess_params):
 
 
 def deploy_to_gcp(args):
-    if args.provider != 'gcp':
-        return
     # create project with
     create_dir(args)
     # prepare params for gcloud: dir with script, project id, region and service name
@@ -186,7 +184,8 @@ def main():
     elif args.command == 'start':
         start_server(args, subargs)
     elif args.command == 'deploy':
-        deploy_to_gcp(args)
+        if args.provider == 'gcp':
+            deploy_to_gcp(args)
 
 
 if __name__ == '__main__':
