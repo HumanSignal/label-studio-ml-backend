@@ -10,7 +10,7 @@ import re
 from colorama import Fore
 
 
-from model import get_all_classes_inherited_LabelStudioMLBase
+from .model import get_all_classes_inherited_LabelStudioMLBase
 
 
 colorama.init()
