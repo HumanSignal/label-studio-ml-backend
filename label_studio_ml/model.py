@@ -466,7 +466,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2'):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             # TODO: Deprecated branch
             if cls.without_redis():
                 logger.debug('Fetch ' + project + ' from local directory')
@@ -544,7 +544,7 @@ class LabelStudioMLManager(object):
     def predict(
         cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2'):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             if try_fetch:
                 m = cls.fetch(project, label_config, force_reload)
             else:
@@ -681,7 +681,7 @@ class LabelStudioMLManager(object):
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
-    names = []
+    names = set()
     abs_path = os.path.abspath(script_file)
     module_name = os.path.splitext(os.path.basename(script_file))[0]
     sys.path.append(os.path.dirname(abs_path))
@@ -698,6 +698,9 @@ def get_all_classes_inherited_LabelStudioMLBase(script_file):
         if name == LabelStudioMLBase.__name__:
             continue
         if issubclass(obj, LabelStudioMLBase):
-            names.append(name)
+            names.add(name)
+        for base in obj.__bases__:
+            if LabelStudioMLBase.__name__ == base.__name__:
+                names.add(name)
     sys.path.pop()
-    return names
+    return list(names)
