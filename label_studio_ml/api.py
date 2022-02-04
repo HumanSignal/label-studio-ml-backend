@@ -55,6 +55,7 @@ def _setup():
 @_server.route('/train', methods=['POST'])
 @exception_handler
 def _train():
+    logger.warning("Using deprecated method - switch to /webhook!")
     data = request.json
     annotations = data.get('annotations', 'No annotations provided')
     project = data.get('project')
@@ -92,7 +93,7 @@ def health():
     return jsonify({
         'status': 'UP',
         'model_dir': _manager.model_dir,
-        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2')
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
     })
 
 
