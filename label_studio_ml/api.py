@@ -55,7 +55,9 @@ def _setup():
 @_server.route('/train', methods=['POST'])
 @exception_handler
 def _train():
-    logger.warning("Using deprecated method - switch to /webhook!")
+    logger.warning("=> Warning: API /train is deprecated since Label Studio 1.4.1. "
+                   "ML backend used API /train for training previously, "
+                   "but since 1.4.1 Label Studio backend and ML backend use /webhook for the training run.")
     data = request.json
     annotations = data.get('annotations', 'No annotations provided')
     project = data.get('project')
