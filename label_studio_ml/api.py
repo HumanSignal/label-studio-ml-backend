@@ -22,6 +22,25 @@ def init_app(model_class, **kwargs):
 @_server.route('/predict', methods=['POST'])
 @exception_handler
 def _predict():
+    """
+    Predict tasks
+
+    Example request:
+    request = {
+            'tasks': tasks,
+            'model_version': model_version,
+            'project': '{project.id}.{int(project.created_at.timestamp())}',
+            'label_config': project.label_config,
+            'params': {
+                'login': project.task_data_login,
+                'password': project.task_data_password,
+                'context': context,
+            },
+        }
+
+    @return:
+    Predictions in LS format
+    """
     data = request.json
     tasks = data.get('tasks')
     project = data.get('project')
@@ -141,3 +160,18 @@ def log_response_info(response):
     logger.debug('Response headers: %s', response.headers)
     logger.debug('Response body: %s', response.get_data())
     return response
+
+
+@_server.route('/versions', methods=['GET'])
+@exception_handler
+def get_version():
+    """
+    Get model versions from ML backend
+    @return:
+    """
+    versions = list(_manager.iter_finished_jobs())
+    return jsonify({
+        'versions': versions,
+        'model_dir': _manager.model_dir,
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+    })

@@ -458,7 +458,9 @@ class LabelStudioMLManager(object):
         cls, project=None, label_config=None, force_reload=False, train_output=None, version=None, **kwargs
     ):
         # reload new model if model is not loaded into memory OR force_reload=True OR model versions are mismatched
-        if not cls.has_active_model(project) or force_reload or (cls.get(project).model_version != version and version is not None):  # noqa
+        if not cls.has_active_model(project) or \
+                force_reload or \
+                (cls.get(project).model_version != version and version is not None):  # noqa
             logger.debug('Reload model for project={project} with version={version}'.format(
                 project=project, version=version))
             cls.create(project, label_config, train_output, version, **kwargs)
@@ -466,8 +468,19 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
+        """
+        Fetch the model
+
+        @param project: Project
+        @param label_config: Project label config
+        @param force_reload: Force reload the model
+        @param kwargs: additional params
+        @return:
+        Current model
+        """
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             # TODO: Deprecated branch
+            # Fetch latest job result
             if cls.without_redis():
                 logger.debug('Fetch ' + project + ' from local directory')
                 job_result = cls._get_latest_job_result_from_workdir(project) or {}
@@ -544,6 +557,18 @@ class LabelStudioMLManager(object):
     def predict(
         cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
+        """
+        Make prediction for tasks
+
+        @param tasks: Serialized LS tasks
+        @param project: Project ID (e.g. {project.id}.{created_timestamp}
+        @param label_config: Label studio project label config
+        @param force_reload: force reload the model
+        @param try_fetch: if service should try to fetch the model
+        @param kwargs: additional params
+        @return:
+        Predictions in LS format
+        """
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             if try_fetch:
                 m = cls.fetch(project, label_config, force_reload)
