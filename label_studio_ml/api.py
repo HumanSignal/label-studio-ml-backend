@@ -162,14 +162,15 @@ def log_response_info(response):
     return response
 
 
-@_server.route('/versions', methods=['GET'])
+@_server.route('/versions', methods=['POST'])
 @exception_handler
 def get_version():
     """
     Get model versions from ML backend
-    @return:
+    @return: A list of versions
     """
-    project = request.args.get('project')
+    data = request.json
+    project = data.get('project')
     if project is None:
         return str('No project provided'), 400
     versions = list(_manager._get_models_from_workdir(project))
