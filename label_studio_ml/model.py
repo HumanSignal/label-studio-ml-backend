@@ -704,6 +704,31 @@ class LabelStudioMLManager(object):
         cls.get_job_manager().run_job(cls.model_class, (event, data, job_id))
         return {'job_id': job_id}
 
+    @classmethod
+    def _get_models_from_workdir(cls, project):
+        """
+        Return current models
+        @param project: Project ID (e.g. {project.id}.{created_timestamp}
+        @return: List of model versions for current model
+        """
+        project_model_dir = os.path.join(cls.model_dir, project or '')
+        if not os.path.exists(project_model_dir):
+            return []
+        # get directories with traing results
+        final_models = []
+        for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
+            job_result_file = os.path.join(project_model_dir, str(subdir), 'job_result.json')
+            # check if there is job result
+            if not os.path.exists(job_result_file):
+                continue
+            with open(job_result_file) as f:
+                js = json.load(f)
+                # Add model version if status is ok
+                if js.get('status') == 'ok':
+                    final_models.append(js.get("version"))
+        return final_models
+
+
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
     names = set()

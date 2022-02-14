@@ -169,7 +169,10 @@ def get_version():
     Get model versions from ML backend
     @return:
     """
-    versions = list(_manager.iter_finished_jobs())
+    project = request.args.get('project')
+    if project is None:
+        return str('No project provided'), 400
+    versions = list(_manager._get_models_from_workdir(project))
     return jsonify({
         'versions': versions,
         'model_dir': _manager.model_dir,
