@@ -281,7 +281,8 @@ class LabelStudioMLBase(ABC):
     TRAIN_EVENTS = (
         'ANNOTATION_CREATED',
         'ANNOTATION_UPDATED',
-        'ANNOTATION_DELETED'
+        'ANNOTATION_DELETED',
+        'PROJECT_UPDATED'
     )
 
     def __init__(self, label_config=None, train_output=None, **kwargs):
