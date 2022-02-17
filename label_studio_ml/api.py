@@ -1,6 +1,7 @@
 import logging
+import os
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
 
 from .model import LabelStudioMLManager
@@ -54,6 +55,9 @@ def _setup():
 @_server.route('/train', methods=['POST'])
 @exception_handler
 def _train():
+    logger.warning("=> Warning: API /train is deprecated since Label Studio 1.4.1. "
+                   "ML backend used API /train for training previously, "
+                   "but since 1.4.1 Label Studio backend and ML backend use /webhook for the training run.")
     data = request.json
     annotations = data.get('annotations', 'No annotations provided')
     project = data.get('project')
@@ -68,6 +72,14 @@ def _train():
     return jsonify(response), 201
 
 
+@_server.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    event = data.pop('action')
+    run = _manager.webhook(event, data)
+    return jsonify(run), 201
+
+
 @_server.route('/is_training', methods=['GET'])
 @exception_handler
 def _is_training():
@@ -80,7 +92,11 @@ def _is_training():
 @_server.route('/', methods=['GET'])
 @exception_handler
 def health():
-    return jsonify({'status': 'UP', 'model_dir': _manager.model_dir})
+    return jsonify({
+        'status': 'UP',
+        'model_dir': _manager.model_dir,
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+    })
 
 
 @_server.route('/metrics', methods=['GET'])

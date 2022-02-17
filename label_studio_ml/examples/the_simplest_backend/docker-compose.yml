@@ -1,0 +1,29 @@
+version: "3.5"
+
+services:
+  redis:
+    image: redis:alpine
+    hostname: redis
+    volumes:
+      - "./data/redis:/data"
+    expose:
+      - 6379
+  model_server:
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+      - USE_REDIS=true
+      - RQ_QUEUE_NAME=default
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LABEL_STUDIO_ML_BACKEND_V2=1
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_API_KEY=
+    ports:
+      - 9090:9090
+    depends_on:
+      - redis
+    links:
+      - redis
+    volumes:
+      - "./logs:/tmp"

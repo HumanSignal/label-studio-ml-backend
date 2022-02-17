@@ -13,7 +13,11 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-Then connect running backend to Label Studio using Machine Learning settings. 
+Then connect running backend to Label Studio:
+
+```bash
+label-studio start --init new_project --ml-backends http://localhost:9090 --template image_classification
+```
 
 
 ## Writing your own model
