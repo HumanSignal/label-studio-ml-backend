@@ -52,26 +52,6 @@ def _setup():
     return jsonify({'model_version': model.model_version})
 
 
-@_server.route('/train', methods=['POST'])
-@exception_handler
-def _train():
-    logger.warning("=> Warning: API /train is deprecated since Label Studio 1.4.1. "
-                   "ML backend used API /train for training previously, "
-                   "but since 1.4.1 Label Studio backend and ML backend use /webhook for the training run.")
-    data = request.json
-    annotations = data.get('annotations', 'No annotations provided')
-    project = data.get('project')
-    label_config = data.get('label_config')
-    params = data.get('params', {})
-    if isinstance(project, dict):
-        project = ""
-    if len(annotations) == 0:
-        return jsonify('No annotations found.'), 400
-    job = _manager.train(annotations, project, label_config, **params)
-    response = {'job': job.id} if job else {}
-    return jsonify(response), 201
-
-
 @_server.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
