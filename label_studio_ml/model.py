@@ -467,6 +467,8 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
+        # update kwargs with init kwargs from class (e.g. --with start arg)
+        kwargs.update(cls.init_kwargs)
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             # TODO: Deprecated branch
             if cls.without_redis():
