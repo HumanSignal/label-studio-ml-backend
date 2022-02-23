@@ -94,7 +94,7 @@ class ImageClassifier(object):
         self.model.eval()
 
     def predict(self, image_urls):
-        images = torch.stack([get_transformed_image(url) for url in image_urls])
+        images = torch.stack([get_transformed_image(url) for url in image_urls]).to(device)
         with torch.no_grad():
             return self.model(images).data.numpy()
 
