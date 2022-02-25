@@ -96,7 +96,7 @@ class ImageClassifier(object):
     def predict(self, image_urls):
         images = torch.stack([get_transformed_image(url) for url in image_urls]).to(device)
         with torch.no_grad():
-            return self.model(images).data.numpy()
+            return self.model(images).to(device).data.numpy()
 
     def train(self, dataloader, num_epochs=5):
         since = time.time()
@@ -185,7 +185,7 @@ class ImageClassifierAPI(LabelStudioMLBase):
             image_urls.append(completion['data'][self.value])
             image_classes.append(get_choice(completion))
 
-        print('Creating dataset...')
+        print(f'Creating dataset with {len(image_urls)} images...')
         dataset = ImageClassifierDataset(image_urls, image_classes)
         dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size)
 
