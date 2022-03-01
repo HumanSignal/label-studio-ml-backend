@@ -178,12 +178,21 @@ class SimpleJobManager(JobManager):
         return {'workdir': self._job_dir(job_id)}
 
     def _get_result_from_job_id(self, job_id):
+        """
+        Return job result or {}
+        @param job_id: Job id (also known as model version)
+        @return: dict
+        """
         job_dir = self._job_dir(job_id)
         if not os.path.exists(job_dir):
-            raise IOError(f'Run directory {job_dir} specified by model_version doesn\'t exist')
+            logger.warning(f"=> Warning: {job_id} dir doesn't exist. "
+                           f"It seems that you don't have specified model dir.")
+            return None
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
-            raise IOError(f'Result file {result_file} specified by model_version doesn\'t exist')
+            logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
+                           f"It seems that previous training session ended with error.")
+            return None
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)
