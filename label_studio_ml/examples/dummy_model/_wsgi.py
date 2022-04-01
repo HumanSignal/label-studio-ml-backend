@@ -87,7 +87,7 @@ if __name__ == "__main__":
                 param[k] = int(v)
             elif v == 'True' or v == 'true':
                 param[k] = True
-            elif v == 'False' or v == 'False':
+            elif v == 'False' or v == 'false':
                 param[k] = False
             elif isfloat(v):
                 param[k] = float(v)
