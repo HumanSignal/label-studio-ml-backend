@@ -1,0 +1,44 @@
+
+
+## Interactive BBOX OCR using Tesseract
+Using OCR engine as backend for inference only, this functionality can help speed up annotation for both layout detection & OCR models.
+
+Tesseract is used for OCR but minimal adaptation is needed to use other OCR engines or models.
+
+Tested with LabelStudio v1.4.1.post1, and assuming data for annotation is stored in AWS S3 (some adaptation needed if using other storage methods).
+
+### Setup process
+0. Install label-studio-ml and Tesseract
+
+1. Setup Tesseract ML backend:
+    ```
+    pip install -r label_studio_ml/examples/tesseract/requirements.txt
+    label-studio-ml init my-ml-backend --from label_studio_ml/examples/tesseract/ner_ml_backend.py --force
+    label-studio-ml start my-ml-backend -d -p=9090 --debug
+    ```
+
+2. Start LabelStudio and create a new project.
+
+3. In the project **Settings**, set up the **Cloud storage**. Add your Source and Target storage by connecting to AWS S3 Bucket.
+
+4. In the project **Settings**, set up the **Labeling Interface**.
+   Fill in the following template code, important to specifiy label name as `smart="true"` in RectangleLabels
+```
+<View>
+  <View style="display:flex;align-items:start;gap:0px;flex-direction:column-reverse">
+    <View style="padding:0px; border: 1px solid #555;">
+    	<Image name="image" value="$ocr" zoom="true" zoomControl="false" rotateControl="true" width="100%" height="100%" maxHeight="auto" maxWidth="auto"/>
+    </View>
+    <RectangleLabels name="bbox" toName="image" strokeWidth="1" smart="true">
+      <Label value="Label1" background="green"/>
+      <Label value="Label2" background="blue"/>
+      <Label value="Label3" background="red"/>
+    </RectangleLabels>
+  </View>
+  	<TextArea name="transcription" toName="image" editable="true" perRegion="true" required="false" maxSubmissions="1" rows="5" placeholder="Recognized Text" displayMode="region-list"/>
+</View>
+```
+
+5. Open the **Machine Learning** settings and click **Add Model**. Add the URL `http://localhost:9090` and save the model as an ML backend.
+
+6. To use this functionality, activate `Auto-Annotation` and use `Autotdetect` rectangle for drawing boxes
