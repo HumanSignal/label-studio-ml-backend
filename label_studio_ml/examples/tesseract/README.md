@@ -42,3 +42,5 @@ Tested with LabelStudio v1.4.1.post1, and assuming data for annotation is stored
 5. Open the **Machine Learning** settings and click **Add Model**. Add the URL `http://localhost:9090` and save the model as an ML backend.
 
 6. To use this functionality, activate `Auto-Annotation` and use `Autotdetect` rectangle for drawing boxes
+
+![ls_demo_ocr](https://user-images.githubusercontent.com/17755198/165186574-05f0236f-a5f2-4179-ac90-ef11123927bc.gif)
