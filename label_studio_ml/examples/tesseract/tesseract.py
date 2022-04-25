@@ -47,16 +47,16 @@ class BBOXOCR(LabelStudioMLBase):
     def predict(self, tasks, **kwargs):
         # extract task meta data: labels, from_name, to_name and other
         task = tasks[0]
-        print("task", task)
+        # print("task", task)
         img_path_url = task["data"]["ocr"]
-        print("img_path_url", img_path_url)
+        # print("img_path_url", img_path_url)
         context = kwargs.get('context')
-        print("context", context)
+        # print("context", context)
         if context:
             if not context["result"]:
                 return []
             result = context.get('result')[0]
-            print("result", result)
+            # print("result", result)
             meta = self._extract_meta({**task, **result})
             # print("meta", meta)
             x = meta["x"]*meta["original_width"]/100
@@ -68,7 +68,7 @@ class BBOXOCR(LabelStudioMLBase):
             result_text = pt.image_to_string(IMG.crop((x,y,x+w,y+h)),
                                             config=OCR_config)
             meta["text"] = result_text
-            print(meta["text"])
+            # print(meta["text"])
             temp = {
                 "original_width": meta["original_width"],
                 "original_height": meta["original_height"],
