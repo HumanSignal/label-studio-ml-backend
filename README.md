@@ -43,7 +43,7 @@ Follow this example tutorial to run an ML backend with a simple text classifier:
    ```bash
    label-studio-ml init my_ml_backend --script label_studio_ml/examples/simple_text_classifier/simple_text_classifier.py
    ```
-   This ML backend is an example provided by Label Studio. See [how to create your own ML backend](#Create_your_own_ML_backend).
+   This ML backend is an example provided by Label Studio. See [how to create your own ML backend](#create-your-own-ml-backend).
 
 3. Start ML backend server
    ```bash
