@@ -6,7 +6,6 @@ Flask==1.1.2
 lxml>=4.2.5
 Pillow
 requests>=2.22.0,<3
-scikit-learn==0.24.1
 label-studio-tools==0.0.0.dev11
 Jinja2==3.0.3
 itsdangerous==2.0.1
