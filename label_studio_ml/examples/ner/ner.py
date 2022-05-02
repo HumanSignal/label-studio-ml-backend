@@ -365,6 +365,9 @@ class TransformersBasedTagger(LabelStudioMLBase):
             self._model_type, self._tokenizer, self._pad_token_label_id)
 
     def predict(self, tasks, **kwargs):
+        if not hasattr(self, "_tokenizer"):
+            logger.error("No model loaded! Please train model before getting predictions!")
+            return {}
         texts = [task['data'][self.value] for task in tasks]
         predict_set = SpanLabeledTextDataset(texts, tokenizer=self._tokenizer, **self._dataset_params_dict)
         from_name = self.from_name
