@@ -24,7 +24,8 @@ class SubstringMatcher(LabelStudioMLBase):
         if not meta:
             return []
         # extract simple result
-        extracted_data = self._extract_data(meta['data'], meta['value'])
+        extracted_data = self._extract_data(meta['data'], meta['value']) if meta['type'] != 'paragraphlabels' \
+            else self._extract_paragraph_data(meta['data'], meta['value'])
         if len(extracted_data) == 0:
             return []
         # construct results from extracted data
@@ -32,7 +33,11 @@ class SubstringMatcher(LabelStudioMLBase):
         avg_score = 0
         for item in extracted_data:
             if item['start'] == meta['start'] and item['end'] == meta['end']:
-                continue
+                if 'endOffset' in meta and 'startOffset' in meta:
+                    if item['endOffset'] == meta['endOffset'] and item['startOffset'] == meta['startOffset']:
+                        continue
+                else:
+                    continue
             temp = {
                 'id': ''.join(
                         random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)
@@ -49,6 +54,10 @@ class SubstringMatcher(LabelStudioMLBase):
                 },
                 'score': item['score']
             }
+            if 'startOffset' in item:
+                temp['value']['startOffset'] = item['startOffset']
+            if 'endOffset' in item:
+                temp['value']['endOffset'] = item['endOffset']
             results.append(temp)
             avg_score += item['score']
 
@@ -60,7 +69,7 @@ class SubstringMatcher(LabelStudioMLBase):
     @staticmethod
     def _extract_data(data, value):
         result = []
-        if data.startswith('http://') or data.startswith('https://'):
+        if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
             data = requests.get(data).text()
         low = value.lower()
         low_data = data.lower()
@@ -78,16 +87,46 @@ class SubstringMatcher(LabelStudioMLBase):
         return result
 
     @staticmethod
+    def _extract_paragraph_data(data, value, text_key='text'):
+        result = []
+        if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
+            data = requests.get(data).json()
+        low = data[int(value['start'])][text_key][value['startOffset']:value['endOffset']].lower()
+        i = 0
+        for item in data:
+            low_data = item[text_key].lower()
+            for m in re.finditer(low, low_data):
+                start = m.start()
+                d = data[int(value['start'])][text_key][value['startOffset']:value['endOffset']]
+                score = functools.reduce(lambda a, b: a + b, [1 if k[0] == k[1] else 0 for k in zip(value, d)]) / len(d)
+                temp = {
+                    'start': i,
+                    'end': i,
+                    'startOffset': start,
+                    'endOffset': start + len(low),
+                    'text': d,
+                    'score': score
+                }
+                result.append(temp)
+            i += 1
+        return result
+
+    @staticmethod
     def _extract_meta(task):
         meta = dict()
+        paragraph = task['type'] == 'paragraphlabels'
         if task:
             meta['id'] = task['id']
             meta['from_name'] = task['from_name']
             meta['to_name'] = task['to_name']
             meta['type'] = task['type']
             meta['labels'] = task['value'][task['type']]
-            meta['value'] = task['value']['text']
+            meta['value'] = task['value'] if paragraph else task['value']['text']
             meta['data'] = list(task['data'].values())[0]
-            meta['start'] = task['value']['start']
-            meta['end'] = task['value']['end']
+            meta['start'] = int(task['value']['start'])
+            meta['end'] = int(task['value']['end'])
+        if 'startOffset' in meta['value']:
+            meta['startOffset'] = meta['value']['startOffset']
+        if 'endOffset' in meta['value']:
+            meta['endOffset'] = meta['value']['endOffset']
         return meta
