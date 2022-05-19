@@ -91,14 +91,18 @@ class SubstringMatcher(LabelStudioMLBase):
         result = []
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
             data = requests.get(data).json()
-        low = data[int(value['start'])][text_key][value['startOffset']:value['endOffset']].lower()
+        # extract data to search
+        low = data[int(value['start'])][text_key][int(value['startOffset']):int(value['endOffset'])].lower()
         i = 0
+        # search data in each paragraph
         for item in data:
             low_data = item[text_key].lower()
+            # iter through found results
             for m in re.finditer(low, low_data):
                 start = m.start()
-                d = data[int(value['start'])][text_key][value['startOffset']:value['endOffset']]
+                d = data[int(value['start'])][text_key][int(value['startOffset']):int(value['endOffset'])]
                 score = functools.reduce(lambda a, b: a + b, [1 if k[0] == k[1] else 0 for k in zip(value, d)]) / len(d)
+                # create result from found data
                 temp = {
                     'start': i,
                     'end': i,
