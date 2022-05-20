@@ -92,7 +92,7 @@ class SubstringMatcher(LabelStudioMLBase):
     def _extract_paragraph_data(data, value, text_key='text'):
         result = []
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
-            data = requests.get(data, headers={'Authorization': f'Token {API_KEY}'}).json()
+            data = requests.get(data, headers={'Authorization': f'Token {API_KEY}'}, verify=False).json()
         # extract data to search
         if not isinstance(data, list):
             print("Data is not a list!")
@@ -141,7 +141,7 @@ class SubstringMatcher(LabelStudioMLBase):
             meta['value'] = task['value'] if paragraph else task['value']['text']
             # data extracted from the task goes here:
             # change to the right key in your data
-            meta['data'] = task['data']['transript']
+            meta['data'] = task['data']['transcript']
             meta['start'] = int(task['value']['start'])
             meta['end'] = int(task['value']['end'])
         if 'startOffset' in meta['value']:
