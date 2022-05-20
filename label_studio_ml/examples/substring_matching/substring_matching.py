@@ -137,7 +137,7 @@ class SubstringMatcher(LabelStudioMLBase):
             meta['type'] = task['type']
             meta['labels'] = task['value'][task['type']]
             meta['value'] = task['value'] if paragraph else task['value']['text']
-            meta['data'] = list(task['data'].values())[0]
+            meta['data'] = task['data']['transript']
             meta['start'] = int(task['value']['start'])
             meta['end'] = int(task['value']['end'])
         if 'startOffset' in meta['value']:
