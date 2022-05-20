@@ -2,6 +2,7 @@ import logging
 import re
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.utils import get_env
 import random
 import string
 import functools
@@ -9,6 +10,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+API_KEY = get_env('API_KEY')
 
 class SubstringMatcher(LabelStudioMLBase):
     def __init__(self, **kwargs):
@@ -90,7 +92,7 @@ class SubstringMatcher(LabelStudioMLBase):
     def _extract_paragraph_data(data, value, text_key='text'):
         result = []
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
-            data = requests.get(data).json()
+            data = requests.get(data, headers={'Authorization': f'Token {API_KEY}'}).json()
         # extract data to search
         if not isinstance(data, list):
             print("Data is not a list!")
