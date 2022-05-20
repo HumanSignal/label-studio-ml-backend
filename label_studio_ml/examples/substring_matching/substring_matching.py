@@ -92,7 +92,17 @@ class SubstringMatcher(LabelStudioMLBase):
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
             data = requests.get(data).json()
         # extract data to search
-        low = data[int(value['start'])][text_key][int(value['startOffset']):int(value['endOffset'])].lower()
+        if not isinstance(data, list):
+            logger.warning("Data is not a list!")
+            logger.warning(str(data))
+            return result
+        try:
+            low = data[int(value['start'])]
+            low = low[text_key]
+            low = low[int(value['startOffset']):int(value['endOffset'])].lower()
+        except:
+            logger.error("Couldn't extract data from task.")
+            logger.error(str(data))
         i = 0
         # search data in each paragraph
         for item in data:
