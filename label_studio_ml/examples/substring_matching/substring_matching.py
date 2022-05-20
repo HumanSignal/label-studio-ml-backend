@@ -93,16 +93,17 @@ class SubstringMatcher(LabelStudioMLBase):
             data = requests.get(data).json()
         # extract data to search
         if not isinstance(data, list):
-            logger.warning("Data is not a list!")
-            logger.warning(str(data))
+            print("Data is not a list!")
+            print(str(data))
             return result
         try:
             low = data[int(value['start'])]
             low = low[text_key]
             low = low[int(value['startOffset']):int(value['endOffset'])].lower()
         except:
-            logger.error("Couldn't extract data from task.")
-            logger.error(str(data))
+            print("Couldn't extract data from task.")
+            print(str(data))
+            return result
         i = 0
         # search data in each paragraph
         for item in data:
