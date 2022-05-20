@@ -137,6 +137,8 @@ class SubstringMatcher(LabelStudioMLBase):
             meta['type'] = task['type']
             meta['labels'] = task['value'][task['type']]
             meta['value'] = task['value'] if paragraph else task['value']['text']
+            # data extracted from the task goes here:
+            # change to the right key in your data
             meta['data'] = task['data']['transript']
             meta['start'] = int(task['value']['start'])
             meta['end'] = int(task['value']['end'])
