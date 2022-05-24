@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 import re
 
 from label_studio_ml.model import LabelStudioMLBase
@@ -91,8 +93,16 @@ class SubstringMatcher(LabelStudioMLBase):
     @staticmethod
     def _extract_paragraph_data(data, value, text_key='text'):
         result = []
+        # load data from URL
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
-            data = requests.get(data, headers={'Authorization': f'Token {API_KEY}'}, verify=False).json()
+            data = requests.get(data,
+                                headers={'Authorization': f'Token {API_KEY}'},
+                                verify=False,
+                                allow_redirects=True).json()
+        # load data from local file
+        if isinstance(data, str) and os.path.exists(data):
+            with open(data) as json_data:
+                data = json.loads(json_data)
         # extract data to search
         if not isinstance(data, list):
             print("Data is not a list!")
