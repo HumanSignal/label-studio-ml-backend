@@ -17,11 +17,14 @@ API_KEY = get_env('API_KEY')
 class SubstringMatcher(LabelStudioMLBase):
     def __init__(self, **kwargs):
         super(SubstringMatcher, self).__init__(**kwargs)
+        self.prev_result = []
 
     def predict(self, tasks, **kwargs):
         # extract task meta data: labels, from_name, to_name and other
         task = tasks[0]
         context = kwargs.get('context')
+        if not context:
+            return self.prev_result
         result = context.get('result')[0]
         meta = self._extract_meta({**task, **result})
         # if no meta data extracted return empty list
@@ -64,7 +67,10 @@ class SubstringMatcher(LabelStudioMLBase):
                 temp['value']['endOffset'] = item['endOffset']
             results.append(temp)
             avg_score += item['score']
-
+        self.prev_result = [{
+            'result': results,
+            'score': avg_score / max(len(extracted_data)-1, 1)
+        }]
         return [{
             'result': results,
             'score': avg_score / max(len(extracted_data)-1, 1)
@@ -100,7 +106,7 @@ class SubstringMatcher(LabelStudioMLBase):
                                 verify=False,
                                 allow_redirects=True).json()
         # load data from local file
-        print("File exists:" + os.path.exists("/apps/heartex/" + data))
+        # print("File exists:" + os.path.exists("/apps/heartex/" + data))
         if isinstance(data, str) and os.path.exists("/apps/heartex/" + data):
             print(f"Loading data from file {'/apps/heartex/' + data}")
             with open("/apps/heartex/" + data) as json_data:
@@ -138,6 +144,7 @@ class SubstringMatcher(LabelStudioMLBase):
                 }
                 result.append(temp)
             i += 1
+
         return result
 
     @staticmethod
