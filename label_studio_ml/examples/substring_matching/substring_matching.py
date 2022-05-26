@@ -100,8 +100,10 @@ class SubstringMatcher(LabelStudioMLBase):
                                 verify=False,
                                 allow_redirects=True).json()
         # load data from local file
-        if isinstance(data, str) and os.path.exists(data):
-            with open(data) as json_data:
+        print("File exists:" + os.path.exists("apps/heartex/" + data))
+        if isinstance(data, str) and os.path.exists("apps/heartex/" + data):
+            print(f"Loading data from file {'apps/heartex/' + data}")
+            with open("apps/heartex/" + data) as json_data:
                 data = json.loads(json_data)
         # extract data to search
         if not isinstance(data, list):
