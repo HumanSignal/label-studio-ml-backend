@@ -35,6 +35,8 @@ from label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 
+LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
+
 @attr.s
 class ModelWrapper(object):
     model = attr.ib()
@@ -435,7 +437,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def has_active_model(cls, project):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
         # TODO: Deprecated branch since LS 1.5
             return cls._key(project) in cls._current_model
         else:
@@ -443,7 +445,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def get(cls, project):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
         # TODO: Deprecated branch since LS 1.5
             key = cls._key(project)
             logger.debug('Get project ' + str(key))
@@ -456,7 +458,7 @@ class LabelStudioMLManager(object):
         key = cls._key(project)
         logger.debug('Create project ' + str(key))
         kwargs.update(cls.init_kwargs)
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
             # TODO: Deprecated branch since LS 1.5
             cls._current_model[key] = ModelWrapper(
                 model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
@@ -483,7 +485,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
             # TODO: Deprecated branch since LS 1.5
             if cls.without_redis():
                 logger.debug('Fetch ' + project + ' from local directory')
@@ -561,7 +563,7 @@ class LabelStudioMLManager(object):
     def predict(
         cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
             if try_fetch:
                 m = cls.fetch(project, label_config, force_reload)
             else:
