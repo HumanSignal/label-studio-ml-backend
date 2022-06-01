@@ -4,6 +4,7 @@ import re
 import os
 import io
 import logging
+import random
 
 from functools import partial
 from itertools import groupby
@@ -26,7 +27,6 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 from label_studio_ml.model import LabelStudioMLBase
 from utils import calc_slope
-
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +324,9 @@ class SpanLabeledTextDataset(Dataset):
             pad_token_segment_id=4 if model_type in ['xlnet'] else 0,
             pad_token_label_id=pad_token_label_id
         )
+
+    def fit(self, completions, workdir=None, **kwargs):
+        return {'random': random.randint(1, 10)}
 
 
 class TransformersBasedTagger(LabelStudioMLBase):
