@@ -6,6 +6,10 @@ ENV PYTHONUNBUFFERED=True \
 WORKDIR /app
 COPY requirements.txt .
 
+COPY ./label-studio-ml-backend label_studio_ml
+
+RUN pip install ./label_studio_ml
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
