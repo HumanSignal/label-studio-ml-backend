@@ -25,7 +25,10 @@ class SubstringMatcher(LabelStudioMLBase):
         context = kwargs.get('context')
         if not context:
             return self.prev_result
-        result = context.get('result')[0]
+        try:
+            result = context.get('result')[0]
+        except:
+            return self.prev_result
         meta = self._extract_meta({**task, **result})
         # if no meta data extracted return empty list
         if not meta:
@@ -55,8 +58,8 @@ class SubstringMatcher(LabelStudioMLBase):
                 'type': meta['type'],
                 'value': {
                     'text': item['text'],
-                    'start': item['start'],
-                    'end': item['end'],
+                    'start': str(item['start']),
+                    'end': str(item['end']),
                     meta['type']: meta['labels'],
                 },
                 'score': item['score']
