@@ -70,6 +70,9 @@ jobs:
       - name: Check pytest version
         run: pytest --version
 
+      - name: Build the stack
+        run: docker-compose -f label_studio_ml/examples/simple_text_classifier/docker-compose.yml up -d
+
       - name: Run general functional tests
         run: |
           cd label_studio_ml/
