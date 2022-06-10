@@ -12,6 +12,9 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review ]
     branches: ['*', '*/*', master]
 
+env:
+  CACHE_NAME_PREFIX: v1
+
 jobs:
   run_pytest:
     name: Run pytest for Label Studio ML backend
@@ -45,6 +48,15 @@ jobs:
         with:
           python-version: '3.7'
 
+      - uses: actions/cache@v3
+        name: Configure pip cache
+        id: pip-cache
+        with:
+          path: ~/.cache/pip
+          key: ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements-test.txt') }}
+          restore-keys: |
+            ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           sudo apt-get clean
@@ -64,7 +76,7 @@ jobs:
           pytest --cov=. --cov-report=xml --ignore lse_tests/cloud -n auto
 
       - name: "Upload cloud coverage to Codecov"
-        uses: codecov/codecov-action@v2.1.0
+        uses: codecov/codecov-action@v3.1.0
         with:
           name: codecov
           files: ./label_studio_ml/coverage.xml
