@@ -70,10 +70,13 @@ jobs:
       - name: Check pytest version
         run: pytest --version
 
+      - name: Build the stack
+        run: docker-compose -f label_studio_ml/examples/simple_text_classifier/docker-compose.yml up -d
+
       - name: Run general functional tests
         run: |
           cd label_studio_ml/
-          pytest --cov=. --cov-report=xml --ignore lse_tests/cloud -n auto
+          pytest --cov=. --cov-report=xml
 
       - name: "Upload cloud coverage to Codecov"
         uses: codecov/codecov-action@v3.1.0
