@@ -7,3 +7,8 @@ def test_basic_health_check():
 
     response = requests.get("http://127.0.0.1:9090/health")
     assert response.status_code == 200
+
+
+def test_setup():
+    response = requests.post("http://127.0.0.1:9090/setup")
+    assert response.status_code == 200
