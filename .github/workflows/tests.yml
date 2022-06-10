@@ -1,0 +1,84 @@
+name: "Tests"
+
+on:
+  push:
+    paths:
+      - 'label_studio_ml/**'
+      - '.github/workflows/tests.yml'
+      - 'requirements**'
+    tags-ignore:
+      - '**'
+  pull_request_target:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+    branches: ['*', '*/*', master]
+
+env:
+  CACHE_NAME_PREFIX: v1
+
+jobs:
+  run_pytest:
+    name: Run pytest for Label Studio ML backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOG_DIR: pytest_logs
+      collect_analytics: false
+
+
+    steps:
+      - uses: hmarr/debug-action@v2.0.1
+
+      - name: Extract branch name on direct push to a branch
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+        run: |
+          echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
+
+      - name: Extract branch name on 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
+        run: |
+          echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF})" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ env.BRANCH_NAME }}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.7'
+
+      - uses: actions/cache@v3
+        name: Configure pip cache
+        id: pip-cache
+        with:
+          path: ~/.cache/pip
+          key: ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements-test.txt') }}
+          restore-keys: |
+            ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get clean
+          sudo apt-get update
+          sudo apt-get install virtualenv libsasl2-dev python-dev libldap2-dev libssl-dev
+          pip install -U pip==20.2
+          pip install -r deploy/requirements-test.txt
+          pip install -r deploy/requirements.txt
+          pip install -e .
+
+      - name: Check pytest version
+        run: pytest --version
+
+      - name: Run general functional tests
+        run: |
+          cd label_studio_ml/
+          pytest --cov=. --cov-report=xml --ignore lse_tests/cloud -n auto
+
+      - name: "Upload cloud coverage to Codecov"
+        uses: codecov/codecov-action@v3.1.0
+        with:
+          name: codecov
+          files: ./label_studio_ml/coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
