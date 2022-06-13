@@ -42,7 +42,7 @@ jobs:
     env:
       LOG_DIR: pytest_logs
       collect_analytics: false
-      ML_BACKEND: matrix.ml-backend
+      ML_BACKEND: ${{ matrix.ml-backend }}
 
 
     steps:
@@ -93,7 +93,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/${{ env.ML_BACKEND }}/docker-compose.yml up -d
+        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml-backend }}/docker-compose.yml up -d
 
       - name: Wait for stack
         timeout-minutes: 1
