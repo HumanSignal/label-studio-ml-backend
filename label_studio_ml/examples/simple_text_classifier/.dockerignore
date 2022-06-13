@@ -7,3 +7,5 @@ __pycache__
 .pytest_cache
 .idea
 docker-compose.yml
+data
+logs
