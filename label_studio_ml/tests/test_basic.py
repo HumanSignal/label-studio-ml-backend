@@ -1,4 +1,8 @@
 import requests
+import pytest
+import os
+
+ML_BACKEND = os.environ.get("ML_BACKEND", "")
 
 
 def test_basic_health_check():
@@ -9,6 +13,7 @@ def test_basic_health_check():
     assert response.status_code == 200
 
 
+@pytest.mark.skipif(ML_BACKEND != "simple_text_classifier", reason="Test for simple_text_classifier")
 def test_setup():
     data = {
         "project": "1.1654592272",
@@ -25,4 +30,8 @@ def test_predict():
 
 
 def test_webhook_predict():
+    pass
+
+
+def test_train():
     pass
