@@ -75,6 +75,13 @@ jobs:
           DOCKER_BUILDKIT: 1
         run: docker-compose -f label_studio_ml/examples/simple_text_classifier/docker-compose.yml up -d
 
+      - name: Wait for stack
+        timeout-minutes: 1
+        run: |
+          while [ "$(curl -s -o /dev/null -L -w ''%{http_code}'' "http://localhost:9090/health")" != "200" ]; do
+            echo "=> Waiting for service to become available" && sleep 2s
+          done
+
       - name: Run general functional tests
         run: |
           cd label_studio_ml/
