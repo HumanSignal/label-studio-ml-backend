@@ -17,13 +17,31 @@ env:
 
 jobs:
   run_pytest:
-    name: Run pytest for Label Studio ML backend
+    name: Run pytest @ ${{ matrix.ml_backend }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        ml_backend:
+          - bert
+          - dummy_model
+          - electra
+          - flair
+          - huggingface
+          - mmdetection
+          - nemo
+          - ner
+          - pytorch_transfer_learning
+          - simple_text_classifier
+          - substring_matching
+          - tensorflow
+          - tesseract
+          - the_simplest_backend
+    
     env:
       LOG_DIR: pytest_logs
       collect_analytics: false
-
 
     steps:
       - uses: hmarr/debug-action@v2.0.1
@@ -73,7 +91,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/simple_text_classifier/docker-compose.yml up -d
+        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
 
       - name: Wait for stack
         timeout-minutes: 1
