@@ -71,6 +71,8 @@ jobs:
         run: pytest --version
 
       - name: Build the stack
+        env:
+          DOCKER_BUILDKIT: 1
         run: docker-compose -f label_studio_ml/examples/simple_text_classifier/docker-compose.yml up -d
 
       - name: Run general functional tests
