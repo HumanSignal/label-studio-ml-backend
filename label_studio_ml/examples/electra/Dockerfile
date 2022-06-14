@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=$PIP_CACHE_DIR \
                 uwsgi==2.0.19.1 \
                 supervisor==4.2.2 \
                 click==7.1.2 \
-                label-studio-ml==1.0.4
+                label-studio-ml==1.0.7
 
 COPY uwsgi.ini /etc/uwsgi/
 COPY supervisord.conf /etc/supervisor/conf.d/
