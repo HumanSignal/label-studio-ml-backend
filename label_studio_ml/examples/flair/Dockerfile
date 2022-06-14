@@ -1,18 +1,28 @@
-# syntax=docker/dockerfile:1.4
-FROM python:3.8-slim
+FROM python:3.7
+
+WORKDIR /tmp
+COPY requirements.txt .
+
+ENV LABEL_STUDIO_ML_BACKEND_V2=True
 
 ENV PYTHONUNBUFFERED=True \
     PORT=${PORT:-9090} \
     PIP_CACHE_DIR=/.cache
 
-WORKDIR /app
-COPY requirements.txt .
-
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip3 install -r requirements.txt
+    pip install -r requirements.txt \
+                uwsgi==2.0.19.1 \
+                supervisor==4.2.2 \
+                click==7.1.2 \
+                label-studio-ml==1.0.7
 
-COPY . ./
+COPY uwsgi.ini /etc/uwsgi/
+COPY supervisord.conf /etc/supervisor/conf.d/
 
-EXPOSE $PORT
+WORKDIR /app
 
-CMD exec gunicorn --preload --bind :$PORT --workers 1 --threads 8 --timeout 0 _wsgi:app
+COPY *.py /app/
+
+EXPOSE 9090
+
+CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

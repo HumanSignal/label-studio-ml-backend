@@ -1,7 +1,7 @@
 from PIL import Image
 import pytesseract as pt
 from label_studio_ml.model import LabelStudioMLBase
-from utils import get_image_local_path
+from label_studio_ml.utils import get_image_local_path
 import logging
 
 logger = logging.getLogger(__name__)
