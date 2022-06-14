@@ -6,7 +6,12 @@ ENV PYTHONUNBUFFERED=True \
 WORKDIR /app
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONUNBUFFERED=True \
+    PORT=${PORT:-9090} \
+    PIP_CACHE_DIR=/.cache
+
+RUN --mount=type=cache,target=$PIP_CACHE_DIR \
+    pip install -r requirements.txt 
 
 COPY . ./
 
