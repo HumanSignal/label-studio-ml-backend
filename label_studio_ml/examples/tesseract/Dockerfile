@@ -1,9 +1,6 @@
-FROM python:3.8-slim
+FROM python:3.7
 
-ENV PYTHONUNBUFFERED=True \
-    PORT=9090
-
-WORKDIR /app
+WORKDIR /tmp
 COPY requirements.txt .
 
 ENV PYTHONUNBUFFERED=True \
@@ -11,8 +8,19 @@ ENV PYTHONUNBUFFERED=True \
     PIP_CACHE_DIR=/.cache
 
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip install -r requirements.txt 
+    pip install -r requirements.txt \
+                uwsgi==2.0.19.1 \
+                supervisor==4.2.2 \
+                click==7.1.2 \
+                git+https://github.com/heartexlabs/label-studio-ml-backend
 
-COPY . ./
+COPY uwsgi.ini /etc/uwsgi/
+COPY supervisord.conf /etc/supervisor/conf.d/
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 _wsgi:app
+WORKDIR /app
+
+COPY * /app/
+
+EXPOSE 9090
+
+CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
