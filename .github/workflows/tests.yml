@@ -23,8 +23,7 @@ jobs:
     
     strategy:
       fail-fast: false
-      matrix:
-        ml_backend: ${{ fromJSON(needs.calculate_matrix.outputs.matrix) }}
+      matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
 
     env:
       LOG_DIR: pytest_logs
