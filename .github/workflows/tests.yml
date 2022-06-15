@@ -147,3 +147,10 @@ jobs:
             echo "All in matrix"
             echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\\"},{\\"example\\":\\"/g' -e 's/^/{\\"example\\":\\"/' -e 's/$/\\"}/')]"
           fi
+
+      - name: Debug values
+        run: |
+          echo '${{ steps.set-matrix.outputs.matrix }}'
+          echo '######################################'
+          echo "${{ steps.set-matrix.outputs.matrix }}"
+          echo '${{ toJson(steps.set-matrix.outputs.matrix) }}'
