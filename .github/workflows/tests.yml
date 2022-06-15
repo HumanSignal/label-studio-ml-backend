@@ -141,8 +141,8 @@ jobs:
           ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
           if [[ $(echo "$CHANGED" | grep -c -v ^$) == $(echo "$CHANGED_EXAMPLES" | grep -c -v ^$) ]]; then
             echo "Finding examples to test"
-            echo "::set-output name=matrix::[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
+            echo "::set-output name=matrix::[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /\\",\\"/g' -e 's/^/\\"/' -e 's/$/\\"/')]"
           else
             echo "All in matrix"
-            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
+            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\\",\\"/g' -e 's/^/\\"/' -e 's/$/\\"/')]"
           fi
