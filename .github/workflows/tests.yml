@@ -18,6 +18,7 @@ env:
 jobs:
   run_pytest:
     name: Run pytest
+    needs: calculate_matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
