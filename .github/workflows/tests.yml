@@ -24,8 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ml_backend: ${{ fromjson(needs.calculate_matrix.outputs.matrix) }}
-    
+        ml_backend: ${{ fromJson(needs.calculate_matrix.outputs.matrix) }}
+
     env:
       LOG_DIR: pytest_logs
       collect_analytics: false
@@ -145,5 +145,5 @@ jobs:
             echo "::set-output name=matrix::[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
           else
             echo "All in matrix"
-            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
+            echo "::set-output name=matrix::$(echo "$ALL_EXAMPLES" | jq -R . | jq -cs .)"
           fi
