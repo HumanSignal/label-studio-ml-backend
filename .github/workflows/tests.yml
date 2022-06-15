@@ -17,7 +17,7 @@ env:
 
 jobs:
   run_pytest:
-    name: Run pytest @ ${{ matrix.ml_backend.example }}
+    name: Run pytest @ ${{ matrix.ml_backend }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -78,7 +78,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend.example }}/docker-compose.yml up -d
+        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
 
       - name: Wait for stack
         timeout-minutes: 10
@@ -145,5 +145,5 @@ jobs:
             echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /"},{"example":"/g' -e 's/^/{"example":"/' -e 's/$/"}/')]"
           else
             echo "All in matrix"
-            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /"},{"example":"/g' -e 's/^/{"example":"/' -e 's/$/"}/')]"
+            echo "::set-output name=matrix::$(echo $ALL_EXAMPLES | jq -R -s -c 'split("\n")[:-1]')"
           fi
