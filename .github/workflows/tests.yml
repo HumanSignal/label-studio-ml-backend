@@ -17,13 +17,14 @@ env:
 
 jobs:
   run_pytest:
-    name: Run pytest @ ${{ matrix.ml_backend }}
+    name: Run pytest @ ${{ matrix.ml_backend.example }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
     strategy:
+      fail-fast: false
       matrix:
-        ml_backend: ${{fromJson(needs.calculate_matrix.outputs.matrix)}}
+        ml_backend: ${{ fromJson(needs.calculate_matrix.outputs.matrix) }}
     
     env:
       LOG_DIR: pytest_logs
@@ -77,7 +78,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
+        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend.example }}/docker-compose.yml up -d
 
       - name: Wait for stack
         timeout-minutes: 10
@@ -141,8 +142,8 @@ jobs:
           ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
           if [[ $(echo "$CHANGED" | grep -c -v ^$) == $(echo "$CHANGED_EXAMPLES" | grep -c -v ^$) ]]; then
             echo "Finding examples to test"
-            echo "::set-output name=matrix::[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /\\",\\"/g' -e 's/^/\\"/' -e 's/$/\\"/')]"
+            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\\"},{\\"example\\":\\"/g' -e 's/^/{\\"example\\":\\"/' -e 's/$/\\"}/')]"
           else
             echo "All in matrix"
-            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\\",\\"/g' -e 's/^/\\"/' -e 's/$/\\"/')]"
+            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\\"},{\\"example\\":\\"/g' -e 's/^/{\\"example\\":\\"/' -e 's/$/\\"}/')]"
           fi
