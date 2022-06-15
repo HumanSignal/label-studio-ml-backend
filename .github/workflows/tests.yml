@@ -10,7 +10,7 @@ on:
       - '**'
   pull_request_target:
     types: [ opened, synchronize, reopened, ready_for_review ]
-    branches: ['*', '*/*', master]
+    branches: [ '*', '*/*', master ]
 
 env:
   CACHE_NAME_PREFIX: v1
@@ -23,21 +23,7 @@ jobs:
     
     strategy:
       matrix:
-        ml_backend:
-          - bert
-          - dummy_model
-          - electra
-          - flair
-          - huggingface
-          - mmdetection
-          - nemo
-          - ner
-          - pytorch_transfer_learning
-          - simple_text_classifier
-          - substring_matching
-          - tensorflow
-          - tesseract
-          - the_simplest_backend
+        ml_backend: ${{fromJson(needs.calculate_matrix.outputs.matrix)}}
     
     env:
       LOG_DIR: pytest_logs
@@ -112,3 +98,46 @@ jobs:
           files: ./label_studio_ml/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
+  calculate_matrix:
+    name: "Calculate test matrix"
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: hmarr/debug-action@v2.0.1
+
+      - name: Extract branch name on direct push to a branch
+        if: github.event_name == 'push'
+        run: |
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_REF_NAME=${{ github.sha }}^" >> $GITHUB_ENV
+
+      - name: Extract branch name on 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
+        run: |
+          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_REF_NAME=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ env.BRANCH_NAME }}"
+
+      - name: Build matrix
+        id: set-matrix
+        shell: bash
+        env:
+          BASE_REF_NAME: ${{ env.BASE_REF_NAME }}
+        run: |
+          set -euo pipefail ${ACTIONS_STEP_DEBUG:+-x}
+          CHANGED=$(git diff --name-only HEAD.."${BASE_REF_NAME}" -- label_studio_ml/ | xargs -L1 dirname | uniq | cut -d'/' -f2-)
+          CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples || true)
+          ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
+          if [[ $(echo "$CHANGED" | wc -l) == $(echo "$CHANGED_EXAMPLES" | wc -l) ]]; then
+            echo "::set-output name=matrix::[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
+          else
+            echo "::set-output name=matrix::[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /","/g' -e 's/^/"/' -e 's/$/"/')]"
+          fi
