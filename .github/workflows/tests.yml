@@ -17,7 +17,7 @@ env:
 
 jobs:
   run_pytest:
-    name: Run pytest @ ${{ matrix.ml_backend }}
+    name: Run pytest
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
