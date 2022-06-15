@@ -133,7 +133,8 @@ jobs:
         env:
           BASE_REF_NAME: ${{ env.BASE_REF_NAME }}
         run: |
-          set -uo pipefail ${ACTIONS_STEP_DEBUG:+-x}
+          set -xuo pipefail
+          set +e
           CHANGED=$(git diff --name-only HEAD.."${BASE_REF_NAME}" -- label_studio_ml/ | xargs -L1 dirname | uniq | cut -d'/' -f2-)
           CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples )
           set -e
