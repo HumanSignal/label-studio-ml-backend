@@ -1,0 +1,7 @@
+pytesseract==0.3.9
+boto3==1.22.0
+label-studio-ml==1.0.7
+rq==1.10.1
+Jinja2==3.0.3
+itsdangerous==2.0.1
+werkzeug==2.0.2
