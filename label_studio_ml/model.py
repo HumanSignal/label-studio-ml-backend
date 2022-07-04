@@ -494,8 +494,10 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-            # TODO: Deprecated branch since LS 1.5
+        # update kwargs with init kwargs from class (e.g. --with start arg)
+        kwargs.update(cls.init_kwargs)
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+            # TODO: Deprecated branch
             if cls.without_redis():
                 logger.debug('Fetch ' + project + ' from local directory')
                 job_result = cls._get_latest_job_result_from_workdir(project) or {}
