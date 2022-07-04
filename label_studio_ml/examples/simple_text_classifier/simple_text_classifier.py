@@ -40,7 +40,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.to_name = self.info['to_name'][0]
         self.value = self.info['inputs'][0]['value']
 
-        if not self.train_output:
+        if (not self.train_output) or (self.train_output and not self.train_output.get('model_file')):
             # If there is no trainings, define cold-started the simple TF-IDF text classifier
             self.reset_model()
             # This is an array of <Choice> labels

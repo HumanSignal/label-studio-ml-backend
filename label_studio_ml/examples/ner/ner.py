@@ -25,8 +25,8 @@ from transformers import (
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.utils import get_annotated_dataset
 from utils import calc_slope
-
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +342,7 @@ class TransformersBasedTagger(LabelStudioMLBase):
         self.to_name = self.info['to_name'][0]
         self.value = self.info['inputs'][0]['value']
 
-        if not self.train_output:
+        if not self.train_output or (not self.train_output.get('model_path')):
             self.labels = self.info['labels']
         else:
             self.load(self.train_output)
@@ -464,6 +464,13 @@ class TransformersBasedTagger(LabelStudioMLBase):
         warmup_steps=0, save_steps=50, dump_dataset=True, cache_dir='~/.heartex/cache', train_logs=None,
         **kwargs
     ):
+        # check if training is from web hook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            completions = get_annotated_dataset(project_id)
+        # assert that there annotations
+        assert len(completions) > 0
+
         train_logs = train_logs or os.path.join(workdir, 'train_logs')
         os.makedirs(train_logs, exist_ok=True)
         logger.debug('Prepare models')
