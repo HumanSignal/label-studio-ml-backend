@@ -1,6 +1,7 @@
 torch
 torchvision
 opencv-contrib-python-headless
-rq
+rq==1.10.1
 redis
 boto3
+label-studio-ml==1.0.7

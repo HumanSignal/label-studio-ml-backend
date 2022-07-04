@@ -4,7 +4,7 @@ import os
 from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
 
-from .model import LabelStudioMLManager
+from .model import LabelStudioMLManager, LABEL_STUDIO_ML_BACKEND_V2_DEFAULT
 from .exceptions import exception_handler
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ def health():
     return jsonify({
         'status': 'UP',
         'model_dir': _manager.model_dir,
-        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
     })
 
 
