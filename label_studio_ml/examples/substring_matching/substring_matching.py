@@ -13,6 +13,8 @@ import requests
 logger = logging.getLogger(__name__)
 
 API_KEY = get_env('API_KEY')
+ML_BACKEND_CONTENT_LOGIN = get_env('ML_BACKEND_CONTENT_LOGIN')
+ML_BACKEND_CONTENT_PASSWORD = get_env('ML_BACKEND_CONTENT_PASSWORD')
 
 class SubstringMatcher(LabelStudioMLBase):
     def __init__(self, **kwargs):
@@ -105,7 +107,7 @@ class SubstringMatcher(LabelStudioMLBase):
         # load data from URL
         if isinstance(data, str) and (data.startswith('http://') or data.startswith('https://')):
             data = requests.get(data,
-                                headers={'Authorization': f'Token {API_KEY}'},
+                                auth=(ML_BACKEND_CONTENT_LOGIN, ML_BACKEND_CONTENT_PASSWORD),
                                 verify=False,
                                 allow_redirects=True).json()
         # load data from local file
