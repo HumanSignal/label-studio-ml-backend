@@ -91,3 +91,7 @@ class SubstringMatcher(LabelStudioMLBase):
             meta['start'] = task['value']['start']
             meta['end'] = task['value']['end']
         return meta
+
+    def fit(self, completions, workdir=None, **kwargs):
+        # save some training outputs to the job result
+        return {'random': random.randint(1, 10)}

@@ -102,7 +102,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         return json.loads(response.content)
 
     def fit(self, annotations, workdir=None, **kwargs):
-        # check if training is from web hook
+        # check if training is from web hook and load tasks from api
         if kwargs.get('data'):
             project_id = kwargs['data']['project']['id']
             tasks = self._get_annotated_dataset(project_id)

@@ -6,7 +6,8 @@ import numpy as np
 
 from PIL import Image
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_image_local_path, get_single_tag_keys, get_choice, is_skipped
+from label_studio_ml.utils import get_image_local_path, get_single_tag_keys, get_choice, is_skipped, \
+    get_annotated_dataset
 
 logger = logging.getLogger(__name__)
 feature_extractor_model = 'https://tfhub.dev/google/tf2-preview/mobilenet_v2/feature_vector/4'
@@ -62,6 +63,10 @@ class TFMobileNet(LabelStudioMLBase):
         }]
 
     def fit(self, completions, workdir=None, **kwargs):
+        # check if training is from web hook and load tasks from api
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            completions = get_annotated_dataset(project_id)
 
         annotations = []
         for completion in completions:

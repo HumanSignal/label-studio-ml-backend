@@ -1,3 +1,5 @@
+import random
+
 from PIL import Image
 import pytesseract as pt
 from label_studio_ml.model import LabelStudioMLBase
@@ -74,3 +76,7 @@ class BBOXOCR(LabelStudioMLBase):
             meta["original_width"] = task['original_width']
             meta["original_height"] = task['original_height']
         return meta
+
+    def fit(self, completions, workdir=None, **kwargs):
+        # save some training outputs to the job result
+        return {'random': random.randint(1, 10)}

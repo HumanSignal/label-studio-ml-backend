@@ -464,7 +464,7 @@ class TransformersBasedTagger(LabelStudioMLBase):
         warmup_steps=0, save_steps=50, dump_dataset=True, cache_dir='~/.heartex/cache', train_logs=None,
         **kwargs
     ):
-        # check if training is from web hook
+        # check if training is from web hook and load tasks from api
         if kwargs.get('data'):
             project_id = kwargs['data']['project']['id']
             completions = get_annotated_dataset(project_id)

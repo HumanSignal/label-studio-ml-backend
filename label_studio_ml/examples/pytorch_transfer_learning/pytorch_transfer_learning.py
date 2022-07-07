@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped, get_local_path
+from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped, get_local_path, get_annotated_dataset
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -177,6 +177,10 @@ class ImageClassifierAPI(LabelStudioMLBase):
         return predictions
 
     def fit(self, completions, workdir=None, batch_size=32, num_epochs=10, **kwargs):
+        # check if training is from web hook and load tasks from api
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            completions = get_annotated_dataset(project_id)
         image_urls, image_classes = [], []
         print('Collecting annotations...')
         for completion in completions:
