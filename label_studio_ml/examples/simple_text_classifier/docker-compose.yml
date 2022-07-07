@@ -1,4 +1,4 @@
-version: "3.5"
+version: "3.8"
 
 services:
   redis:
@@ -21,7 +21,7 @@ services:
       - LABEL_STUDIO_HOSTNAME=http://localhost:8000
       - LABEL_STUDIO_API_KEY=d6f8a2622d39e9d89ff0dfef1a80ad877f4ee9e3
     ports:
-      - 9090:9090
+      - "9090:9090"
     depends_on:
       - redis
     links:
