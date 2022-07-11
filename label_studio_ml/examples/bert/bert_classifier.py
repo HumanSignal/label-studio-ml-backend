@@ -53,7 +53,7 @@ class BertClassifier(LabelStudioMLBase):
 
         if not self.train_output:
             self.labels = self.info['labels']
-            self.reset_model('bert-base-multilingual-cased', cache_dir=None, device='cpu')
+            self.model = self.reset_model('bert-base-multilingual-cased', cache_dir=None, device='cpu')
             print('Initialized with from_name={from_name}, to_name={to_name}, labels={labels}'.format(
                 from_name=self.from_name, to_name=self.to_name, labels=str(self.labels)
             ))
@@ -64,15 +64,15 @@ class BertClassifier(LabelStudioMLBase):
             ))
 
     def reset_model(self, pretrained_model, cache_dir, device):
-        self.model = BertForSequenceClassification.from_pretrained(
+        model = BertForSequenceClassification.from_pretrained(
             pretrained_model,
             num_labels=len(self.labels),
             output_attentions=False,
             output_hidden_states=False,
             cache_dir=cache_dir
         )
-        self.model.to(device)
-        return
+        model.to(device)
+        return model
 
     def load(self, train_output):
         pretrained_model = train_output['model_path']
