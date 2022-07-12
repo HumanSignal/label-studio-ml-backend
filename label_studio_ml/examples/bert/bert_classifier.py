@@ -53,7 +53,7 @@ class BertClassifier(LabelStudioMLBase):
 
         if not self.train_output:
             self.labels = self.info['labels']
-            self.reset_model('bert-base-multilingual-cased', cache_dir=None, device='cpu')
+            self.model = self.reset_model('bert-base-multilingual-cased', cache_dir=None, device='cpu')
             print('Initialized with from_name={from_name}, to_name={to_name}, labels={labels}'.format(
                 from_name=self.from_name, to_name=self.to_name, labels=str(self.labels)
             ))

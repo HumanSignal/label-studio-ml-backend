@@ -29,7 +29,7 @@ class ElectraTextClassifier(LabelStudioMLBase):
         self.tokenizer = ElectraTokenizerFast.from_pretrained("google/electra-small-discriminator")
 
         if os.path.exists(MODEL_FILE):
-            self.model = ElectraForSequenceClassification.from_pretrained("my_model")
+            self.model = ElectraForSequenceClassification.from_pretrained(MODEL_FILE)
         else:
             self.model = ElectraForSequenceClassification.from_pretrained("google/electra-small-discriminator")
 
