@@ -40,7 +40,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.to_name = self.info['to_name'][0]
         self.value = self.info['inputs'][0]['value']
 
-        if not self.train_output:
+        if (not self.train_output) or (self.train_output and not self.train_output.get('model_file')):
             # If there is no trainings, define cold-started the simple TF-IDF text classifier
             self.reset_model()
             # This is an array of <Choice> labels
@@ -102,7 +102,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         return json.loads(response.content)
 
     def fit(self, annotations, workdir=None, **kwargs):
-        # check if training is from web hook
+        # check if training is from web hook and load tasks from api
         if kwargs.get('data'):
             project_id = kwargs['data']['project']['id']
             tasks = self._get_annotated_dataset(project_id)

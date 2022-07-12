@@ -29,13 +29,14 @@ from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegist
 from rq.job import Job
 from colorama import Fore
 
-from label_studio_tools.core.utils.params import get_bool_env
+from label_studio_tools.core.utils.params import get_bool_env, get_env
 from label_studio_tools.core.label_config import parse_config
 from label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 
 LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
+LABEL_STUDIO_STRICT_ERRORS = get_env("LS_STRICT_ERRORS", False)
 
 @attr.s
 class ModelWrapper(object):
@@ -189,12 +190,12 @@ class SimpleJobManager(JobManager):
         if not os.path.exists(job_dir):
             logger.warning(f"=> Warning: {job_id} dir doesn't exist. "
                            f"It seems that you don't have specified model dir.")
-            return None
+            return None if LABEL_STUDIO_STRICT_ERRORS else {}
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
             logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
                            f"It seems that previous training session ended with error.")
-            return None
+            return None if LABEL_STUDIO_STRICT_ERRORS else {}
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)

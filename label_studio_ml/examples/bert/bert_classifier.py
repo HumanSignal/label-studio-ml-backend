@@ -12,8 +12,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 
 from label_studio_ml.model import LabelStudioMLBase
 
-from utils import prepare_texts, calc_slope
-
+from utils import prepare_texts, calc_slope, get_annotated_dataset
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -128,6 +127,10 @@ class BertClassifier(LabelStudioMLBase):
         return predictions
 
     def fit(self, completions, workdir=None, cache_dir=None, **kwargs):
+        # check if training is from web hook and load tasks from api
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            completions = get_annotated_dataset(project_id)
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}

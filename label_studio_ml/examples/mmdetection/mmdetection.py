@@ -128,6 +128,9 @@ class MMDetection(LabelStudioMLBase):
             'score': avg_score
         }]
 
+    def fit(self, completions, workdir=None, **kwargs):
+        return {}
+
 
 def json_load(file, int_keys=False):
     with io.open(file, encoding='utf8') as f:

@@ -9,6 +9,9 @@ from label_studio_ml.model import LabelStudioMLBase
 import os
 
 #writing class with inheretance
+from label_studio_ml.utils import get_annotated_dataset
+
+
 class SequenceTaggerModel(LabelStudioMLBase):
     def __init__(self, **kwargs):
         #initialize base class
@@ -87,6 +90,10 @@ class SequenceTaggerModel(LabelStudioMLBase):
         return results
     
     def fit(self, completions, workdir=None, **kwargs):
+        # check if training is from web hook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            completions = get_annotated_dataset(project_id)
         #completions contain ALL the annotated samples.
         #train a model from scratch here.
         flair_sents = []

@@ -1,4 +1,6 @@
+import json
 import logging
+import requests
 
 from PIL import Image
 
@@ -48,3 +50,17 @@ def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=
 
 def get_image_size(filepath):
     return Image.open(filepath).size
+
+
+def get_annotated_dataset(project_id, hostname=None, api_key=None):
+    """Just for demo purposes: retrieve annotated data from Label Studio API"""
+    if hostname is None:
+        hostname = get_env('HOSTNAME')
+    if api_key is None:
+        api_key = get_env('API_KEY')
+    download_url = f'{hostname.rstrip("/")}/api/projects/{project_id}/export'
+    response = requests.get(download_url, headers={'Authorization': f'Token {api_key}'})
+    if response.status_code != 200:
+        raise Exception(f"Can't load task data using {download_url}, "
+                        f"response status_code = {response.status_code}")
+    return json.loads(response.content)
