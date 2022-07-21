@@ -741,9 +741,13 @@ class LabelStudioMLManager(object):
         @param project: Project ID (e.g. {project.id}.{created_timestamp}
         @return: List of model versions for current model
         """
-        project_model_dir = os.path.join(cls.model_dir, project or '')
-        if not os.path.exists(project_model_dir):
-            return []
+        V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+        if not V2:
+            project_model_dir = os.path.join(cls.model_dir, project or '')
+            if not os.path.exists(project_model_dir):
+                return []
+        else:
+            project_model_dir = cls.model_dir
         # get directories with traing results
         final_models = []
         for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
@@ -754,8 +758,10 @@ class LabelStudioMLManager(object):
             with open(job_result_file) as f:
                 js = json.load(f)
                 # Add model version if status is ok
-                if js.get('status') == 'ok':
+                if js.get('status') == 'ok' and not V2:
                     final_models.append(js.get("version"))
+                elif V2:
+                    final_models.append(subdir)
         return final_models
 
 
