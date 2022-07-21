@@ -180,6 +180,11 @@ class SimpleJobManager(JobManager):
         return {'workdir': self._job_dir(job_id)}
 
     def _get_result_from_job_id(self, job_id):
+        """
+        Return job result or {}
+        @param job_id: Job id (also known as model version)
+        @return: dict
+        """
         job_dir = self._job_dir(job_id)
         if not os.path.exists(job_dir):
             logger.warning(f"=> Warning: {job_id} dir doesn't exist. "
@@ -501,6 +506,8 @@ class LabelStudioMLManager(object):
         @return:
         Current model
         """
+        # update kwargs with init kwargs from class (e.g. --with start arg)
+        kwargs.update(cls.init_kwargs)
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             # TODO: Deprecated branch
             # Fetch latest job result
