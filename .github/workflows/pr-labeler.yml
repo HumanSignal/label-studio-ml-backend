@@ -1,0 +1,35 @@
+name: "PR labeler"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - ready_for_review
+    branches:
+      - master
+      - 'release/**'
+
+jobs:
+  autolabel:
+    name: "PR label validator"
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: hmarr/debug-action@v2.0.1
+      - uses: thehanimo/pr-title-checker@v1.3.4
+        name: "Validate PR's title"
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pass_on_octokit_error: false
+          configuration_path: ".github/pr-title-checker-config.json"
+      - uses: release-drafter/release-drafter@v5.20.0
+        name: "Set PR's label based on title"
+        with:
+          disable-releaser: true
+          config-name: autolabeler.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

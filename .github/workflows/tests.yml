@@ -8,9 +8,15 @@ on:
       - 'requirements**'
     tags-ignore:
       - '**'
-  pull_request_target:
-    types: [ opened, synchronize, reopened, ready_for_review ]
-    branches: [ '*', '*/*', master ]
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - master
+      - 'release/**'
 
 env:
   CACHE_NAME_PREFIX: v1
