@@ -522,7 +522,7 @@ class LabelStudioMLManager(object):
             return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
-        if not cls._current_model or model_version != cls._current_model.model_version:
+        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
             job_result = jm.get_result(model_version)
