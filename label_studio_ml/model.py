@@ -36,6 +36,7 @@ from label_studio_tools.core.utils.io import get_local_path
 logger = logging.getLogger(__name__)
 
 LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
+AUTO_UPDATE_DEFAULT = True
 
 @attr.s
 class ModelWrapper(object):
@@ -522,7 +523,8 @@ class LabelStudioMLManager(object):
             return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
-        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None):
+        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None) or \
+                os.getenv('AUTO_UPDATE', default=AUTO_UPDATE_DEFAULT):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
             job_result = jm.get_result(model_version)
