@@ -22,6 +22,25 @@ def init_app(model_class, **kwargs):
 @_server.route('/predict', methods=['POST'])
 @exception_handler
 def _predict():
+    """
+    Predict tasks
+
+    Example request:
+    request = {
+            'tasks': tasks,
+            'model_version': model_version,
+            'project': '{project.id}.{int(project.created_at.timestamp())}',
+            'label_config': project.label_config,
+            'params': {
+                'login': project.task_data_login,
+                'password': project.task_data_password,
+                'context': context,
+            },
+        }
+
+    @return:
+    Predictions in LS format
+    """
     data = request.json
     tasks = data.get('tasks')
     project = data.get('project')
@@ -47,7 +66,11 @@ def _setup():
     force_reload = data.get('force_reload', False)
     hostname = data.get('hostname', '')  # host name for uploaded files and building urls
     access_token = data.get('access_token', '')  # user access token to retrieve data
-    model = _manager.fetch(project, schema, force_reload, hostname=hostname, access_token=access_token)
+    model_version = data.get('model_version')
+    model = _manager.fetch(project, schema, force_reload,
+                           hostname=hostname,
+                           access_token=access_token,
+                           model_version=model_version)
     logger.debug('Fetch model version: {}'.format(model.model_version))
     return jsonify({'model_version': model.model_version})
 
@@ -141,3 +164,22 @@ def log_response_info(response):
     logger.debug('Response headers: %s', response.headers)
     logger.debug('Response body: %s', response.get_data())
     return response
+
+
+@_server.route('/versions', methods=['POST'])
+@exception_handler
+def get_version():
+    """
+    Get model versions from ML backend
+    @return: A list of versions
+    """
+    data = request.json
+    project = data.get('project')
+    if project is None:
+        return str('No project provided'), 400
+    versions = list(_manager._get_models_from_workdir(project))
+    return jsonify({
+        'versions': versions,
+        'model_dir': _manager.model_dir,
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+    })

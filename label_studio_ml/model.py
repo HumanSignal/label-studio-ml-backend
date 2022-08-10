@@ -36,6 +36,7 @@ from label_studio_tools.core.utils.io import get_local_path
 logger = logging.getLogger(__name__)
 
 LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
+AUTO_UPDATE_DEFAULT = True
 
 @attr.s
 class ModelWrapper(object):
@@ -486,7 +487,9 @@ class LabelStudioMLManager(object):
         cls, project=None, label_config=None, force_reload=False, train_output=None, version=None, **kwargs
     ):
         # reload new model if model is not loaded into memory OR force_reload=True OR model versions are mismatched
-        if not cls.has_active_model(project) or force_reload or (cls.get(project).model_version != version and version is not None):  # noqa
+        if not cls.has_active_model(project) or \
+                force_reload or \
+                (cls.get(project).model_version != version and version is not None):  # noqa
             logger.debug('Reload model for project={project} with version={version}'.format(
                 project=project, version=version))
             cls.create(project, label_config, train_output, version, **kwargs)
@@ -494,10 +497,21 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
+        """
+        Fetch the model
+
+        @param project: Project
+        @param label_config: Project label config
+        @param force_reload: Force reload the model
+        @param kwargs: additional params
+        @return:
+        Current model
+        """
         # update kwargs with init kwargs from class (e.g. --with start arg)
         kwargs.update(cls.init_kwargs)
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             # TODO: Deprecated branch
+            # Fetch latest job result
             if cls.without_redis():
                 logger.debug('Fetch ' + project + ' from local directory')
                 job_result = cls._get_latest_job_result_from_workdir(project) or {}
@@ -509,7 +523,8 @@ class LabelStudioMLManager(object):
             return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
-        if not cls._current_model or model_version != cls._current_model.model_version:
+        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None) or \
+                os.getenv('AUTO_UPDATE', default=AUTO_UPDATE_DEFAULT):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
             job_result = jm.get_result(model_version)
@@ -574,7 +589,19 @@ class LabelStudioMLManager(object):
     def predict(
         cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
+        """
+        Make prediction for tasks
+
+        @param tasks: Serialized LS tasks
+        @param project: Project ID (e.g. {project.id}.{created_timestamp}
+        @param label_config: Label studio project label config
+        @param force_reload: force reload the model
+        @param try_fetch: if service should try to fetch the model
+        @param kwargs: additional params
+        @return:
+        Predictions in LS format
+        """
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
             if try_fetch:
                 m = cls.fetch(project, label_config, force_reload)
             else:
@@ -708,6 +735,37 @@ class LabelStudioMLManager(object):
         job_id = cls._generate_version()
         cls.get_job_manager().run_job(cls.model_class, (event, data, job_id))
         return {'job_id': job_id}
+
+    @classmethod
+    def _get_models_from_workdir(cls, project):
+        """
+        Return current models
+        @param project: Project ID (e.g. {project.id}.{created_timestamp}
+        @return: List of model versions for current model
+        """
+        V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+        if not V2:
+            project_model_dir = os.path.join(cls.model_dir, project or '')
+            if not os.path.exists(project_model_dir):
+                return []
+        else:
+            project_model_dir = cls.model_dir
+        # get directories with traing results
+        final_models = []
+        for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
+            job_result_file = os.path.join(project_model_dir, str(subdir), 'job_result.json')
+            # check if there is job result
+            if not os.path.exists(job_result_file):
+                continue
+            with open(job_result_file) as f:
+                js = json.load(f)
+                # Add model version if status is ok
+                if js.get('status') == 'ok' and not V2:
+                    final_models.append(js.get("version"))
+                elif V2:
+                    final_models.append(subdir)
+        return final_models
+
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
