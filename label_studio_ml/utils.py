@@ -1,6 +1,6 @@
 import logging
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from label_studio_tools.core.utils.params import get_env
 from label_studio_tools.core.utils.io import get_local_path
@@ -47,4 +47,6 @@ def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=
 
 
 def get_image_size(filepath):
-    return Image.open(filepath).size
+    img = Image.open(filepath)
+    img = ImageOps.exif_transpose(img)
+    return img.size
