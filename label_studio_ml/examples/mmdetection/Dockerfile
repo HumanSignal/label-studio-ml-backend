@@ -8,11 +8,7 @@ ENV PYTHONUNBUFFERED=True \
     PIP_CACHE_DIR=/.cache
 
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip install -r requirements.txt \
-                uwsgi==2.0.19.1 \
-                supervisor==4.2.2 \
-                click==7.1.2 \
-                -r requirements.txt
+    pip install -r requirements.txt
 
 RUN pip install mmdet==2.6.0 \
                 mmcv-full==1.2.0

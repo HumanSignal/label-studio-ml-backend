@@ -1,7 +1,10 @@
+boto3
+click==7.1.2
+label-studio-ml==1.0.8
+opencv-contrib-python-headless
+redis
+rq==1.10.1
+supervisor==4.2.2
 torch
 torchvision
-opencv-contrib-python-headless
-rq==1.10.1
-redis
-boto3
-label-studio-ml==1.0.7
+uwsgi==2.0.19.1

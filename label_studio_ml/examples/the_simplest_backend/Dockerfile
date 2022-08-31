@@ -8,13 +8,8 @@ ENV PYTHONUNBUFFERED=True \
     PIP_CACHE_DIR=/.cache
 
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip install -r requirements.txt \
-                uwsgi==2.0.19.1 \
-                supervisor==4.2.2 \
-                click==7.1.2 \
-                rq==1.10.0 \
-                label-studio-ml==1.0.7 \
-                label-studio-sdk==0.0.6
+    pip install -r requirements.txt
+
 
 COPY uwsgi.ini /etc/uwsgi/
 COPY supervisord.conf /etc/supervisor/conf.d/
