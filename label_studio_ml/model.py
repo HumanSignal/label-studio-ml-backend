@@ -76,17 +76,18 @@ class JobManager(object):
         :return: json-serializable job result
         """
         with self.start_run(event, data, job_id):
+            logger.info(f"job: Starting job {str(job_id)} for event {str(event)}.")
             model_version = data.get('model_version') or data.get('project', {}).get('model_version')
             job_result = self.get_result(model_version)
             label_config = data.get('label_config') or data.get('project', {}).get('label_config')
             train_output = job_result.get('train_output')
-            logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
+            logger.info(f'Load model with label_config={label_config} and train_output={train_output}')
             model = model_class(label_config=label_config, train_output=train_output)
             additional_params = self.get_additional_params(event, data, job_id)
             result = model.process_event(event, data, job_id, additional_params)
             self.post_process(event, data, job_id, result)
 
-        logger.debug(f'Finished processing event {event}! Return result: {result}')
+        logger.info(f'Finished processing event {event}! Return result: {result}')
         return result
 
     def get_additional_params(self, event, data, job_id):
@@ -313,9 +314,9 @@ class LabelStudioMLBase(ABC):
 
     def process_event(self, event, data, job_id, additional_params):
         if event in self.TRAIN_EVENTS:
-            logger.debug(f'Job {job_id}: Received event={event}: calling {self.__class__.__name__}.fit()')
+            logger.info(f'Job {job_id}: Received event={event}: calling {self.__class__.__name__}.fit()')
             train_output = self.fit((), event=event, data=data, job_id=job_id, **additional_params)
-            logger.debug(f'Job {job_id}: Train finished.')
+            logger.info(f'Job {job_id}: Train finished.')
             return train_output
 
     def fit(self, tasks, workdir=None, **kwargs):
