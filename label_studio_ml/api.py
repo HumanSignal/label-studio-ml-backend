@@ -15,6 +15,7 @@ _manager = LabelStudioMLManager()
 
 def init_app(model_class, **kwargs):
     global _manager
+    logger.info(f"init_app: Initializing app with args: {str(kwargs)}")
     _manager.initialize(model_class, **kwargs)
     return _server
 
@@ -48,7 +49,12 @@ def _predict():
     force_reload = data.get('force_reload', False)
     try_fetch = data.get('try_fetch', True)
     params = data.get('params') or {}
+    logger.info(f"_predict: Request prediction for {len(tasks)} tasks."
+                f"Project {str(project)} with {'try_fetch' if try_fetch else ''} and "
+                f"{'force_reload' if force_reload else ''}."
+                f"Params: {str(params)}")
     predictions, model = _manager.predict(tasks, project, label_config, force_reload, try_fetch, **params)
+    logger.info(f"_predict: Got {len(predictions)} with model version {str(model.model_version)}")
     response = {
         'results': predictions,
         'model_version': model.model_version
@@ -67,11 +73,12 @@ def _setup():
     hostname = data.get('hostname', '')  # host name for uploaded files and building urls
     access_token = data.get('access_token', '')  # user access token to retrieve data
     model_version = data.get('model_version')
+    logger.info(f"_setup: Setting model: {str(model_version)} for project {str(project)}")
     model = _manager.fetch(project, schema, force_reload,
                            hostname=hostname,
                            access_token=access_token,
                            model_version=model_version)
-    logger.debug('Fetch model version: {}'.format(model.model_version))
+    logger.info('Fetch model version: {}'.format(model.model_version))
     return jsonify({'model_version': model.model_version})
 
 
@@ -99,6 +106,7 @@ def _train():
 def webhook():
     data = request.json
     event = data.pop('action')
+    logger.info(f"Webhook event {str(event)}")
     run = _manager.webhook(event, data)
     return jsonify(run), 201
 

@@ -52,15 +52,17 @@ class JobManager(object):
         """Return job result based on specified model_version (=job_id)"""
         job_result = None
         if model_version:
-            logger.debug(f'Get result based on model_version={model_version}')
+            logger.info(f'Get result based on model_version={model_version}')
             try:
                 job_result = self.get_result_from_job_id(model_version)
             except Exception as exc:
                 logger.error(exc, exc_info=True)
         else:
-            logger.debug(f'Get result from last valid job')
+            logger.info(f'Get result from last valid job')
             job_result = self.get_result_from_last_job()
-        return job_result or {}
+        job_result = job_result or {}
+        logger.info(f"get_result: Got job result {str(job_result)}")
+        return job_result
 
     def job(self, model_class, event: str, data: Dict, job_id: str):
         """
@@ -108,7 +110,7 @@ class JobManager(object):
         DON'T OVERRIDE THIS FUNCTION! Instead, override _get_result_from_job_id
         """
         result = self._get_result_from_job_id(job_id)
-        assert isinstance(result, dict)
+        assert isinstance(result, dict), f"ML backend couldn't load job {str(job_id)} result."
         result['job_id'] = job_id
         return result
 
@@ -124,7 +126,7 @@ class JobManager(object):
         when skip_empty_results is True, result is None are skipped (e.g. if fit() function makes `return` call)
         """
         for job_id in self.iter_finished_jobs():
-            logger.debug(f'Try job_id={job_id}')
+            logger.info(f'Try job_id={job_id}')
             try:
                 result = self.get_result_from_job_id(job_id)
             except Exception as exc:
@@ -458,42 +460,53 @@ class LabelStudioMLManager(object):
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
         # TODO: Deprecated branch since LS 1.5
             key = cls._key(project)
-            logger.debug('Get project ' + str(key))
-            return cls._current_model.get(key)
+            model = cls._current_model.get(key)
+            logger.info(f'get: Get V1 project model {str(key)}.'
+                        f'model {str(model) if model else " NO MODEL"}')
+            return model
         else:
-            return cls._current_model
+            model = cls._current_model
+            logger.info(f'get: Get V2 project model {str(project)}.'
+                        f'model {str(model) if model else " NO MODEL"}')
+            return model
 
     @classmethod
     def create(cls, project=None, label_config=None, train_output=None, version=None, **kwargs):
         key = cls._key(project)
-        logger.debug('Create project ' + str(key))
+        logger.info('create: Create project ' + str(key))
         kwargs.update(cls.init_kwargs)
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
+
             # TODO: Deprecated branch since LS 1.5
             cls._current_model[key] = ModelWrapper(
                 model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
                 model_version=version or cls._generate_version()
             )
+            logger.info(f"create: Creating V1 model with key {key}."
+                        f"Model version: {cls._current_model[key].model_version}")
             return cls._current_model[key]
         else:
             cls._current_model = ModelWrapper(
                 model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
                 model_version=version or cls._generate_version()
             )
+            logger.info(f"create: Creating V2 model {cls._current_model.model_version}")
             return cls._current_model
 
     @classmethod
     def get_or_create(
         cls, project=None, label_config=None, force_reload=False, train_output=None, version=None, **kwargs
     ):
+        logger.info(f"get_or_create: project {project}, version {version}")
+        model = cls.get(project)
         # reload new model if model is not loaded into memory OR force_reload=True OR model versions are mismatched
         if not cls.has_active_model(project) or \
                 force_reload or \
-                (cls.get(project).model_version != version and version is not None):  # noqa
-            logger.debug('Reload model for project={project} with version={version}'.format(
+                (model and model.model_version != version and version is not None):  # noqa
+            logger.info('Reload model for project={project} with version={version}'.format(
                 project=project, version=version))
             cls.create(project, label_config, train_output, version, **kwargs)
-        return cls.get(project)
+        return model
 
     @classmethod
     def fetch(cls, project=None, label_config=None, force_reload=False, **kwargs):
@@ -513,27 +526,29 @@ class LabelStudioMLManager(object):
             # TODO: Deprecated branch
             # Fetch latest job result
             if cls.without_redis():
-                logger.debug('Fetch ' + project + ' from local directory')
+                logger.info('Fetch ' + project + ' from local directory')
                 job_result = cls._get_latest_job_result_from_workdir(project) or {}
             else:
-                logger.debug('Fetch ' + project + ' from Redis')
+                logger.info('Fetch ' + project + ' from Redis')
                 job_result = cls._get_latest_job_result_from_redis(project) or {}
             train_output = job_result.get('train_output')
             version = job_result.get('version')
+            logger.info(f"fetch: Trying to get or create model version {str(version)} with train_output {str(train_output)}")
             return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
-        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None) or \
+        model = cls._current_model
+        if not model or (model and model_version != model.model_version and model_version is not None) or \
                 os.getenv('AUTO_UPDATE', default=AUTO_UPDATE_DEFAULT):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
             job_result = jm.get_result(model_version)
             if job_result:
-                logger.debug(f'Found job result: {job_result}')
+                logger.info(f'Found job result: {job_result}')
                 model = cls.model_class(label_config=label_config, train_output=job_result, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version=job_result['job_id'])
             else:
-                logger.debug(f'Job result not found: create initial model')
+                logger.info(f'Job result not found: create initial model')
                 model = cls.model_class(label_config=label_config, **kwargs)
                 cls._current_model = ModelWrapper(model=model, model_version='INITIAL')
         return cls._current_model
