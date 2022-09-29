@@ -81,10 +81,16 @@ class JobManager(object):
             job_result = self.get_result(model_version)
             label_config = data.get('label_config') or data.get('project', {}).get('label_config')
             train_output = job_result.get('train_output')
-            logger.info(f'Load model with label_config={label_config} and train_output={train_output}')
-            model = model_class(label_config=label_config, train_output=train_output)
+            logger.info(f'job: Load model with label_config={label_config} and train_output={train_output}')
+            try:
+                model = model_class(label_config=label_config, train_output=train_output)
+            except Exception as e:
+                logger.error(str(e))
+            logger.info(f"job: Checking additional params.")
             additional_params = self.get_additional_params(event, data, job_id)
+            logger.info(f"job: Start processing event.")
             result = model.process_event(event, data, job_id, additional_params)
+            logger.info(f"job: Event processed with result: {str(result)}.")
             self.post_process(event, data, job_id, result)
 
         logger.info(f'Finished processing event {event}! Return result: {result}')

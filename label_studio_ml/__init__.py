@@ -2,4 +2,4 @@
 package_name = 'label-studio-ml'
 
 # Package version
-__version__ = '1.0.8.rc3'
+__version__ = '1.0.9.rc1'
