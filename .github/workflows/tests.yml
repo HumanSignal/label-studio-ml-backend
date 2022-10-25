@@ -99,7 +99,7 @@ jobs:
           pytest --cov=. --cov-report=xml
 
       - name: "Upload cloud coverage to Codecov"
-        uses: codecov/codecov-action@v3.1.0
+        uses: codecov/codecov-action@v3.1.1
         with:
           name: codecov
           files: ./label_studio_ml/coverage.xml
