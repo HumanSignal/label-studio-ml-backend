@@ -37,7 +37,7 @@ jobs:
       collect_analytics: false
 
     steps:
-      - uses: hmarr/debug-action@v2.0.1
+      - uses: hmarr/debug-action@v2.1.0
 
       - name: Extract branch name on direct push to a branch
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
@@ -112,7 +112,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: hmarr/debug-action@v2.0.1
+      - uses: hmarr/debug-action@v2.1.0
 
       - name: Extract branch name on direct push to a branch
         if: github.event_name == 'push'
