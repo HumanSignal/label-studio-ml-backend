@@ -4,6 +4,7 @@ import boto3
 import io
 import json
 
+
 from mmdet.apis import init_detector, inference_detector
 
 from label_studio_ml.model import LabelStudioMLBase
@@ -35,7 +36,7 @@ class MMDetection(LabelStudioMLBase):
         :param labels_file: file with mappings from COCO labels to custom labels {"airplane": "Boeing"}
         :param score_threshold: score threshold to wipe out noisy results
         :param device: device (cpu, cuda:0, cuda:1, ...)
-        :param kwargs:
+        :param kwargs: can contain endpoint_url in case of non amazon s3
         """
         super(MMDetection, self).__init__(**kwargs)
         config_file = config_file or os.environ['config_file']
@@ -43,6 +44,10 @@ class MMDetection(LabelStudioMLBase):
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
+        self.endpoint_url = kwargs.get('endpoint_url')
+        if self.endpoint_url:
+            logger.info(f'Using s3 endpoint url {self.endpoint_url}')
+        
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
         self.image_dir = image_dir or upload_dir
@@ -75,7 +80,7 @@ class MMDetection(LabelStudioMLBase):
             r = urlparse(image_url, allow_fragments=False)
             bucket_name = r.netloc
             key = r.path.lstrip('/')
-            client = boto3.client('s3')
+            client = boto3.client('s3', endpoint_url=self.endpoint_url)
             try:
                 image_url = client.generate_presigned_url(
                     ClientMethod='get_object',
@@ -88,8 +93,10 @@ class MMDetection(LabelStudioMLBase):
     def predict(self, tasks, **kwargs):
         assert len(tasks) == 1
         task = tasks[0]
+        
         image_url = self._get_image_url(task)
         image_path = self.get_local_path(image_url)
+        
         model_results = inference_detector(self.model, image_path)
         results = []
         all_scores = []
