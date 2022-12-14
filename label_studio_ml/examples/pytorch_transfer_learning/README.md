@@ -1,5 +1,5 @@
 ## Overview 
-This is a Label Studio ML Backend for Image classification with the possibility of transfer learning. 
+This is the Label Studio ML Backend for Image classification with the possibility of transfer learning. 
 
 ## Quickstart
 
