@@ -1,3 +1,6 @@
+## Overview 
+This is a Label Studio ML Backend for Image classification with the possibility of transfer learning. 
+
 ## Quickstart
 
 Build and start Machine Learning backend on `http://localhost:9090`
