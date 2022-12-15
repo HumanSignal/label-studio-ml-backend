@@ -190,12 +190,12 @@ class SimpleJobManager(JobManager):
         if not os.path.exists(job_dir):
             logger.warning(f"=> Warning: {job_id} dir doesn't exist. "
                            f"It seems that you don't have specified model dir.")
-            return None
+            return {}
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
             logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
                            f"It seems that previous training session ended with error.")
-            return None
+            return {}
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)
