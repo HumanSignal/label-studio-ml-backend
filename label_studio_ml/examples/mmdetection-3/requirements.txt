@@ -13,4 +13,4 @@ openmim
 
 opencv-contrib-python-headless
 mmcv==2.0.0rc3
-mmdet==3.0.0rc4
+mmdet==3.0.0rc5

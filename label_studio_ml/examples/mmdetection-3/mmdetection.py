@@ -99,7 +99,7 @@ class MMDetection(LabelStudioMLBase):
         print(f">>> model_results: {model_results}")
         print(f">>> label_map {self.label_map}")
         print(f">>> self.model.dataset_meta: {self.model.dataset_meta}")
-        classes = self.model.dataset_meta.get('CLASSES')
+        classes = self.model.dataset_meta.get('classes')
         print(f"Classes >>> {classes}")
         for item in model_results:
             print(f"item >>>>> {item}")
