@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt-get clean
           sudo apt-get update
-          sudo apt-get install virtualenv libsasl2-dev python-dev libldap2-dev libssl-dev
+          sudo apt-get install virtualenv libsasl2-dev python3-dev libldap2-dev libssl-dev
           pip install -U pip==20.2
           pip install -r requirements-test.txt
           pip install -r requirements.txt
