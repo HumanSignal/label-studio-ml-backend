@@ -52,7 +52,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: "${{ env.BRANCH_NAME }}"
+          ref: "${{ env.GITHUB_SHA }}"
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -131,7 +131,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: "${{ env.BRANCH_NAME }}"
+          ref: "${{ env.GITHUB_SHA }}"
           fetch-depth: 0
 
       - name: Build matrix
