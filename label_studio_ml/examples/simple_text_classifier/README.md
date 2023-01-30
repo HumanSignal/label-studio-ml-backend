@@ -16,9 +16,23 @@ $ curl http://localhost:9090/health
 3. Then connect running backend to Label Studio:
 
 ```bash
-label-studio start --init new_project --ml-backends http://localhost:9090 --template image_classification
+label-studio start --init new_project --ml-backends http://localhost:9090
 ```
 
+4. Open your project `new_project` and set this labeling config:
+https://labelstud.io/templates/sentiment_analysis.html
+
+```
+<View>
+  <Header value="Choose text sentiment:"/>
+  <Text name="my_text" value="$reviewText"/>
+  <Choices name="sentiment" toName="my_text" choice="single" showInline="true">
+    <Choice value="Positive"/>
+    <Choice value="Negative"/>
+    <Choice value="Neutral"/>
+  </Choices>
+</View>
+```
 
 ## Writing your own model
 1. Place your scripts for model training & inference inside root directory. Follow the [API guidelines](#api-guidelines) described bellow. You can put everything in a single file, or create 2 separate one say `my_training_module.py` and `my_inference_module.py`
