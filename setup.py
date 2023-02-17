@@ -15,7 +15,7 @@ setuptools.setup(
     name=label_studio_ml.package_name,
     version=label_studio_ml.__version__,
     author='Heartex',
-    author_email="hello@heartex.ai",
+    author_email="hello@heartex.com",
     description='Label Studio ML backend',
     long_description=long_description,
     long_description_content_type='text/markdown',

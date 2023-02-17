@@ -35,7 +35,7 @@ Tested with LabelStudio v1.4.1.post1, and assuming data for annotation is stored
 4. Setup Tesseract ML backend:
     ```
     pip install -r label_studio_ml/examples/tesseract/requirements.txt
-    label-studio-ml init my-ml-backend --from label_studio_ml/examples/tesseract/ner_ml_backend.py --force
+    label-studio-ml init my-ml-backend --from label_studio_ml/examples/tesseract/tesseract.py --force
     label-studio-ml start my-ml-backend -d -p=9090 --debug
     ```
     

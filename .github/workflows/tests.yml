@@ -52,7 +52,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: "${{ env.BRANCH_NAME }}"
+          ref: "${{ env.GITHUB_SHA }}"
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt-get clean
           sudo apt-get update
-          sudo apt-get install virtualenv libsasl2-dev python-dev libldap2-dev libssl-dev
+          sudo apt-get install virtualenv libsasl2-dev python3-dev libldap2-dev libssl-dev
           pip install -U pip==20.2
           pip install -r requirements-test.txt
           pip install -r requirements.txt
@@ -131,7 +131,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: "${{ env.BRANCH_NAME }}"
+          ref: "${{ env.GITHUB_SHA }}"
           fetch-depth: 0
 
       - name: Build matrix
@@ -148,7 +148,11 @@ jobs:
           ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
           if [[ $(echo "$CHANGED" | grep -c -v ^$) == $(echo "$CHANGED_EXAMPLES" | grep -c -v ^$) ]]; then
             echo "Finding examples to test"
-            echo "matrix={\"ml_backend\":[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
+            if [[ $(echo "$CHANGED" | grep -c -v ^$) == 0 ]]; then
+              echo "matrix={\"ml_backend\":[]}" >> $GITHUB_OUTPUT
+            else
+              echo "matrix={\"ml_backend\":[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
+            fi
           else
             echo "All in matrix"
             echo "matrix={\"ml_backend\":[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT

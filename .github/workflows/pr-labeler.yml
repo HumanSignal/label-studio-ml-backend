@@ -20,13 +20,13 @@ jobs:
       pull-requests: write
     steps:
       - uses: hmarr/debug-action@v2.1.0
-      - uses: thehanimo/pr-title-checker@v1.3.5
+      - uses: thehanimo/pr-title-checker@v1.3.7
         name: "Validate PR's title"
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pass_on_octokit_error: false
           configuration_path: ".github/pr-title-checker-config.json"
-      - uses: release-drafter/release-drafter@v5.21.1
+      - uses: release-drafter/release-drafter@v5.22.0
         name: "Set PR's label based on title"
         with:
           disable-releaser: true
