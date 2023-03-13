@@ -512,7 +512,7 @@ class LabelStudioMLManager(object):
         """
         # update kwargs with init kwargs from class (e.g. --with start arg)
         kwargs.update(cls.init_kwargs)
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
             # TODO: Deprecated branch
             # Fetch latest job result
             if cls.without_redis():
@@ -604,7 +604,7 @@ class LabelStudioMLManager(object):
         @return:
         Predictions in LS format
         """
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True):
+        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
             if try_fetch:
                 m = cls.fetch(project, label_config, force_reload)
             else:
@@ -746,7 +746,7 @@ class LabelStudioMLManager(object):
         @param project: Project ID (e.g. {project.id}.{created_timestamp}
         @return: List of model versions for current model
         """
-        V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+        V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
         if not V2:
             project_model_dir = os.path.join(cls.model_dir, project or '')
             if not os.path.exists(project_model_dir):

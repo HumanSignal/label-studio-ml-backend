@@ -181,5 +181,5 @@ def get_version():
     return jsonify({
         'versions': versions,
         'model_dir': _manager.model_dir,
-        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=True)
+        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=False)
     })
