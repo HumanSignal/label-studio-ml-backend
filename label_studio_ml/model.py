@@ -29,7 +29,7 @@ from rq.registry import StartedJobRegistry, FinishedJobRegistry, FailedJobRegist
 from rq.job import Job
 from colorama import Fore
 
-from label_studio_tools.core.utils.params import get_bool_env
+from label_studio_tools.core.utils.params import get_bool_env, get_env
 from label_studio_tools.core.label_config import parse_config
 from label_studio_tools.core.utils.io import get_local_path
 
@@ -303,8 +303,8 @@ class LabelStudioMLBase(ABC):
         self.label_config = label_config
         self.parsed_label_config = parse_config(self.label_config) if self.label_config else {}
         self.train_output = train_output or {}
-        self.hostname = kwargs.get('hostname', '')
-        self.access_token = kwargs.get('access_token', '')
+        self.hostname = kwargs.get('hostname', '') or get_env('HOSTNAME')
+        self.access_token = kwargs.get('access_token', '')  or get_env('ACCESS_TOKEN') or get_env('API_KEY')
 
     @abstractmethod
     def predict(self, tasks, **kwargs):
