@@ -98,6 +98,12 @@ jobs:
           cd label_studio_ml/
           pytest --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml
 
+      - name: Pull the logs
+        if: always()
+        env:
+          DOCKER_BUILDKIT: 1
+        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml logs
+
       - name: "Upload cloud coverage to Codecov"
         uses: codecov/codecov-action@v3.1.1
         with:
