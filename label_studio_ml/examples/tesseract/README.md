@@ -17,18 +17,19 @@ Tested with LabelStudio v1.4.1.post1, and assuming data for annotation is stored
 3. In the project **Settings**, set up the **Labeling Interface**
    Fill in the following template code, important to specifiy `smart="true"` in RectangleLabels
 ```
-<View>
-  <View style="display:flex;align-items:start;gap:0px;flex-direction:column-reverse">
-    <View style="padding:0px; border: 1px solid #555;">
-    	<Image name="image" value="$ocr" zoom="true" zoomControl="false" rotateControl="true" width="100%" height="100%" maxHeight="auto" maxWidth="auto"/>
-    </View>
-    <RectangleLabels name="bbox" toName="image" strokeWidth="1" smart="true">
+<View>    
+   <Image name="image" value="$ocr" zoom="true" zoomControl="false" rotateControl="true" width="100%" height="100%" maxHeight="auto" maxWidth="auto"/>
+   
+   <RectangleLabels name="bbox" toName="image" strokeWidth="1" smart="true">
       <Label value="Label1" background="green"/>
       <Label value="Label2" background="blue"/>
       <Label value="Label3" background="red"/>
-    </RectangleLabels>
-  </View>
-  	<TextArea name="transcription" toName="image" editable="true" perRegion="true" required="false" maxSubmissions="1" rows="5" placeholder="Recognized Text" displayMode="region-list"/>
+   </RectangleLabels>
+
+   <TextArea name="transcription" toName="image" 
+     editable="true" perRegion="true" required="false" 
+     maxSubmissions="1" rows="5" placeholder="Recognized Text" 
+     displayMode="region-list"/>
 </View>
 ```
 
