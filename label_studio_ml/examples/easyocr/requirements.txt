@@ -8,3 +8,4 @@ label-studio-ml==1.0.7
 easyocr
 gunicorn==20.1.0
 opencv-python==4.5.5.64
+opencv-python-headless<4.3
