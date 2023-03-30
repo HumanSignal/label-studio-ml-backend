@@ -196,7 +196,9 @@ class SimpleJobManager(JobManager):
         if not os.path.exists(result_file):
             logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
                            f"It seems that previous training session ended with error.")
-            return None
+            # Return empty dict if training is failed OR None if Error message is needed in case of failed train
+            IGNORE_FAILED_TRAINING = get_env("IGNORE_FAILED_TRAINING", is_bool=True)
+            return {} if IGNORE_FAILED_TRAINING else None
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)

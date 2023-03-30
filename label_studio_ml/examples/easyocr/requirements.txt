@@ -6,3 +6,6 @@ redis
 boto3
 label-studio-ml==1.0.7
 easyocr
+gunicorn==20.1.0
+opencv-python==4.7.0.72
+

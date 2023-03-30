@@ -6,3 +6,4 @@ tensorboardX==1.9
 torch==1.8.1
 transformers==4.4.2
 uwsgi==2.0.19.1
+packaging==21.3
