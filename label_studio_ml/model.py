@@ -6,6 +6,7 @@ import json
 import redis
 import attr
 import io
+import rq
 try:
     import torch.multiprocessing as mp
     try:
