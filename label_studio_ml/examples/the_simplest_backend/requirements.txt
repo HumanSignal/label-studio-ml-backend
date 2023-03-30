@@ -1,6 +1,6 @@
 click==7.1.2
 label-studio-ml==1.0.8
-label-studio-sdk==0.0.6
+label-studio-sdk>=0.0.21
 rq==1.10.0
 supervisor==4.2.2
 uwsgi==2.0.19.1
