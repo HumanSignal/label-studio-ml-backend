@@ -8,8 +8,7 @@ COPY requirements.txt .
 
 RUN apt-get update && apt-get install -y libglib2.0-0
 
-RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY . ./
 
