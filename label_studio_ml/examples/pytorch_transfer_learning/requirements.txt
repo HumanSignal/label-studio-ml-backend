@@ -9,4 +9,4 @@ supervisor==4.2.2
 torch==1.5.0
 torchvision==0.6.0
 uwsgi==2.0.19.1
-werkzeug==2.0.2
+werkzeug==2.2.3
