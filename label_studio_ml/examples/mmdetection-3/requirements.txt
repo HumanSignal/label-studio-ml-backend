@@ -6,11 +6,11 @@ gunicorn==20.1.0
 werkzeug==2.0.2
 itsdangerous==2.0.1
 
-boto3
-torch 
-torchvision 
-openmim
+boto3~=1.26.103
+torch==1.13.0
+torchvision==0.14.0
+openmim~=0.3.7
 
-opencv-contrib-python-headless
-mmcv==2.0.0rc3
+opencv-contrib-python-headless~=4.7.0
+# mmcv==2.0.0rc3
 mmdet==3.0.0rc5
