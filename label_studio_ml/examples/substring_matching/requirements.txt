@@ -3,4 +3,4 @@ gunicorn==20.1.0
 itsdangerous==2.0.1
 label-studio-ml==1.0.8
 rq==1.10.1
-werkzeug==2.0.2
+werkzeug==2.2.3
