@@ -14,9 +14,9 @@ https://github.com/heartexlabs/label-studio/blob/master/docs/source/tutorials/ob
 
 # Run without docker
 
-> This steps provided by @raash1d [in this issue](https://github.com/heartexlabs/label-studio-ml-backend/issues/167#issuecomment-1495061050). Note: patch is already applied, except hardcoding label_config into kwargs.
+> These steps provided by @raash1d [in this issue](https://github.com/heartexlabs/label-studio-ml-backend/issues/167#issuecomment-1495061050). Note: the patch from the comment is already applied, except hardcoding of label_config into kwargs.
 
-**It's highly recomended to use docker, it allows to avoid lots of dependencies problems!**
+**It's highly recomended to use docker, it allows to avoid lots of dependency problems!**
 
 1. Clone the Label Studio ML Backend repository in your directory of choice
 ```
