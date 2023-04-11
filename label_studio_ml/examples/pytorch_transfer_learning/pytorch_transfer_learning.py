@@ -1,23 +1,31 @@
+import json
+import os
+import time
+
+import numpy as np
+import requests
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import time
-import os
-import numpy as np
-import requests
-import io
-import hashlib
-import urllib
-
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped, get_local_path
+from label_studio_ml.utils import (get_choice, get_env, get_local_path,
+                                   get_single_tag_keys, is_skipped)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+
+HOSTNAME = get_env('HOSTNAME', 'http://localhost:8080')
+API_KEY = "Input your API_KEY here"
+# API_KEY = get_env("KEY")
+
+print('=> LABEL STUDIO HOSTNAME = ', HOSTNAME)
+print('=> API_KEY = ', API_KEY)
+if not API_KEY:
+    print('=> WARNING! API_KEY is not set')
 
 image_size = 224
 image_transforms = transforms.Compose([
@@ -176,15 +184,47 @@ class ImageClassifierAPI(LabelStudioMLBase):
 
         return predictions
 
-    def fit(self, completions, workdir=None, batch_size=32, num_epochs=10, **kwargs):
+    def _get_annotated_dataset(self, project_id):
+        """Just for demo purposes: retrieve annotated data from Label Studio API"""
+        download_url = f'{HOSTNAME.rstrip("/")}/api/projects/{project_id}/export'
+        response = requests.get(download_url, headers={'Authorization': f'Token {API_KEY}'})
+        if response.status_code != 200:
+            raise Exception(f"Can't load task data using {download_url}, "
+                            f"response status_code = {response.status_code}")
+        return json.loads(response.content)
+    
+    def fit(self, annotations, workdir=None, batch_size=32, num_epochs=10, **kwargs):
         image_urls, image_classes = [], []
         print('Collecting annotations...')
-        for completion in completions:
-            if is_skipped(completion):
-                continue
-            image_urls.append(completion['data'][self.value])
-            image_classes.append(get_choice(completion))
+        
+        # Note: completions is removed after Label Studio 1.5.0
+        # for completion in completions:
+        #     if is_skipped(completion):
+        #         continue
+        #     image_urls.append(completion['data'][self.value])
+        #     image_classes.append(get_choice(completion))
 
+        # check if training is from webhook
+        if kwargs.get('data'):
+            project_id = kwargs['data']['project']['id']
+            tasks = self._get_annotated_dataset(project_id)
+            # print(f"tasks: {tasks}")
+        # ML training without web hook
+        else:
+            tasks = annotations
+
+        for task in tasks:
+            image_urls.append(task['data']['image'])
+            
+            if not task.get('annotations'):
+                continue
+            annotation = task['annotations'][0]
+            # get input text from task data
+            if annotation.get('skipped') or annotation.get('was_cancelled'):
+                continue
+            
+            image_classes.append(annotation['result'][0]['value']['choices'][0])
+        
         print(f'Creating dataset with {len(image_urls)} images...')
         dataset = ImageClassifierDataset(image_urls, image_classes)
         dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size)
@@ -196,5 +236,6 @@ class ImageClassifierAPI(LabelStudioMLBase):
         print('Save model...')
         model_path = os.path.join(workdir, 'model.pt')
         self.model.save(model_path)
+        print("Finish saving.")
 
         return {'model_path': model_path, 'classes': dataset.classes}
