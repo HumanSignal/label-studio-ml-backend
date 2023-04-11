@@ -130,6 +130,16 @@ After you wrap your model code with the class, define the loaders, and define th
 
 For other examples of ML backends, refer to the [examples in this repository](label_studio_ml/examples). These examples aren't production-ready, but can help you set up your own code as a Label Studio ML backend.
 
+## Different port
+
+If you don't want to use the docker, you can run the ML backend with uwsgi workers and use custom port this way: 
+
+```
+label-studio-ml-backend init --script examples/dummy_model/dummy_model.py my_backend
+cd my_backend
+python _wsgi.py -p 4242
+```
+
 ## Deploy your ML backend to GCP
 
 Before you start:
