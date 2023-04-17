@@ -105,7 +105,7 @@ jobs:
         run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml logs
 
       - name: "Upload cloud coverage to Codecov"
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v3.1.2
         with:
           name: codecov
           files: ./label_studio_ml/coverage.xml
