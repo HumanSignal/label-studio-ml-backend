@@ -76,9 +76,9 @@ label-studio start
   </KeyPointLabels>
 </View>
 ```
-To change for your use case - 
+Notes when you change for your use case - 
 - Label values must be the same for KeyPointLabels and BrushLabels
-- smartOnly must only be set to the label values for the Keypoints
+- "smart" should be set to the label values for the Keypoints
 
 
 # Creating the Annotation
