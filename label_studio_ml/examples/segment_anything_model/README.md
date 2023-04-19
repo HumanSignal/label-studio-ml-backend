@@ -20,10 +20,9 @@ cd label-studio-ml-backend
 
 # Install label-studio-ml and its dependencies
 pip install -U -e .
-
-# Install the dependencies for the example or your custom ML backend
-pip install -r path/to/my_ml_backend/requirements.txt
 ```
+
+- [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
 
 ### 3. Download SAM
 
@@ -39,7 +38,7 @@ export ML_TIMEOUT_SETUP=120
 
 ### 5. Installations
 ```
-pip install label-studio numpy opencv-python
+pip install label-studio numpy opencv-python label-studio-converter
 ```
 
 ### 6. Start the Backend
