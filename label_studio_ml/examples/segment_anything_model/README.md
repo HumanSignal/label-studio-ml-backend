@@ -39,7 +39,7 @@ export ML_TIMEOUT_SETUP=120
 
 ### 5. Installations
 ```
-pip install label-studio numpy python-opencv
+pip install label-studio numpy opencv-python
 ```
 
 ### 6. Start the Backend
