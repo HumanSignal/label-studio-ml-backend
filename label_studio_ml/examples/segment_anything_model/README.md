@@ -27,7 +27,8 @@ pip install -U -e .
 ### 3. Download SAM
 
 Follow [SAM installation instructions with pip](https://github.com/facebookresearch/segment-anything). 
-Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything) *into this project's directory*
+Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything)
+Then use the SAM installation instructions from above to convert to ONNX and place *into this project's directory*
 
 ### 4. Add to your bashrc
 ```
@@ -73,12 +74,14 @@ label-studio start
   <KeyPointLabels name="tag2" toName="image">
     <Label value="Banana" smart="true" background="#000000" showInline="true"/>
     <Label value="Orange" smart="true" background="#000000" showInline="true"/>
+    <Label value="Orange Eraser" smart="true" background="#000000" showInline="true"/>
   </KeyPointLabels>
 </View>
 ```
 Notes when you change for your use case - 
 - Label values must be the same for KeyPointLabels and BrushLabels
 - "smart" should be set to the label values for the Keypoints
+- You must format the Eraser string the exact same way, mirroring one of the other labels, in order to use this feature. 
 
 
 # Creating the Annotation
@@ -99,6 +102,7 @@ Notes when you change for your use case -
 8. Click the generated prediction on the left side<br>
 - Click the eraser on the icon tab and erase away
 - Or, add to the brush prediction by choosing the one of the brush labels under the images and drawing on the object you want to label.
+- *Use the eraser label to use SAM's inference to erase from an annotation by cutting off edges in the background*
 - Or, do nothing if it predicted perfectly :)
 
-8. Create more predictions by following step 6-8, then press submit!<br>
+9. Create more predictions by following step 6-8, then press submit!<br>
