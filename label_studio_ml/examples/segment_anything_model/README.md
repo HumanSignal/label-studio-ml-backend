@@ -1,6 +1,8 @@
 # Interactive Annotation in Label Studio with Segment Anything Model
 
-<img src="https://user-images.githubusercontent.com/106922533/232959476-7fc74bbb-24c8-46f3-a1c1-d16f9efcec5f.gif" width="500" />
+<img src="https://user-images.githubusercontent.com/106922533/234322629-e583c838-11eb-4261-aaa1-872f1695720c.gif" width="500" />
+
+<img src="https://user-images.githubusercontent.com/106922533/234322576-a24643f8-aeb6-421c-984e-d0d2e2233cd4.gif" width="500" />
 
 Use Facebook's Segment Anything Model with Label Studio!
 
@@ -10,7 +12,7 @@ Use Facebook's Segment Anything Model with Label Studio!
 
 ### 1. Clone this repo
 
-Place the images you want to annotate in this project's folder.
+Place the images you want to annotate in this project's folder. If you want to use the version of the code that uses slower individual inference times, but has a faster rate on the first label only (not using ONNX), then refer to [this commit instead](https://github.com/shondle/label-studio-ml-backend/tree/4367b18a52a7a494125874467c5e980a6068eca5/label_studio_ml/examples/segment_anything_model)
 
 ### 2. Retrieve Label Studio Code
 
@@ -97,7 +99,7 @@ Notes when you change for your use case -
 
 7. Click on the image where you want SAM to return the auto-segmentation for. <br>
 
-> NOTE: The first time you retrieve a prediction after starting the frontend, it will take a while due to the way Label Studio works with loading models. There is a workaround in this code so that **AFTER THE FIRST RUN, THE PREDICTIONS WILL BE RECIEVED QUICKER.** 
+> NOTE: The first time you retrieve a prediction after starting the frontend, it will take a while due to the way Label Studio works with loading models. There is a workaround in this code so that **AFTER THE FIRST RUN, THE PREDICTIONS WILL BE RECIEVED QUICKER.** On top of this, this commit allows for faster individual inference times overall, but has a slower first label so that a map of the image can be generated. If you would prefer to have overall slower individual inference times, but a faster first inference, then refer to [this commit](https://github.com/shondle/label-studio-ml-backend/tree/4367b18a52a7a494125874467c5e980a6068eca5/label_studio_ml/examples/segment_anything_model).
 
 8. Click the generated prediction on the left side<br>
 - Click the eraser on the icon tab and erase away
