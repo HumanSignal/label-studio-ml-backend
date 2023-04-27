@@ -12,6 +12,37 @@ See the tutorial in the documentation for building your own image and advanced u
 
 https://github.com/heartexlabs/label-studio/blob/master/docs/source/tutorials/object-detector.md
 
+
+# Labeling Config
+There are two possible variants of labeling configurations that can be used:
+
+1. In this example, you can provide labels "as is" and they will be automatically mapped to MMDetection model's labels.
+This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
+
+```
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="label" toName="image">
+    <Label value="Airplane" background="green"/>
+    <Label value="Car" background="blue"/>
+  </RectangleLabels>
+</View>
+```
+
+2. More complex labeling config with `predicted_values`:
+
+```
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="label" toName="image">
+    <Label value="Vehicle" predicted_values="airplane,car" background="green"/>
+  </RectangleLabels>
+</View>
+```
+
+In this example, you can combine multiple labels into one Label Studio label. For example, Label Studio Vehicle maps to MMDetection "airplane" and "car".
+
+
 # Run without docker
 
 > These steps provided by @raash1d [in this issue](https://github.com/heartexlabs/label-studio-ml-backend/issues/167#issuecomment-1495061050). Note: the patch from the comment is already applied, except hardcoding of label_config into kwargs.
@@ -31,7 +62,7 @@ source ml-backend/bin/activate # assuming you're on bash or zsh
 pip install -r requirements.txt
 ```
 
-3. Install and Download mmdet related depedencies in the virtual environment
+3. Install and Download mmdet related dependencies in the virtual environment
 ```
 mim install mmengine
 mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .
