@@ -1,8 +1,5 @@
-import torch
-from torchvision import transforms
 import matplotlib.pyplot as plt
 from segment_anything import sam_model_registry, SamPredictor
-from segment_anything.utils.onnx import SamOnnxModel
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_converter import brush
 from label_studio_ml.utils import get_image_local_path
