@@ -17,13 +17,18 @@ import onnxruntime
 from onnxruntime.quantization import QuantType
 from onnxruntime.quantization.quantize import quantize_dynamic
 
+
+VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
+ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", "sam_onnx_quantized_example.onnx")
+
 def load_my_model():
         """
         Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
         Returns the predictor object. For more, look at Facebook's SAM docs
         """
         device = "cuda"     # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
-        sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
+        
+        sam = sam_model_registry["vit_h"](VITH_CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
         sam.to(device=device)
 
         predictor = SamPredictor(sam)
@@ -39,8 +44,7 @@ previous_id = 0
 onnx_mask_input = np.zeros((1, 1, 256, 256), dtype=np.float32)
 onnx_has_mask_input = np.zeros(1, dtype=np.float32)
 
-onnx_model_path = "sam_onnx_quantized_example.onnx"
-ORT = onnxruntime.InferenceSession(onnx_model_path)
+ORT = onnxruntime.InferenceSession(ONNX_CHECKPOINT)
 
 class MyModel(LabelStudioMLBase):
     def __init__(self, **kwargs):
@@ -60,8 +64,9 @@ class MyModel(LabelStudioMLBase):
         predictor = PREDICTOR
 
         image_url = tasks[0]['data']['image']
+        print(f"the kwargs are {kwargs}")
+        print(f"the tasks are {tasks}")
 
-        print(f"Here are the kwargs now {kwargs}")
 
         # getting the height and width of the image that you are annotating real-time 
         height = kwargs['context']['result'][0]['original_height']
@@ -75,9 +80,11 @@ class MyModel(LabelStudioMLBase):
         label = kwargs['context']['result'][0]['value']['labels'][0]
         keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
 
+        task = tasks[0]
+        img_path = task["data"]["image"]
 
-        # loading the image you are annotating in local. The image_dir MUST MATCH THE DIRECTORY WHERE YOU IMPORTED YOUR ANNOTATIONS INTO LABEL STUDIO FROM
-        image_path = get_image_local_path(image_url, image_dir=os.getcwd())
+        # loading the image you are annotating
+        image_path = get_image_local_path(img_path)
 
 
         # this is to speed up inference after the first time you selected an image
@@ -90,8 +97,7 @@ class MyModel(LabelStudioMLBase):
 
         if image_path != PREV_IMG_PATH:
             PREV_IMG_PATH = image_path
-            split = image_path.split('-')[-1]
-            image = cv2.imread(f"./{split}")
+            image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             PREV_IMG = image
             # retrieving predictions from SAM. For more info, look at Facebook's SAM docs
@@ -131,22 +137,16 @@ class MyModel(LabelStudioMLBase):
 
         # check if SAM eraser is being used
         if 'Eraser' in keypointlabel:
-            print(f"the keypoint label is {keypointlabel}")
-            print("we have made it into the if statement")
             prev_rle = []
             previous_id = []
             type = " ".join(keypointlabel.split()[:-1])
             indexes = np.nonzero(mask)
-            print(f"indexes are {indexes}") # lots of stuff here to 1000 for x and y
 
             for i in tasks[0]['drafts']:
-                print()
                 if tasks[0]['drafts'][0]['result'][0]['value']['brushlabels'][0] == type:
-                    print("we have made it into the 1111 if statement")
                     prev_rle.append(tasks[0]['drafts'][0]['result'][0]['value']['rle'])
-            print("we have made it into the 1111 FOR statement")
+
             prev_mask = brush.decode_rle(prev_rle[-1])
-            print(f"the shape of the prev mask is {prev_mask.shape}")
             prev_mask = np.reshape(prev_mask, [height, width, 4])[:, :, 3]
             prev_mask = (prev_mask/255).astype(np.uint8)
 
