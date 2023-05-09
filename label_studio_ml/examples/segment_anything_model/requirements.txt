@@ -16,6 +16,7 @@ colorama>=0.4.4
 Flask==1.1.2
 lxml>=4.2.5
 Pillow
+gunicorn==20.1.0
 requests>=2.22.0,<3
 label-studio-tools>=0.0.0.dev11
 Jinja2==3.0.3
@@ -24,3 +25,4 @@ werkzeug==2.0.2
 redis<4.6.0
 rq<1.14
 onnx==1.13.1
+opencv-contrib-python-headless
