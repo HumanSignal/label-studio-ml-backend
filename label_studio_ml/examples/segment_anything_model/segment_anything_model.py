@@ -64,18 +64,38 @@ class MyModel(LabelStudioMLBase):
         print(f"the kwargs are {kwargs}")
         print(f"the tasks are {tasks}")
 
+        # smart annotation
+        smart_annotation = kwargs['context']['result'][0]['type']
+        print(f"smart annotation is {smart_annotation}")
+
 
         # getting the height and width of the image that you are annotating real-time 
         height = kwargs['context']['result'][0]['original_height']
         width = kwargs['context']['result'][0]['original_width']
 
+        if smart_annotation == "rectanglelabels":
+            box_width = kwargs['context']['result'][0]['value']['width'] * width / 100
+            box_height = kwargs['context']['result'][0]['value']['height'] * height / 100
+            rectanglelabel = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
+            label = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
+            print(f"the label is {label}")
+
+        else:
+            keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
+            label = kwargs['context']['result'][0]['value']['labels'][0]
+
+            
+
         # getting x and y coordinates of the keypoint
         x = kwargs['context']['result'][0]['value']['x'] * width / 100
         y = kwargs['context']['result'][0]['value']['y'] * height / 100
 
+        print(f"the x and y is {x}, {y}")
+
         # label that you selected with the keypoint. If this is running into error, use the second line of code instead
-        label = kwargs['context']['result'][0]['value']['labels'][0]
-        keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
+        # label = kwargs['context']['result'][0]['value']['labels'][0]
+        
+        
 
         task = tasks[0]
         img_path = task["data"]["image"]
@@ -106,13 +126,34 @@ class MyModel(LabelStudioMLBase):
             image = PREV_IMG
             image_embedding = IMAGE_EMBEDDING
 
-        input_point = np.array([[int(x), int(y)]])
-        input_label = np.array([1])
+        # for bounding boxes
+        if smart_annotation == "rectanglelabels":
+            input_box = np.array([int(x), int(y), int(box_width+x), int(box_height+y)])
+            print(f"the x and y is {x}, {y} and the box width and height are {box_width+x}, {box_height+y}")
+            # input_label = np.array([0])
+            onnx_box_coords = input_box.reshape(2,2)
+            onnx_box_labels = np.array([2, 3])
+            # onnx_coord = np.concatenate([None, onnx_box_coords], axis=0)[None, :, :]
+            onnx_coord = np.concatenate([onnx_box_coords, np.array([[0, 0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([onnx_box_labels, np.array([-1])], axis=0)[None, :].astype(np.float32)
 
-        onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
-        onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
+            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
+            keypointlabel = ""
 
-        onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
+
+        
+        # for keypoints
+        if smart_annotation == "keypointlabels":
+            input_point = np.array([[int(x), int(y)]])
+            input_label = np.array([1])
+
+            onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
+
+            print(f"the onnx_coord and onnx_label is {onnx_coord}, {onnx_label}")
+
+
+            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
 
         # Package to run in onnx
         ort_inputs = {
