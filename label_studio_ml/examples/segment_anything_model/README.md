@@ -78,8 +78,13 @@ label-studio start
     <Label value="Orange" smart="true" background="#000000" showInline="true"/>
     <Label value="Orange Eraser" smart="true" background="#000000" showInline="true"/>
   </KeyPointLabels>
+  <RectangleLabels name="tag3" toName="image">
+    <Label value="Banana" smart="true" background="#000000" showInline="true"/>
+    <Label value="Orange" smart= "true" background="#000000" showInline="true"/>
+  </RectangleLabels>
 </View>
 ```
+
 Notes when you change for your use case - 
 - Label values must be the same for KeyPointLabels and BrushLabels
 - "smart" should be set to the label values for the Keypoints
