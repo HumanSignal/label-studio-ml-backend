@@ -754,15 +754,16 @@ class LabelStudioMLManager(object):
         @return: List of model versions for current model
         """
         V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
+        project_model_dir = os.path.join(cls.model_dir, project or '')
         if not V2:
-            project_model_dir = os.path.join(cls.model_dir, project or '')
             if not os.path.exists(project_model_dir):
                 return []
-        else:
-            project_model_dir = cls.model_dir
+        # else:
+        #    project_model_dir = cls.model_dir
 
         # get directories with training results
         final_models = []
+
         for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
             job_result_file = os.path.join(project_model_dir, str(subdir), 'job_result.json')
             # check if there is job result
