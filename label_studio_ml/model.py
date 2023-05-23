@@ -7,8 +7,10 @@ import redis
 import attr
 import io
 import rq
+
 try:
     import torch.multiprocessing as mp
+
     try:
         mp.set_start_method('spawn')
     except RuntimeError:
@@ -38,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
 AUTO_UPDATE_DEFAULT = False
+
 
 @attr.s
 class ModelWrapper(object):
@@ -109,8 +112,9 @@ class JobManager(object):
         DON'T OVERRIDE THIS FUNCTION! Instead, override _get_result_from_job_id
         """
         result = self._get_result_from_job_id(job_id)
-        assert isinstance(result, dict), f"Job {job_id} was finished unsuccessfully. No result was saved in job folder." \
-                                         f"Please clean up failed job folders to remove this error from log."
+        assert isinstance(result, dict), \
+            f"Training job {job_id} was finished unsuccessfully. No result was saved in job folder." \
+            f"Please clean up failed job folders to remove this error from log."
         result['job_id'] = job_id
         return result
 
@@ -195,8 +199,11 @@ class SimpleJobManager(JobManager):
             return None
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
-            logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
-                           f"It seems that previous training session ended with error.")
+            logger.warning(
+                f"=> Warning: {job_id} dir doesn't contain result file. "
+                f"It seems that previous training session was never done or ended with error. "
+                f"It is normal to see it if your model doesn't have fit() implementation at all. "
+            )
             # Return empty dict if training is failed OR None if Error message is needed in case of failed train
             IGNORE_FAILED_TRAINING = get_env("IGNORE_FAILED_TRAINING", is_bool=True)
             return {} if IGNORE_FAILED_TRAINING else None
@@ -232,6 +239,7 @@ class RQJobManager(JobManager):
     """
 
     MAX_QUEUE_LEN = 1  # Controls a maximal amount of simultaneous jobs running in queue.
+
     # If exceeded, new jobs are ignored
 
     def __init__(self, redis_host, redis_port, redis_queue):
@@ -293,7 +301,6 @@ class RQJobManager(JobManager):
 
 
 class LabelStudioMLBase(ABC):
-    
     TRAIN_EVENTS = (
         'ANNOTATION_CREATED',
         'ANNOTATION_UPDATED',
@@ -307,7 +314,7 @@ class LabelStudioMLBase(ABC):
         self.parsed_label_config = parse_config(self.label_config) if self.label_config else {}
         self.train_output = train_output or {}
         self.hostname = kwargs.get('hostname', '') or get_env('HOSTNAME')
-        self.access_token = kwargs.get('access_token', '')  or get_env('ACCESS_TOKEN') or get_env('API_KEY')
+        self.access_token = kwargs.get('access_token', '') or get_env('ACCESS_TOKEN') or get_env('API_KEY')
 
     @abstractmethod
     def predict(self, tasks, **kwargs):
@@ -328,7 +335,6 @@ class LabelStudioMLBase(ABC):
 
 
 class LabelStudioMLManager(object):
-
     model_class = None
     model_dir = None
     redis_host = None
@@ -342,8 +348,8 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def initialize(
-        cls, model_class, model_dir=None, redis_host='localhost', redis_port=6379, redis_queue='default',
-        **init_kwargs
+            cls, model_class, model_dir=None, redis_host='localhost', redis_port=6379, redis_queue='default',
+            **init_kwargs
     ):
         if not issubclass(model_class, LabelStudioMLBase):
             raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
@@ -452,7 +458,7 @@ class LabelStudioMLManager(object):
     @classmethod
     def has_active_model(cls, project):
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-        # TODO: Deprecated branch since LS 1.5
+            # TODO: Deprecated branch since LS 1.5
             return cls._key(project) in cls._current_model
         else:
             return cls._current_model is not None
@@ -460,7 +466,7 @@ class LabelStudioMLManager(object):
     @classmethod
     def get(cls, project):
         if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-        # TODO: Deprecated branch since LS 1.5
+            # TODO: Deprecated branch since LS 1.5
             key = cls._key(project)
             logger.debug('Get project ' + str(key))
             return cls._current_model.get(key)
@@ -488,7 +494,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def get_or_create(
-        cls, project=None, label_config=None, force_reload=False, train_output=None, version=None, **kwargs
+            cls, project=None, label_config=None, force_reload=False, train_output=None, version=None, **kwargs
     ):
         m = cls.get(project)
         # reload new model if model is not loaded into memory OR force_reload=True OR model versions are mismatched
@@ -529,7 +535,8 @@ class LabelStudioMLManager(object):
             return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
-        if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None) or \
+        if not cls._current_model or (
+                model_version != cls._current_model.model_version and model_version is not None) or \
                 os.getenv('AUTO_UPDATE', default=AUTO_UPDATE_DEFAULT):
             jm = cls.get_job_manager()
             model_version = kwargs.get('model_version')
@@ -593,7 +600,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def predict(
-        cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
+            cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
     ):
         """
         Make prediction for tasks
@@ -636,7 +643,7 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def train_script_wrapper(
-        cls, project, label_config, train_kwargs, initialization_params=None, tasks=()
+            cls, project, label_config, train_kwargs, initialization_params=None, tasks=()
     ):
 
         if initialization_params:
@@ -750,14 +757,16 @@ class LabelStudioMLManager(object):
         @return: List of model versions for current model
         """
         V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
+        project_model_dir = os.path.join(cls.model_dir, project or '')
         if not V2:
-            project_model_dir = os.path.join(cls.model_dir, project or '')
             if not os.path.exists(project_model_dir):
                 return []
-        else:
-            project_model_dir = cls.model_dir
-        # get directories with traing results
+        # else:
+        #    project_model_dir = cls.model_dir
+
+        # get directories with training results
         final_models = []
+
         for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
             job_result_file = os.path.join(project_model_dir, str(subdir), 'job_result.json')
             # check if there is job result
@@ -773,7 +782,6 @@ class LabelStudioMLManager(object):
         return final_models
 
 
-
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
     names = set()
     abs_path = os.path.abspath(script_file)
@@ -783,7 +791,7 @@ def get_all_classes_inherited_LabelStudioMLBase(script_file):
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
         print(Fore.RED + 'Can\'t import module "' + module_name + f'", reason: {e}.\n'
-              'If you are looking for examples, you can find a dummy model.py here:\n' +
+                                                                  'If you are looking for examples, you can find a dummy model.py here:\n' +
               Fore.LIGHTYELLOW_EX + 'https://labelstud.io/tutorials/dummy_model.html')
         module = None
         exit(-1)
