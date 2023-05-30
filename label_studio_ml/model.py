@@ -36,7 +36,7 @@ from label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 
-LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = False
+LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = True
 AUTO_UPDATE_DEFAULT = False
 
 @attr.s
