@@ -109,8 +109,9 @@ class JobManager(object):
         DON'T OVERRIDE THIS FUNCTION! Instead, override _get_result_from_job_id
         """
         result = self._get_result_from_job_id(job_id)
-        assert isinstance(result, dict), f"Job {job_id} was finished unsuccessfully. No result was saved in job folder." \
-                                         f"Please clean up failed job folders to remove this error from log."
+        assert isinstance(result, dict), \
+            f"Training job {job_id} was finished unsuccessfully. No result was saved in job folder." \
+            f"Please clean up failed job folders to remove this error from log."
         result['job_id'] = job_id
         return result
 
@@ -195,8 +196,11 @@ class SimpleJobManager(JobManager):
             return None
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
-            logger.warning(f"=> Warning: {job_id} dir doesn't contain result file. "
-                           f"It seems that previous training session ended with error.")
+            logger.warning(
+                f"=> Warning: {job_id} dir doesn't contain result file. "
+                f"It seems that previous training session was never done or ended with error. "
+                f"It is normal to see it if your model doesn't have fit() implementation at all. "
+            )
             # Return empty dict if training is failed OR None if Error message is needed in case of failed train
             IGNORE_FAILED_TRAINING = get_env("IGNORE_FAILED_TRAINING", is_bool=True)
             return {} if IGNORE_FAILED_TRAINING else None
@@ -756,7 +760,8 @@ class LabelStudioMLManager(object):
                 return []
         else:
             project_model_dir = cls.model_dir
-        # get directories with traing results
+
+        # get directories with training results
         final_models = []
         for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
             job_result_file = os.path.join(project_model_dir, str(subdir), 'job_result.json')
