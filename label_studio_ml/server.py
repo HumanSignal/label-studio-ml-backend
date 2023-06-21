@@ -168,7 +168,7 @@ def deploy_to_gcp(args):
         service_name,
         "--source", output_dir,
         "--region", region,
-        "--update-env-vars", f"OPENAI_API_KEY=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,LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
+        "--update-env-vars", f"LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
     ]), input=b"y", shell=True)
 
 
