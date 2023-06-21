@@ -458,12 +458,20 @@ class TransformersBasedTagger(LabelStudioMLBase):
                 })
         return spans
 
+    def _get_annotated_dataset(self, project_id):
+        raise NotImplementedError('For this model, you need to implement data ingestion pipeline: '
+                                  'go to ner.py > _get_annotated_dataset() and put your logic to retrieve'
+                                  f'the list of annotated tasks from Label Studio project ID = {project_id}')
+
     def fit(
-        self, completions, workdir=None, model_type='bert', pretrained_model='bert-base-uncased',
+        self, event, data, model_type='bert', pretrained_model='bert-base-uncased',
         batch_size=32, learning_rate=5e-5, adam_epsilon=1e-8, num_train_epochs=100, weight_decay=0.0, logging_steps=1,
         warmup_steps=0, save_steps=50, dump_dataset=True, cache_dir='~/.heartex/cache', train_logs=None,
         **kwargs
     ):
+        workdir = os.getenv('WORK_DIR')
+        if workdir is None:
+            raise ValueError('Specify "WORK_DIR" environmental variable to store model checkpoints.')
         train_logs = train_logs or os.path.join(workdir, 'train_logs')
         os.makedirs(train_logs, exist_ok=True)
         logger.debug('Prepare models')
@@ -479,6 +487,7 @@ class TransformersBasedTagger(LabelStudioMLBase):
         logger.debug('Read data')
         # read input data stream
         texts, list_of_spans = [], []
+        completions = self._get_annotated_dataset(data['project_id'])
         for item in completions:
             texts.append(item['data'][self.value])
             list_of_spans.append(self.get_spans(item['annotations'][0]))

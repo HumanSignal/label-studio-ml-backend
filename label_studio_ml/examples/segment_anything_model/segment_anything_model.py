@@ -197,6 +197,3 @@ class MyModel(LabelStudioMLBase):
         })
 
         return predictions
-
-    def fit(self, completions, workdir=None, **kwargs):
-        return {'random': random.randint(1, 10)}

@@ -60,6 +60,3 @@ class DialoGPTSimpleGenerator(LabelStudioMLBase):
                 }
             }]
         }]
-
-    def fit(self, completions, workdir=None, **kwargs):
-        return {}

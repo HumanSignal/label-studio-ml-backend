@@ -85,12 +85,12 @@ def create_dir(args):
         raise FileExistsError('Model directory already exists. Please remove it or use --force option.')
 
     default_configs_dir = os.path.join(os.path.dirname(__file__), 'default_configs')
-    shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.tmpl'))
+    shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.py', '*.tmpl'))
 
     # extract script name and model class
     if not args.script:
-        logger.warning('You don\'t specify script path: by default, "./model.py" is used')
-        script_path = 'model.py'
+        script_path = os.path.join(default_configs_dir, 'model.py')
+        logger.warning(f'You don\'t specify script path: by default, "{script_path}" is used')
     else:
         script_path = args.script
 
@@ -145,7 +145,7 @@ def start_server(args, subprocess_params):
 
 def deploy_to_gcp(args):
     # create project with
-    create_dir(args)
+    # create_dir(args)
     # prepare params for gcloud: dir with script, project id, region and service name
     output_dir = os.path.join(args.root_dir, args.project_name)
     project_id = args.gcp_project or os.environ.get("GCP_PROJECT")
@@ -168,7 +168,7 @@ def deploy_to_gcp(args):
         service_name,
         "--source", output_dir,
         "--region", region,
-        "--update-env-vars", f"LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
+        "--update-env-vars", f"OPENAI_API_KEY=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,LABEL_STUDIO_ML_BACKEND_V2=1,LABEL_STUDIO_HOSTNAME={args.label_studio_host},LABEL_STUDIO_API_KEY={args.label_studio_api_key}"
     ]), input=b"y", shell=True)
 
 

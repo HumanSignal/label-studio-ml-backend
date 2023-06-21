@@ -49,16 +49,13 @@ class MyModel(LabelStudioMLBase):
         tasks = project.get_labeled_tasks()
         return tasks
 
-    def fit(self, tasks, workdir=None, **kwargs):
+    def fit(self, event, data,  **kwargs):
         """
         This method is called each time an annotation is created or updated
         :param kwargs: contains "data" and "event" key, that could be used to retrieve project ID and annotation event type
                         (read more in https://labelstud.io/guide/webhook_reference.html#Annotation-Created)
         :return: dictionary with trained model artefacts that could be used further in code with self.train_output
         """
-        if 'data' not in kwargs:
-            raise KeyError(f'Project is not identified. Go to Project Settings -> Webhooks, and ensure you have "Send Payload" enabled')
-        data = kwargs['data']
         project = data['project']['id']
         tasks = self.download_tasks(project)
         if len(tasks) > 0:
