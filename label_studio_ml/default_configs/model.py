@@ -1,5 +1,6 @@
 import logging
 import json
+from datetime import datetime
 
 from label_studio_ml.model import LabelStudioMLBase
 
@@ -31,7 +32,7 @@ class NewModel(LabelStudioMLBase):
         logger.debug(f'Run prediction on {json.dumps(tasks, indent=2)}')
         return []
 
-    def fit(self, tasks, workdir=None, **kwargs):
+    def fit(self, event, data,  **kwargs):
         """
         This method is called each time an annotation is created or updated
         :param kwargs: contains "data" and "event" key, that could be used to retrieve project ID and annotation event type
@@ -45,4 +46,8 @@ class NewModel(LabelStudioMLBase):
         project_id = data['project']['id']
         # write your logic to acquire new tasks, and perform training
         # train_output payload can be retrieved later in subsequent function calls
-        return {'any_model': 'checkpoint'}
+        return {
+            'any_model': 'checkpoint',
+            'project': project_id,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
