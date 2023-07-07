@@ -32,6 +32,7 @@ docker-compose up
 ```
 
 5. Configure the model endpoint. 
-Once all of the services have started, we will need to [configure the model endpoint](https://labelstud.io/guide/ml.html#Add-an-ML-backend-using-the-Label-Studio-UI) in our Label Studio project. 
+Once all of the services have started, we will create a sentiment analysis project and [configure the model endpoint](https://labelstud.io/guide/ml.html#Add-an-ML-backend-using-the-Label-Studio-UI) in our Label Studio project. 
 In Docker Compose, our model service can be accessed at `http://server:9090`.
 
+6. You can now select tasks to retrieve predictions from the GPT models. 
