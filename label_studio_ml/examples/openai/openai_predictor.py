@@ -1,19 +1,13 @@
 import pickle
 import os
-import numpy as np
 import requests
 import json
 from uuid import uuid4
 
-import openai
-import re
-
-# from sklearn.linear_model import LogisticRegression
-# from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.pipeline import make_pipeline
-
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_env
+import openai
+import re
 
 
 HOSTNAME = get_env('HOSTNAME', 'http://localhost:8080')
@@ -31,7 +25,6 @@ class OpenAIPrecitor(LabelStudioMLBase):
         # don't forget to initialize base class...
         super(OpenAIPrecitor, self).__init__(**kwargs)
 
-        # then collect all keys from config which will be used to extract data from task and to form prediction
         # Parsed label config contains only one output of <Choices> type
         assert len(self.parsed_label_config) == 1
         self.from_name, self.info = list(self.parsed_label_config.items())[0]
@@ -46,19 +39,26 @@ class OpenAIPrecitor(LabelStudioMLBase):
 
     def _get_sentiment(self, input_text):
         prompt = f"Respond in the json format: {{'response': sentiment_classification}}\nText: {input_text}\nSentiment (Positive, Neutral, Negative):"
+        
+        # Call OpenAI's API to create a chat completion using the GPT-3 model
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt}  # The 'user' role is assigned to the prompt
             ],
-            max_tokens=40,
-            n=1,
-            stop=None,
-            temperature=0.5,
+            max_tokens=40,  # Maximum number of tokens in the response is set to 40
+            n=1,  # We only want one response
+            stop=None,  # There are no specific stop sequences
+            temperature=0.5,  # The temperature parameter affects randomness in the output. Lower values (like 0.5) make the output more deterministic.
         )
+        
+        # Extract the response text from the ChatCompletion response
         response_text =  response.choices[0].message['content'].strip()
+        
+        # Extract the sentiment from the response text using regular expressions
         sentiment = re.search("Negative|Neutral|Positive", response_text).group(0)
-        # Add input_text back in for the result
+        
+        # Return the input_text along with the identified sentiment
         return {"text": input_text, "response": sentiment}
 
     def predict(self, tasks, **kwargs):
