@@ -82,4 +82,3 @@ class OpenAIPrecitor(LabelStudioMLBase):
             predictions.append({'result': result, 'score': 1.0})
 
         return predictions
-    
