@@ -12,9 +12,9 @@ openai.api_key = os.environ['OPENAI_API_KEY']
 
 class OpenAIPredictor(LabelStudioMLBase):
     DEFAULT_PROMPT = '''\
-    Categorize text into different topics.
-    Text: {text}
-    Topics: {labels}'''
+Categorize text into different topics.
+Text: {text}
+Topics: {labels}'''
 
     def __init__(self, **kwargs):
         # don't forget to initialize base class...
@@ -34,9 +34,14 @@ class OpenAIPredictor(LabelStudioMLBase):
         self.labels = self.info['labels']
 
         self.openai_model = kwargs.get('model', 'gpt-3.5-turbo')
-        self.openai_max_tokens = kwargs.get('max_tokens', 40)
-        self.openai_temperature = kwargs.get('temperature', 0.5)
+        self.openai_max_tokens = int(kwargs.get('max_tokens', 40))
+        self.openai_temperature = float(kwargs.get('temperature', 0.5))
         self.openai_prompt = kwargs.get('prompt', self.DEFAULT_PROMPT)
+
+        logger.debug(
+            f'Initialize OpenAI API with the following parameters:'
+            f' model={self.openai_model}, max_tokens={self.openai_max_tokens}, temperature={self.openai_temperature},'
+            f' prompt={self.openai_prompt}')
 
     def _get_predicted_label(self, task_data):
         # Create a prompt for the OpenAI API
@@ -68,12 +73,12 @@ class OpenAIPredictor(LabelStudioMLBase):
     def predict(self, tasks, **kwargs):
         predictions = []
         for task in tasks:
-            predicted_label = self._get_predicted_label(task['data'])
+            predicted_labels = self._get_predicted_label(task['data'])
             result = [{
                 'from_name': self.from_name,
                 'to_name': self.to_name,
                 'type': 'choices',
-                'value': {'choices': [predicted_label]}
+                'value': {'choices': predicted_labels}
             }]
             predictions.append({'result': result, 'score': 1.0})
         return predictions
