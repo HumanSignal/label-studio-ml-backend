@@ -19,11 +19,11 @@ if not API_KEY:
     print('=> WARNING! API_KEY is not set')
 
 
-class OpenAIPrecitor(LabelStudioMLBase):
+class OpenAIPredictor(LabelStudioMLBase):
 
     def __init__(self, **kwargs):
         # don't forget to initialize base class...
-        super(OpenAIPrecitor, self).__init__(**kwargs)
+        super(OpenAIPredictor, self).__init__(**kwargs)
 
         # Parsed label config contains only one output of <Choices> type
         assert len(self.parsed_label_config) == 1
