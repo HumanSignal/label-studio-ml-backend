@@ -11,4 +11,4 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - "${PWD}/prompt.txt:/app/prompt.txt"
+      - "./prompt.txt:/app/prompt.txt"
