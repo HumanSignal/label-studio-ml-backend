@@ -14,13 +14,13 @@ logging.config.dictConfig({
   "handlers": {
     "console": {
       "class": "logging.StreamHandler",
-      "level": "DEBUG",
+      "level": os.getenv('LOG_LEVEL'),
       "stream": "ext://sys.stdout",
       "formatter": "standard"
     }
   },
   "root": {
-    "level": "ERROR",
+    "level": os.getenv('LOG_LEVEL'),
     "handlers": [
       "console"
     ],

@@ -1,8 +1,11 @@
 import os
 import openai
 import difflib
+import logging
 
 from label_studio_ml.model import LabelStudioMLBase
+
+logger = logging.getLogger(__name__)
 
 openai.api_key = os.environ['OPENAI_API_KEY']
 
@@ -49,17 +52,9 @@ class OpenAIPredictor(LabelStudioMLBase):
             stop=None,  # There are no specific stop sequences
             temperature=self.openai_temperature,  # The temperature parameter affects randomness in the output. Lower values (like 0.5) make the output more deterministic.
         )
-        
+        logger.debug(f'OpenAI response: {response}')
         # Extract the response text from the ChatCompletion response
         response_text = response.choices[0].message['content'].strip()
-
-        def _match_labels(self, predicted_classes):
-            matched_labels = []
-            for pred in predicted_classes:
-                scores = list(map(lambda l: difflib.SequenceMatcher(None, pred, l).ratio(), self.labels))
-                print(f'{pred} --> {self.labels} / {scores}')
-                matched_labels.append(self.labels[scores.index(max(scores))])
-            return matched_labels
         
         # Extract the matched labels from the response text
         matched_labels = []
