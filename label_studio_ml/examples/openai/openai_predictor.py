@@ -11,10 +11,7 @@ openai.api_key = os.environ['OPENAI_API_KEY']
 
 
 class OpenAIPredictor(LabelStudioMLBase):
-    DEFAULT_PROMPT = '''\
-Categorize text into different topics.
-Text: {text}
-Topics: {labels}'''
+    DEFAULT_PROMPT = os.path.join(os.path.dirname(__file__), 'prompt.txt')
 
     def __init__(self, **kwargs):
         # don't forget to initialize base class...
@@ -37,6 +34,9 @@ Topics: {labels}'''
         self.openai_max_tokens = int(kwargs.get('max_tokens', 40))
         self.openai_temperature = float(kwargs.get('temperature', 0.5))
         self.openai_prompt = kwargs.get('prompt', self.DEFAULT_PROMPT)
+        if os.path.isfile(self.openai_prompt):
+            with open(self.openai_prompt) as f:
+                self.openai_prompt = f.read()
 
         logger.debug(
             f'Initialize OpenAI API with the following parameters:'
