@@ -6,4 +6,4 @@ rq==1.10.1
 scikit-learn==0.24.1
 numpy
 openai==0.27.4
-werkzeug==2.0.2
+werkzeug==2.2.3
