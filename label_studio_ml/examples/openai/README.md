@@ -25,14 +25,14 @@ Open the `docker-compose.yml` file and replace <your_openai_key> with your OpenA
 OPENAI_API_KEY=<your_openai_key>
 ```
 
-4. Start all the services
-With everything configured, we can start the services locally with Docker Compose. 
+4. Start ML backend
+With everything configured, we can start ML backend locally with Docker Compose. 
 ```bash
 docker-compose up
 ```
 
 5. Configure the model endpoint. 
 Once all of the services have started, we will create a sentiment analysis project and [configure the model endpoint](https://labelstud.io/guide/ml.html#Add-an-ML-backend-using-the-Label-Studio-UI) in our Label Studio project. 
-In Docker Compose, our model service can be accessed at `http://server:9090`.
+In Docker Compose, our model service can be accessed at `http://localhost:9090`.
 
 6. You can now select tasks to retrieve predictions from the GPT models. 
