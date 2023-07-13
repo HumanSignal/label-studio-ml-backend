@@ -152,7 +152,7 @@ def deploy_to_gcp(args):
     if not project_id:
         raise KeyError("Project id wasn't found in ENV variables!")
     region = args.gcp_region or os.environ.get("GCP_REGION", "us-central1")
-    service_name = args.project_name
+    service_name = args.project_name.replace('_', '-')
     # check service name
     # if special_match(service_name):
     #     raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")
