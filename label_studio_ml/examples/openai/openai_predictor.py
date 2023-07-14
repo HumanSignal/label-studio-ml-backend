@@ -47,7 +47,7 @@ class OpenAIPredictor(LabelStudioMLBase):
         if os.path.isfile(self.openai_prompt):
             # Read the prompt from the file
             # that allows changing the prompt without restarting the server
-            # use it only
+            # use it only for development
             with open(self.openai_prompt) as f:
                 prompt = f.read()
         else:
