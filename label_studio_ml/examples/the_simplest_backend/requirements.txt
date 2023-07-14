@@ -1,4 +1,4 @@
 gunicorn==20.1.0
--e git+https://github.com/heartexlabs/label-studio-ml-backend@cff9bff42b4176e9a2c043580182f759a87c4c21#egg=label-studio-ml
+-e git+https://github.com/heartexlabs/label-studio-ml-backend@master#egg=label-studio-ml
 label-studio-sdk>=0.0.21
 rq==1.10.0

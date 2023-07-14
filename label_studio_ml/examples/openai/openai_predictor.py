@@ -43,9 +43,20 @@ class OpenAIPredictor(LabelStudioMLBase):
             f' model={self.openai_model}, max_tokens={self.openai_max_tokens}, temperature={self.openai_temperature},'
             f' prompt={self.openai_prompt}')
 
+    def _get_prompt(self, task_data):
+        if os.path.isfile(self.openai_prompt):
+            # Read the prompt from the file
+            # that allows changing the prompt without restarting the server
+            # use it only for development
+            with open(self.openai_prompt) as f:
+                prompt = f.read()
+        else:
+            prompt = self.openai_prompt
+        return prompt.format(labels=self.labels, **task_data)
+
     def _get_predicted_label(self, task_data):
         # Create a prompt for the OpenAI API
-        prompt = self.openai_prompt.format(labels=self.labels, **task_data)
+        prompt = self._get_prompt(task_data)
         # Call OpenAI's API to create a chat completion using the GPT-3 model
         response = openai.ChatCompletion.create(
             model=self.openai_model,
