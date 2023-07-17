@@ -41,6 +41,8 @@ class easyOCRLabeling(LabelStudioMLBase):
 
         lang_list = lang_list or ['mn', 'en']
 
+        # add NOOP change for testing purposes
+        noop = None
         # default Label Studio image upload folder
         self.labels_file = labels_file
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')

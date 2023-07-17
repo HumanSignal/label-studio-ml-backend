@@ -50,6 +50,8 @@ with warnings.catch_warnings():
             dynamic_axes=dynamic_axes,
         )    
 
+# add NOOP change for testing purposes
+noop = None
 
 onnx_model_quantized_path = "sam_onnx_quantized_example.onnx"
 quantize_dynamic(

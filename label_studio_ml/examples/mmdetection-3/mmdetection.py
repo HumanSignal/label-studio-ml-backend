@@ -53,6 +53,8 @@ class MMDetection(LabelStudioMLBase):
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
+        # add NOOP change for testing purposes
+        noop = None
 
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')

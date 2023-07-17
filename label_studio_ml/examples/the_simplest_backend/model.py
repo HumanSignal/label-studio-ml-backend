@@ -34,6 +34,9 @@ class MyModel(LabelStudioMLBase):
             }] * len(tasks)
         else:
             output_prediction = []
+        # add NOOP change for testing purposes
+        noop = None
+
         print(f'Return output prediction: {json.dumps(output_prediction, indent=2)}')
         return output_prediction
 
