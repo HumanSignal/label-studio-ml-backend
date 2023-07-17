@@ -76,7 +76,7 @@ class JobManager(object):
             model_version = data.get('model_version') or data.get('project', {}).get('model_version')
             job_result = self.get_result(model_version)
             label_config = data.get('label_config') or data.get('project', {}).get('label_config')
-            train_output = job_result.get('train_output')
+            train_output = job_result
             logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
             model = model_class(label_config=label_config, train_output=train_output)
             additional_params = self.get_additional_params(event, data, job_id)
