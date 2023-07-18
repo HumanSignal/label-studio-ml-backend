@@ -38,6 +38,22 @@ jobs:
 
     steps:
       - uses: hmarr/debug-action@v2.1.0
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
 
       - name: Extract branch name on direct push to a branch
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
