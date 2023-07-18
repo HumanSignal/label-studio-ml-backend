@@ -38,6 +38,8 @@ class MMDetection(LabelStudioMLBase):
         :param device: device (cpu, cuda:0, cuda:1, ...)
         :param kwargs: can contain endpoint_url in case of non amazon s3
         """
+        # add NOOP change for testing purposes
+        noop = None
         super(MMDetection, self).__init__(**kwargs)
         config_file = config_file or os.environ['config_file']
         checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
