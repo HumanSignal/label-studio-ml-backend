@@ -4,6 +4,11 @@ ARG CUDNN="8"
 
 FROM pytorch/pytorch:${PYTORCH}-cuda${CUDA}-cudnn${CUDNN}-devel
 
+RUN rm -rf /usr/share/dotnet
+RUN rm -rf /opt/ghc
+RUN rm -rf "/usr/local/share/boost"
+RUN rm -rf "$AGENT_TOOLSDIRECTORY"
+
 # To fix GPG key error when running apt-get update
 RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub \
     && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
