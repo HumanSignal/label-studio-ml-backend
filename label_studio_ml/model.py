@@ -72,16 +72,16 @@ class JobManager(object):
         :param job_id: user-defined job identifier
         :return: json-serializable job result
         """
-        with self.start_run(event, data, job_id):
-            model_version = data.get('model_version') or data.get('project', {}).get('model_version')
-            job_result = self.get_result(model_version)
-            label_config = data.get('label_config') or data.get('project', {}).get('label_config')
-            train_output = job_result
-            logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
-            model = model_class(label_config=label_config, train_output=train_output)
-            additional_params = self.get_additional_params(event, data, job_id)
-            result = model.process_event(event, data, job_id, additional_params)
-            self.post_process(event, data, job_id, result)
+        # with self.start_run(event, data, job_id):
+        model_version = data.get('model_version') or data.get('project', {}).get('model_version')
+        job_result = self.get_result(model_version)
+        label_config = data.get('label_config') or data.get('project', {}).get('label_config')
+        train_output = job_result
+        logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
+        model = model_class(label_config=label_config, train_output=train_output)
+        additional_params = self.get_additional_params(event, data, job_id)
+        result = model.process_event(event, data, job_id, additional_params)
+        self.post_process(event, data, job_id, result)
 
         logger.debug(f'Finished processing event {event}! Return result: {result}')
         return result
@@ -192,15 +192,13 @@ class SimpleJobManager(JobManager):
         if not os.path.exists(job_dir):
             logger.warning(f"=> Warning: {job_dir} dir doesn't exist. "
                            f"It seems that you don't have specified model dir.")
-            return None
+            return
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
             logger.warning(f"=> Warning: {job_dir} dir doesn't contain result file {result_file} "
                            f"It seems that previous training session ended with error."
                            f"If you haven't implemented fit() method - ignore this message.")
-            # Return empty dict if training is failed OR None if Error message is needed in case of failed train
-            IGNORE_FAILED_TRAINING = get_env("IGNORE_FAILED_TRAINING", is_bool=True)
-            return {} if IGNORE_FAILED_TRAINING else None
+            return
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)
@@ -211,13 +209,22 @@ class SimpleJobManager(JobManager):
         return reversed(sorted(map(int, filter(lambda d: d.isdigit(), os.listdir(self.model_dir)))))
 
     def post_process(self, event, data, job_id, result):
-        if isinstance(result, dict) and result:
-            result_file = os.path.join(self._job_dir(job_id), self.JOB_RESULT)
-            logger.debug(f'Saving job {job_id} result to file: {result_file}')
-            with open(result_file, mode='w') as f:
-                json.dump(result, f)
-        else:
-            logger.info(f'Cannot save result {result}')
+        if not result or not isinstance(result, dict):
+            logger.warning(f'Cannot save result {result}')
+            return
+
+        job_dir = self._job_dir(job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        with open(os.path.join(job_dir, 'event.json'), mode='w') as f:
+            event_data = {'event': event, 'job_id': job_id}
+            if data:
+                event_data['data'] = data
+            json.dump(event_data, f, indent=2)
+
+        result_file = os.path.join(job_dir, self.JOB_RESULT)
+        logger.debug(f'Saving job {job_id} result to file: {result_file}')
+        with open(result_file, mode='w') as f:
+            json.dump(result, f)
 
     def run_job(self, model_class, args: tuple):
         if self.async_job:
