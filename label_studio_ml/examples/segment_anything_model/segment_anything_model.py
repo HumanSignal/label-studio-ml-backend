@@ -23,7 +23,7 @@ def load_my_model():
         Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
         Returns the predictor object. For more, look at Facebook's SAM docs
         """
-        device = "cuda"     # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
+        device = "cpu"     # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
         
         sam = sam_model_registry["vit_h"](VITH_CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
         sam.to(device=device)
