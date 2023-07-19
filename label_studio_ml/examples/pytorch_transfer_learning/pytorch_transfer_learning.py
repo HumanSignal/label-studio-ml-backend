@@ -20,6 +20,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 HOSTNAME = get_env('HOSTNAME', 'http://localhost:8080')
 API_KEY = "Input your API_KEY here"
+MODEL_DIR = os.getenv('MODEL_DIR')
 # API_KEY = get_env("KEY")
 
 print('=> LABEL STUDIO HOSTNAME = ', HOSTNAME)
@@ -193,25 +194,12 @@ class ImageClassifierAPI(LabelStudioMLBase):
                             f"response status_code = {response.status_code}")
         return json.loads(response.content)
     
-    def fit(self, annotations, workdir=None, batch_size=32, num_epochs=10, **kwargs):
+    def fit(self, event, data, batch_size=32, num_epochs=10, **kwargs):
         image_urls, image_classes = [], []
         print('Collecting annotations...')
-        
-        # Note: completions is removed after Label Studio 1.5.0
-        # for completion in completions:
-        #     if is_skipped(completion):
-        #         continue
-        #     image_urls.append(completion['data'][self.value])
-        #     image_classes.append(get_choice(completion))
 
-        # check if training is from webhook
-        if kwargs.get('data'):
-            project_id = kwargs['data']['project']['id']
-            tasks = self._get_annotated_dataset(project_id)
-            # print(f"tasks: {tasks}")
-        # ML training without web hook
-        else:
-            tasks = annotations
+        project_id = data['project']['id']
+        tasks = self._get_annotated_dataset(project_id)
 
         for task in tasks:
             image_urls.append(task['data']['image'])
@@ -234,7 +222,7 @@ class ImageClassifierAPI(LabelStudioMLBase):
         self.model.train(dataloader, num_epochs=num_epochs)
 
         print('Save model...')
-        model_path = os.path.join(workdir, 'model.pt')
+        model_path = os.path.join(MODEL_DIR, 'model.pt')
         self.model.save(model_path)
         print("Finish saving.")
 

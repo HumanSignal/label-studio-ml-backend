@@ -4,7 +4,7 @@ import os
 from flask import Flask, request, jsonify
 from rq.exceptions import NoSuchJobError
 
-from .model import LabelStudioMLManager, LABEL_STUDIO_ML_BACKEND_V2_DEFAULT
+from .model import LabelStudioMLManager
 from .exceptions import exception_handler
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,8 @@ def _predict():
     """
     data = request.json
     tasks = data.get('tasks')
-    project = data.get('project')
-    label_config = data.get('label_config')
-    force_reload = data.get('force_reload', False)
-    try_fetch = data.get('try_fetch', True)
     params = data.get('params') or {}
-    predictions, model = _manager.predict(tasks, project, label_config, force_reload, try_fetch, **params)
+    predictions, model = _manager.predict(tasks,  **params)
     response = {
         'results': predictions,
         'model_version': model.model_version
@@ -75,40 +71,12 @@ def _setup():
     return jsonify({'model_version': model.model_version})
 
 
-@_server.route('/train', methods=['POST'])
-@exception_handler
-def _train():
-    logger.warning("=> Warning: API /train is deprecated since Label Studio 1.4.1. "
-                   "ML backend used API /train for training previously, "
-                   "but since 1.4.1 Label Studio backend and ML backend use /webhook for the training run.")
-    data = request.json
-    annotations = data.get('annotations', 'No annotations provided')
-    project = data.get('project')
-    label_config = data.get('label_config')
-    params = data.get('params', {})
-    if isinstance(project, dict):
-        project = ""
-    if len(annotations) == 0:
-        return jsonify('No annotations found.'), 400
-    job = _manager.train(annotations, project, label_config, **params)
-    response = {'job': job.id} if job else {}
-    return jsonify(response), 201
-
-
 @_server.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
     event = data.pop('action')
     run = _manager.webhook(event, data)
     return jsonify(run), 201
-
-
-@_server.route('/is_training', methods=['GET'])
-@exception_handler
-def _is_training():
-    project = request.args.get('project')
-    output = _manager.is_training(project)
-    return jsonify(output)
 
 
 @_server.route('/health', methods=['GET'])
@@ -118,7 +86,6 @@ def health():
     return jsonify({
         'status': 'UP',
         'model_dir': _manager.model_dir,
-        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
     })
 
 
@@ -166,20 +133,16 @@ def log_response_info(response):
     return response
 
 
-@_server.route('/versions', methods=['POST'])
+@_server.route('/versions', methods=['GET'])
 @exception_handler
 def get_version():
     """
     Get model versions from ML backend
     @return: A list of versions
     """
-    data = request.json
-    project = data.get('project')
-    if project is None:
-        return str('No project provided'), 400
-    versions = list(_manager._get_models_from_workdir(project))
+    versions = list(_manager._get_models_from_workdir())
     return jsonify({
         'versions': versions,
-        'model_dir': _manager.model_dir,
-        'v2': os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=False)
+        'current_version': _manager.get_current_model_version(),
+        'model_dir': _manager.model_dir
     })

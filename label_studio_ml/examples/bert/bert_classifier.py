@@ -127,10 +127,19 @@ class BertClassifier(LabelStudioMLBase):
             predictions.append({'result': result, 'score': score})
         return predictions
 
-    def fit(self, completions, workdir=None, cache_dir=None, **kwargs):
+    def _get_annotated_dataset(self, project_id):
+        raise NotImplementedError('For this model, you need to implement data ingestion pipeline: '
+                                  'go to ner.py > _get_annotated_dataset() and put your logic to retrieve'
+                                  f'the list of annotated tasks from Label Studio project ID = {project_id}')
+
+    def fit(self, event, data, cache_dir=None, **kwargs):
         input_texts = []
         output_labels, output_labels_idx = [], []
         label2idx = {l: i for i, l in enumerate(self.labels)}
+        completions = self._get_annotated_dataset(data['project_id'])
+        workdir = os.getenv('WORK_DIR')
+        if workdir is None:
+            raise ValueError('Specify "WORK_DIR" environmental variable to store model checkpoints.')
         for completion in completions:
             # get input text from task data
 

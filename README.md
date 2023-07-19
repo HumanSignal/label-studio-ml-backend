@@ -19,38 +19,38 @@ If you just need to load static pre-annotated data into Label Studio, running an
 
 ## Quickstart
 
-Follow this example tutorial to run an ML backend with a simple text classifier:
+Follow this example tutorial to create a ML backend service:
 
-0. Clone the repo
+1. Install the latest Label Studio ML SDK:
    ```bash
-   git clone https://github.com/heartexlabs/label-studio-ml-backend  
+   pip install -U label-studio-ml
    ```
    
-1. Setup environment
+2. Create a new ML backend directory `my_ml_backend` with the code
     
-    It is highly recommended to use `venv`, `virtualenv` or `conda` python environments. You can use the same environment as Label Studio does. [Read more](https://docs.python.org/3/tutorial/venv.html#creating-virtual-environments) about creating virtual environments via `venv`.
    ```bash
-   cd label-studio-ml-backend
-   
-   # Install label-studio-ml and its dependencies
-   pip install -U -e .
-   
-   # Install example dependencies
-   pip install -r label_studio_ml/examples/requirements.txt
+   label-studio-ml init my_ml_backend
    ```
    
-2. Initialize an ML backend based on an example script:
-   ```bash
-   label-studio-ml init my_ml_backend --script label_studio_ml/examples/simple_text_classifier/simple_text_classifier.py
-   ```
-   This ML backend is an example provided by Label Studio. See [how to create your own ML backend](#create-your-own-ml-backend).
-
-3. Start ML backend server
+3. Run the ML backend server
    ```bash
    label-studio-ml start my_ml_backend
    ```
    
-4. Start Label Studio and connect it to the running ML backend on the project settings page.
+This ML backend is an example provided by Label Studio. 
+To modify the code and implement your own inference logic, go to `my_ml_backend/model.py` and modify the code. 
+
+See [how to create your own ML backend](#create-your-own-ml-backend).
+
+
+4. To run with Docker:
+
+   ```bash
+   cd my_ml_backend
+   docker-compose up
+   ```
+   
+5. Start Label Studio and connect it to the running ML backend on the project settings page.
 
 ## Create your own ML backend
 

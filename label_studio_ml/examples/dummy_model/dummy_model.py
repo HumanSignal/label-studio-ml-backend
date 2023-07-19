@@ -35,7 +35,7 @@ class DummyModel(LabelStudioMLBase):
             })
         return results
 
-    def fit(self, completions, workdir=None, **kwargs):
+    def fit(self, event, data, **kwargs):
         """ This is where training happens: train your model given list of completions,
             then returns dict with created links and resources
 

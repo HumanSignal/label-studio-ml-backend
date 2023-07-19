@@ -6,7 +6,6 @@ import json
 import redis
 import attr
 import io
-import rq
 try:
     import torch.multiprocessing as mp
     try:
@@ -22,7 +21,6 @@ import inspect
 from typing import Dict
 from abc import ABC, abstractmethod
 from datetime import datetime
-from itertools import tee
 from contextlib import contextmanager
 from redis import Redis
 from rq import Queue, get_current_job
@@ -36,8 +34,8 @@ from label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 
-LABEL_STUDIO_ML_BACKEND_V2_DEFAULT = True
 AUTO_UPDATE_DEFAULT = False
+
 
 @attr.s
 class ModelWrapper(object):
@@ -74,16 +72,16 @@ class JobManager(object):
         :param job_id: user-defined job identifier
         :return: json-serializable job result
         """
-        with self.start_run(event, data, job_id):
-            model_version = data.get('model_version') or data.get('project', {}).get('model_version')
-            job_result = self.get_result(model_version)
-            label_config = data.get('label_config') or data.get('project', {}).get('label_config')
-            train_output = job_result.get('train_output')
-            logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
-            model = model_class(label_config=label_config, train_output=train_output)
-            additional_params = self.get_additional_params(event, data, job_id)
-            result = model.process_event(event, data, job_id, additional_params)
-            self.post_process(event, data, job_id, result)
+        # with self.start_run(event, data, job_id):
+        model_version = data.get('model_version') or data.get('project', {}).get('model_version')
+        job_result = self.get_result(model_version)
+        label_config = data.get('label_config') or data.get('project', {}).get('label_config')
+        train_output = job_result
+        logger.debug(f'Load model with label_config={label_config} and train_output={train_output}')
+        model = model_class(label_config=label_config, train_output=train_output)
+        additional_params = self.get_additional_params(event, data, job_id)
+        result = model.process_event(event, data, job_id, additional_params)
+        self.post_process(event, data, job_id, result)
 
         logger.debug(f'Finished processing event {event}! Return result: {result}')
         return result
@@ -163,8 +161,9 @@ class SimpleJobManager(JobManager):
     """
     JOB_RESULT = 'job_result.json'  # in this file,
 
-    def __init__(self, model_dir='.'):
+    def __init__(self, model_dir='.', async_job=False):
         self.model_dir = model_dir
+        self.async_job = async_job
 
     @contextmanager
     def start_run(self, event, data, job_id):
@@ -191,19 +190,15 @@ class SimpleJobManager(JobManager):
         """
         job_dir = self._job_dir(job_id)
         if not os.path.exists(job_dir):
-            logger.warning(f"=> Warning: {job_id} dir doesn't exist. "
+            logger.warning(f"=> Warning: {job_dir} dir doesn't exist. "
                            f"It seems that you don't have specified model dir.")
-            return None
+            return
         result_file = os.path.join(job_dir, self.JOB_RESULT)
         if not os.path.exists(result_file):
-            logger.warning(
-                f"=> Warning: {job_id} dir doesn't contain result file. "
-                f"It seems that previous training session was never done or ended with error. "
-                f"It is normal to see it if your model doesn't have fit() implementation at all. "
-            )
-            # Return empty dict if training is failed OR None if Error message is needed in case of failed train
-            IGNORE_FAILED_TRAINING = get_env("IGNORE_FAILED_TRAINING", is_bool=True)
-            return {} if IGNORE_FAILED_TRAINING else None
+            logger.warning(f"=> Warning: {job_dir} dir doesn't contain result file {result_file} "
+                           f"It seems that previous training session ended with error."
+                           f"If you haven't implemented fit() method - ignore this message.")
+            return
         logger.debug(f'Read result from {result_file}')
         with open(result_file) as f:
             result = json.load(f)
@@ -214,19 +209,31 @@ class SimpleJobManager(JobManager):
         return reversed(sorted(map(int, filter(lambda d: d.isdigit(), os.listdir(self.model_dir)))))
 
     def post_process(self, event, data, job_id, result):
-        if isinstance(result, dict):
-            result_file = os.path.join(self._job_dir(job_id), self.JOB_RESULT)
-            logger.debug(f'Saving job {job_id} result to file: {result_file}')
-            with open(result_file, mode='w') as f:
-                json.dump(result, f)
-        else:
-            logger.info(f'Cannot save result {result}')
+        if not result or not isinstance(result, dict):
+            logger.warning(f'Cannot save result {result}')
+            return
+
+        job_dir = self._job_dir(job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        with open(os.path.join(job_dir, 'event.json'), mode='w') as f:
+            event_data = {'event': event, 'job_id': job_id}
+            if data:
+                event_data['data'] = data
+            json.dump(event_data, f, indent=2)
+
+        result_file = os.path.join(job_dir, self.JOB_RESULT)
+        logger.debug(f'Saving job {job_id} result to file: {result_file}')
+        with open(result_file, mode='w') as f:
+            json.dump(result, f)
 
     def run_job(self, model_class, args: tuple):
-        proc = mp.Process(target=self.job, args=tuple([model_class] + list(args)))
-        proc.daemon = True
-        proc.start()
-        logger.info(f'Subprocess {proc.pid} has been started with args={args}')
+        if self.async_job:
+            proc = mp.Process(target=self.job, args=tuple([model_class] + list(args)))
+            proc.daemon = True
+            proc.start()
+            logger.info(f'Subprocess {proc.pid} has been started with args={args}')
+        else:
+            self.job(model_class, *args)
 
 
 class RQJobManager(JobManager):
@@ -311,7 +318,7 @@ class LabelStudioMLBase(ABC):
         self.parsed_label_config = parse_config(self.label_config) if self.label_config else {}
         self.train_output = train_output or {}
         self.hostname = kwargs.get('hostname', '') or get_env('HOSTNAME')
-        self.access_token = kwargs.get('access_token', '')  or get_env('ACCESS_TOKEN') or get_env('API_KEY')
+        self.access_token = kwargs.get('access_token', '') or get_env('ACCESS_TOKEN') or get_env('API_KEY')
 
     @abstractmethod
     def predict(self, tasks, **kwargs):
@@ -320,11 +327,11 @@ class LabelStudioMLBase(ABC):
     def process_event(self, event, data, job_id, additional_params):
         if event in self.TRAIN_EVENTS:
             logger.debug(f'Job {job_id}: Received event={event}: calling {self.__class__.__name__}.fit()')
-            train_output = self.fit((), event=event, data=data, job_id=job_id, **additional_params)
+            train_output = self.fit(event=event, data=data, job_id=job_id, **additional_params)
             logger.debug(f'Job {job_id}: Train finished.')
             return train_output
 
-    def fit(self, tasks, workdir=None, **kwargs):
+    def fit(self, event, data, job_id, **additional_params):
         return {}
 
     def get_local_path(self, url, project_dir=None):
@@ -342,7 +349,7 @@ class LabelStudioMLManager(object):
 
     _redis = None
     _redis_queue = None
-    _current_model = {}
+    _current_model = None
 
     @classmethod
     def initialize(
@@ -455,40 +462,27 @@ class LabelStudioMLManager(object):
 
     @classmethod
     def has_active_model(cls, project):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-        # TODO: Deprecated branch since LS 1.5
-            return cls._key(project) in cls._current_model
-        else:
-            return cls._current_model is not None
+        return cls._current_model is not None
+
+    @classmethod
+    def get_current_model_version(cls):
+        if cls._current_model:
+            return cls._current_model.model_version
 
     @classmethod
     def get(cls, project):
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-        # TODO: Deprecated branch since LS 1.5
-            key = cls._key(project)
-            logger.debug('Get project ' + str(key))
-            return cls._current_model.get(key)
-        else:
-            return cls._current_model
+        return cls._current_model
 
     @classmethod
     def create(cls, project=None, label_config=None, train_output=None, version=None, **kwargs):
         key = cls._key(project)
         logger.debug('Create project ' + str(key))
         kwargs.update(cls.init_kwargs)
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-            # TODO: Deprecated branch since LS 1.5
-            cls._current_model[key] = ModelWrapper(
-                model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
-                model_version=version or cls._generate_version()
-            )
-            return cls._current_model[key]
-        else:
-            cls._current_model = ModelWrapper(
-                model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
-                model_version=version or cls._generate_version()
-            )
-            return cls._current_model
+        cls._current_model = ModelWrapper(
+            model=cls.model_class(label_config=label_config, train_output=train_output, **kwargs),
+            model_version=version or cls._generate_version()
+        )
+        return cls._current_model
 
     @classmethod
     def get_or_create(
@@ -519,18 +513,6 @@ class LabelStudioMLManager(object):
         """
         # update kwargs with init kwargs from class (e.g. --with start arg)
         kwargs.update(cls.init_kwargs)
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-            # TODO: Deprecated branch
-            # Fetch latest job result
-            if cls.without_redis():
-                logger.debug('Fetch ' + project + ' from local directory')
-                job_result = cls._get_latest_job_result_from_workdir(project) or {}
-            else:
-                logger.debug('Fetch ' + project + ' from Redis')
-                job_result = cls._get_latest_job_result_from_redis(project) or {}
-            train_output = job_result.get('train_output')
-            version = job_result.get('version')
-            return cls.get_or_create(project, label_config, force_reload, train_output, version, **kwargs)
 
         model_version = kwargs.get('model_version')
         if not cls._current_model or (model_version != cls._current_model.model_version and model_version is not None) or \
@@ -564,40 +546,8 @@ class LabelStudioMLManager(object):
         return response
 
     @classmethod
-    def is_training(cls, project):
-        if not cls.has_active_model(project):
-            return {'is_training': False}
-        m = cls.get(project)
-        if cls.without_redis():
-            return {
-                'is_training': m.is_training,
-                'backend': 'none',
-                'model_version': m.model_version
-            }
-        else:
-            started_jobs = StartedJobRegistry(cls._redis_queue.name, cls._redis_queue.connection).get_job_ids()
-            finished_jobs = FinishedJobRegistry(cls._redis_queue.name, cls._redis_queue.connection).get_job_ids()
-            failed_jobs = FailedJobRegistry(cls._redis_queue.name, cls._redis_queue.connection).get_job_ids()
-            running_jobs = list(set(started_jobs) - set(finished_jobs + failed_jobs))
-            logger.debug('Running jobs: ' + str(running_jobs))
-            for job_id in running_jobs:
-                job = Job.fetch(job_id, connection=cls._redis)
-                if job.meta.get('project') == project:
-                    return {
-                        'is_training': True,
-                        'job_id': job_id,
-                        'backend': 'redis',
-                        'model_version': m.model_version,
-                    }
-            return {
-                'is_training': False,
-                'backend': 'redis',
-                'model_version': m.model_version
-            }
-
-    @classmethod
     def predict(
-        cls, tasks, project=None, label_config=None, force_reload=False, try_fetch=True, **kwargs
+        cls, tasks, **kwargs
     ):
         """
         Make prediction for tasks
@@ -611,124 +561,11 @@ class LabelStudioMLManager(object):
         @return:
         Predictions in LS format
         """
-        if not os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT):
-            if try_fetch:
-                m = cls.fetch(project, label_config, force_reload)
-            else:
-                m = cls.get(project)
-                if not m:
-                    raise FileNotFoundError('No model loaded. Specify "try_fetch=True" option.')
-            predictions = m.model.predict(tasks, **kwargs)
-            return predictions, m
-
         if not cls._current_model:
             raise ValueError(f'Model is not loaded for {cls.__class__.__name__}: run setup() before using predict()')
 
         predictions = cls._current_model.model.predict(tasks, **kwargs)
         return predictions, cls._current_model
-
-    @classmethod
-    def create_data_snapshot(cls, data_iter, workdir):
-        data = list(data_iter)
-        data_file = os.path.join(workdir, 'train_data.json')
-        with io.open(data_file, mode='w') as fout:
-            json.dump(data, fout, ensure_ascii=False)
-
-        info_file = os.path.join(workdir, 'train_data_info.json')
-        with io.open(info_file, mode='w') as fout:
-            json.dump({'count': len(data)}, fout)
-
-    @classmethod
-    def train_script_wrapper(
-        cls, project, label_config, train_kwargs, initialization_params=None, tasks=()
-    ):
-
-        if initialization_params:
-            # Reinitialize new cls instance for using in RQ context
-            initialization_params = initialization_params or {}
-            cls.initialize(**initialization_params)
-
-        # fetching the latest model version before we generate the next one
-        t = time.time()
-        m = cls.fetch(project, label_config)
-        m.is_training = True
-
-        version = cls._generate_version()
-
-        if cls.model_dir:
-            logger.debug('Running in model dir: ' + cls.model_dir)
-            project_model_dir = os.path.join(cls.model_dir, project or '')
-            workdir = os.path.join(project_model_dir, version)
-            os.makedirs(workdir, exist_ok=True)
-        else:
-            logger.debug('Running without model dir')
-            workdir = None
-
-        if cls.without_redis():
-            data_stream = tasks
-        else:
-            data_stream = (json.loads(t) for t in cls._redis.lrange(cls._get_tasks_key(project), 0, -1))
-
-        if workdir:
-            data_stream, snapshot = tee(data_stream)
-            cls.create_data_snapshot(snapshot, workdir)
-
-        try:
-            train_output = m.model.fit(data_stream, workdir, **train_kwargs)
-            if cls.without_redis():
-                job_id = None
-            else:
-                job_id = get_current_job().id
-            job_result = json.dumps({
-                'status': 'ok',
-                'train_output': train_output,
-                'project': project,
-                'workdir': workdir,
-                'version': version,
-                'job_id': job_id,
-                'time': time.time() - t
-            })
-            if workdir:
-                job_result_file = os.path.join(workdir, 'job_result.json')
-                with open(job_result_file, mode='w') as fout:
-                    fout.write(job_result)
-            if not cls.without_redis():
-                cls._redis.rpush(cls._get_job_results_key(project), job_result)
-        except:
-            raise
-        finally:
-            m.is_training = False
-        return job_result
-
-    @classmethod
-    def _start_training_job(cls, project, label_config, train_kwargs):
-        job = cls._redis_queue.enqueue(
-            cls.train_script_wrapper,
-            args=(project, label_config, train_kwargs, cls.get_initialization_params()),
-            job_timeout='365d',
-            ttl=None,
-            result_ttl=-1,
-            failure_ttl=300,
-            meta={'project': project},
-        )
-        logger.info('Training job {job} started for project {project}'.format(job=job, project=project))
-        return job
-
-    @classmethod
-    def train(cls, tasks, project=None, label_config=None, **kwargs):
-        job = None
-        if cls.without_redis():
-            job_result = cls.train_script_wrapper(
-                project, label_config, train_kwargs=kwargs, tasks=tasks)
-            train_output = json.loads(job_result)['train_output']
-            cls.get_or_create(project, label_config, force_reload=True, train_output=train_output)
-        else:
-            tasks_key = cls._get_tasks_key(project)
-            cls._redis.delete(tasks_key)
-            for task in tasks:
-                cls._redis.rpush(tasks_key, json.dumps(task))
-            job = cls._start_training_job(project, label_config, kwargs)
-        return job
 
     @classmethod
     def get_job_manager(cls):
@@ -747,20 +584,13 @@ class LabelStudioMLManager(object):
         return {'job_id': job_id}
 
     @classmethod
-    def _get_models_from_workdir(cls, project):
+    def _get_models_from_workdir(cls):
         """
         Return current models
         @param project: Project ID (e.g. {project.id}.{created_timestamp}
         @return: List of model versions for current model
         """
-        V2 = os.getenv('LABEL_STUDIO_ML_BACKEND_V2', default=LABEL_STUDIO_ML_BACKEND_V2_DEFAULT)
-        if not V2:
-            project_model_dir = os.path.join(cls.model_dir, project or '')
-            if not os.path.exists(project_model_dir):
-                return []
-        else:
-            project_model_dir = cls.model_dir
-
+        project_model_dir = cls.model_dir
         # get directories with training results
         final_models = []
         for subdir in map(int, filter(lambda d: d.isdigit(), os.listdir(project_model_dir))):
@@ -769,14 +599,9 @@ class LabelStudioMLManager(object):
             if not os.path.exists(job_result_file):
                 continue
             with open(job_result_file) as f:
-                js = json.load(f)
                 # Add model version if status is ok
-                if js.get('status') == 'ok' and not V2:
-                    final_models.append(js.get("version"))
-                elif V2:
-                    final_models.append(subdir)
+                final_models.append(subdir)
         return final_models
-
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
