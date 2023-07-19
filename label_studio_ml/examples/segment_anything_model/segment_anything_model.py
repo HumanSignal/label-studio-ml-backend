@@ -29,6 +29,7 @@ def load_my_model():
 
         if os.getenv("TEST_WITH_CPU") == "true":
             device = "cpu"
+        print("Environment variable TEST_WITH_CPU:", os.getenv("TEST_WITH_CPU"))
 
         sam = sam_model_registry["vit_h"](VITH_CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
         sam.to(device=device)
