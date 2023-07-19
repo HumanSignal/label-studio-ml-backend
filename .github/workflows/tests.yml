@@ -38,10 +38,6 @@ jobs:
       TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
 
     steps:
-      - name: Debug
-        run: |
-          echo "matrix.ml_backend: ${{ matrix.ml_backend }}"
-          echo "TEST_WITH_CPU: ${{ env.TEST_WITH_CPU }}"
       - uses: hmarr/debug-action@v2.1.0
       - name: Free Disk Space
         if: matrix.ml_backend == 'mmdetection-3'
@@ -114,6 +110,10 @@ jobs:
           while [ "$(curl -s -o /dev/null -L -w ''%{http_code}'' "http://localhost:9090/health")" != "200" ]; do
             echo "=> Waiting for service to become available" && sleep 2s
           done
+      - name: Debug
+        run: |
+          echo "matrix.ml_backend: ${{ matrix.ml_backend }}"
+          echo "TEST_WITH_CPU: ${{ env.TEST_WITH_CPU }}"
 
       - name: Run general functional tests
         run: |
