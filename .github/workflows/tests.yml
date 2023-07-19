@@ -27,7 +27,7 @@ jobs:
     needs: calculate_matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     strategy:
       fail-fast: false
       matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
@@ -103,10 +103,6 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
-      - name: Debug
-        run: |
-          echo "matrix.ml_backend: ${{ matrix.ml_backend }}"
-          echo "TEST_WITH_CPU: ${{ env.TEST_WITH_CPU }}"
 
       - name: Wait for stack
         timeout-minutes: 10
