@@ -10,8 +10,7 @@ ENV PYTHONUNBUFFERED=True \
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
     pip install -r requirements.txt
 
-RUN pip install mmdet==2.6.0 \
-                mmcv-full==1.2.0
+RUN pip install mmdet==2.28.2 "mmcv-full>=1.3.17,<=1.8.0"
 
 COPY uwsgi.ini /etc/uwsgi/
 COPY supervisord.conf /etc/supervisor/conf.d/

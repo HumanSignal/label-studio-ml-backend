@@ -18,6 +18,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LABEL_STUDIO_USE_REDIS=true
+      - TEST_WITH_CPU=${TEST_WITH_CPU}
     ports:
       - 9090:9090
     depends_on:
