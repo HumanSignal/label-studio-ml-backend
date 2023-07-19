@@ -31,11 +31,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
-      TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
     env:
       LOG_DIR: pytest_logs
       collect_analytics: false
-
+      TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
     steps:
       - uses: hmarr/debug-action@v2.1.0
       - name: Free Disk Space
