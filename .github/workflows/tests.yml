@@ -38,6 +38,10 @@ jobs:
       TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
 
     steps:
+      - name: Debug
+        run: |
+          echo "matrix.ml_backend: ${{ matrix.ml_backend }}"
+          echo "TEST_WITH_CPU: ${{ env.TEST_WITH_CPU }}"
       - uses: hmarr/debug-action@v2.1.0
       - name: Free Disk Space
         if: matrix.ml_backend == 'mmdetection-3'
