@@ -163,7 +163,7 @@ jobs:
           CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples )
           set -e
           ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
-          if [[ $GITHUB_REF == 'refs/heads/master' || $GITHUB_REF =~ ^refs/heads/release/.* || $GITHUB_REF == 'refs/pull/301/merge' ]]; then
+          if [[ $GITHUB_REF == 'refs/heads/master' || $GITHUB_REF =~ ^refs/heads/release/.* ]]; then
             echo "All in matrix because we are on master or a release branch"
             echo "matrix={\"ml_backend\":[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
           elif [[ $(echo "$CHANGED" | grep -c -v ^$) == $(echo "$CHANGED_EXAMPLES" | grep -c -v ^$) ]]; then
