@@ -2,12 +2,9 @@ name: "Tests"
 
 on:
   push:
-    paths:
-      - 'label_studio_ml/**'
-      - '.github/workflows/tests.yml'
-      - 'requirements**'
-    tags-ignore:
-      - '**'
+    branches:
+      - master
+      - 'release/**'
   pull_request:
     types:
       - opened
@@ -37,6 +34,7 @@ jobs:
       TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
     steps:
       - uses: hmarr/debug-action@v2.1.0
+
       - name: Free Disk Space
         if: matrix.ml_backend == 'mmdetection-3'
         uses: jlumbroso/free-disk-space@main
@@ -50,6 +48,7 @@ jobs:
           large-packages: false
           docker-images: false
           swap-storage: false
+
       - name: Extract branch name on direct push to a branch
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
         run: |
