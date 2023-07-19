@@ -9,6 +9,6 @@ requests>=2.22.0,<3
 label-studio-tools>=0.0.0.dev11
 Jinja2==3.0.3
 itsdangerous==2.0.1
-werkzeug==2.0.2
+werkzeug==2.2.3
 redis<4.6.0
 rq<1.14
