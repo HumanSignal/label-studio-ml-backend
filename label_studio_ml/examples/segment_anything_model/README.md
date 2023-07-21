@@ -18,7 +18,7 @@ The **Advanced Segment Anything Model** introduces the ability to combined a mul
 
 The **ONNX Segment Anything Model** gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
 - This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
-- Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labelling. Also, does not yet offer the mixed labelling and refinement that AdvancedSAM does.
+- Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labeling. Also, does not yet offer the mixed labeling and refinement that AdvancedSAM does.
 
 # Your Choices
 **Using AdvancedSAM**
@@ -89,7 +89,7 @@ label-studio start
 4. Switch on "Use for interactive preannotations"<br>
 5. Click "Validate and Save"<br>
 
-6. Next -> go to "Labelling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
+6. Next -> go to "labeling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
 7. Choose the code option and choose [your template](#labeling-config)
 
 # Creating the Annotation
@@ -101,7 +101,7 @@ Notes for AdvancedSAM:
 - For the best experience, and follow the video tutorial above and uncheck 'Auto accept annotation suggestions' when running predictions.
 - After generating the prediction, if you want to create another instance of the same class, you must delete all keypoints and boxes used (as shown in the video) and _refresh the page_. If you are only labeling one instance of each class then you do not have to worry about this.
   - This is because, at this moment, AdvancedSAM uses the alias number of the object you are labeling from previous tasks to inform future predictions. However, if you want to create a class and not use previous keypoints and rectangles to derive predictions of a previous class, you must delete the previous keypoints and rectangles if labeling a separate instance in the image with the same class.
-- After labelling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image. This allows you to change the class of your prediction. See the video for a better explanation.
+- After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image. This allows you to change the class of your prediction. See the video for a better explanation.
 - Only the negative keypoints can be used for subtracting from prediction areas for the model.
 
 Notes for ONNX:
@@ -113,7 +113,7 @@ Notes for Exporting:
 - COCO and YOLO format is not supported (this project exports using brush labels, so try numpy or PNG export instead)
 
 1. After finishing the above, import an image into your project.<br/>
-2. Click into the labelling interface. <br>
+2. Click into the labeling interface. <br>
 3. Check *"Auto-Annotation"* in the upper right hand corner<br>
 4. (Optional, but recommended) Check *"Auto accept annotation suggestions"*<br>
 5. Click the smart tool icon and make sure it is set to the keypoint option<br>
