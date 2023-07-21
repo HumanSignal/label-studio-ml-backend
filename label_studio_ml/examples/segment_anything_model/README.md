@@ -6,6 +6,36 @@
 
 Use Facebook's Segment Anything Model with Label Studio!
 
+# Intro
+
+There are two models in this repo that you can use.
+1. Advanced Segment Anything Model
+2. ONNX Segment Anything Model
+
+The Advanced Segment Anything Model introduces the ability to combined a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
+- Mix one rectangle label with multiple positive keypoints to refine your predictions! Use negative keypoints to take away area from predictions for increased control.
+- Use MobileSAM, and extremely lightweight alternative to the heavy original SegmentAnythingModel, to retrieve predictions. This can run inference within less than a second solely using a laptop without external compute!
+
+The ONNX Segment Anything Model gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
+- This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
+- Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labelling. Also, does not yet offer the mixed labelling and refinement that AdvancedSAM does.
+
+## Your Choices
+**Using AdvancedSAM**
+1. *Use with MobileSAM architecture*
+-  Pros: very lightweight can be run on laptops, mix many different combinations of input prompts to fine-tune prediction
+-  Cons: Little less accuracy than regular SAM
+3. _Use with original SAM architecture_
+- Pros: higher accuracy than MobileSAM, mix many different combinations of input prompts to fine-tune prediction
+- Cons: takes long to gather predictions (~2s to create embedding of an image), heavy and requires access to good GPUs
+
+**Using ONNXSAM**
+1. _Use with original SAM architecture_
+- Pros: much faster than when you use it in Advanced SAM
+- Cons: can only use one smart label per predictions, image size must be defined before generating the ONNX model, cannot label images with different size without running into issues
+
+In addition, AdvancedSAM gives the ability to use MobileSAM, a lightweight version of Segment Anything Model than can be run without much computational power needed. 
+
 # Setup
 
 ## Setting Up the Backend
