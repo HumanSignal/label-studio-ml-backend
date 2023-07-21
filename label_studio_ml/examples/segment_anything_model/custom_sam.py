@@ -11,9 +11,18 @@ import random
 import torch
 import json
 
-from mobile_sam import SamPredictor, sam_model_registry
 
-MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "./mobile_sam.pt")
+SAM_CHOICE = os.environ.get("SAM_CHOICE", "MobileSAM") # other option is just SAM
+
+if SAM_CHOICE == "MobileSAM":
+    from mobile_sam import SamPredictor, sam_model_registry
+    CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
+    model_type = "vit_t"
+elif SAM_CHOICE == "SAM":
+    from segment_anything import sam_model_registry, SamPredictor
+    CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
+    model_type = "vit_h"
+
 
 def load_my_model():
         """
@@ -21,12 +30,11 @@ def load_my_model():
         Returns the predictor object. For more, look at Facebook's SAM docs
         """
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model_type = "vit_t"
         
-        mobile_sam = sam_model_registry[model_type](checkpoint="./mobile_sam.pt")        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
-        mobile_sam.to(device=device)
+        sam = sam_model_registry[model_type](checkpoint=CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
+        sam.to(device=device)
 
-        predictor = SamPredictor(mobile_sam)
+        predictor = SamPredictor(sam)
         return predictor
 
 PREDICTOR = load_my_model()
