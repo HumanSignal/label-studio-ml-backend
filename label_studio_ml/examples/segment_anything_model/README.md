@@ -20,7 +20,7 @@ The **ONNX Segment Anything Model** gives the ability to use either a single key
 - This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
 - Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labelling. Also, does not yet offer the mixed labelling and refinement that AdvancedSAM does.
 
-## Your Choices
+# Your Choices
 **Using AdvancedSAM**
 1. *Use with MobileSAM architecture*
 -  Pros: very lightweight can be run on laptops, mix many different combinations of input prompts to fine-tune prediction
@@ -52,9 +52,9 @@ Follow [SAM installation instructions with pip](https://github.com/facebookresea
 Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything)
 
 For the ONNX model-
-Then use the SAM installation instructions from above to convert to ONNX and place *into this project's directory*
+`python onnxconverter.py`
 
-### 5. Install Requirements
+### 3. Install Requirements
 Change your directory into this folder and then install all requirements.
 
 - [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
@@ -63,7 +63,17 @@ Change your directory into this folder and then install all requirements.
 pip install requirements.txt
 ```
 
-### 6. Start the Backend and Run Label Studio
+### 4. Adjust variables and _wsgi.py for your model.
+
+**Choosing whether to use Advanced or ONNX model**
+- To use AdvancedSAM model, set RUN_ONNX_SAM environment variable to False (this is the default in the code)
+- To use ONNX model, set RUN_ONNX_SAM environment variable to True
+
+**To choose between MobileSAM and regular SAM when using AdvancedSAM**
+- To use MobileSAM: set SAM_CHOICE environment variable to "MobileSAM" (this is the default in the code)
+- To use regular SAM: set SAM_CHOICE environment variable to "SAM"
+
+### 5. Start the Backend and Run Label Studio
 ```
 # change into this project folder from where you are
 cd segment_anything_model
@@ -80,11 +90,17 @@ label-studio start
 5. Click "Validate and Save"<br>
 
 6. Next -> go to "Labelling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
-7. Choose the code option and choose your template-
+7. Choose the code option and choose [your template](#labeling-config)
 
 # Creating the Annotation
 
 See the following video tutorial for annotating -> 
+
+Notes for AdvancedSAM:
+- 
+
+Notes for Exporting:
+- COCO and YOLO format is not supported (this project exports using brush labels, so try numpy or PNG export instead)
 
 1. After finishing the above, import an image into your project.<br/>
 2. Click into the labelling interface. <br>
@@ -101,7 +117,7 @@ See the following video tutorial for annotating ->
 
 9. Create more predictions by following step 6-8, then press submit!<br>
 
-# Labelling Configs
+# Labeling Configs
 Default configs are provided below.
 
 ## When using the AdvancedSAM-
