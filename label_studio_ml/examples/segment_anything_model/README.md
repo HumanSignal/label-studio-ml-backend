@@ -60,7 +60,7 @@ Change your directory into this folder and then install all requirements.
 - [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 4. Adjust variables and _wsgi.py for your model.
