@@ -28,7 +28,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from segment_anything_model import MyModel
+from custom_sam import MyModel
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
