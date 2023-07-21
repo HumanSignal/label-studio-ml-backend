@@ -26,12 +26,12 @@ elif SAM_CHOICE == "SAM":
 
 def load_my_model():
         """
-        Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
+        Loads the Segment Anything model on initializing Label studio, so if you call it outside AdvancedSAM it doesn't load every time you try to make a prediction
         Returns the predictor object. For more, look at Facebook's SAM docs
         """
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        sam = sam_model_registry[model_type](checkpoint=CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
+        sam = sam_model_registry[model_type](checkpoint=CHECKPOINT) # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
         sam.to(device=device)
 
         predictor = SamPredictor(sam)
@@ -43,9 +43,9 @@ PREV_IMG = 0
 IMAGE_EMBEDDING = 0
 previous_id = 0
 
-class MyModel(LabelStudioMLBase):
+class SamModel(LabelStudioMLBase):
     def __init__(self, **kwargs):
-        super(MyModel, self).__init__(**kwargs)
+        super(SamModel, self).__init__(**kwargs)
         from_name, schema = list(self.parsed_label_config.items())[0]
         self.from_name = from_name
         self.to_name = schema['to_name'][0]
@@ -217,8 +217,6 @@ class MyModel(LabelStudioMLBase):
         mask = masks[0].astype(np.uint8)
         results = []
         predictions = []
-
-        # masks = masks > predictor.model.mask_threshold
 
         label_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label everytime so no chance for errors
         

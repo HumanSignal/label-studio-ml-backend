@@ -5,7 +5,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=True \
     PORT=9090 \
     VITH_CHECKPOINT=/app/sam_vit_h_4b8939.pth \
-    ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx
+    ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx \
+    MOBILESAM_CHECKPOINT=/app/mobile_sam.pt \
 
 COPY requirements.txt .
 
@@ -14,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get update && apt-get install -y wget \
     && pip install --no-cache-dir -r requirements.txt \
     && wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+    && wget https://cdn.githubraw.com/ChaoningZhang/MobileSAM/01ea8d0f/weights/mobile_sam.pt
 
 COPY onnxconverter.py .
 RUN python onnxconverter.py .
