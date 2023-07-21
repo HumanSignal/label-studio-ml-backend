@@ -9,14 +9,14 @@ Use Facebook's Segment Anything Model with Label Studio!
 # Intro
 
 There are two models in this repo that you can use.
-1. Advanced Segment Anything Model
-2. ONNX Segment Anything Model
+- **1. Advanced Segment Anything Model**
+- **2. ONNX Segment Anything Model**
 
-The Advanced Segment Anything Model introduces the ability to combined a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
+The **Advanced Segment Anything Model** introduces the ability to combined a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
 - Mix one rectangle label with multiple positive keypoints to refine your predictions! Use negative keypoints to take away area from predictions for increased control.
 - Use MobileSAM, and extremely lightweight alternative to the heavy original SegmentAnythingModel, to retrieve predictions. This can run inference within less than a second solely using a laptop without external compute!
 
-The ONNX Segment Anything Model gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
+The **ONNX Segment Anything Model** gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
 - This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
 - Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labelling. Also, does not yet offer the mixed labelling and refinement that AdvancedSAM does.
 
@@ -42,16 +42,23 @@ In addition, AdvancedSAM gives the ability to use MobileSAM, a lightweight versi
 
 ### 1. Clone this repo
 
-- [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
+### 2. Download Model Weights
 
-### 3. Download SAM
+For using MobileSAM-
+Install the weights using [this link](https://cdn.githubraw.com/ChaoningZhang/MobileSAM/01ea8d0f/weights/mobile_sam.pt) and place in folder (along with the advanced_sam.py and onnx_sam.py files)
 
+For using regular SAM and/or ONNX-
 Follow [SAM installation instructions with pip](https://github.com/facebookresearch/segment-anything). 
 Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything)
+
+For the ONNX model-
 Then use the SAM installation instructions from above to convert to ONNX and place *into this project's directory*
 
 ### 5. Install Requirements
 Change your directory into this folder and then install all requirements.
+
+- [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
+
 ```
 pip install requirements.txt
 ```
@@ -73,14 +80,7 @@ label-studio start
 5. Click "Validate and Save"<br>
 
 6. Next -> go to "Labelling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
-7. Choose the code option and paste in the following template-
-
-
-Notes when you change for your use case - 
-- Label values must be the same for KeyPointLabels and BrushLabels
-- "smart" should be set to the label values for the Keypoints
-- You must format the Eraser string the exact same way, mirroring one of the other labels, in order to use this feature. 
-
+7. Choose the code option and choose your template-
 
 # Creating the Annotation
 
