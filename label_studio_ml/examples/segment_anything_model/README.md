@@ -97,7 +97,17 @@ label-studio start
 See the following video tutorial for annotating -> 
 
 Notes for AdvancedSAM:
-- 
+- Please watch the video first
+- For the best experience, and follow the video tutorial above and uncheck 'Auto accept annotation suggestions' when running predictions.
+- After generating the prediction, if you want to create another instance of the same class, you must delete all keypoints and boxes used (as shown in the video) and _refresh the page_. If you are only labeling one instance of each class then you do not have to worry about this.
+  - This is because, at this moment, AdvancedSAM uses the alias number of the object you are labeling from previous tasks to inform future predictions. However, if you want to create a class and not use previous keypoints and rectangles to derive predictions of a previous class, you must delete the previous keypoints and rectangles if labeling a separate instance in the image with the same class.
+- After labelling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image. This allows you to change the class of your prediction. See the video for a better explanation.
+- Only the negative keypoints can be used for subtracting from prediction areas for the model.
+
+Notes for ONNX:
+The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an image ratio for the ONNX model. Change this to the ratio of the images that you are labeling before generating the model. If you are labeling images of different sizes, use Advanced SAM instead, or generate a new ONNX model for different image groups with different sizes. If you do not adjust `orig_img_size`, and your image aspect ratios do not match what is already defined, then your predictions will be offset from the image.
+- Make sure you adjust `orig_img_size` BEFORE generating the ONNX model when using `onnx_converter.py`
+- Guide on changing the code - `"orig_im_size": torch.tensor([#heightofimages, #widthofimages], dtype=torch.float),`
 
 Notes for Exporting:
 - COCO and YOLO format is not supported (this project exports using brush labels, so try numpy or PNG export instead)
