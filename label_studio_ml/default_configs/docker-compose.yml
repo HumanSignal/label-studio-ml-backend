@@ -18,6 +18,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LABEL_STUDIO_USE_REDIS=true
+      - LABEL_STUDIO_ML_BACKEND_V2=1
+      - LOG_LEVEL=DEBUG
     ports:
       - 9090:9090
     depends_on:

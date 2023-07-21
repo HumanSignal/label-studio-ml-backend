@@ -85,12 +85,12 @@ def create_dir(args):
         raise FileExistsError('Model directory already exists. Please remove it or use --force option.')
 
     default_configs_dir = os.path.join(os.path.dirname(__file__), 'default_configs')
-    shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.tmpl'))
+    shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.py', '*.tmpl'))
 
     # extract script name and model class
     if not args.script:
-        logger.warning('You don\'t specify script path: by default, "./model.py" is used')
-        script_path = 'model.py'
+        script_path = os.path.join(default_configs_dir, 'model.py')
+        logger.warning(f'You don\'t specify script path: by default, "{script_path}" is used')
     else:
         script_path = args.script
 
@@ -145,14 +145,14 @@ def start_server(args, subprocess_params):
 
 def deploy_to_gcp(args):
     # create project with
-    create_dir(args)
+    # create_dir(args)
     # prepare params for gcloud: dir with script, project id, region and service name
     output_dir = os.path.join(args.root_dir, args.project_name)
     project_id = args.gcp_project or os.environ.get("GCP_PROJECT")
     if not project_id:
         raise KeyError("Project id wasn't found in ENV variables!")
     region = args.gcp_region or os.environ.get("GCP_REGION", "us-central1")
-    service_name = args.project_name
+    service_name = args.project_name.replace('_', '-')
     # check service name
     # if special_match(service_name):
     #     raise ValueError("Service name in GCP should contain only lower case ASCII letters and hyphen!")

@@ -101,14 +101,9 @@ class SimpleTextClassifier(LabelStudioMLBase):
                             f"response status_code = {response.status_code}")
         return json.loads(response.content)
 
-    def fit(self, annotations, workdir=None, **kwargs):
-        # check if training is from web hook
-        if kwargs.get('data'):
-            project_id = kwargs['data']['project']['id']
-            tasks = self._get_annotated_dataset(project_id)
-        # ML training without web hook
-        else:
-            tasks = annotations
+    def fit(self, event, data, **kwargs):
+        project_id = data['project']['id']
+        tasks = self._get_annotated_dataset(project_id)
 
         input_texts = []
         output_labels, output_labels_idx = [], []
@@ -144,7 +139,7 @@ class SimpleTextClassifier(LabelStudioMLBase):
         self.model.fit(input_texts, output_labels_idx)
 
         # save output resources
-        workdir = workdir or os.getenv('MODEL_DIR')
+        workdir = os.getenv('MODEL_DIR')
         model_name = str(uuid4())[:8]
         if workdir:
             model_file = os.path.join(workdir, f'{model_name}.pkl')

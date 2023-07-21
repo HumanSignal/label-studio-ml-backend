@@ -1,23 +1,20 @@
-FROM python:3.7
+FROM python:3.8-slim
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
 
 WORKDIR /tmp
 COPY requirements.txt .
 
 ENV PYTHONUNBUFFERED=True \
-    PORT=${PORT:-9090} \
-    PIP_CACHE_DIR=/.cache
+    PORT=${PORT:-9090}
 
-RUN --mount=type=cache,target=$PIP_CACHE_DIR \
-    pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
-
-COPY uwsgi.ini /etc/uwsgi/
-COPY supervisord.conf /etc/supervisor/conf.d/
 
 WORKDIR /app
 
 COPY *.py /app/
 
-EXPOSE 9090
-
-CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD exec gunicorn --preload --bind :$PORT --workers 1 --threads 8 --timeout 0 _wsgi:app

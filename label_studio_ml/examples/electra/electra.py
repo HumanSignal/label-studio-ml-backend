@@ -75,16 +75,12 @@ class ElectraTextClassifier(LabelStudioMLBase):
             })
         return final_results
 
-    def fit(self, completions, workdir=None, **kwargs):
+    def fit(self, event, data, workdir=None, **kwargs):
         # check if training is from web hook
-        if kwargs.get('data'):
-            project_id = kwargs['data']['project']['id']
-            tasks = self._get_annotated_dataset(project_id)
-            if not self.parsed_label_config:
-                self.load_config(kwargs['data']['project']['label_config'])
-        # ML training without web hook
-        else:
-            tasks = completions
+        project_id = data['project']['id']
+        tasks = self._get_annotated_dataset(project_id)
+        if not self.parsed_label_config:
+            self.load_config(kwargs['data']['project']['label_config'])
         # Create training params with batch size = 1 as text are different size
         training_args = TrainingArguments("test_trainer", per_device_train_batch_size=1, per_device_eval_batch_size=1)
         # Prepare training data

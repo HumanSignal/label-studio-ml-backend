@@ -85,11 +85,18 @@ class SequenceTaggerModel(LabelStudioMLBase):
                            'score': score}) 
         
         return results
+
+    def _get_annotated_dataset(self, project_id):
+        raise NotImplementedError('For this model, you need to implement data ingestion pipeline: '
+                                  'go to ner.py > _get_annotated_dataset() and put your logic to retrieve'
+                                  f'the list of annotated tasks from Label Studio project ID = {project_id}')
+
     
-    def fit(self, completions, workdir=None, **kwargs):
+    def fit(self, event, data, **kwargs):
         #completions contain ALL the annotated samples.
         #train a model from scratch here.
         flair_sents = []
+        completions = self._get_annotated_dataset(data['project_id'])
         for compl in completions:
             sent = Sentence(compl['data'][self.to_name]) #get raw sentence and convert to flair
             annotations = compl['annotations']
