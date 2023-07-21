@@ -90,7 +90,7 @@ label-studio start
 5. Click "Validate and Save"<br>
 
 6. Next -> go to "labeling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
-7. Choose the code option and choose [your template](#labeling-config)
+7. Choose the code option and choose [your template](#labeling-configs)
 
 # Creating the Annotation
 
