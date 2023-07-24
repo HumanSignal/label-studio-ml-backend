@@ -6,16 +6,20 @@ from rq.exceptions import NoSuchJobError
 
 from .model import LabelStudioMLManager
 from .exceptions import exception_handler
+from .cache import create_cache
+
 
 logger = logging.getLogger(__name__)
 
 _server = Flask(__name__)
 _manager = LabelStudioMLManager()
+cache = None
 
 
 def init_app(model_class, **kwargs):
-    global _manager
+    global _manager, cache
     _manager.initialize(model_class, **kwargs)
+    cache = create_cache(os.getenv('CACHE_TYPE', 'sqlite'))
     return _server
 
 
@@ -44,10 +48,15 @@ def _predict():
     data = request.json
     tasks = data.get('tasks')
     params = data.get('params') or {}
-    predictions, model = _manager.predict(tasks,  **params)
+    project_id = data.get('project').split('.', 1)[0]
+    label_config = data.get('label_config')
+
+    model = _manager.model_class(project_id, cache, label_config)
+
+    predictions = model.predict(tasks, **params)
     response = {
         'results': predictions,
-        'model_version': model.model_version
+        'model_version': 'INITIAL'
     }
     return jsonify(response)
 
@@ -55,28 +64,41 @@ def _predict():
 @_server.route('/setup', methods=['POST'])
 @exception_handler
 def _setup():
-    data = request.json
-    logger.debug(data)
-    project = data.get('project')
-    schema = data.get('schema')
-    force_reload = data.get('force_reload', False)
-    hostname = data.get('hostname', '')  # host name for uploaded files and building urls
-    access_token = data.get('access_token', '')  # user access token to retrieve data
-    model_version = data.get('model_version')
-    model = _manager.fetch(project, schema, force_reload,
-                           hostname=hostname,
-                           access_token=access_token,
-                           model_version=model_version)
-    logger.debug('Fetch model version: {}'.format(model.model_version))
-    return jsonify({'model_version': model.model_version})
+    # data = request.json
+    # logger.debug(data)
+    # project = data.get('project')
+    # schema = data.get('schema')
+    # force_reload = data.get('force_reload', False)
+    # hostname = data.get('hostname', '')  # host name for uploaded files and building urls
+    # access_token = data.get('access_token', '')  # user access token to retrieve data
+    # model_version = data.get('model_version')
+    # model = _manager.fetch(project, schema, force_reload,
+    #                        hostname=hostname,
+    #                        access_token=access_token,
+    #                        model_version=model_version)
+    # logger.debug('Fetch model version: {}'.format(model.model_version))
+    return jsonify({'model_version': 'INITIAL'})
+
+
+TRAIN_EVENTS = (
+    'ANNOTATION_CREATED',
+    'ANNOTATION_UPDATED',
+    'ANNOTATION_DELETED',
+    'PROJECT_UPDATED'
+)
 
 
 @_server.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
     event = data.pop('action')
-    run = _manager.webhook(event, data)
-    return jsonify(run), 201
+    if event not in TRAIN_EVENTS:
+        return jsonify({'status': 'Unknown event'}), 200
+    project_id = str(data['project']['id'])
+    label_config = data['project']['label_config']
+    model = _manager.model_class(project_id, cache, label_config)
+    model.fit(event, data)
+    return jsonify({}), 201
 
 
 @_server.route('/health', methods=['GET'])

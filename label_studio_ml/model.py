@@ -312,16 +312,37 @@ class LabelStudioMLBase(ABC):
         'PROJECT_UPDATED'
     )
 
-    def __init__(self, label_config=None, train_output=None, **kwargs):
-        """Model loader"""
-        self.label_config = label_config
-        self.parsed_label_config = parse_config(self.label_config) if self.label_config else {}
-        self.train_output = train_output or {}
-        self.hostname = kwargs.get('hostname', '') or get_env('HOSTNAME')
-        self.access_token = kwargs.get('access_token', '') or get_env('ACCESS_TOKEN') or get_env('API_KEY')
+    def __init__(self, project_id, cache, label_config):
+        self.project_id = project_id
+        self.cache = cache
+        self.ensure_cache(label_config)
+
+    def ensure_cache(self, label_config):
+        if (self.project_id, 'label_config') not in self.cache:
+            self.cache[self.project_id, 'label_config'] = label_config
+        if (self.project_id, 'parsed_label_config') not in self.cache:
+            parsed_label_config = parse_config(label_config)
+            self.cache[self.project_id, 'parsed_label_config'] = json.dumps(parsed_label_config)
+
+    def get(self, key):
+        return self.cache[self.project_id, key]
+
+    def set(self, key, value):
+        self.cache[self.project_id, key] = value
+
+    def has(self, key):
+        return (self.project_id, key) in self.cache
+
+    @property
+    def label_config(self):
+        return self.get('label_config')
+
+    @property
+    def parsed_label_config(self):
+        return json.loads(self.get('parsed_label_config'))
 
     @abstractmethod
-    def predict(self, tasks, **kwargs):
+    def predict(self, tasks, cache, **kwargs):
         pass
 
     def process_event(self, event, data, job_id, additional_params):
