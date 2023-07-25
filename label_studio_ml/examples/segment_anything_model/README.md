@@ -67,11 +67,11 @@ As an aside, make sure you have [Label Studio installed](https://labelstud.io/gu
 ### 4. Adjust variables and _wsgi.py depending on your choice of model.
 
 **Choosing whether to use Advanced or ONNX model**
-- To use AdvancedSAM model, set RUN_ONNX_SAM environment variable to False (this is the default in the code)
+- To use AdvancedSAM model, set RUN_ONNX_SAM environment variable to False (this is the default in the code, you only have to adjust the environment variable if it is set to something previously)
 - To use ONNX model, set RUN_ONNX_SAM environment variable to True
 
 **To choose between MobileSAM and regular SAM architectures when using AdvancedSAM**
-- To use MobileSAM: set SAM_CHOICE environment variable to "MobileSAM" (this is the default in the code)
+- To use MobileSAM: set SAM_CHOICE environment variable to "MobileSAM" (this is the default in the code, you only have to adjust the environment variable if it is set to something previously)
 - To use regular SAM: set SAM_CHOICE environment variable to "SAM"
 
 ### 5. Start the Backend and Run Label Studio
@@ -127,23 +127,7 @@ The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an i
 ## Notes for Exporting:
 - COCO and YOLO format is not supported (this project exports using brush labels, so try numpy or PNG export instead)
 
-1. After finishing the above, import an image into your project.<br/>
-2. Click into the labeling interface. <br>
-3. Check *"Auto-Annotation"* in the upper right hand corner<br>
-4. (Optional, but recommended) Check *"Auto accept annotation suggestions"*<br>
-5. Click the smart tool icon and make sure it is set to the keypoint option<br>
-6. Choose the smart keypoint box on the bottom of the image. <br>
-- If you set your labels the same as under *"Settings on the frontend"*, this should be the label with number 3 or 4
-- (the first two are brush labels. These are not smart)
-
-7. Click on the image where you want SAM to return the auto-segmentation for. <br>
-
-> NOTE: The first time you retrieve a prediction after starting the frontend, it will take a while due to the way Label Studio works with loading models. There is a workaround in this code so that **AFTER THE FIRST RUN, THE PREDICTIONS WILL BE RECIEVED QUICKER.** On top of this, this commit allows for faster individual inference times overall, but has a slower first label so that a map of the image can be generated. If you would prefer to have overall slower individual inference times, but a faster first inference, then refer to [this commit](https://github.com/shondle/label-studio-ml-backend/tree/4367b18a52a7a494125874467c5e980a6068eca5/label_studio_ml/examples/segment_anything_model).
-
-9. Create more predictions by following step 6-8, then press submit!<br>
-
 # Labeling Configs
-Default configs are provided below.
 
 ## When using the AdvancedSAM-
 - Give one brush label per class you want to annotate.
@@ -151,6 +135,7 @@ Default configs are provided below.
 - For each class, create two keypoints. The first keypoint is for gaining predictions from the model where a keypoint is placed. The second can be referred to as a 'negative keypoint' telling the model to avoid predictions in the area where it is placed.
   - You MUST give each keypoint an alias. The first alias will be the index (starting from one) of your class labels. The alias for the second keypoint should have the same index of the first keypoint, but should be negative (as this is the 'negative keypoint'). It is very important you get this correct, as this is how the ML backend differentiates between types of keypoints.
   - Add one rectangle label for each of your classes that you want to annotate
+- The video reviews these points as well if you are confused after reading this
 
 Base example:
 ```
