@@ -14,62 +14,63 @@ There are two models in this repo that you can use.
 
 The **Advanced Segment Anything Model** introduces the ability to combined a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
 - Mix one rectangle label with multiple positive keypoints to refine your predictions! Use negative keypoints to take away area from predictions for increased control.
-- Use MobileSAM, and extremely lightweight alternative to the heavy original SegmentAnythingModel, to retrieve predictions. This can run inference within less than a second solely using a laptop without external compute!
+- Use MobileSAM, an extremely lightweight alternative to the heavy Segment Anything Model from Facebook, to retrieve predictions. This can run inference within a second using a laptop GPU!
 
 The **ONNX Segment Anything Model** gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
 - This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
 - Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labeling. Also, does not yet offer the mixed labeling and refinement that AdvancedSAM does.
 
 # Your Choices
+
+Here are the pros and cons broken down for choosing each model, and the choices you have for each.
+
 **Using AdvancedSAM**
 1. *Use with MobileSAM architecture*
 -  Pros: very lightweight can be run on laptops, mix many different combinations of input prompts to fine-tune prediction
--  Cons: Little less accuracy than regular SAM
-3. _Use with original SAM architecture_
+-  Cons: Less accuracy than Facebook's original SAM architecture
+2. _Use with original SAM architecture_
 - Pros: higher accuracy than MobileSAM, mix many different combinations of input prompts to fine-tune prediction
-- Cons: takes long to gather predictions (~2s to create embedding of an image), heavy and requires access to good GPUs
+- Cons: takes long to gather predictions (~2s to create embedding of an image), requires access to good GPUs
 
 **Using ONNXSAM**
-1. _Use with original SAM architecture_
+1. _Use with regular SAM architecture_
 - Pros: much faster than when you use it in Advanced SAM
 - Cons: can only use one smart label per predictions, image size must be defined before generating the ONNX model, cannot label images with different size without running into issues
-
-In addition, AdvancedSAM gives the ability to use MobileSAM, a lightweight version of Segment Anything Model than can be run without much computational power needed. 
 
 # Setup
 
 ## Setting Up the Backend
 
-### 1. Clone this repo
+### 1. Clone This Repo
 
 ### 2. Download Model Weights
 
-For using MobileSAM-
+- For using MobileSAM-
 Install the weights using [this link](https://cdn.githubraw.com/ChaoningZhang/MobileSAM/01ea8d0f/weights/mobile_sam.pt) and place in folder (along with the advanced_sam.py and onnx_sam.py files)
 
-For using regular SAM and/or ONNX-
+- For using regular SAM and/or ONNX-
 Follow [SAM installation instructions with pip](https://github.com/facebookresearch/segment-anything). 
 Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything)
 
-For the ONNX model-
-`python onnxconverter.py`
+  - For the ONNX model- `python onnxconverter.py`
 
 ### 3. Install Requirements
 Change your directory into this folder and then install all requirements.
-
-- [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
 
 ```
 pip install -r requirements.txt
 ```
 
-### 4. Adjust variables and _wsgi.py for your model.
+As an aside, make sure you have [Label Studio installed](https://labelstud.io/guide/install.html#Install-with-Anaconda)
+
+
+### 4. Adjust variables and _wsgi.py depending on your choice of model.
 
 **Choosing whether to use Advanced or ONNX model**
 - To use AdvancedSAM model, set RUN_ONNX_SAM environment variable to False (this is the default in the code)
 - To use ONNX model, set RUN_ONNX_SAM environment variable to True
 
-**To choose between MobileSAM and regular SAM when using AdvancedSAM**
+**To choose between MobileSAM and regular SAM architectures when using AdvancedSAM**
 - To use MobileSAM: set SAM_CHOICE environment variable to "MobileSAM" (this is the default in the code)
 - To use regular SAM: set SAM_CHOICE environment variable to "SAM"
 
@@ -77,11 +78,15 @@ pip install -r requirements.txt
 ```
 # change into this project folder from where you are
 cd segment_anything_model
-python _wsgi.py -p 4243
+python _wsgi.py
+
+# in a new terminal
 label-studio start
 ```
 
 ## Settings on the frontend
+
+[The video](#creating-the-annotation) also goes over this process, but does part of it while in the newly created project menu.
 
 1. Create a project and go to settings.
 2. Under "Machine Learning" click "Add Model"<br>
@@ -97,12 +102,22 @@ label-studio start
 See the following video tutorial for annotating -> 
 
 ## Notes for AdvancedSAM:
-- Please watch the video first
-- For the best experience, and follow the video tutorial above and uncheck 'Auto accept annotation suggestions' when running predictions.
-- After generating the prediction from an assortment of inputs, make sure you click the checkmark that outside of the image to finalize the region (this should either be above or below the image. Watch the video for a visual guide). There may be a checkmark inside the image next to a generated prediction, but do not use that one. For some reason, the checkmark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend. You may run into problems creating instances of the same class if you click the checkmark on the image and it leaves the labels used to guide the region).
-- After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image. This allows you to change the class of your prediction. See the video for a better explanation.
-- Only the negative keypoints can be used for subtracting from prediction areas for the model.Positive keypoints and rectangles tell the model areas of interests to make positive predictions. 
-- Multiple keypoints may be used to provide areas for the model where predictions should be extended. Only one rectangle label may be used when generating a prediction as an area where the model prediction should occur/be extended. If you place multiple rectangle labels, the model will use the newest rectangle label along with all other keypoints when aiding the model prediction. 
+- _**Please watch the video first**_
+
+For the best experience, and follow the video tutorial above and _**uncheck 'Auto accept annotation suggestions'**_ when running predictions.
+
+After generating the prediction from an assortment of inputs, make sure you _**click the checkmark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the video for a visual guide).
+- There may be a checkmark inside the image next to a generated prediction, but _do not use that one_. For some reason, the checkmark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend.
+- You may run into problems creating instances of the same class if you click the checkmark on the image and it leaves the labels used to guide the region).
+
+After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image.
+- This allows you to change the class of your prediction.
+- See the video for a better explanation.
+
+_**Only the negative keypoints can be used for subtracting from prediction areas**_ for the model. Positive keypoints and rectangles tell the model areas of interests to make positive predictions. 
+
+Multiple keypoints may be used to provide areas for the model where predictions should be extended. _**Only one rectangle label may be used**_ when generating a prediction as an area where the model prediction should occur/be extended.
+- If you place multiple rectangle labels, the model will use the newest rectangle label along with all other keypoints when aiding the model prediction. 
 
 ## Notes for ONNX:
 The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an image ratio for the ONNX model. Change this to the ratio of the images that you are labeling before generating the model. If you are labeling images of different sizes, use Advanced SAM instead, or generate a new ONNX model for different image groups with different sizes. If you do not adjust `orig_img_size`, and your image aspect ratios do not match what is already defined, then your predictions will be offset from the image.
@@ -142,19 +157,19 @@ Base example:
 <View>
   <Image name="image" value="$image" zoom="true"/>
   <BrushLabels name="brush" toName="image">
-  	<Label value="Brush_1" background="blue" alias="1_brush"/>
-  	<Label value="Brush_2" background="purple" alias="2_brush"/>
+  	<Label value="1" hint="brush" background="blue" alias="1_brush"/>
+  	<Label value="2" hint="brush" background="purple" alias="2_brush"/>
   </BrushLabels>
   <KeypointLabels name="tag2" toName="image">
-  	<Label value="1_+Keypoint" background="blue" alias="1"/>
-  	<Label value="1-Keypoint" background="red" alias="-1"/>
-    <Label value="2+Keypoint" background="purple" alias="2"/>
-  	<Label value="2-Keypoint" background="red" alias="-2"/>
+  	<Label value="(+1)" hint="keypoint" background="blue" alias="1"/>
+  	<Label value="(-1)" hint="keypoint" background="red" alias="-1"/>
+    <Label value="(+2)" hint="keypoint" background="purple" alias="2"/>
+  	<Label value="(-2)" hint="keypoint" background="red" alias="-2"/>
   </KeypointLabels>
   <RectangleLabels name="tag4" toName="image">
-  	<Label value="1_Rectangle" background="blue" alias="1"/>
-  	<Label value="2_Rectangle" background="purple" alias="2"/>
-  </RectangleLabels>
+  	<Label value="[1]" hint="rectangle" background="blue" alias="1"/>
+  	<Label value="[2]" hint="rectangle" background="purple" alias="2"/>
+  </RectangleLabels>       
 </View>
 ```
 
