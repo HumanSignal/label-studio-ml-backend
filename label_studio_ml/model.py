@@ -323,6 +323,8 @@ class LabelStudioMLBase(ABC):
         if (self.project_id, 'parsed_label_config') not in self.cache:
             parsed_label_config = parse_config(label_config)
             self.cache[self.project_id, 'parsed_label_config'] = json.dumps(parsed_label_config)
+        if (self.project_id, 'model_version') not in self.cache:
+            self.cache[self.project_id, 'model_version'] = 'INITIAL'
 
     def get(self, key):
         return self.cache[self.project_id, key]
@@ -340,6 +342,10 @@ class LabelStudioMLBase(ABC):
     @property
     def parsed_label_config(self):
         return json.loads(self.get('parsed_label_config'))
+
+    @property
+    def model_version(self):
+        return self.get('model_version')
 
     @abstractmethod
     def predict(self, tasks, cache, **kwargs):

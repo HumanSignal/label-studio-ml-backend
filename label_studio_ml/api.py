@@ -56,7 +56,7 @@ def _predict():
     predictions = model.predict(tasks, **params)
     response = {
         'results': predictions,
-        'model_version': 'INITIAL'
+        'model_version': model.get('model_version'),
     }
     return jsonify(response)
 
@@ -64,10 +64,11 @@ def _predict():
 @_server.route('/setup', methods=['POST'])
 @exception_handler
 def _setup():
-    # data = request.json
-    # logger.debug(data)
-    # project = data.get('project')
-    # schema = data.get('schema')
+    data = request.json
+    project_id = data.get('project').split('.', 1)[0]
+    label_config = data.get('schema')
+    model = _manager.model_class(project_id, cache, label_config)
+    model_version = model.get('model_version')
     # force_reload = data.get('force_reload', False)
     # hostname = data.get('hostname', '')  # host name for uploaded files and building urls
     # access_token = data.get('access_token', '')  # user access token to retrieve data
@@ -77,7 +78,7 @@ def _setup():
     #                        access_token=access_token,
     #                        model_version=model_version)
     # logger.debug('Fetch model version: {}'.format(model.model_version))
-    return jsonify({'model_version': 'INITIAL'})
+    return jsonify({'model_version': model_version})
 
 
 TRAIN_EVENTS = (
