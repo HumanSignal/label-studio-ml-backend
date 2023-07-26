@@ -29,7 +29,7 @@ Here are the pros and cons broken down for choosing each model, and the choices 
 **Using AdvancedSAM**
 1. *Use with MobileSAM architecture*
 -  Pros: very lightweight can be run on laptops, mix many different combinations of input prompts to fine-tune prediction
--  Cons: Less accuracy than Facebook's original SAM architecture
+-  Cons: Lower accuracy than Facebook's original SAM architecture
 2. _Use with original SAM architecture_
 - Pros: higher accuracy than MobileSAM, mix many different combinations of input prompts to fine-tune prediction
 - Cons: takes long to gather predictions (~2s to create embedding of an image), requires access to good GPUs
@@ -186,3 +186,27 @@ For the ONNX model-
   </RectangleLabels>
 </View>
 ```
+
+## Credits
+
+Original Segment Anything Model paper-
+```
+@article{kirillov2023segany,
+  title={Segment Anything},
+  author={Kirillov, Alexander and Mintun, Eric and Ravi, Nikhila and Mao, Hanzi and Rolland, Chloe and Gustafson, Laura and Xiao, Tete and Whitehead, Spencer and Berg, Alexander C. and Lo, Wan-Yen and Doll{\'a}r, Piotr and Girshick, Ross},
+  journal={arXiv:2304.02643},
+  year={2023}
+}
+```
+
+MobileSAM paper-
+```
+@article{mobile_sam,
+  title={Faster Segment Anything: Towards Lightweight SAM for Mobile Applications},
+  author={Zhang, Chaoning and Han, Dongshen and Qiao, Yu and Kim, Jung Uk and Bae, Sung-Ho and Lee, Seungkyu and Hong, Choong Seon},
+  journal={arXiv preprint arXiv:2306.14289},
+  year={2023}
+}
+```
+
+
