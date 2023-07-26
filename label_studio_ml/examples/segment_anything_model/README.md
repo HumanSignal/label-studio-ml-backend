@@ -104,17 +104,17 @@ label-studio start
 See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) to get a better understanding of the workflow when annotating with SAM.
 
 ## Notes for AdvancedSAM:
-- _**Please watch the video first**_
+- _**Please watch the [video](#creating-the-annotation) first**_
 
 For the best experience, follow the video tutorial above and _**uncheck 'Auto accept annotation suggestions'**_ when running predictions.
 
-After generating the prediction from an assortment of inputs, make sure you _**click the check mark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the video for a visual guide).
+After generating the prediction from an assortment of inputs, make sure you _**click the check mark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the [video](#creating-the-annotation) for a visual guide).
 - There may be a check mark inside the image next to a generated prediction, but _do not use that one_. For some reason, the check mark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend.
 - You may run into problems creating instances of the same class if you click the check mark on the image and it leaves the labels used to guide the region).
 
 After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image.
 - This allows you to change the class of your prediction.
-- See the video for a better explanation.
+- See the [video](#creating-the-annotation) for a better explanation.
 
 _**Only the negative keypoints can be used for subtracting from prediction areas**_ for the model. Positive keypoints and rectangles tell the model areas of interest to make positive predictions. 
 
@@ -137,7 +137,7 @@ The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an i
 - For each class, create two keypoints. The first keypoint is for gaining predictions from the model where a keypoint is placed. The second can be referred to as a 'negative keypoint' telling the model to avoid predictions in the area where it is placed.
   - You MUST give each keypoint an alias. The first alias will be the index (starting from one) of your class labels. The alias for the second keypoint should have the same index as the first keypoint, but should be negative (as this is the 'negative keypoint'). It is very important you get this correct, as this is how the ML backend differentiates between types of keypoints.
   - Add one rectangle label for each of your classes that you want to annotate
-- The video reviews these points as well if you are confused after reading this
+- [The video](#creating-the-annotation) reviews these points as well if you are confused after reading this
 
 Base example:
 ```
