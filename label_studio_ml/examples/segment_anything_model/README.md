@@ -1,8 +1,10 @@
 # Interactive Annotation in Label Studio with Segment Anything Model
 
-<img src="https://user-images.githubusercontent.com/106922533/234322629-e583c838-11eb-4261-aaa1-872f1695720c.gif" width="500" />
 
-<img src="https://user-images.githubusercontent.com/106922533/234322576-a24643f8-aeb6-421c-984e-d0d2e2233cd4.gif" width="500" />
+
+https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167c-404a-96bd-c2e2382df99a
+
+
 
 Use Facebook's Segment Anything Model with Label Studio!
 
@@ -99,7 +101,7 @@ label-studio start
 
 # Creating the Annotation
 
-See the following video tutorial for annotating -> 
+See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) to get a better understanding of the workflow when annotating with SAM.
 
 ## Notes for AdvancedSAM:
 - _**Please watch the video first**_
