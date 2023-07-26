@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN apt-get update && apt-get install -y wget \
     && pip install --no-cache-dir -r requirements.txt \
-    && wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+    && wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth \
     && wget https://cdn.githubraw.com/ChaoningZhang/MobileSAM/01ea8d0f/weights/mobile_sam.pt
 
 COPY onnxconverter.py .
