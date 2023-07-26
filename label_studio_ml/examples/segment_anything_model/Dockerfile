@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=True \
     PORT=9090 \
     VITH_CHECKPOINT=/app/sam_vit_h_4b8939.pth \
     ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx \
-    MOBILESAM_CHECKPOINT=/app/mobile_sam.pt \
+    MOBILESAM_CHECKPOINT=/app/mobile_sam.pt
 
 COPY requirements.txt .
 
