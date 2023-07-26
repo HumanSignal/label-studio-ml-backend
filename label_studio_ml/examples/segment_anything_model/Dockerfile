@@ -10,8 +10,6 @@ ENV PYTHONUNBUFFERED=True \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
-
 RUN apt-get update && apt-get install -y wget git \
     && pip install --no-cache-dir -r requirements.txt \
     && wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth \
