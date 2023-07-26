@@ -21,7 +21,8 @@ COPY onnxconverter.py .
 RUN python onnxconverter.py .
 
 COPY _wsgi.py .
-COPY segment_anything_model.py .
+COPY advanced_sam.py .
+COPY onnx_sam.py .
 EXPOSE 9090
 COPY * /app/
 
