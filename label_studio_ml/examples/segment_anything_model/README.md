@@ -14,7 +14,7 @@ There are two models in this repo that you can use.
 - **1. Advanced Segment Anything Model**
 - **2. ONNX Segment Anything Model**
 
-The **Advanced Segment Anything Model** introduces the ability to combined a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
+The **Advanced Segment Anything Model** introduces the ability to combine a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
 - Mix one rectangle label with multiple positive keypoints to refine your predictions! Use negative keypoints to take away area from predictions for increased control.
 - Use MobileSAM, an extremely lightweight alternative to the heavy Segment Anything Model from Facebook, to retrieve predictions. This can run inference within a second using a laptop GPU!
 
@@ -37,7 +37,7 @@ Here are the pros and cons broken down for choosing each model, and the choices 
 **Using ONNXSAM**
 1. _Use with regular SAM architecture_
 - Pros: much faster than when you use it in Advanced SAM
-- Cons: can only use one smart label per predictions, image size must be defined before generating the ONNX model, cannot label images with different size without running into issues
+- Cons: can only use one smart label per prediction, image size must be defined before generating the ONNX model, cannot label images with different sizes without running into issues
 
 # Setup
 
@@ -106,17 +106,17 @@ See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et
 ## Notes for AdvancedSAM:
 - _**Please watch the video first**_
 
-For the best experience, and follow the video tutorial above and _**uncheck 'Auto accept annotation suggestions'**_ when running predictions.
+For the best experience, follow the video tutorial above and _**uncheck 'Auto accept annotation suggestions'**_ when running predictions.
 
-After generating the prediction from an assortment of inputs, make sure you _**click the checkmark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the video for a visual guide).
-- There may be a checkmark inside the image next to a generated prediction, but _do not use that one_. For some reason, the checkmark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend.
-- You may run into problems creating instances of the same class if you click the checkmark on the image and it leaves the labels used to guide the region).
+After generating the prediction from an assortment of inputs, make sure you _**click the check mark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the video for a visual guide).
+- There may be a check mark inside the image next to a generated prediction, but _do not use that one_. For some reason, the check mark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend.
+- You may run into problems creating instances of the same class if you click the check mark on the image and it leaves the labels used to guide the region).
 
 After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image.
 - This allows you to change the class of your prediction.
 - See the video for a better explanation.
 
-_**Only the negative keypoints can be used for subtracting from prediction areas**_ for the model. Positive keypoints and rectangles tell the model areas of interests to make positive predictions. 
+_**Only the negative keypoints can be used for subtracting from prediction areas**_ for the model. Positive keypoints and rectangles tell the model areas of interest to make positive predictions. 
 
 Multiple keypoints may be used to provide areas for the model where predictions should be extended. _**Only one rectangle label may be used**_ when generating a prediction as an area where the model prediction should occur/be extended.
 - If you place multiple rectangle labels, the model will use the newest rectangle label along with all other keypoints when aiding the model prediction. 
@@ -127,15 +127,15 @@ The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an i
 - Guide on changing the code - `"orig_im_size": torch.tensor([#heightofimages, #widthofimages], dtype=torch.float),`
 
 ## Notes for Exporting:
-- COCO and YOLO format is not supported (this project exports using brush labels, so try numpy or PNG export instead)
+- COCO and YOLO format is not supported (this project exports using brush labels, so try NumPy or PNG export instead)
 
 # Labeling Configs
 
 ## When using the AdvancedSAM-
 - Give one brush label per class you want to annotate.
-- Give each brush and alias. 
+- Give each brush an alias. 
 - For each class, create two keypoints. The first keypoint is for gaining predictions from the model where a keypoint is placed. The second can be referred to as a 'negative keypoint' telling the model to avoid predictions in the area where it is placed.
-  - You MUST give each keypoint an alias. The first alias will be the index (starting from one) of your class labels. The alias for the second keypoint should have the same index of the first keypoint, but should be negative (as this is the 'negative keypoint'). It is very important you get this correct, as this is how the ML backend differentiates between types of keypoints.
+  - You MUST give each keypoint an alias. The first alias will be the index (starting from one) of your class labels. The alias for the second keypoint should have the same index as the first keypoint, but should be negative (as this is the 'negative keypoint'). It is very important you get this correct, as this is how the ML backend differentiates between types of keypoints.
   - Add one rectangle label for each of your classes that you want to annotate
 - The video reviews these points as well if you are confused after reading this
 
@@ -160,9 +160,9 @@ Base example:
 </View>
 ```
 
-Notice how there are two keypoints for each brush. The first keypoint per brush is a "postive keypoint" or tells the model where to select an area, and the second keypoint is a "negative keypoint" or tells the model where to avoid the predictions. 
+Notice how there are two keypoints for each brush. The first keypoint per brush is a "positive keypoint" or tells the model where to select an area, and the second keypoint is a "negative keypoint" or tells the model where to avoid the predictions. 
 
-The values for each of the labels does not matter as much, and are just there to help you distinguish labels. It is recommended to make negative keypoints red in order to tell the difference. However, aliases for keypoints and rectangle label MUST be correct. 
+The values for each of the labels do not matter as much and are there just to help you distinguish labels. It is recommended to make negative keypoints red in order to tell the difference. However, aliases for keypoints and rectangle label MUST be correct. 
 
 ## When Using the ONNX model
 
