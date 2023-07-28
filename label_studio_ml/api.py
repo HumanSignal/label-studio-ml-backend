@@ -61,11 +61,7 @@ def _predict():
     model.use_label_config(label_config)
 
     predictions = model.predict(tasks, context=context, **params)
-    response = {
-        'results': predictions,
-        'model_version': model.get('model_version'),
-    }
-    return jsonify(response)
+    return jsonify({'results': predictions})
 
 
 @_server.route('/setup', methods=['POST'])
