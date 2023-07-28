@@ -31,6 +31,22 @@ def get_single_tag_keys(parsed_label_config, control_type, object_type):
     return from_name, to_name, value, info['labels']
 
 
+def get_first_tag_keys(parsed_label_config, control_type, object_type):
+    """
+    Reads config and returns the first control tag and the first object tag that match the given types
+    :param parsed_label_config:
+    :param control_type:
+    :param object_type:
+    :return:
+    """
+    for from_name, info in parsed_label_config.items():
+        if info['type'] == control_type:
+            for input in info['inputs']:
+                if input['type'] == object_type:
+                    return from_name, info
+    return None, None
+
+
 def is_skipped(completion):
     if len(completion['annotations']) != 1:
         return False
