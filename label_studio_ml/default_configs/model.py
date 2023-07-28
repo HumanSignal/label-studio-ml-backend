@@ -1,53 +1,43 @@
-import logging
-import json
-from datetime import datetime
-
 from label_studio_ml.model import LabelStudioMLBase
-
-logger = logging.getLogger(__name__)
 
 
 class NewModel(LabelStudioMLBase):
 
-    def __init__(self, **kwargs):
-        super(NewModel, self).__init__(**kwargs)
-
-        # Access project labeling configuration via self.parsed_label_config
-        # e.g. {"label": {"type": "Labels", "to_name": ["text"], "inputs": ["type": "Text", "value": "text"], "labels": ["Label A", "Label B"]}  # noqa
-        logger.debug(f'Create {self.__class__.__name__} with labeling configuration: {json.dumps(self.parsed_label_config, indent=2)}')  # noqa
-        if not self.train_output:
-            # Initialize your model here...
-            logger.debug('Training output is empty: start model from scratch...')
-            pass
-        else:
-            # Read your model checkpoints for example self.train_output["model_checkpoint"]
-            logger.debug(f'Read model from previous train run: {self.train_output}')
-            pass
-
-    def predict(self, tasks, **kwargs):
+    def predict(self, tasks, context, **kwargs):
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
+            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml.html#Passing-data-to-ML-backend)
             :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-tasks)
         """
-        logger.debug(f'Run prediction on {json.dumps(tasks, indent=2)}')
+        print(f'''\
+        Run prediction on {tasks}
+        Received context: {context}
+        Project ID: {self.project_id}
+        Label config: {self.label_config}
+        Parsed JSON Label config: {self.parsed_label_config}''')
         return []
 
-    def fit(self, event, data,  **kwargs):
+    def fit(self, event, data, **kwargs):
         """
         This method is called each time an annotation is created or updated
-        :param kwargs: contains "data" and "event" key, that could be used to retrieve project ID and annotation event type
-                        (read more in https://labelstud.io/guide/webhook_reference.html#Annotation-Created)
-        :return: dictionary with trained model artefacts that could be used further in code with self.train_output
+        You can run your logic here to update the model and persist it to the cache
+        It is not recommended to perform long-running operations here, as it will block the main thread
+        Instead, consider running a separate process or a thread (like RQ worker) to perform the training
+        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
+        :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
-        if 'data' not in kwargs:
-            raise KeyError(f'Project is not identified. Go to Project Settings -> Webhooks, and ensure you have "Send Payload" enabled')
-        data = kwargs['data']
-        logger.debug(f'Data received: {data}')
-        project_id = data['project']['id']
-        # write your logic to acquire new tasks, and perform training
-        # train_output payload can be retrieved later in subsequent function calls
-        return {
-            'any_model': 'checkpoint',
-            'project': project_id,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
+
+        # use cache to retrieve the data from the previous fit() runs
+        old_data = self.get('my_data')
+        old_model_version = self.get('model_version')
+        print(f'Old data: {old_data}')
+        print(f'Old model version: {old_model_version}')
+
+        # store new data to the cache
+        self.set('my_data', 'my_new_data_value')
+        self.set('model_version', 'my_new_model_version')
+        print(f'New data: {self.get("my_data")}')
+        print(f'New model version: {self.get("model_version")}')
+
+        print('fit() completed successfully.')
+

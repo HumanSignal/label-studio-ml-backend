@@ -1,10 +1,47 @@
 import os
 import sqlite3
+from abc import ABC, abstractmethod
 from threading import Lock
 from functools import lru_cache
 
 
-class SqliteCache:
+class BaseCache(ABC):
+
+    @abstractmethod
+    def __getitem__(self, project_id_key: tuple):
+        """
+        Get value from cache
+        :param project_id_key: tuple (project_id, key)
+        :return:
+        """
+
+    @abstractmethod
+    def __setitem__(self, project_id_key: tuple, value):
+        """
+        Set value to cache
+        :param project_id_key: tuple (project_id, key)
+        :param value:
+        :return:
+        """
+
+    @abstractmethod
+    def __contains__(self, project_id_key: tuple):
+        """
+        Check if value exists in cache
+        :param project_id_key: tuple (project_id, key)
+        :return:
+        """
+
+    @abstractmethod
+    def __delitem__(self, project_id_key: tuple):
+        """
+        Delete value from cache
+        :param project_id_key: tuple (project_id, key)
+        :return:
+        """
+
+
+class SqliteCache(BaseCache):
     def __init__(self, db_name: str = 'cache.db'):
         self.db_name = os.path.join(os.getenv('MODEL_DIR', '.'), db_name)
         self.lock = Lock()
@@ -31,7 +68,7 @@ class SqliteCache:
                 (project_id, key))
             result = cursor.fetchone()
             if result is None:
-                raise KeyError(key)
+                return result
             return result[0]
 
     def __setitem__(self, project_id_key, value):

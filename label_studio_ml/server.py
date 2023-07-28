@@ -29,7 +29,7 @@ def get_args():
     subparsers.required = True
 
     # init sub-command parser
-    parser_init = subparsers.add_parser('init', help='Initialize Label Studio', parents=[root_parser])
+    parser_init = subparsers.add_parser('init', aliases=['create'], help='Initialize Label Studio', parents=[root_parser])
     parser_init.add_argument(
         'project_name',
         help='Path to directory where project state will be initialized')
@@ -78,11 +78,17 @@ def get_args():
 
 
 def create_dir(args):
+    print('==========================')
+    print('Welcome to Label Studio ML!')
+    print('==========================')
+
     output_dir = os.path.join(args.root_dir, args.project_name)
     if os.path.exists(output_dir) and args.force:
         shutil.rmtree(output_dir)
     elif os.path.exists(output_dir):
-        raise FileExistsError('Model directory already exists. Please remove it or use --force option.')
+        print(Fore.RED + f'Model directory "{output_dir}" already exists. Please remove it or run:\n'
+              f'label-studio-ml create {args.project_name} --force')
+        return
 
     default_configs_dir = os.path.join(os.path.dirname(__file__), 'default_configs')
     shutil.copytree(default_configs_dir, output_dir, ignore=shutil.ignore_patterns('*.py', '*.tmpl'))
@@ -90,7 +96,7 @@ def create_dir(args):
     # extract script name and model class
     if not args.script:
         script_path = os.path.join(default_configs_dir, 'model.py')
-        logger.warning(f'You don\'t specify script path: by default, "{script_path}" is used')
+        print(f'You don\'t specify script path: by default, "{script_path}" is used')
     else:
         script_path = args.script
 
@@ -133,8 +139,19 @@ def create_dir(args):
     with open(os.path.join(output_dir, wsgi_name), mode='w') as fout:
         fout.write(wsgi_script)
 
+    model_file = os.path.join(output_dir, script_base_name)
     print(Fore.GREEN + 'Congratulations! ML Backend has been successfully initialized in ' + output_dir)
-    print(Fore.RESET + 'Now start it by using:\n' + Fore.CYAN + 'label-studio-ml start ' + output_dir)
+    print(Fore.RESET + '\nHere are the next steps:')
+    print('\n1. Try it out by running:\n' + Fore.CYAN + 'label-studio-ml start ' + output_dir + Fore.RESET +
+          '\nYou should be able to connect to it in Label Studio project Settings > Machine Learning > Add Model '
+          'and provide with the following URL: http://localhost:9090')
+
+    print('\n2. Go to ' + Fore.CYAN + model_file + Fore.RESET + ' and modify it as you wish:\n' +
+          '- predict() - define your prediction logic here\n' + '- fit() - define your training logic here (optional)')
+
+    print('\n3. Deploy your model with docker:\n' + Fore.CYAN + f'cd {output_dir}\ndocker-compose up' + Fore.RESET)
+
+    print('\n4. Have fun! :)')
 
 
 def start_server(args, subprocess_params):
@@ -179,7 +196,7 @@ def special_match(strg, search=re.compile(r'[^a-z-]').search):
 def main():
     args, subargs = get_args()
 
-    if args.command == 'init':
+    if args.command in ('init', 'create'):
         create_dir(args)
     elif args.command == 'start':
         start_server(args, subargs)

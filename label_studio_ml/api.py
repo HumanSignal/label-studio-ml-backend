@@ -2,23 +2,26 @@ import logging
 import os
 
 from flask import Flask, request, jsonify
-from rq.exceptions import NoSuchJobError
 
-from .model import LabelStudioMLManager
+from .model import LabelStudioMLBase
 from .exceptions import exception_handler
-from .cache import create_cache
+from .cache import create_cache, BaseCache
 
 
 logger = logging.getLogger(__name__)
 
 _server = Flask(__name__)
-_manager = LabelStudioMLManager()
-cache = None
+cache = BaseCache
+MODEL_CLASS = LabelStudioMLBase
 
 
-def init_app(model_class, **kwargs):
-    global _manager, cache
-    _manager.initialize(model_class, **kwargs)
+def init_app(model_class):
+    global MODEL_CLASS, cache
+
+    if not issubclass(model_class, LabelStudioMLBase):
+        raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
+
+    MODEL_CLASS = model_class
     cache = create_cache(os.getenv('CACHE_TYPE', 'sqlite'))
     return _server
 
@@ -50,10 +53,12 @@ def _predict():
     params = data.get('params') or {}
     project_id = data.get('project').split('.', 1)[0]
     label_config = data.get('label_config')
+    context = params.pop('context', {})
 
-    model = _manager.model_class(project_id, cache, label_config)
+    model = MODEL_CLASS(project_id, cache)
+    model.use_label_config(label_config)
 
-    predictions = model.predict(tasks, **params)
+    predictions = model.predict(tasks, context=context, **params)
     response = {
         'results': predictions,
         'model_version': model.get('model_version'),
@@ -67,17 +72,9 @@ def _setup():
     data = request.json
     project_id = data.get('project').split('.', 1)[0]
     label_config = data.get('schema')
-    model = _manager.model_class(project_id, cache, label_config)
+    model = MODEL_CLASS(project_id, cache)
+    model.use_label_config(label_config)
     model_version = model.get('model_version')
-    # force_reload = data.get('force_reload', False)
-    # hostname = data.get('hostname', '')  # host name for uploaded files and building urls
-    # access_token = data.get('access_token', '')  # user access token to retrieve data
-    # model_version = data.get('model_version')
-    # model = _manager.fetch(project, schema, force_reload,
-    #                        hostname=hostname,
-    #                        access_token=access_token,
-    #                        model_version=model_version)
-    # logger.debug('Fetch model version: {}'.format(model.model_version))
     return jsonify({'model_version': model_version})
 
 
@@ -97,7 +94,8 @@ def webhook():
         return jsonify({'status': 'Unknown event'}), 200
     project_id = str(data['project']['id'])
     label_config = data['project']['label_config']
-    model = _manager.model_class(project_id, cache, label_config)
+    model = MODEL_CLASS(project_id, cache)
+    model.use_label_config(label_config)
     model.fit(event, data)
     return jsonify({}), 201
 
@@ -108,7 +106,8 @@ def webhook():
 def health():
     return jsonify({
         'status': 'UP',
-        'model_dir': _manager.model_dir,
+        'model_class': MODEL_CLASS.__name__,
+        'cache_type': cache.__class__.__name__
     })
 
 
@@ -116,12 +115,6 @@ def health():
 @exception_handler
 def metrics():
     return jsonify({})
-
-
-@_server.errorhandler(NoSuchJobError)
-def no_such_job_error_handler(error):
-    logger.warning('Got error: ' + str(error))
-    return str(error), 410
 
 
 @_server.errorhandler(FileNotFoundError)
@@ -154,18 +147,3 @@ def log_response_info(response):
     logger.debug('Response headers: %s', response.headers)
     logger.debug('Response body: %s', response.get_data())
     return response
-
-
-@_server.route('/versions', methods=['GET'])
-@exception_handler
-def get_version():
-    """
-    Get model versions from ML backend
-    @return: A list of versions
-    """
-    versions = list(_manager._get_models_from_workdir())
-    return jsonify({
-        'versions': versions,
-        'current_version': _manager.get_current_model_version(),
-        'model_dir': _manager.model_dir
-    })
