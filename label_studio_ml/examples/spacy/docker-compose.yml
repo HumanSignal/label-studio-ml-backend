@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  ml-backend:
+    container_name: ml-backend
+    build: .
+    environment:
+      - WORKERS=2
+      - THREADS=4
+      - LOG_LEVEL=DEBUG
+      - MODEL_DIR=/data/models
+    volumes:
+      - "./data:/data"
+    ports:
+      - "9090:9090"
