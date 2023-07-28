@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 import inspect
 
+from typing import Tuple
 from abc import ABC, abstractmethod
 from colorama import Fore
 
@@ -79,10 +80,26 @@ class LabelStudioMLBase(ABC):
             return train_output
 
     def fit(self, event, data, **additional_params):
-        return {}
+        pass
 
     def get_local_path(self, url, project_dir=None):
         return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
+
+    def get_first_tag_occurence(self, control_type: str, object_type: str) -> Tuple[str, str, str]:
+        """
+        Reads config and returns the first control tag and the first object tag that match the given types
+        For example: get_first_tag_occurence('Choices', 'Text') will return the first Choices tag that has an Text tag as input
+        :param control_type:
+        :param object_type:
+        :return: tuple of (from_name, to_name, value)
+        """
+        parsed_label_config = self.parsed_label_config
+        for from_name, info in parsed_label_config.items():
+            if info['type'] == control_type:
+                for input in info['inputs']:
+                    if input['type'] == object_type:
+                        return from_name, info['to_name'][0], input['value']
+        raise ValueError(f'No control tag of type {control_type} and object tag of type {object_type} found in label config')
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
