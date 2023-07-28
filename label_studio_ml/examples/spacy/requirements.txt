@@ -1,0 +1,4 @@
+gunicorn==20.1.0
+# label-studio-ml==2.0
+-e git+https://github.com/heartexlabs/label-studio-ml-backend@ba92159c51cbda75f238404a38e690e061b2e9de#egg=label-studio-ml
+spacy~=3.6
