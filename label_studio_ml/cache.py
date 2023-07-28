@@ -7,6 +7,9 @@ from functools import lru_cache
 
 class BaseCache(ABC):
 
+    def __init__(self, path):
+        self.path = path
+
     @abstractmethod
     def __getitem__(self, project_id_key: tuple):
         """
@@ -42,8 +45,10 @@ class BaseCache(ABC):
 
 
 class SqliteCache(BaseCache):
-    def __init__(self, db_name: str = 'cache.db'):
-        self.db_name = os.path.join(os.getenv('MODEL_DIR', '.'), db_name)
+    def __init__(self, path: str, db_name: str = 'cache.db'):
+        super(SqliteCache, self).__init__(path)
+        os.makedirs(self.path, exist_ok=True)
+        self.db_name = os.path.join(self.path, db_name)
         self.lock = Lock()
 
         # Establish a connection and create table if it doesn't exist
@@ -98,8 +103,8 @@ class SqliteCache(BaseCache):
             return cursor.fetchone() is not None
 
 
-def create_cache(cache_type, **kwargs):
+def create_cache(cache_type, path, **kwargs):
     if cache_type == 'sqlite':
-        return SqliteCache(**kwargs)
+        return SqliteCache(path, **kwargs)
     else:
         raise ValueError(f"Unsupported cache type: {cache_type}")

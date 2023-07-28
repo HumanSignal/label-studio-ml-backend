@@ -22,7 +22,9 @@ def init_app(model_class):
         raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
 
     MODEL_CLASS = model_class
-    cache = create_cache(os.getenv('CACHE_TYPE', 'sqlite'))
+    cache = create_cache(
+        os.getenv('CACHE_TYPE', 'sqlite'),
+        path=os.getenv('MODEL_DIR', '.'))
     return _server
 
 
