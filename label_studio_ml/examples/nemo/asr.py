@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class NemoASR(LabelStudioMLBase):
 
-    def __init__(self, model_name='QuartzNet15x5Base-En', **kwargs):
+    def __init__(self, model_name='stt_hi_conformer_ctc_medium', **kwargs):
         super(NemoASR, self).__init__(**kwargs)
 
         # Find TextArea control tag and bind ASR model to it
