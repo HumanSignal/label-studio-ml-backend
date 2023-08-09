@@ -105,23 +105,10 @@ if __name__ == "__main__":
         print('Check "' + OpenAIPredictor.__name__ + '" instance creation..')
         model = OpenAIPredictor(**kwargs)
 
-    app = init_app(
-        model_class=OpenAIPredictor,
-        model_dir=os.environ.get('MODEL_DIR', args.model_dir),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379),
-        **kwargs
-    )
+    app = init_app(model_class=OpenAIPredictor)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(
-        model_class=OpenAIPredictor,
-        model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
-    )
+    app = init_app(model_class=OpenAIPredictor)

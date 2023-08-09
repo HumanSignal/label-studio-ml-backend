@@ -6,7 +6,7 @@ import importlib
 import importlib.util
 import inspect
 
-from typing import Tuple
+from typing import Tuple, Callable, Union
 from abc import ABC, abstractmethod
 from colorama import Fore
 
@@ -85,20 +85,24 @@ class LabelStudioMLBase(ABC):
     def get_local_path(self, url, project_dir=None):
         return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
 
-    def get_first_tag_occurence(self, control_type: str, object_type: str) -> Tuple[str, str, str]:
+    def get_first_tag_occurence(self, control_type: Union[str, Tuple], object_type: Union[str, Tuple], name_filter: Callable = None) -> Tuple[str, str, str]:
         """
         Reads config and returns the first control tag and the first object tag that match the given types
         For example: get_first_tag_occurence('Choices', 'Text') will return the first Choices tag that has an Text tag as input
         :param control_type:
         :param object_type:
+        :param name_filter: if given, only tags with this name will be considered, e.g. name_filter=lambda name: name.startswith('my_')
         :return: tuple of (from_name, to_name, value)
         """
         parsed_label_config = self.parsed_label_config
         for from_name, info in parsed_label_config.items():
-            if info['type'] == control_type:
+            if isinstance(control_type, str) and info['type'] == control_type or \
+               isinstance(control_type, tuple) and info['type'] in control_type:
                 for input in info['inputs']:
-                    if input['type'] == object_type:
-                        return from_name, info['to_name'][0], input['value']
+                    if isinstance(object_type, str) and input['type'] == object_type or \
+                       isinstance(object_type, tuple) and input['type'] in object_type:
+                        if name_filter is None or name_filter(input['name']):
+                            return from_name, info['to_name'][0], input['value']
         raise ValueError(f'No control tag of type {control_type} and object tag of type {object_type} found in label config')
 
 
