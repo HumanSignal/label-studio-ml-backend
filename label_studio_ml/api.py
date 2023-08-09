@@ -132,13 +132,14 @@ def index_error(error):
 
 @_server.before_request
 def log_request_info():
-    logger.debug('Request headers: %s', request.headers)
-    logger.debug('Request body: %s', request.get_data())
+    pass
+    # logger.debug('Request headers: %s', request.headers)
+    # logger.debug('Request body: %s', request.get_data())
 
 
 @_server.after_request
 def log_response_info(response):
-    logger.debug('Response status: %s', response.status)
-    logger.debug('Response headers: %s', response.headers)
-    logger.debug('Response body: %s', response.get_data())
+    # logger.debug('Response status: %s', response.status)
+    # logger.debug('Response headers: %s', response.headers)
+    # logger.debug('Response body: %s', response.get_data())
     return response

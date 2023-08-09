@@ -1,15 +1,10 @@
-import matplotlib.pyplot as plt
-from label_studio_ml.model import LabelStudioMLBase
 from label_studio_converter import brush
-from label_studio_ml.utils import get_image_local_path, InMemoryLRUDictCache
+from label_studio_ml.utils import InMemoryLRUDictCache
 import numpy as np
-import cv2
 import os
-from PIL import Image
 import string
 import random
 import torch
-import json
 from typing import List, Dict, Optional
 from onnx_sam import SamModel
 
@@ -74,10 +69,9 @@ class AdvancedSamModel(SamModel):
         points, labels, input_box, alias, box_width, box_height = self.get_tasks(tasks, height, width, **kwargs)
 
         x, y, box_width, box_height, smart_annotation = self.get_smart_position(width=width, height=height,
-                                                                                box_width=box_width,
+                                                                                box_width=box_width, box_height=box_height, **kwargs)
 
         payload = self.get_image_embeddings(PREDICTOR, img_path)
-        image, image_embeddings = payload["image"], payload["image_embeddings"]
 
         points, labels, input_box = self.get_smart(points=points, x=x, y=y, box_width=box_width, box_height=box_height,
                                                    labels=labels, smart_annotation=smart_annotation,
@@ -86,14 +80,14 @@ class AdvancedSamModel(SamModel):
         print(f"point coords are {None if points.size == 0 else points}")
         print(f"labels are {np.array(labels)}")
         print(f"box is {input_box}")
-        masks, _, _ = predictor.predict(
+        masks, _, _ = PREDICTOR.predict(
             point_coords=None if points.size == 0 else points,
             point_labels=np.array(labels),
             box=input_box,
             multimask_output=False
         )
 
-        predictions = self.get_results(masks=masks, width=width, height=height, alias=alias)
+        predictions = self.get_results(masks=masks, width=width, height=height, alias=alias, from_name=from_name,to_name=to_name)
 
         return predictions
 
@@ -113,8 +107,10 @@ class AdvancedSamModel(SamModel):
             # for each task, get the corresponding information for the current label
             # make sure that the beginning of the label matches the number of the brush
             smart_type = context['result'][0]['type']
-            current_label = int(kwargs['context']['result'][0]['value'][smart_type][0])
+            current_label = int(context['result'][0]['value'][smart_type][0])
             alias = abs(current_label)
+
+            print(f'Alias is {alias}, current label is {current_label}')
 
             for task in tasks:
                 type = task["type"]
@@ -183,7 +179,7 @@ class AdvancedSamModel(SamModel):
 
         return x, y, box_width, box_height, smart_annotation
 
-    def get_results(self, masks, width, height, alias):
+    def get_results(self, masks, width, height, alias, from_name, to_name):
         mask = masks[0].astype(np.uint8)
         results = []
         predictions = []
@@ -195,8 +191,8 @@ class AdvancedSamModel(SamModel):
         mask = mask * 255
         rle = brush.mask2rle(mask)
         results.append({
-            "from_name": self.from_name,
-            "to_name": self.to_name,
+            "from_name": from_name,
+            "to_name": to_name,
             "original_width": width,
             "original_height": height,
             "image_rotation": 0,
