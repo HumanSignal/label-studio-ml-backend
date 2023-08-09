@@ -1,29 +1,30 @@
 version: "3.8"
 
 services:
-  redis:
-    image: redis:alpine
-    container_name: redis
-    hostname: redis
-    volumes:
-      - "./data/redis:/data"
-    expose:
-      - 6379
   server:
     container_name: server
-    build: .
+    build:
+      context: .
+      shm_size: '4gb'
+    deploy:
+      resources:
+        limits:
+            memory: 8G
+        reservations:
+            memory: 4G
     environment:
       - MODEL_DIR=/data/models
-      - RQ_QUEUE_NAME=default
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LABEL_STUDIO_USE_REDIS=true
+      - LOG_LEVEL=DEBUG
+      - IMAGE_CACHE_SIZE=100
+      - VITH_CHECKPOINT=/app/sam_vit_h_4b8939.pth
+      - MOBILESAM_CHECKPOINT=/app/mobile_sam.pth
+      - ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx
+      - RUN_ONNX_SAM=1
     ports:
       - 9090:9090
-    depends_on:
-      - redis
-    links:
-      - redis
     volumes:
       - "./data/server:/data"
-      - "./logs:/tmp"
+      - "./sam_vit_h_4b8939.pth:/app/sam_vit_h_4b8939.pth"
+      - "./mobile_sam.pt:/app/mobile_sam.pt"
+      - "./sam_onnx_example.onnx:/app/sam_onnx_example.onnx"
+      - "./sam_onnx_quantized_example.onnx:/app/sam_onnx_quantized_example.onnx"

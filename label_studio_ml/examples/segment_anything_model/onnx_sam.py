@@ -25,7 +25,7 @@ def load_my_model():
     Returns the predictor object. For more, look at Facebook's SAM docs
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"  # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
-
+    logger.debug(f"Using device {device}")
     sam = sam_model_registry["vit_h"](
         VITH_CHECKPOINT)  # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
     sam.to(device=device)
@@ -47,14 +47,20 @@ IN_MEM_CACHE = InMemoryLRUDictCache(int(os.getenv("IMAGE_CACHE_SIZE", 100)))
 
 class SamModel(LabelStudioMLBase):
 
-    def _store_embeddings_in_cache(self, img_path):
+    def get_img_size(self, context):
+        height = context['result'][0]['original_height']
+        width = context['result'][0]['original_width']
+        logger.debug(f'height is {height} and width is {width}')
+        return height, width
+
+    def store_embeddings_in_cache(self, predictor, img_path):
         # Get image and embeddings
         logger.debug(f"Storing embeddings for {img_path} in `IN_MEM_CACHE`")
         image_path = get_image_local_path(img_path)
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        PREDICTOR.set_image(image)
-        image_embedding = PREDICTOR.get_image_embedding().cpu().numpy()
+        predictor.set_image(image)
+        image_embedding = predictor.get_image_embedding().cpu().numpy()
         payload = {
             'image': image,
             'image_embedding': image_embedding
@@ -64,13 +70,17 @@ class SamModel(LabelStudioMLBase):
                      f'embedding shape {image_embedding.shape}')
         return payload
 
-    def _predict_mask(self, img_path, onnx_coord, onnx_label):
-
+    def get_image_embeddings(self, predictor, img_path):
         payload = IN_MEM_CACHE.get(img_path)
         if payload is None:
-            payload = self._store_embeddings_in_cache(img_path)
+            payload = self.store_embeddings_in_cache(predictor, img_path)
         else:
             logger.debug(f"Using embeddings for {img_path} from `IN_MEM_CACHE`")
+        return payload
+
+    def _predict_mask(self, img_path, onnx_coord, onnx_label):
+
+        payload = self.get_image_embeddings(PREDICTOR, img_path)
 
         # loading the image you are annotating
         image = payload['image']
@@ -110,7 +120,7 @@ class SamModel(LabelStudioMLBase):
             # for the efficiency for the consecutive calls
             if img_path not in IN_MEM_CACHE:
                 print(f'Create cache for {img_path}')
-                self._store_embeddings_in_cache(img_path)
+                self.store_embeddings_in_cache(PREDICTOR, img_path)
             return []
 
         logger.debug(f"the context is {context}")
@@ -127,8 +137,7 @@ class SamModel(LabelStudioMLBase):
         label = context['result'][0]['value'][smart_annotation_type][0]
 
         # getting the height and width of the image that you are annotating real-time
-        height = context['result'][0]['original_height']
-        width = context['result'][0]['original_width']
+        height, width = self.get_img_size(context)
 
         if smart_annotation_type == 'rectanglelabels':
             # getting coordinates of the box
@@ -158,69 +167,28 @@ class SamModel(LabelStudioMLBase):
         # Run inference using the onnx model
         predicted_mask = self._predict_mask(img_path, onnx_coord, onnx_label)
 
-        adjusted_masks = []
         results = []
-        # check if SAM eraser is being used
-        if 'Eraser' in label:
-            prev_rle = []
-            previous_id = []
-            type = " ".join(label.split()[:-1])
-            indexes = np.nonzero(predicted_mask)
+        label_id = ''.join(random.SystemRandom().choice(
+            string.ascii_uppercase + string.ascii_lowercase + string.digits)),  # creates a random ID for your label everytime so no chance for errors
 
-            for i in tasks[0]['drafts']:
-                if tasks[0]['drafts'][0]['result'][0]['value']['brushlabels'][0] == type:
-                    prev_rle.append(tasks[0]['drafts'][0]['result'][0]['value']['rle'])
-
-            prev_mask = brush.decode_rle(prev_rle[-1])
-            prev_mask = np.reshape(prev_mask, [height, width, 4])[:, :, 3]
-            prev_mask = (prev_mask / 255).astype(np.uint8)
-
-            indices = np.logical_and(predicted_mask == 1, prev_mask == 1)
-            prev_mask[indices] = 0
-
-            rle_resubmit = prev_mask * 255
-            rle_resubmit = brush.mask2rle(rle_resubmit)
-            adjusted_masks.append(rle_resubmit)
-
-            results.append({
-                "from_name": from_name,
-                "to_name": to_name,
-                "original_width": width,
-                "original_height": height,
-                "image_rotation": 0,
-                "value": {
-                    "format": "rle",
-                    "rle": adjusted_masks[0],
-                    "brushlabels": [type],
-                },
-                "type": "brushlabels",
-                "id": ''.join(
-                    random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)),
-                # creates a random ID for your label everytime so no chance for errors,
-                "readonly": False,
-            })
-        else:
-            label_id = ''.join(random.SystemRandom().choice(
-                string.ascii_uppercase + string.ascii_lowercase + string.digits)),  # creates a random ID for your label everytime so no chance for errors
-
-            # converting the mask from the model to RLE format which is usable in Label Studio
-            mask = predicted_mask * 255
-            rle = brush.mask2rle(mask)
-            results.append({
-                "from_name": from_name,
-                "to_name": to_name,
-                "original_width": width,
-                "original_height": height,
-                "image_rotation": 0,
-                "value": {
-                    "format": "rle",
-                    "rle": rle,
-                    "brushlabels": [label],
-                },
-                "type": "brushlabels",
-                "id": label_id,
-                "readonly": False,
-            })
+        # converting the mask from the model to RLE format which is usable in Label Studio
+        mask = predicted_mask * 255
+        rle = brush.mask2rle(mask)
+        results.append({
+            "from_name": from_name,
+            "to_name": to_name,
+            "original_width": width,
+            "original_height": height,
+            "image_rotation": 0,
+            "value": {
+                "format": "rle",
+                "rle": rle,
+                "brushlabels": [label],
+            },
+            "type": "brushlabels",
+            "id": label_id,
+            "readonly": False,
+        })
 
         # returning the result from the prediction and passing it to show on the front-end
         return [{'result': results, 'model_version': 'vit_h'}]
