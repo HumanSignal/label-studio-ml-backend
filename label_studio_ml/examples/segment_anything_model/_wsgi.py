@@ -35,7 +35,7 @@ RUN_ONNX_SAM = os.environ.get("RUN_ONNX_SAM", False)
 if RUN_ONNX_SAM:
     from onnx_sam import SamModel
 else:
-    from advanced_sam import SamModel
+    from advanced_sam import AdvancedSamModel as SamModel
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')

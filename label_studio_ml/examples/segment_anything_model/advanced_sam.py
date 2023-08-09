@@ -66,16 +66,18 @@ class AdvancedSamModel(SamModel):
             # getting the height and width of the image that you are annotating
         height, width = self.get_img_size(context)
 
-        points, labels, input_box, alias, box_width, box_height = self.get_tasks(tasks, height, width, **kwargs)
+        points, labels, input_box, alias, box_width, box_height = self.get_tasks(tasks, height, width, context, **kwargs)
 
-        x, y, box_width, box_height, smart_annotation = self.get_smart_position(width=width, height=height,
-                                                                                box_width=box_width, box_height=box_height, **kwargs)
+        x, y, box_width, box_height, smart_annotation = self.get_smart_position(
+            width=width, height=height, box_width=box_width, box_height=box_height,
+            context=context,
+            **kwargs)
 
         payload = self.get_image_embeddings(PREDICTOR, img_path)
 
         points, labels, input_box = self.get_smart(points=points, x=x, y=y, box_width=box_width, box_height=box_height,
                                                    labels=labels, smart_annotation=smart_annotation,
-                                                   input_box=input_box, **kwargs)
+                                                   input_box=input_box, context=context, **kwargs)
 
         print(f"point coords are {None if points.size == 0 else points}")
         print(f"labels are {np.array(labels)}")
@@ -147,7 +149,7 @@ class AdvancedSamModel(SamModel):
 
         return points, labels, input_box, alias, box_width, box_height
 
-    def get_smart(self, points, x, y, box_width, box_height, labels, smart_annotation, input_box, **kwargs):
+    def get_smart(self, points, x, y, box_width, box_height, labels, smart_annotation, input_box, context, **kwargs):
         # for bounding boxes
         if smart_annotation == "rectanglelabels":
             input_box = np.array([int(x), int(y), int(box_width + x), int(box_height + y)])
@@ -158,7 +160,7 @@ class AdvancedSamModel(SamModel):
         if smart_annotation == "keypointlabels":
             new_point = np.array([[int(x), int(y)]])
             points = np.vstack((points, new_point))
-            label = int(kwargs['context']['result'][0]['value']['labels'][0])
+            label = int(context['result'][0]['value']['labels'][0])
             if label > 0:
                 labels.append(1)
             if label < 0:
@@ -166,16 +168,16 @@ class AdvancedSamModel(SamModel):
 
         return points, labels, input_box
 
-    def get_smart_position(self, width, height, box_width, box_height, **kwargs):
+    def get_smart_position(self, width, height, box_width, box_height, context, **kwargs):
         # now, getting information for the smart keypoint or rectangle label
-        smart_annotation = kwargs['context']['result'][0]['type']
+        smart_annotation = context['result'][0]['type']
         if smart_annotation == "rectanglelabels":
-            box_width = kwargs['context']['result'][0]['value']['width'] * width / 100
-            box_height = kwargs['context']['result'][0]['value']['height'] * height / 100
+            box_width = context['result'][0]['value']['width'] * width / 100
+            box_height = context['result'][0]['value']['height'] * height / 100
 
         # getting x and y coordinates of the keypoint or bounding box starting position
-        x = kwargs['context']['result'][0]['value']['x'] * width / 100
-        y = kwargs['context']['result'][0]['value']['y'] * height / 100
+        x = context['result'][0]['value']['x'] * width / 100
+        y = context['result'][0]['value']['y'] * height / 100
 
         return x, y, box_width, box_height, smart_annotation
 
