@@ -1,42 +1,40 @@
-import matplotlib.pyplot as plt
-from segment_anything import sam_model_registry, SamPredictor
-from label_studio_ml.model import LabelStudioMLBase
-from label_studio_converter import brush
-from label_studio_ml.utils import get_image_local_path
 import numpy as np
 import cv2
 import os
-from PIL import Image
 import string
 import random
 import torch
-
 import onnxruntime
-from onnxruntime.quantization import QuantType
-from onnxruntime.quantization.quantize import quantize_dynamic
+import logging
 
+from typing import List, Dict, Optional
+from segment_anything import sam_model_registry, SamPredictor
+from label_studio_ml.model import LabelStudioMLBase
+from label_studio_converter import brush
+from label_studio_ml.utils import get_image_local_path, InMemoryLRUDictCache
 
 VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
 ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", "sam_onnx_quantized_example.onnx")
 
-def load_my_model():
-        """
-        Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
-        Returns the predictor object. For more, look at Facebook's SAM docs
-        """
-        device = "cuda" if torch.cuda.is_available() else "cpu"    # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
-        
-        sam = sam_model_registry["vit_h"](VITH_CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
-        sam.to(device=device)
+logger = logging.getLogger(__name__)
 
-        predictor = SamPredictor(sam)
-        return predictor
+
+def load_my_model():
+    """
+    Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
+    Returns the predictor object. For more, look at Facebook's SAM docs
+    """
+    device = "cuda" if torch.cuda.is_available() else "cpu"  # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
+
+    sam = sam_model_registry["vit_h"](
+        VITH_CHECKPOINT)  # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
+    sam.to(device=device)
+
+    predictor = SamPredictor(sam)
+    return predictor
+
 
 PREDICTOR = load_my_model()
-PREV_IMG_PATH = ""
-PREV_IMG = 0
-IMAGE_EMBEDDING = 0
-previous_id = 0
 
 # empty mask and indicator for no mask
 onnx_mask_input = np.zeros((1, 1, 256, 256), dtype=np.float32)
@@ -44,142 +42,130 @@ onnx_has_mask_input = np.zeros(1, dtype=np.float32)
 
 ORT = onnxruntime.InferenceSession(ONNX_CHECKPOINT)
 
+IN_MEM_CACHE = InMemoryLRUDictCache(int(os.getenv("IMAGE_CACHE_SIZE", 100)))
+
+
 class SamModel(LabelStudioMLBase):
-    def __init__(self, **kwargs):
-        super(SamModel, self).__init__(**kwargs)
-        from_name, schema = list(self.parsed_label_config.items())[0]
-        self.from_name = from_name
-        self.to_name = schema['to_name'][0]
-    
-    def predict(self, tasks, **kwargs):
-        """ Returns the predicted mask for a smart keypoint that has been placed."""
-        
-        # Use this to check times for your predictions
-        # print(f"Current data and time1: {str(datetime.datetime.now())}") # Current data and time1: 2023-04-16 18:56:09.361688 (ALMOST INSTANTANEOUS FROM THE RUN)
 
-        results = []
-        predictions = []
-        predictor = PREDICTOR
+    def _store_embeddings_in_cache(self, img_path):
+        # Get image and embeddings
+        logger.debug(f"Storing embeddings for {img_path} in `IN_MEM_CACHE`")
+        image_path = get_image_local_path(img_path)
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        PREDICTOR.set_image(image)
+        image_embedding = PREDICTOR.get_image_embedding().cpu().numpy()
+        payload = {
+            'image': image,
+            'image_embedding': image_embedding
+        }
+        IN_MEM_CACHE.put(img_path, payload)
+        logger.debug(f'Finished storing embeddings for {img_path} in `IN_MEM_CACHE`: '
+                     f'embedding shape {image_embedding.shape}')
+        return payload
 
-        image_url = tasks[0]['data']['image']
-        print(f"the kwargs are {kwargs}")
-        print(f"the tasks are {tasks}")
+    def _predict_mask(self, img_path, onnx_coord, onnx_label):
 
-        # smart annotation
-        smart_annotation = kwargs['context']['result'][0]['type']
-        print(f"smart annotation is {smart_annotation}")
-
-
-        # getting the height and width of the image that you are annotating real-time 
-        height = kwargs['context']['result'][0]['original_height']
-        width = kwargs['context']['result'][0]['original_width']
-
-        if smart_annotation == "rectanglelabels":
-            box_width = kwargs['context']['result'][0]['value']['width'] * width / 100
-            box_height = kwargs['context']['result'][0]['value']['height'] * height / 100
-            rectanglelabel = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
-            label = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
-            print(f"the label is {label}")
-
+        payload = IN_MEM_CACHE.get(img_path)
+        if payload is None:
+            payload = self._store_embeddings_in_cache(img_path)
         else:
-            keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
-            label = kwargs['context']['result'][0]['value']['labels'][0]
-
-            
-
-        # getting x and y coordinates of the keypoint
-        x = kwargs['context']['result'][0]['value']['x'] * width / 100
-        y = kwargs['context']['result'][0]['value']['y'] * height / 100
-
-        print(f"the x and y is {x}, {y}")
-
-        # label that you selected with the keypoint. If this is running into error, use the second line of code instead
-        # label = kwargs['context']['result'][0]['value']['labels'][0]
-        
-        
-
-        task = tasks[0]
-        img_path = task["data"]["image"]
+            logger.debug(f"Using embeddings for {img_path} from `IN_MEM_CACHE`")
 
         # loading the image you are annotating
-        image_path = get_image_local_path(img_path)
-
-
-        # this is to speed up inference after the first time you selected an image
-        global PREV_IMG_PATH
-        global PREV_IMG
-        global IMAGE_EMBEDDING
-        global onnx_has_mask_input
-        global onnx_mask_input
-        global previous_id
-
-        if image_path != PREV_IMG_PATH:
-            PREV_IMG_PATH = image_path
-            image = cv2.imread(image_path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            PREV_IMG = image
-            # retrieving predictions from SAM. For more info, look at Facebook's SAM docs
-            predictor.set_image(image)
-
-            image_embedding = predictor.get_image_embedding()
-            IMAGE_EMBEDDING = image_embedding.cpu().numpy()
-        elif image_path == PREV_IMG_PATH:
-            image = PREV_IMG
-            image_embedding = IMAGE_EMBEDDING
-
-        # for bounding boxes
-        if smart_annotation == "rectanglelabels":
-            input_box = np.array([int(x), int(y), int(box_width+x), int(box_height+y)])
-            print(f"the x and y is {x}, {y} and the box width and height are {box_width+x}, {box_height+y}")
-            # input_label = np.array([0])
-            onnx_box_coords = input_box.reshape(2,2)
-            onnx_box_labels = np.array([2, 3])
-            # onnx_coord = np.concatenate([None, onnx_box_coords], axis=0)[None, :, :]
-            onnx_coord = np.concatenate([onnx_box_coords, np.array([[0, 0]])], axis=0)[None, :, :]
-            onnx_label = np.concatenate([onnx_box_labels, np.array([-1])], axis=0)[None, :].astype(np.float32)
-
-            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
-            keypointlabel = ""
-
-
-        
-        # for keypoints
-        if smart_annotation == "keypointlabels":
-            input_point = np.array([[int(x), int(y)]])
-            input_label = np.array([1])
-
-            onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
-            onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
-
-            print(f"the onnx_coord and onnx_label is {onnx_coord}, {onnx_label}")
-
-
-            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
+        image = payload['image']
+        image_embedding = payload['image_embedding']
+        onnx_coord = PREDICTOR.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
 
         # Package to run in onnx
         ort_inputs = {
-            "image_embeddings": IMAGE_EMBEDDING,
+            "image_embeddings": image_embedding,
             "point_coords": onnx_coord,
             "point_labels": onnx_label,
             "mask_input": onnx_mask_input,
             "has_mask_input": onnx_has_mask_input,
             "orig_im_size": np.array(image.shape[:2], dtype=np.float32)
         }
-
+        logger.debug(
+            f"ORT inputs: "
+            f"point_coords={ort_inputs['point_coords']},"
+            f"point_labels={ort_inputs['point_labels']}"
+        )
         # Predict and threshold mask
         masks, _, low_res_logits = ORT.run(None, ort_inputs)
-        masks = masks > predictor.model.mask_threshold
+        masks = masks > PREDICTOR.model.mask_threshold
 
-        mask = masks[0, 0, :, :].astype(np.uint8) # each mask has shape [H, W]
+        mask = masks[0, 0, :, :].astype(np.uint8)  # each mask has shape [H, W]
+        return mask
+
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs):
+        """ Returns the predicted mask for a smart keypoint that has been placed."""
+
+        from_name, to_name, value = self.get_first_tag_occurence('BrushLabels', 'Image')
+        img_path = tasks[0]['data'][value]
+
+        if not context:
+            # if there is no context, no interaction has happened yet
+            # however, if it has just opened the task, we can warm the cache with the image
+            # for the efficiency for the consecutive calls
+            if img_path not in IN_MEM_CACHE:
+                print(f'Create cache for {img_path}')
+                self._store_embeddings_in_cache(img_path)
+            return []
+
+        logger.debug(f"the context is {context}")
+        logger.debug(f"the tasks are {tasks}")
+        logger.debug(f"the kwargs are {kwargs}")
+
+        # smart annotation
+        smart_annotation_type = context['result'][0]['type']
+        if smart_annotation_type not in ['rectanglelabels', 'keypointlabels']:
+            # only rectangle and keypoint labels are supported
+            return []
+
+        # get the smart annotation label
+        label = context['result'][0]['value'][smart_annotation_type][0]
+
+        # getting the height and width of the image that you are annotating real-time
+        height = context['result'][0]['original_height']
+        width = context['result'][0]['original_width']
+
+        if smart_annotation_type == 'rectanglelabels':
+            # getting coordinates of the box
+            x = context['result'][0]['value']['x'] * width / 100
+            y = context['result'][0]['value']['y'] * height / 100
+            box_width = context['result'][0]['value']['width'] * width / 100
+            box_height = context['result'][0]['value']['height'] * height / 100
+
+            input_box = np.array([int(x), int(y), int(box_width + x), int(box_height + y)])
+            onnx_box_coords = input_box.reshape(2, 2)
+            onnx_box_labels = np.array([2, 3])
+            # onnx_coord = np.concatenate([None, onnx_box_coords], axis=0)[None, :, :]
+            onnx_coord = np.concatenate([onnx_box_coords, np.array([[0, 0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([onnx_box_labels, np.array([-1])], axis=0)[None, :].astype(np.float32)
+
+        else:
+            # getting coordinates of the keypoint
+            x = context['result'][0]['value']['x'] * width / 100
+            y = context['result'][0]['value']['y'] * height / 100
+
+            input_point = np.array([[int(x), int(y)]])
+            input_label = np.array([1])
+
+            onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
+
+        # Run inference using the onnx model
+        predicted_mask = self._predict_mask(img_path, onnx_coord, onnx_label)
 
         adjusted_masks = []
-
+        results = []
         # check if SAM eraser is being used
-        if 'Eraser' in keypointlabel:
+        if 'Eraser' in label:
             prev_rle = []
             previous_id = []
-            type = " ".join(keypointlabel.split()[:-1])
-            indexes = np.nonzero(mask)
+            type = " ".join(label.split()[:-1])
+            indexes = np.nonzero(predicted_mask)
 
             for i in tasks[0]['drafts']:
                 if tasks[0]['drafts'][0]['result'][0]['value']['brushlabels'][0] == type:
@@ -187,18 +173,18 @@ class SamModel(LabelStudioMLBase):
 
             prev_mask = brush.decode_rle(prev_rle[-1])
             prev_mask = np.reshape(prev_mask, [height, width, 4])[:, :, 3]
-            prev_mask = (prev_mask/255).astype(np.uint8)
+            prev_mask = (prev_mask / 255).astype(np.uint8)
 
-            indices = np.logical_and(mask == 1, prev_mask == 1)
+            indices = np.logical_and(predicted_mask == 1, prev_mask == 1)
             prev_mask[indices] = 0
-                        
+
             rle_resubmit = prev_mask * 255
             rle_resubmit = brush.mask2rle(rle_resubmit)
             adjusted_masks.append(rle_resubmit)
-            
+
             results.append({
-                "from_name": self.from_name,
-                "to_name": self.to_name,
+                "from_name": from_name,
+                "to_name": to_name,
                 "original_width": width,
                 "original_height": height,
                 "image_rotation": 0,
@@ -208,18 +194,21 @@ class SamModel(LabelStudioMLBase):
                     "brushlabels": [type],
                 },
                 "type": "brushlabels",
-                "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label everytime so no chance for errors,
+                "id": ''.join(
+                    random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)),
+                # creates a random ID for your label everytime so no chance for errors,
                 "readonly": False,
             })
         else:
-            label_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label everytime so no chance for errors
-            
+            label_id = ''.join(random.SystemRandom().choice(
+                string.ascii_uppercase + string.ascii_lowercase + string.digits)),  # creates a random ID for your label everytime so no chance for errors
+
             # converting the mask from the model to RLE format which is usable in Label Studio
-            mask = mask * 255
+            mask = predicted_mask * 255
             rle = brush.mask2rle(mask)
             results.append({
-                "from_name": self.from_name,
-                "to_name": self.to_name,
+                "from_name": from_name,
+                "to_name": to_name,
                 "original_width": width,
                 "original_height": height,
                 "image_rotation": 0,
@@ -234,11 +223,54 @@ class SamModel(LabelStudioMLBase):
             })
 
         # returning the result from the prediction and passing it to show on the front-end
-        predictions.append({"result": results,
-                            "model_version": "vit_h"
-        })
+        return [{'result': results, 'model_version': 'vit_h'}]
 
-        return predictions
 
-    def fit(self, completions, workdir=None, **kwargs):
-        return {'random': random.randint(1, 10)}
+if __name__ == '__main__':
+    # test the model
+    model = SamModel()
+    model.use_label_config('''
+    <View>
+        <Image name="image" value="$image" zoom="true"/>
+        <BrushLabels name="tag" toName="image">
+            <Label value="Banana" background="#FF0000"/>
+            <Label value="Orange" background="#0d14d3"/>
+        </BrushLabels>
+        <KeyPointLabels name="tag2" toName="image" smart="true" >
+            <Label value="Banana" background="#000000" showInline="true"/>
+            <Label value="Orange" background="#000000" showInline="true"/>
+        </KeyPointLabels>
+        <RectangleLabels name="tag3" toName="image"  >
+            <Label value="Banana" background="#000000" showInline="true"/>
+            <Label value="Orange" background="#000000" showInline="true"/>
+        </RectangleLabels>
+    </View>
+    ''')
+    results = model.predict(
+        tasks=[{
+            'data': {
+                'image': 'https://s3.amazonaws.com/htx-pub/datasets/images/125245483_152578129892066_7843809718842085333_n.jpg'
+            }}],
+        context={
+            'result': [{
+                'original_width': 1080,
+                'original_height': 1080,
+                'image_rotation': 0,
+                'value': {
+                    'x': 49.441786283891545,
+                    'y': 59.96810207336522,
+                    'width': 0.3189792663476874,
+                    'labels': ['Banana'],
+                    'keypointlabels': ['Banana']
+                },
+                'is_positive': True,
+                'id': 'fBWv1t0S2L',
+                'from_name': 'tag2',
+                'to_name': 'image',
+                'type': 'keypointlabels',
+                'origin': 'manual'
+            }]}
+    )
+    import json
+    results[0]['result'][0]['value']['rle'] = f'...{len(results[0]["result"][0]["value"]["rle"])} integers...'
+    print(json.dumps(results, indent=2))
