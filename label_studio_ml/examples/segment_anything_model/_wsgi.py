@@ -2,6 +2,7 @@ import os
 import argparse
 import logging
 import logging.config
+import json
 
 logging.config.dictConfig({
   "version": 1,
@@ -28,7 +29,13 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from segment_anything_model import MyModel
+
+RUN_ONNX_SAM = os.environ.get("RUN_ONNX_SAM", False)
+
+if RUN_ONNX_SAM:
+    from onnx_sam import SamModel
+else:
+    from advanced_sam import SamModel
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -101,11 +108,11 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + MyModel.__name__ + '" instance creation..')
-        model = MyModel(**kwargs)
+        print('Check "' + SamModel.__name__ + '" instance creation..')
+        model = SamModel(**kwargs)
 
     app = init_app(
-        model_class=MyModel,
+        model_class=SamModel,
         model_dir=os.environ.get('MODEL_DIR', args.model_dir),
         redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
         redis_host=os.environ.get('REDIS_HOST', 'localhost'),
@@ -118,7 +125,7 @@ if __name__ == "__main__":
 else:
     # for uWSGI use
     app = init_app(
-        model_class=MyModel,
+        model_class=SamModel,
         model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
         redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
         redis_host=os.environ.get('REDIS_HOST', 'localhost'),

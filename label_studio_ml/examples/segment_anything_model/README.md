@@ -1,62 +1,94 @@
 # Interactive Annotation in Label Studio with Segment Anything Model
 
-<img src="https://user-images.githubusercontent.com/106922533/234322629-e583c838-11eb-4261-aaa1-872f1695720c.gif" width="500" />
 
-<img src="https://user-images.githubusercontent.com/106922533/234322576-a24643f8-aeb6-421c-984e-d0d2e2233cd4.gif" width="500" />
+
+https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167c-404a-96bd-c2e2382df99a
+
+
 
 Use Facebook's Segment Anything Model with Label Studio!
+
+# Intro
+
+There are two models in this repo that you can use.
+- **1. Advanced Segment Anything Model**
+- **2. ONNX Segment Anything Model**
+
+The **Advanced Segment Anything Model** introduces the ability to combine a multitude of different prompts to achieve a prediction, and the ability to use MobileSAM.
+- Mix one rectangle label with multiple positive keypoints to refine your predictions! Use negative keypoints to take away area from predictions for increased control.
+- Use MobileSAM, an extremely lightweight alternative to the heavy Segment Anything Model from Facebook, to retrieve predictions. This can run inference within a second using a laptop GPU!
+
+The **ONNX Segment Anything Model** gives the ability to use either a single keypoint or single rectangle label to prompt the original SAM.
+- This offers a much faster prediction using the original Segment Anything Model due to using the ONNX version.
+- Downside: image size must be specified before using the ONNX model, and cannot be generalized to other image sizes while labeling. Also, does not yet offer the mixed labeling and refinement that AdvancedSAM does.
+
+# Your Choices
+
+Here are the pros and cons broken down for choosing each model, and the choices you have for each.
+
+**Using AdvancedSAM**
+1. *Use with MobileSAM architecture*
+-  Pros: very lightweight can be run on laptops, mix many different combinations of input prompts to fine-tune prediction
+-  Cons: Lower accuracy than Facebook's original SAM architecture
+2. _Use with original SAM architecture_
+- Pros: higher accuracy than MobileSAM, mix many different combinations of input prompts to fine-tune prediction
+- Cons: takes long to gather predictions (~2s to create embedding of an image), requires access to good GPUs
+
+**Using ONNXSAM**
+1. _Use with regular SAM architecture_
+- Pros: much faster than when you use it in Advanced SAM
+- Cons: can only use one smart label per prediction, image size must be defined before generating the ONNX model, cannot label images with different sizes without running into issues
 
 # Setup
 
 ## Setting Up the Backend
 
-### 1. Clone this repo
+### 1. Clone This Repo
 
-Place the images you want to annotate in this project's folder. If you want to use the version of the code that uses slower individual inference times, but has a faster rate on the first label only (not using ONNX), then refer to [this commit instead](https://github.com/shondle/label-studio-ml-backend/tree/4367b18a52a7a494125874467c5e980a6068eca5/label_studio_ml/examples/segment_anything_model)
+### 2. Download Model Weights
 
-### 2. Retrieve Label Studio Code
+- For using MobileSAM-
+Install the weights using [this link](https://cdn.githubraw.com/ChaoningZhang/MobileSAM/01ea8d0f/weights/mobile_sam.pt) and place in folder (along with the advanced_sam.py and onnx_sam.py files)
 
-```
-git clone https://github.com/heartexlabs/label-studio-ml-backend
-cd label-studio-ml-backend
-
-# Install label-studio-ml and its dependencies
-pip install -U -e .
-```
-
-- [Label Studio Installation Instructions](https://labelstud.io/guide/install.html#Install-with-Anaconda)
-
-### 3. Download SAM
-
+- For using regular SAM and/or ONNX-
 Follow [SAM installation instructions with pip](https://github.com/facebookresearch/segment-anything). 
 Then, install the [ViT-H SAM model](https://github.com/facebookresearch/segment-anything)
-Then use the SAM installation instructions from above to convert to ONNX and place *into this project's directory*
 
-### 4. Add to your bashrc
-```
-nano ~/.bashrc
-# add the bottom of your bashrc
-export ML_TIMEOUT_SETUP=120
-```
+  - For the ONNX model- `python onnxconverter.py`
 
-### 5. Installations
+### 3. Install Requirements
+Change your directory into this folder and then install all requirements.
+
 ```
-pip install label-studio numpy opencv-python label-studio-converter
+pip install -r requirements.txt
 ```
 
-### 6. Start the Backend
+As an aside, make sure you have [Label Studio installed](https://labelstud.io/guide/install.html#Install-with-Anaconda)
+
+
+### 4. Adjust variables and _wsgi.py depending on your choice of model.
+
+**Choosing whether to use Advanced or ONNX model**
+- To use AdvancedSAM model, set RUN_ONNX_SAM environment variable to False (this is the default in the code, you only have to adjust the environment variable if it is set to something previously)
+- To use ONNX model, set RUN_ONNX_SAM environment variable to True
+
+**To choose between MobileSAM and regular SAM architectures when using AdvancedSAM**
+- To use MobileSAM: set SAM_CHOICE environment variable to "MobileSAM" (this is the default in the code, you only have to adjust the environment variable if it is set to something previously)
+- To use regular SAM: set SAM_CHOICE environment variable to "SAM"
+
+### 5. Start the Backend and Run Label Studio
 ```
 # change into this project folder from where you are
 cd segment_anything_model
-python _wsgi.py -p 4243
-```
+python _wsgi.py
 
-### 7. Run Label Studio
-```
+# in a new terminal
 label-studio start
 ```
 
 ## Settings on the frontend
+
+[The video](#creating-the-annotation) also goes over this process, but does part of it while in the newly created project menu.
 
 1. Create a project and go to settings.
 2. Under "Machine Learning" click "Add Model"<br>
@@ -64,8 +96,79 @@ label-studio start
 4. Switch on "Use for interactive preannotations"<br>
 5. Click "Validate and Save"<br>
 
-6. Next -> go to "Labelling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
-7. Choose the code option and paste in the following template-
+6. Next -> go to "labeling Interface". This is on the same side where you chose the "Machine Learning" tab.<br>
+7. Choose the code option and choose [your template](#labeling-configs)
+
+# Creating the Annotation
+
+See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) to get a better understanding of the workflow when annotating with SAM.
+
+## Notes for AdvancedSAM:
+- _**Please watch the [video](#creating-the-annotation) first**_
+
+For the best experience, follow the video tutorial above and _**uncheck 'Auto accept annotation suggestions'**_ when running predictions.
+
+After generating the prediction from an assortment of inputs, make sure you _**click the check mark that is outside of the image**_ to finalize the region (this should either be above or below the image. Watch the [video](#creating-the-annotation) for a visual guide).
+- There may be a check mark inside the image next to a generated prediction, but _do not use that one_. For some reason, the check mark that is not on the image itself makes sure to clean the other input prompts used for generating the region, and only leaves the predicted region after being clicked (this is the most compatible way to use the backend.
+- You may run into problems creating instances of the same class if you click the check mark on the image and it leaves the labels used to guide the region).
+
+After labeling your object, select the label in the menu and select the type of brush label you would like to give it at the top of your label keys below your image.
+- This allows you to change the class of your prediction.
+- See the [video](#creating-the-annotation) for a better explanation.
+
+_**Only the negative keypoints can be used for subtracting from prediction areas**_ for the model. Positive keypoints and rectangles tell the model areas of interest to make positive predictions. 
+
+Multiple keypoints may be used to provide areas for the model where predictions should be extended. _**Only one rectangle label may be used**_ when generating a prediction as an area where the model prediction should occur/be extended.
+- If you place multiple rectangle labels, the model will use the newest rectangle label along with all other keypoints when aiding the model prediction. 
+
+## Notes for ONNX:
+The ONNX model uses the 'orig_img_size' in `onnx_converter.py` that defines an image ratio for the ONNX model. Change this to the ratio of the images that you are labeling before generating the model. If you are labeling images of different sizes, use Advanced SAM instead, or generate a new ONNX model for different image groups with different sizes. If you do not adjust `orig_img_size`, and your image aspect ratios do not match what is already defined, then your predictions will be offset from the image.
+- Make sure you adjust `orig_img_size` BEFORE generating the ONNX model when using `onnx_converter.py`
+- Guide on changing the code - `"orig_im_size": torch.tensor([#heightofimages, #widthofimages], dtype=torch.float),`
+
+## Notes for Exporting:
+- COCO and YOLO format is not supported (this project exports using brush labels, so try NumPy or PNG export instead)
+
+# Labeling Configs
+
+## When using the AdvancedSAM-
+- Give one brush label per class you want to annotate.
+- Give each brush an alias. 
+- For each class, create two keypoints. The first keypoint is for gaining predictions from the model where a keypoint is placed. The second can be referred to as a 'negative keypoint' telling the model to avoid predictions in the area where it is placed.
+  - You MUST give each keypoint an alias. The first alias will be the index (starting from one) of your class labels. The alias for the second keypoint should have the same index as the first keypoint, but should be negative (as this is the 'negative keypoint'). It is very important you get this correct, as this is how the ML backend differentiates between types of keypoints.
+  - Add one rectangle label for each of your classes that you want to annotate
+- [The video](#creating-the-annotation) reviews these points as well if you are confused after reading this
+
+Base example:
+```
+<View>
+  <Image name="image" value="$image" zoom="true"/>
+  <BrushLabels name="brush" toName="image">
+  	<Label value="1" hint="brush" background="blue" alias="1_brush"/>
+  	<Label value="2" hint="brush" background="purple" alias="2_brush"/>
+  </BrushLabels>
+  <KeypointLabels name="tag2" toName="image">
+  	<Label value="(+1)" hint="keypoint" background="blue" alias="1"/>
+  	<Label value="(-1)" hint="keypoint" background="red" alias="-1"/>
+    <Label value="(+2)" hint="keypoint" background="purple" alias="2"/>
+  	<Label value="(-2)" hint="keypoint" background="red" alias="-2"/>
+  </KeypointLabels>
+  <RectangleLabels name="tag4" toName="image">
+  	<Label value="[1]" hint="rectangle" background="blue" alias="1"/>
+  	<Label value="[2]" hint="rectangle" background="purple" alias="2"/>
+  </RectangleLabels>       
+</View>
+```
+
+Notice how there are two keypoints for each brush. The first keypoint per brush is a "positive keypoint" or tells the model where to select an area, and the second keypoint is a "negative keypoint" or tells the model where to avoid the predictions. 
+
+The values for each of the labels do not matter as much and are there just to help you distinguish labels. It is recommended to make negative keypoints red in order to tell the difference. However, aliases for keypoints and rectangle label MUST be correct. 
+
+## When Using the ONNX model
+
+Label values for the keypoints, rectangle, and brush labels must correspond. Other than that, make sure that smart="True" for each keypoint label and rectangle label. 
+
+For the ONNX model-
 ```
 <View>
   <Image name="image" value="$image" zoom="true"/>
@@ -76,35 +179,34 @@ label-studio start
   <KeyPointLabels name="tag2" toName="image">
     <Label value="Banana" smart="true" background="#000000" showInline="true"/>
     <Label value="Orange" smart="true" background="#000000" showInline="true"/>
-    <Label value="Orange Eraser" smart="true" background="#000000" showInline="true"/>
   </KeyPointLabels>
+  <RectangleLabels name="tag3" toName="image">
+    <Label value="Banana" smart="true" background="#000000" showInline="true"/>
+    <Label value="Orange" smart= "true" background="#000000" showInline="true"/>
+  </RectangleLabels>
 </View>
 ```
-Notes when you change for your use case - 
-- Label values must be the same for KeyPointLabels and BrushLabels
-- "smart" should be set to the label values for the Keypoints
-- You must format the Eraser string the exact same way, mirroring one of the other labels, in order to use this feature. 
+
+## Credits
+
+Original Segment Anything Model paper-
+```
+@article{kirillov2023segany,
+  title={Segment Anything},
+  author={Kirillov, Alexander and Mintun, Eric and Ravi, Nikhila and Mao, Hanzi and Rolland, Chloe and Gustafson, Laura and Xiao, Tete and Whitehead, Spencer and Berg, Alexander C. and Lo, Wan-Yen and Doll{\'a}r, Piotr and Girshick, Ross},
+  journal={arXiv:2304.02643},
+  year={2023}
+}
+```
+
+MobileSAM paper-
+```
+@article{mobile_sam,
+  title={Faster Segment Anything: Towards Lightweight SAM for Mobile Applications},
+  author={Zhang, Chaoning and Han, Dongshen and Qiao, Yu and Kim, Jung Uk and Bae, Sung-Ho and Lee, Seungkyu and Hong, Choong Seon},
+  journal={arXiv preprint arXiv:2306.14289},
+  year={2023}
+}
+```
 
 
-# Creating the Annotation
-
-1. After finishing the above, import an image into your project.<br/>
-2. Click into the labelling interface. <br>
-3. Check *"Auto-Annotation"* in the upper right hand corner<br>
-4. (Optional, but recommended) Check *"Auto accept annotation suggestions"*<br>
-5. Click the smart tool icon and make sure it is set to the keypoint option<br>
-6. Choose the smart keypoint box on the bottom of the image. <br>
-- If you set your labels the same as under *"Settings on the frontend"*, this should be the label with number 3 or 4
-- (the first two are brush labels. These are not smart)
-
-7. Click on the image where you want SAM to return the auto-segmentation for. <br>
-
-> NOTE: The first time you retrieve a prediction after starting the frontend, it will take a while due to the way Label Studio works with loading models. There is a workaround in this code so that **AFTER THE FIRST RUN, THE PREDICTIONS WILL BE RECIEVED QUICKER.** On top of this, this commit allows for faster individual inference times overall, but has a slower first label so that a map of the image can be generated. If you would prefer to have overall slower individual inference times, but a faster first inference, then refer to [this commit](https://github.com/shondle/label-studio-ml-backend/tree/4367b18a52a7a494125874467c5e980a6068eca5/label_studio_ml/examples/segment_anything_model).
-
-8. Click the generated prediction on the left side<br>
-- Click the eraser on the icon tab and erase away
-- Or, add to the brush prediction by choosing the one of the brush labels under the images and drawing on the object you want to label.
-- *Use the eraser label to use SAM's inference to erase from an annotation by cutting off edges in the background*
-- Or, do nothing if it predicted perfectly :)
-
-9. Create more predictions by following step 6-8, then press submit!<br>

@@ -9,6 +9,7 @@ import os
 from PIL import Image
 import string
 import random
+import torch
 
 import onnxruntime
 from onnxruntime.quantization import QuantType
@@ -23,12 +24,7 @@ def load_my_model():
         Loads the Segment Anything model on initializing Label studio, so if you call it outside MyModel it doesn't load every time you try to make a prediction
         Returns the predictor object. For more, look at Facebook's SAM docs
         """
-        # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
-
-        device = "cuda"
-
-        if os.getenv("TEST_WITH_CPU") == "true":
-            device = "cpu"
+        device = "cuda" if torch.cuda.is_available() else "cpu"    # if you're not using CUDA, use "cpu" instead .... good luck not burning your computer lol
         
         sam = sam_model_registry["vit_h"](VITH_CHECKPOINT)        # Note: YOU MUST HAVE THE MODEL SAVED IN THE SAME DIRECTORY AS YOUR BACKEND
         sam.to(device=device)
@@ -48,9 +44,9 @@ onnx_has_mask_input = np.zeros(1, dtype=np.float32)
 
 ORT = onnxruntime.InferenceSession(ONNX_CHECKPOINT)
 
-class MyModel(LabelStudioMLBase):
+class SamModel(LabelStudioMLBase):
     def __init__(self, **kwargs):
-        super(MyModel, self).__init__(**kwargs)
+        super(SamModel, self).__init__(**kwargs)
         from_name, schema = list(self.parsed_label_config.items())[0]
         self.from_name = from_name
         self.to_name = schema['to_name'][0]
@@ -69,18 +65,38 @@ class MyModel(LabelStudioMLBase):
         print(f"the kwargs are {kwargs}")
         print(f"the tasks are {tasks}")
 
+        # smart annotation
+        smart_annotation = kwargs['context']['result'][0]['type']
+        print(f"smart annotation is {smart_annotation}")
+
 
         # getting the height and width of the image that you are annotating real-time 
         height = kwargs['context']['result'][0]['original_height']
         width = kwargs['context']['result'][0]['original_width']
 
+        if smart_annotation == "rectanglelabels":
+            box_width = kwargs['context']['result'][0]['value']['width'] * width / 100
+            box_height = kwargs['context']['result'][0]['value']['height'] * height / 100
+            rectanglelabel = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
+            label = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
+            print(f"the label is {label}")
+
+        else:
+            keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
+            label = kwargs['context']['result'][0]['value']['labels'][0]
+
+            
+
         # getting x and y coordinates of the keypoint
         x = kwargs['context']['result'][0]['value']['x'] * width / 100
         y = kwargs['context']['result'][0]['value']['y'] * height / 100
 
+        print(f"the x and y is {x}, {y}")
+
         # label that you selected with the keypoint. If this is running into error, use the second line of code instead
-        label = kwargs['context']['result'][0]['value']['labels'][0]
-        keypointlabel = kwargs['context']['result'][0]['value']['keypointlabels'][0]
+        # label = kwargs['context']['result'][0]['value']['labels'][0]
+        
+        
 
         task = tasks[0]
         img_path = task["data"]["image"]
@@ -111,13 +127,34 @@ class MyModel(LabelStudioMLBase):
             image = PREV_IMG
             image_embedding = IMAGE_EMBEDDING
 
-        input_point = np.array([[int(x), int(y)]])
-        input_label = np.array([1])
+        # for bounding boxes
+        if smart_annotation == "rectanglelabels":
+            input_box = np.array([int(x), int(y), int(box_width+x), int(box_height+y)])
+            print(f"the x and y is {x}, {y} and the box width and height are {box_width+x}, {box_height+y}")
+            # input_label = np.array([0])
+            onnx_box_coords = input_box.reshape(2,2)
+            onnx_box_labels = np.array([2, 3])
+            # onnx_coord = np.concatenate([None, onnx_box_coords], axis=0)[None, :, :]
+            onnx_coord = np.concatenate([onnx_box_coords, np.array([[0, 0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([onnx_box_labels, np.array([-1])], axis=0)[None, :].astype(np.float32)
 
-        onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
-        onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
+            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
+            keypointlabel = ""
 
-        onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
+
+        
+        # for keypoints
+        if smart_annotation == "keypointlabels":
+            input_point = np.array([[int(x), int(y)]])
+            input_label = np.array([1])
+
+            onnx_coord = np.concatenate([input_point, np.array([[0.0, 0.0]])], axis=0)[None, :, :]
+            onnx_label = np.concatenate([input_label, np.array([-1])], axis=0)[None, :].astype(np.float32)
+
+            print(f"the onnx_coord and onnx_label is {onnx_coord}, {onnx_label}")
+
+
+            onnx_coord = predictor.transform.apply_coords(onnx_coord, image.shape[:2]).astype(np.float32)
 
         # Package to run in onnx
         ort_inputs = {
@@ -202,3 +239,6 @@ class MyModel(LabelStudioMLBase):
         })
 
         return predictions
+
+    def fit(self, completions, workdir=None, **kwargs):
+        return {'random': random.randint(1, 10)}

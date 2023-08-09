@@ -7,6 +7,8 @@ opencv_python_headless==4.7.0.68
 label-studio-ml==1.0.9 
 Pillow==9.3.0
 segment_anything==1.0
+mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git@01ea8d0f5590082f0c1ceb0a3e2272593f20154b
+timm==0.4.12
 torch==1.13.1
 torchvision==0.14.1
 attr==0.3.1
