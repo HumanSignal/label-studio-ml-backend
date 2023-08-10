@@ -90,7 +90,7 @@ label-studio start
 
 [The video](#creating-the-annotation) also goes over this process, but does part of it while in the newly created project menu.
 
-1. Create a project and go to settings.
+1. Create a project, add your label template and then go to settings.
 2. Under "Machine Learning" click "Add Model"<br>
 3. Under "URL" paste the URL of where the model backend is running (you can find this in the terminal where you started the backend)<br>
 4. Switch on "Use for interactive preannotations"<br>
