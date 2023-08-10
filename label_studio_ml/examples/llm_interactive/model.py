@@ -232,5 +232,6 @@ class OpenAIInteractive(LabelStudioMLBase):
         logger.debug(f'Prompt diff: {diff}')
         self.set(prompt_from_name, prompt)
 
-        self.set('model_version', f'[{version_number + 1}]{diff}')
+        model_version = f'[{version_number + 1}]{diff}'.strip()
+        self.set('model_version', model_version)
         logger.debug(f'Updated model version to {self.get("model_version")}')
