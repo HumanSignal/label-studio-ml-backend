@@ -129,7 +129,7 @@ class OpenAIInteractive(LabelStudioMLBase):
             prompt = '\n'.join(prompts)
         elif prompt := self.get(prompt_from_name):
             # initializing - get existing prompt from storage
-            prompts = prompt.splitlines()
+            prompts = [prompt]
 
         if not prompts:
             return []
