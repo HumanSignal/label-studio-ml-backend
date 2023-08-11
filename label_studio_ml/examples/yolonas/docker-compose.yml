@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis
+    hostname: redis
+    volumes:
+      - "./data/redis:/data"
+    expose:
+      - 6379
+  server:
+    build: .
+    container_name: server
+    environment:
+#      file with checkpoint from yolo nas
+      - CHECKPOINT_FILE=${CHECKPOINT_FILE:-/home/testuser/app/model.pth}
+#      file with labels - each label on new line
+#      labels should be the same in labeling interface and in this file
+#      otherwise need to provide LABELS_FILE variable with mapping from
+#      Label studio label to Yolo label like  {"airplane": "Boeing"}
+      - YOLO_LABELS=${YOLO_LABELS:-/home/testuser/app/labels.txt}
+      - LABELS_FILE=${LABELS_FILE:-}
+      - IOU_THRESHOLD=${IOU_THRESHOLD:-0.25}
+      - SCORE_THRESHOLD=${SCORE_THRESHOLD:-0.45}
+#     target resolution to feed to yolo
+      - IMG_SIZE=${IMG_SIZE:-1280}
+      - DEVICE=${DEVICE:-cpu}
+#      custom endpoint url for s3 storage that holds files in Label Studio
+      - ENDPOINT_URL=${ENDPOINT_URL:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - LABEL_STUDIO_HOSTNAME=${LABEL_STUDIO_HOSTNAME}
+#      yolo model specification
+      - YOLO_MODEL_TYPE=${YOLO_MODEL_TYPE:-yolo_nas_m}
+      - RQ_QUEUE_NAME=default
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+# uncomment to use jupyter lab
+#      - 8888:8888
+      - ${PORT}:${PORT:-9090}
+    restart: always
+    volumes:
+      - ./model.pth:${CHECKPOINT_FILE}
+      - ./labels.txt:${YOLO_LABELS}
+    command: bash -c "exec gunicorn --preload --bind :${PORT} --workers 1 --threads 8 --timeout 0 _wsgi:app"
+# uncomment if you wand a GPU access inside your docker
+#    command: bash -c "python _wsgi.py"
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#          - driver: nvidia
+#            device_ids: [ '0']
+#            capabilities: [ gpu ]
