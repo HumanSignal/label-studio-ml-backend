@@ -160,11 +160,8 @@ class AdvancedSamModel(SamModel):
         if smart_annotation == "keypointlabels":
             new_point = np.array([[int(x), int(y)]])
             points = np.vstack((points, new_point))
-            label = int(context['result'][0]['value']['labels'][0])
-            if label > 0:
-                labels.append(1)
-            if label < 0:
-                labels.append(0)
+            is_positive = context['result'][0]['is_positive']
+            labels.append(int(is_positive))
 
         return points, labels, input_box
 
