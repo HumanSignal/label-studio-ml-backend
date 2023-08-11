@@ -3,7 +3,6 @@ from segment_anything import sam_model_registry, SamPredictor
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_converter import brush
 from label_studio_tools.core.utils.io import get_local_path
-from 
 import numpy as np
 import cv2
 import os
