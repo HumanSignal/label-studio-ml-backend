@@ -24,10 +24,6 @@ COPY onnx_sam.py .
 EXPOSE 9090
 COPY * /app/
 
-
-
-ENV ACCESS_TOKEN=0c5e516d37ed2bc1d11ff5fc59ebaf5e0f756386
-
 RUN pip install opencv-python
 
 CMD exec gunicorn --preload --bind :$PORT --workers 1 --threads 8 --timeout 0 _wsgi:app

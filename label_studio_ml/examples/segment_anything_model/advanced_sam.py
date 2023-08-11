@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_converter import brush
-from label_studio_ml.utils import get_image_local_path
+from label_studio_tools.core.utils.io import get_local_path
 import numpy as np
 import cv2
 import os
@@ -23,6 +23,8 @@ elif SAM_CHOICE == "SAM":
     CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
     model_type = "vit_h"
 
+LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN", None)
+LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST", None)
 
 def load_my_model():
         """
@@ -52,6 +54,10 @@ class SamModel(LabelStudioMLBase):
     
     def predict(self, tasks, **kwargs):
         """ Returns the predicted mask for a smart keypoint that has been placed."""
+
+        # if there's no context, nothing to be done and just return
+        if not kwargs["context"]: return []
+
         orig_tasks = tasks
         
         predictor = PREDICTOR
@@ -74,7 +80,7 @@ class SamModel(LabelStudioMLBase):
         
         # loading the image you are annotating
         img_path = orig_tasks[0]["data"]["image"]
-        image_path = get_image_local_path(img_path)
+        image_path = get_local_path(img_path, access_token=LABEL_STUDIO_ACCESS_TOKEN, hostname=LABEL_STUDIO_HOST)
 
         image, image_embedding = self.set_image(predictor=predictor, image_path=image_path)
 

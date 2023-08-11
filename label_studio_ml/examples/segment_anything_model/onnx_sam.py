@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 from segment_anything import sam_model_registry, SamPredictor
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_converter import brush
-from label_studio_ml.utils import get_image_local_path
+from label_studio_tools.core.utils.io import get_local_path
+from 
 import numpy as np
 import cv2
 import os
@@ -18,6 +19,9 @@ from onnxruntime.quantization.quantize import quantize_dynamic
 
 VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
 ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", "sam_onnx_quantized_example.onnx")
+
+LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN", None)
+LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST", None)
 
 def load_my_model():
         """
@@ -53,6 +57,9 @@ class SamModel(LabelStudioMLBase):
     
     def predict(self, tasks, **kwargs):
         """ Returns the predicted mask for a smart keypoint that has been placed."""
+
+        # if there's no context, nothing to be done and just return
+        if not kwargs["context"]: return []
         
         # Use this to check times for your predictions
         # print(f"Current data and time1: {str(datetime.datetime.now())}") # Current data and time1: 2023-04-16 18:56:09.361688 (ALMOST INSTANTANEOUS FROM THE RUN)
@@ -102,7 +109,7 @@ class SamModel(LabelStudioMLBase):
         img_path = task["data"]["image"]
 
         # loading the image you are annotating
-        image_path = get_image_local_path(img_path)
+        image_path = get_local_path(img_path, access_token=LABEL_STUDIO_ACCESS_TOKEN, hostname=LABEL_STUDIO_HOST)
 
 
         # this is to speed up inference after the first time you selected an image
