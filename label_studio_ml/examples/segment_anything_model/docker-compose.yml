@@ -13,17 +13,18 @@ services:
         reservations:
             memory: 4G
     environment:
-      - MODEL_DIR=/data/models
-      - LOG_LEVEL=DEBUG
-      - IMAGE_CACHE_SIZE=100
+      # Change this to your model name
+      - SAM_CHOICE=MobileSAM
       - VITH_CHECKPOINT=/app/sam_vit_h_4b8939.pth
       - MOBILESAM_CHECKPOINT=/app/mobile_sam.pth
       - ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx
-      - RUN_ONNX_SAM=1
+      - MODEL_DIR=/data/models
+      - LOG_LEVEL=DEBUG
     ports:
       - 9090:9090
     volumes:
       - "./data/server:/data"
+      # You can comment checkpoints you don't need
       - "./sam_vit_h_4b8939.pth:/app/sam_vit_h_4b8939.pth"
       - "./mobile_sam.pt:/app/mobile_sam.pt"
       - "./sam_onnx_example.onnx:/app/sam_onnx_example.onnx"

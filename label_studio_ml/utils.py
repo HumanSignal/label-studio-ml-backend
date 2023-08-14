@@ -72,7 +72,7 @@ def get_image_size(filepath):
 
 
 class InMemoryLRUDictCache:
-    def __init__(self, capacity = 1):
+    def __init__(self, capacity=1):
         self.cache = OrderedDict()
         self.capacity = capacity
 
@@ -93,7 +93,15 @@ class InMemoryLRUDictCache:
         elif len(self.cache) >= self.capacity:
             # Pop the first item if cache reached its capacity
             self.cache.popitem(last=False)
+
         self.cache[key] = value
 
     def __str__(self):
         return str(self.cache)
+
+
+if __name__ == "__main__":
+    c = InMemoryLRUDictCache(2)
+    c.put(1, 1)
+    c.put(2,2)
+    print(c.cache)
