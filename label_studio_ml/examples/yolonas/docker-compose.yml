@@ -36,6 +36,7 @@ services:
       - RQ_QUEUE_NAME=default
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MODEL_DIR=./
     ports:
 # uncomment to use jupyter lab
 #      - 8888:8888
