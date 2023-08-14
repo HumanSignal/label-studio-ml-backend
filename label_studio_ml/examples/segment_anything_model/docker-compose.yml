@@ -20,6 +20,9 @@ services:
       - ONNX_CHECKPOINT=/app/sam_onnx_quantized_example.onnx
       - MODEL_DIR=/data/models
       - LOG_LEVEL=DEBUG
+      # Add these variables if you want to access the images stored in Label Studio
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
     ports:
       - 9090:9090
     volumes:

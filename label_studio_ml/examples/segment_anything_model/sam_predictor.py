@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
 ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", "sam_onnx_quantized_example.onnx")
 MOBILE_CHECKPOINT = os.environ.get("MOBILE_CHECKPOINT", "mobile_sam.pt")
+LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
+LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 
 class SAMPredictor(object):
@@ -78,7 +80,11 @@ class SAMPredictor(object):
         if payload is None:
             # Get image and embeddings
             logger.debug(f'Payload not found for {img_path} in `IN_MEM_CACHE`: calculating from scratch')
-            image_path = get_image_local_path(img_path)
+            image_path = get_image_local_path(
+                img_path,
+                label_studio_access_token=LABEL_STUDIO_ACCESS_TOKEN,
+                label_studio_host=LABEL_STUDIO_HOST
+            )
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             self.predictor.set_image(image)
