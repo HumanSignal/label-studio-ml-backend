@@ -27,4 +27,5 @@ services:
       - 9090:9090
     volumes:
       - "./data/server:/data"
+      # Make sure you run the ./download_models.sh script first
       - "./models:/app/models"

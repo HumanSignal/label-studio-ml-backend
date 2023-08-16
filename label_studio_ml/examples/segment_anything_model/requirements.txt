@@ -1,6 +1,4 @@
 label_studio_converter
--e git+https://github.com/heartexlabs/label-studio-ml-backend@3f1b2386e417993de4c971defe6d915def05524e#egg=label_studio_ml
--e git+https://github.com/facebookresearch/segment-anything.git#egg=segment_anything
 opencv-python
 onnxruntime
 onnx
@@ -8,5 +6,7 @@ torch==2.0.1
 torchvision==0.15.2
 gunicorn==20.1.0
 rq==1.10.1
-mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 timm==0.4.12
+segment_anything @ git+https://github.com/facebookresearch/segment-anything.git
+mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
+label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git

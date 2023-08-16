@@ -4,6 +4,22 @@ https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167
 
 Use Facebook's Segment Anything Model with Label Studio!
 
+# Quick Start
+
+## Download models
+
+```bash
+./download_models.sh
+```
+
+## Using Docker Compose (recommended)
+
+To start the server, run the following command:
+
+```bash
+docker-compose up
+```
+
 # Intro
 
 There are three models in this repo that you can use.

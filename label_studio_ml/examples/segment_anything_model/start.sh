@@ -3,7 +3,7 @@
 # Check if the file specified in the ONNX_CHECKPOINT environment variable exists
 if [ ! -f "$ONNX_CHECKPOINT" ]; then
   # Run the python onnxconverter.py script if the file is not found
-  python onnxconverter.py
+  python3 onnxconverter.py
 else
   # Otherwise, print a message to the console
   echo "ONNX checkpoint found in $ONNX_CHECKPOINT, skipping conversion"

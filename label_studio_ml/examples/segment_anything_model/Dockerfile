@@ -10,13 +10,10 @@ COPY requirements.txt .
 RUN apt-get update && apt-get install -y wget git python3-opencv \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy the start.sh script into the container
-COPY start.sh /app/start.sh
+COPY . ./
 
 # Make the start.sh script executable
 RUN chmod +x /app/start.sh
-
-COPY . ./
 
 EXPOSE 9090
 
