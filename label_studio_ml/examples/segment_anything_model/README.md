@@ -183,7 +183,6 @@ Change your directory into this folder and then install all if the python requir
 pip install -r requirements.txt
 ```
 
-
 #### Adjust variables and `_wsgi.py` depending on your choice of model.
 
 You can set the following environment variables to change the behavior of the model.
