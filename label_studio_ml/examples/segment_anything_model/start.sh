@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# check if file `mobile_sam.pt` exists, otherwise download the model
+# we keep this model inside the container, so we don't need to download it upfront
+[ -f "$MOBILESAM_CHECKPOINT" ] ||
+wget https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt -P $(dirname "$MOBILESAM_CHECKPOINT")
+
 # Check if the file specified in the ONNX_CHECKPOINT environment variable exists
 if [ -f "$VITH_CHECKPOINT" ] && [ ! -f "$ONNX_CHECKPOINT" ]; then
   # Run the python onnxconverter.py script if the file is not found

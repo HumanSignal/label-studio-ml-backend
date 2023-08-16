@@ -3,6 +3,7 @@ version: "3.8"
 services:
   server:
     container_name: server
+    image: humansignal/sam:v0
     build:
       context: .
       shm_size: '4gb'

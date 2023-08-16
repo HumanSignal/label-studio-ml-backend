@@ -12,10 +12,6 @@ RUN apt-get update && apt-get install -y wget git python3-opencv \
 
 COPY . ./
 
-RUN chmod +x /app/download_mobile_sam.sh
-
-RUN ./download_mobile_sam.sh
-
 # Make the start.sh script executable
 RUN chmod +x /app/start.sh
 
