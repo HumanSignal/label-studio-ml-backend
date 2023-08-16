@@ -38,10 +38,10 @@ jobs:
           changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- "${{ env.examples_dir }}/${{ env.backend_dir_name }}" || true)
           if [ -z "$changes" ]; then
             echo "No changes in directory ${{ matrix.dir }}. Exiting job."
-            echo "::set-output name=skip::true"
+            echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "Changes detected in directory ${{ matrix.dir }}."
-            echo "::set-output name=skip::false"
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Login to DockerHub
