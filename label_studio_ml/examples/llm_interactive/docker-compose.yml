@@ -3,6 +3,7 @@ version: "3.8"
 services:
   server:
     container_name: server
+    image: humansignal/llm-interactive:v0
     build: .
     environment:
       - MODEL_DIR=/data/models
