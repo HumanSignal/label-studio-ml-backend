@@ -6,18 +6,27 @@ Use Facebook's Segment Anything Model with Label Studio!
 
 # Quick Start
 
-## Download models
+## Using Docker Compose (recommended)
+
+To start the server with lightweight mobile version of SAM, run the following command:
+
+```bash
+docker-compose up
+```
+
+### Download models
+
+If you planning to use the original SAM architecture, you will need to download the model weights. 
+You can do this by running the following command:
 
 ```bash
 ./download_models.sh
 ```
 
-## Using Docker Compose (recommended)
-
-To start the server, run the following command:
+then rebuild the server with the following command:
 
 ```bash
-docker-compose up
+docker-compose up --build
 ```
 
 # Intro
