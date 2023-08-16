@@ -6,15 +6,19 @@ import importlib
 import importlib.util
 import inspect
 
-from typing import Tuple, Callable, Union, Optional
+from typing import Tuple, Callable, Union, List, Dict, Optional
 from abc import ABC, abstractmethod
 from colorama import Fore
 
 from label_studio_tools.core.label_config import parse_config
 from label_studio_tools.core.utils.io import get_local_path
-from .cache import BaseCache
+from .cache import create_cache
 
 logger = logging.getLogger(__name__)
+
+CACHE = create_cache(
+    os.getenv('CACHE_TYPE', 'sqlite'),
+    path=os.getenv('MODEL_DIR', '.'))
 
 
 class LabelStudioMLBase(ABC):
@@ -26,9 +30,11 @@ class LabelStudioMLBase(ABC):
         'PROJECT_UPDATED'
     )
 
-    def __init__(self, project_id: str, cache: BaseCache):
-        self.project_id = project_id
-        self.cache = cache
+    def __init__(self, project_id: Optional[str] = None):
+        """
+        :param cache:
+        """
+        self.project_id = project_id or ''
 
     def use_label_config(self, label_config: str):
         current_label_config = self.get('label_config')
@@ -41,13 +47,13 @@ class LabelStudioMLBase(ABC):
             self.set('parsed_label_config', json.dumps(parse_config(label_config)))
 
     def get(self, key: str):
-        return self.cache[self.project_id, key]
+        return CACHE[self.project_id, key]
 
     def set(self, key: str, value: str):
-        self.cache[self.project_id, key] = value
+        CACHE[self.project_id, key] = value
 
     def has(self, key: str):
-        return (self.project_id, key) in self.cache
+        return (self.project_id, key) in CACHE
 
     @property
     def label_config(self):
@@ -62,13 +68,13 @@ class LabelStudioMLBase(ABC):
         return self.get('model_version')
 
     @abstractmethod
-    def predict(self, tasks, context, **kwargs):
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """
         Predict method should return a list of dicts with predictions for each task.
         :param tasks: a list of tasks
         :param context: a dict with additional context for model
         :param kwargs:
-        :return:
+        :return: the list of dicts with predictions
         """
         pass
 

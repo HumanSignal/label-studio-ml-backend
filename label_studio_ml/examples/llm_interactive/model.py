@@ -170,7 +170,7 @@ class OpenAIInteractive(LabelStudioMLBase):
                     'id': str(uuid4())[:4],
                     'from_name': textarea_from_name,
                     'to_name': prompt_to_name,
-                    'type': 'choices',
+                    'type': 'textarea',
                     'value': {
                         'text': [response]
                     }

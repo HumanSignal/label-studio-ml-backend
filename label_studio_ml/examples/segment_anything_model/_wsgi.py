@@ -14,13 +14,13 @@ logging.config.dictConfig({
   "handlers": {
     "console": {
       "class": "logging.StreamHandler",
-      "level": "DEBUG",
+      "level": os.getenv('LOG_LEVEL', 'INFO'),
       "stream": "ext://sys.stdout",
       "formatter": "standard"
     }
   },
   "root": {
-    "level": "ERROR",
+    "level": os.getenv('LOG_LEVEL', 'INFO'),
     "handlers": [
       "console"
     ],
@@ -29,14 +29,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-
-RUN_ONNX_SAM = os.environ.get("RUN_ONNX_SAM", False)
-
-if RUN_ONNX_SAM:
-    from onnx_sam import SamModel
-else:
-    from advanced_sam import SamModel
-
+from model import SamMLBackend
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
@@ -108,26 +101,13 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + SamModel.__name__ + '" instance creation..')
-        model = SamModel(**kwargs)
+        print('Check "' + SamMLBackend.__name__ + '" instance creation..')
+        model = SamMLBackend(**kwargs)
 
-    app = init_app(
-        model_class=SamModel,
-        model_dir=os.environ.get('MODEL_DIR', args.model_dir),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379),
-        **kwargs
-    )
+    app = init_app(model_class=SamMLBackend)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(
-        model_class=SamModel,
-        model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
-    )
+    app = init_app(model_class=SamMLBackend)

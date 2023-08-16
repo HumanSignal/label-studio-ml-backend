@@ -1,30 +1,12 @@
-label_studio_converter==0.0.50
-matplotlib==3.5.3
-numpy==1.23.5
-onnxruntime==1.14.1
-opencv_python==4.7.0.68
-opencv_python_headless==4.7.0.68
-label-studio-ml==1.0.9 
-Pillow==9.3.0
-segment_anything==1.0
-mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git@01ea8d0f5590082f0c1ceb0a3e2272593f20154b
-timm==0.4.12
-torch==1.13.1
-torchvision==0.14.1
-attr==0.3.1
-attrs>=19.2.0
-appdirs>=1.4.3
-colorama>=0.4.4
-Flask==1.1.2
-lxml>=4.2.5
-Pillow
+label_studio_converter
+opencv-python
+onnxruntime
+onnx
+torch==2.0.1
+torchvision==0.15.2
 gunicorn==20.1.0
-requests>=2.22.0,<3
-label-studio-tools>=0.0.0.dev11
-Jinja2==3.0.3
-itsdangerous==2.0.1
-werkzeug==2.0.2
-redis<4.6.0
-rq<1.14
-onnx==1.13.1
-opencv-contrib-python-headless
+rq==1.10.1
+timm==0.4.12
+segment_anything @ git+https://github.com/facebookresearch/segment-anything.git
+mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
+label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git

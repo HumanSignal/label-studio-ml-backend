@@ -1,30 +1,24 @@
 import logging
-import os
 
 from flask import Flask, request, jsonify
 
 from .model import LabelStudioMLBase
 from .exceptions import exception_handler
-from .cache import create_cache, BaseCache
 
 
 logger = logging.getLogger(__name__)
 
 _server = Flask(__name__)
-cache = BaseCache
 MODEL_CLASS = LabelStudioMLBase
 
 
 def init_app(model_class):
-    global MODEL_CLASS, cache
+    global MODEL_CLASS
 
     if not issubclass(model_class, LabelStudioMLBase):
         raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
 
     MODEL_CLASS = model_class
-    cache = create_cache(
-        os.getenv('CACHE_TYPE', 'sqlite'),
-        path=os.getenv('MODEL_DIR', '.'))
     return _server
 
 
@@ -53,11 +47,15 @@ def _predict():
     data = request.json
     tasks = data.get('tasks')
     params = data.get('params') or {}
-    project_id = data.get('project').split('.', 1)[0]
+    project = data.get('project')
+    if project:
+        project_id = data.get('project').split('.', 1)[0]
+    else:
+        project_id = None
     label_config = data.get('label_config')
     context = params.pop('context', {})
 
-    model = MODEL_CLASS(project_id, cache)
+    model = MODEL_CLASS(project_id)
     model.use_label_config(label_config)
 
     predictions = model.predict(tasks, context=context, **params)
@@ -70,7 +68,7 @@ def _setup():
     data = request.json
     project_id = data.get('project').split('.', 1)[0]
     label_config = data.get('schema')
-    model = MODEL_CLASS(project_id, cache)
+    model = MODEL_CLASS(project_id)
     model.use_label_config(label_config)
     model_version = model.get('model_version')
     return jsonify({'model_version': model_version})
@@ -92,7 +90,7 @@ def webhook():
         return jsonify({'status': 'Unknown event'}), 200
     project_id = str(data['project']['id'])
     label_config = data['project']['label_config']
-    model = MODEL_CLASS(project_id, cache)
+    model = MODEL_CLASS(project_id)
     model.use_label_config(label_config)
     model.fit(event, data)
     return jsonify({}), 201
@@ -104,8 +102,7 @@ def webhook():
 def health():
     return jsonify({
         'status': 'UP',
-        'model_class': MODEL_CLASS.__name__,
-        'cache_type': cache.__class__.__name__
+        'model_class': MODEL_CLASS.__name__
     })
 
 
