@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", "sam_vit_h_4b8939.pth")
 ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", "sam_onnx_quantized_example.onnx")
-MOBILE_CHECKPOINT = os.environ.get("MOBILE_CHECKPOINT", "mobile_sam.pt")
+MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
@@ -59,7 +59,7 @@ class SAMPredictor(object):
         elif model_choice == 'MobileSAM':
             from mobile_sam import SamPredictor, sam_model_registry
 
-            self.model_checkpoint = MOBILE_CHECKPOINT
+            self.model_checkpoint = MOBILESAM_CHECKPOINT
             if not self.model_checkpoint:
                 raise FileNotFoundError("MOBILE_CHECKPOINT is not set: please set it to the path to the MobileSAM checkpoint")
             logger.info(f"Using MobileSAM checkpoint {self.model_checkpoint}")

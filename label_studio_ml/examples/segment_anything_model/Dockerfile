@@ -10,8 +10,15 @@ COPY requirements.txt .
 RUN apt-get update && apt-get install -y wget git python3-opencv \
     && pip install --no-cache-dir -r requirements.txt
 
+# Copy the start.sh script into the container
+COPY start.sh /app/start.sh
+
+# Make the start.sh script executable
+RUN chmod +x /app/start.sh
+
 COPY . ./
 
 EXPOSE 9090
 
-CMD exec gunicorn --preload --bind :$PORT --workers 1 --threads 8 --timeout 0 _wsgi:app
+# Set the start.sh script as the entrypoint
+ENTRYPOINT ["/app/start.sh"]

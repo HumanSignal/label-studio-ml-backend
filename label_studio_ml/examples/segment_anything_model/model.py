@@ -10,14 +10,14 @@ SAM_CHOICE = os.environ.get("SAM_CHOICE", "MobileSAM")  # other option is just S
 PREDICTOR = SAMPredictor(SAM_CHOICE)
 
 
-class SamModel(LabelStudioMLBase):
+class SamMLBackend(LabelStudioMLBase):
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Returns the predicted mask for a smart keypoint that has been placed."""
 
         from_name, to_name, value = self.get_first_tag_occurence('BrushLabels', 'Image')
 
-        if not context:
+        if not context or not context.get('result'):
             # if there is no context, no interaction has happened yet
             return []
 
@@ -97,7 +97,7 @@ class SamModel(LabelStudioMLBase):
 
 if __name__ == '__main__':
     # test the model
-    model = SamModel()
+    model = SamMLBackend()
     model.use_label_config('''
     <View>
         <Image name="image" value="$image" zoom="true"/>
