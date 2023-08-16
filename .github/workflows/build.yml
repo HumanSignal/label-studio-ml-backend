@@ -17,6 +17,8 @@ jobs:
         include:
           - backend_dir_name: segment_anything_model
             backend_tag_name: sam-v0
+          - backend_dir_name: llm_interactive
+            backend_tag_name: llm-v7
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
       examples_dir: label_studio_ml/examples
