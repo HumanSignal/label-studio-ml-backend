@@ -16,7 +16,7 @@ docker-compose up
 
 ### Download models
 
-If you planning to use the original SAM architecture, you will need to download the model weights. 
+If you're planning to use the original SAM architecture, you will need to download the model weights. 
 You can do this by running the following command:
 
 ```bash
