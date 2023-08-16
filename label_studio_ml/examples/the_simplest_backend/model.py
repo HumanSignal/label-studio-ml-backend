@@ -7,8 +7,8 @@ import label_studio_sdk
 from label_studio_ml.model import LabelStudioMLBase
 
 
-LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST', 'http://localhost:8000')
-LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY', 'd6f8a2622d39e9d89ff0dfef1a80ad877f4ee9e3')
+LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST', 'http://localhost:8080')
+LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY', 'you-label-studio-api-key')
 
 
 class MyModel(LabelStudioMLBase):
@@ -26,8 +26,10 @@ class MyModel(LabelStudioMLBase):
             :param tasks: Label Studio tasks in JSON format
         """
         # self.train_output is a dict that stores the latest result returned by fit() method
-        if self.train_output:
-            prediction_result_example = self.train_output['prediction_example']
+        last_annotation = self.get('last_annotation')
+        if last_annotation:
+            # results are cached as strings, so we need to parse it back to JSON
+            prediction_result_example = json.loads(last_annotation)
             output_prediction = [{
                 'result': prediction_result_example,
                 'score': random.uniform(0, 1)
@@ -52,11 +54,6 @@ class MyModel(LabelStudioMLBase):
     def fit(self, event, data,  **kwargs):
         """
         This method is called each time an annotation is created or updated
-        :param kwargs: contains "data" and "event" key, that could be used to retrieve project ID and annotation event type
-                        (read more in https://labelstud.io/guide/webhook_reference.html#Annotation-Created)
-        :return: dictionary with trained model artefacts that could be used further in code with self.train_output
+        It simply stores the latest annotation as a "prediction model" artifact
         """
-        return {
-            'prediction_example': data['annotation']['result'],
-            'also you can put': 'any artefact here'
-        }
+        self.set('last_annotation', json.dumps(data['annotation']['result']))
