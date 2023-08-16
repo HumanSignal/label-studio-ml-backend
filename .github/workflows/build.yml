@@ -1,0 +1,61 @@
+name: "Build and Push"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build-image:
+    name: Build image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        # Allow list of models
+        include:
+          - backend_dir_name: segment_anything_model
+            backend_tag_name: sam-v0
+    env:
+      IMAGE_NAME: heartexlabs/label-studio-ml-backend
+      examples_dir: label_studio_ml/examples
+      backend_dir_name: ${{ matrix.backend_dir_name }}
+      backend_tag_name: ${{ matrix.backend_tag_name }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.9.1
+
+      - name: Check for Changes in Directory
+        id: check_changes
+        shell: bash
+        run: |
+          changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- "${{ env.examples_dir }}/${{ env.backend_dir_name }}" || true)
+          if [ -z "$changes" ]; then
+            echo "No changes in directory ${{ matrix.dir }}. Exiting job."
+            echo "::set-output name=skip::true"
+          else
+            echo "Changes detected in directory ${{ matrix.dir }}."
+            echo "::set-output name=skip::false"
+          fi
+
+      - name: Login to DockerHub
+        if: ${{ steps.check_changes.outputs.skip != 'true' && !github.event.pull_request.head.repo.fork }}
+        uses: docker/login-action@v2.2.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker image
+        if: steps.check_changes.outputs.skip != 'true'
+        uses: docker/build-push-action@v4.1.1
+        id: docker_build_and_push
+        with:
+          context: ${{ env.examples_dir }}/${{ env.backend_dir_name }}
+          file: Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.backend_tag_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
