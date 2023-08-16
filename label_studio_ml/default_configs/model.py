@@ -1,9 +1,10 @@
+from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 
 
 class NewModel(LabelStudioMLBase):
 
-    def predict(self, tasks, context, **kwargs):
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
             :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml.html#Passing-data-to-ML-backend)
