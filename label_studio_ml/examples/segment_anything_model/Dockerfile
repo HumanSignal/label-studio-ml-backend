@@ -1,21 +1,30 @@
-FROM python:3.8-slim
+FROM python:3.8-slim-buster
 
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=True \
-    PORT=9090
+    PORT=9090 \
+    MODEL_DIR=/data/models \
+    VITH_CHECKPOINT=/app/models/sam_vit_h_4b8939.pth \
+    MOBILESAM_CHECKPOINT=/app/models/mobile_sam.pt \
+    ONNX_CHECKPOINT=/app/models/sam_onnx_quantized_example.onnx
 
+RUN apt-get update -q \
+    && apt-get install -qy --no-install-recommends wget git libopencv-dev python3-opencv \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and run the model download script
+COPY download_models.sh .
+RUN bash /app/download_models.sh
+
+# Install Python dependencies
 COPY requirements.txt .
-
-RUN apt-get update && apt-get install -y wget git python3-opencv \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
 
-# Make the start.sh script executable
-RUN chmod +x /app/start.sh
-
 EXPOSE 9090
 
-# Set the start.sh script as the entrypoint
-ENTRYPOINT ["/app/start.sh"]
+CMD ["/app/start.sh"]

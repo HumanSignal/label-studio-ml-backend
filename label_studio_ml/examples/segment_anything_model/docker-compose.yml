@@ -16,10 +16,6 @@ services:
     environment:
       # Change this to your model name
       - SAM_CHOICE=MobileSAM
-      - VITH_CHECKPOINT=/app/models/sam_vit_h_4b8939.pth
-      - MOBILESAM_CHECKPOINT=/app/models/mobile_sam.pt
-      - ONNX_CHECKPOINT=/app/models/sam_onnx_quantized_example.onnx
-      - MODEL_DIR=/data/models
       - LOG_LEVEL=DEBUG
       # Add these variables if you want to access the images stored in Label Studio
       - LABEL_STUDIO_HOST=
@@ -28,4 +24,3 @@ services:
       - 9090:9090
     volumes:
       - "./data/server:/data"
-      - "./models:/app/models"

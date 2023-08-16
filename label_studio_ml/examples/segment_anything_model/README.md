@@ -14,21 +14,6 @@ To start the server with lightweight mobile version of SAM, run the following co
 docker-compose up
 ```
 
-### Download models
-
-If you're planning to use the original SAM architecture, you will need to download the model weights. 
-You can do this by running the following command:
-
-```bash
-./download_models.sh
-```
-
-then rebuild the server with the following command:
-
-```bash
-docker-compose up --build
-```
-
 # Intro
 
 There are three models in this repo that you can use.

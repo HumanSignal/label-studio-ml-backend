@@ -1,13 +1,22 @@
 #!/bin/bash
 
-# Make sure the models directory exists
-mkdir -p models
+MODELS_DIR="models"
+mkdir -p ${MODELS_DIR}
 
-# check if file `sam_vit_h_4b8939.pth` exists, otherwise download the model
-[ -f models/sam_vit_h_4b8939.pth ] ||
-wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth -P models/
+download_model() {
+  FILE_PATH="${MODELS_DIR}/$1"
+  URL="$2"
 
-# check if file `mobile_sam.pt` exists, otherwise download the model
-[ -f models/mobile_sam.pt ] ||
-wget https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt -P models/
+  if [ ! -f "${FILE_PATH}" ]; then
+    wget -q "${URL}" -P ${MODELS_DIR}/
+  fi
+}
 
+# Model files and their corresponding URLs
+declare -A MODELS
+MODELS["sam_vit_h_4b8939.pth"]="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+MODELS["mobile_sam.pt"]="https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt"
+
+for model in "${!MODELS[@]}"; do
+  download_model "${model}" "${MODELS[${model}]}"
+done
