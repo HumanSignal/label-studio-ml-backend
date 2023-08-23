@@ -27,7 +27,7 @@ Follow this example tutorial to create a ML backend service:
 2. Create a new ML backend directory:
     
    ```bash
-   label-studio-ml init my_ml_backend
+   label-studio-ml create my_ml_backend
    ```
    You can go to the `my_ml_backend` directory and modify the code to implement your own inference logic.
    The directory structure should look like this:
@@ -77,7 +77,7 @@ By default, the `fit` method is called at any data action in Label Studio, like 
 To implement the `fit` method, you need to override the `fit` method in your `model.py` file:
 ```python
 def fit(self, event, data, **kwargs):
-"""Train the model on the labeled data."""
+    """Train the model on the labeled data."""
     old_model = self.get('old_model')
     # write your logic to update the model
     self.set('new_model', new_model)
