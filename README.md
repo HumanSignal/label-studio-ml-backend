@@ -1,20 +1,16 @@
 ## What is the Label Studio ML backend?
 
 The Label Studio ML backend is an SDK that lets you wrap your machine learning code and turn it into a web server.
-You can then connect that server to a Label Studio instance to perform 2 tasks:
+The web server can be then connected to Label Studio to automate labeling tasks and dynamically retrieve pre-annotations from your model.
 
-- Dynamically pre-annotate data based on model inference results
-- Retrain or fine-tune a model based on recently annotated data
+There are several use-cases for the ML backend:
+
+- Pre-annotate data with a model
+- Use active learning to select the most relevant data for labeling
+- Interactive (AI-assisted) labeling
+- Model fine-tuning based on recently annotated data
 
 If you just need to load static pre-annotated data into Label Studio, running an ML backend might be overkill for you. Instead, you can [import preannotated data](https://labelstud.io/guide/predictions.html).
-
-## How it works
-
-1. Get your model code
-2. Wrap it with the Label Studio SDK
-3. Create a running server script
-4. Launch the script
-5. Connect Label Studio to ML backend on the UI
 
 
 ## Quickstart
@@ -23,121 +19,99 @@ Follow this example tutorial to create a ML backend service:
 
 1. Install the latest Label Studio ML SDK:
    ```bash
-   pip install -U label-studio-ml
+   git clone https://github.com/HumanSignal/label-studio-ml-backend.git
+   cd label-studio-ml-backend/
+   pip install -e .
    ```
    
-2. Create a new ML backend directory `my_ml_backend` with the code
+2. Create a new ML backend directory:
     
    ```bash
    label-studio-ml init my_ml_backend
    ```
-   
+   You can go to the `my_ml_backend` directory and modify the code to implement your own inference logic.
+   The directory structure should look like this:
+   ```
+    my_ml_backend/
+    ├── Dockerfile
+    ├── docker-compose.yml
+    ├── model.py
+    ├── _wsgi.py
+    ├── README.md
+    └── requirements.txt
+    ```
+    `Dockefile` and `docker-compose.yml` are used to run the ML backend with Docker.
+    `model.py` is the main file where you can implement your own training and inference logic.
+    `_wsgi.py` is a helper file that is used to run the ML backend with Docker (you don't need to modify it)
+    `README.md` is a readme file with instructions on how to run the ML backend.
+    `requirements.txt` is a file with Python dependencies.
 3. Run the ML backend server
    ```bash
-   label-studio-ml start my_ml_backend
-   ```
-   
-This ML backend is an example provided by Label Studio. 
-To modify the code and implement your own inference logic, go to `my_ml_backend/model.py` and modify the code. 
-
-See [how to create your own ML backend](#create-your-own-ml-backend).
-
-
-4. To run with Docker:
-
-   ```bash
-   cd my_ml_backend
    docker-compose up
    ```
+    The ML backend server will be available at `http://localhost:9090`. You can use this URL to connect it to Label Studio:
+    Go to the project Settings > Machine Learning and Add a new ML backend.
    
-5. Start Label Studio and connect it to the running ML backend on the project settings page.
+This ML backend is an example provided by Label Studio. It actually doesn't do anything. If you want to implement the actual inference logic, go to the next section.
 
-## Create your own ML backend
+## Implement prediction logic
+In your model directory, locate the `model.py` file (for example, `my_ml_backend/model.py`).
 
-Follow this tutorial to wrap existing machine learning model code with the Label Studio ML SDK to use it as an ML backend with Label Studio. 
-
-Before you start, determine the following:
-1. The expected inputs and outputs for your model. In other words, the type of labeling that your model supports in Label Studio, which informs the [Label Studio labeling config](https://labelstud.io/guide/setup.html#Set-up-the-labeling-interface-for-your-project). For example, text classification labels of "Dog", "Cat", or "Opossum" could be possible inputs and outputs. 
-2. The [prediction format](https://labelstud.io/guide/predictions.html) returned by your ML backend server.
-
-This example tutorial outlines how to wrap a simple text classifier based on the [scikit-learn](https://scikit-learn.org/) framework with the Label Studio ML SDK.
-
-Start by creating a class declaration. You can create a Label Studio-compatible ML backend server in one command by inheriting it from `LabelStudioMLBase`. 
+The `model.py` file contains a class declaration inherited from `LabelStudioMLBase`. This class provides wrappers for the API methods that are used by Label Studio to communicate with the ML backend. You can override the methods to implement your own logic:
 ```python
-from label_studio_ml.model import LabelStudioMLBase
-
-class MyModel(LabelStudioMLBase):
-```
-
-Then, define loaders & initializers in the `__init__` method. 
-
-```python
-def __init__(self, **kwargs):
-    # don't forget to initialize base class...
-    super(MyModel, self).__init__(**kwargs)
-    self.model = self.load_my_model()
-```
-
-There are special variables provided by the inherited class:
-- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details](https://github.com/heartexlabs/label-studio/blob/6bcbba7dd056533bfdbc2feab1a6f1e38ce7cf11/label_studio/core/label_config.py#L33). Use might want to use this to align your model input/output with Label Studio labeling configuration;
-- `self.label_config` is a raw labeling config string;
-- `self.train_output` is a Python dict with the results of the previous model training runs (the output of the `fit()` method described bellow) Use this if you want to load the model for the next updates for active learning and model fine-tuning.
-
-After you define the loaders, you can define two methods for your model: an inference call and a training call. 
-
-### Inference call
-
-Use an inference call to get pre-annotations from your model on-the-fly. You must update the existing predict method in the example ML backend scripts to make them work for your specific use case. Write your own code to override the `predict(tasks, **kwargs)` method, which takes [JSON-formatted Label Studio tasks](https://labelstud.io/guide/tasks.html#Basic-Label-Studio-JSON-format) and returns predictions in the [format accepted by Label Studio](https://labelstud.io/guide/predictions.html).
-
-**Example**
-
-```python
-def predict(self, tasks, **kwargs):
-    predictions = []
-    # Get annotation tag first, and extract from_name/to_name keys from the labeling config to make predictions
-    from_name, schema = list(self.parsed_label_config.items())[0]
-    to_name = schema['to_name'][0]
-    for task in tasks:
-        # for each task, return classification results in the form of "choices" pre-annotations
-        predictions.append({
-            'result': [{
-                'from_name': from_name,
-                'to_name': to_name,
-                'type': 'choices',
-                'value': {'choices': ['My Label']}
-            }],
-            # optionally you can include prediction scores that you can use to sort the tasks and do active learning
-            'score': 0.987
-        })
+def predict(self, tasks, context, **kwargs):
+    """Make predictions for the tasks."""
     return predictions
 ```
+The `predict` method is used to make predictions for the tasks. It uses the following:
+- `tasks`: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
+- `context`: [Label Studio context in JSON format](https://labelstud.io/guide/ml.html#Passing-data-to-ML-backend) - for interactive labeling scenario
+- `predictions`: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-tasks)
 
+Once you implement the `predict` method, you can see predictions from the connected ML backend in Label Studio.
 
-### Training call
-Use the training call to update your model with new annotations. You don't need to use this call in your code, for example if you just want to pre-annotate tasks without retraining the model. If you do want to retrain the model based on annotations from Label Studio, use this method. 
+## Implement training logic
+You can also implement the `fit` method to train your model. The `fit` method is typically used to train the model on the labeled data, although it can be used for any arbitrary operations that require data persistence (for example, storing labeled data in database, saving model weights, keeping LLM prompts history, etc).
+By default, the `fit` method is called at any data action in Label Studio, like creating a new task or updating annotations. You can modify this behavior in Label Studio > Settings > Webhooks.
 
-Write your own code to override the `fit(annotations, **kwargs)` method, which takes [JSON-formatted Label Studio annotations](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-labeled-tasks) and returns an arbitrary dict where some information about the created model can be stored.
-
-**Example**
+To implement the `fit` method, you need to override the `fit` method in your `model.py` file:
 ```python
-def fit(self, completions, workdir=None, **kwargs):
-    # ... do some heavy computations, get your model and store checkpoints and resources
-    return {'checkpoints': 'my/model/checkpoints'}  # <-- you can retrieve this dict as self.train_output in the subsequent calls
+def fit(self, event, data, **kwargs):
+"""Train the model on the labeled data."""
+    old_model = self.get('old_model')
+    # write your logic to update the model
+    self.set('new_model', new_model)
+```
+with 
+- `event`: event type can be `'ANNOTATION_CREATED'`, `'ANNOTATION_UPDATED', etc.
+- `data` the payload received from the event (check more on [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
+
+Additionally, there are two helper methods that you can use to store and retrieve data from the ML backend:
+- `self.set(key, value)` - store data in the ML backend
+- `self.get(key)` - retrieve data from the ML backend
+
+Both methods can be used elsewhere in the ML backend code, for example, in the `predict` method to get the new model weights.
+
+## Other methods and parameters
+Other methods and parameters are available within the `LabelStudioMLBase` class:
+
+- `self.label_config` - returns the [Label Studio labeling config](https://labelstud.io/guide/setup.html) as XML string.
+- `self.parsed_label_config` - returns the [Label Studio labeling config](https://labelstud.io/guide/setup.html) as JSON.
+- `self.model_version` - returns the current model version.
+
+
+## Run without Docker
+
+To run without docker (for example, for debugging purposes), you can use the following command:
+```bash
+pip install -r my_ml_backend
+label-studio-ml start my_ml_backend
 ```
 
-
-After you wrap your model code with the class, define the loaders, and define the methods, you're ready to run your model as an ML backend with Label Studio. 
-
-For other examples of ML backends, refer to the [examples in this repository](label_studio_ml/examples). These examples aren't production-ready, but can help you set up your own code as a Label Studio ML backend.
-
-## Different port
-
-If you don't want to use the docker, you can run the ML backend with uwsgi workers and use custom port this way: 
-
-```
-label-studio-ml-backend init --script examples/dummy_model/dummy_model.py my_backend
-cd my_backend
-python _wsgi.py -p 4242
+### Modify the port
+To modify the port, use the `-p` parameter:
+```bash
+label-studio-ml start my_ml_backend -p 9091
 ```
 
 ## Deploy your ML backend to GCP
