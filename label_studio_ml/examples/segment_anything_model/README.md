@@ -136,7 +136,7 @@ installation. Be sure to append the port that Label Studio is running on in
 your `LABEL_STUDIO_HOST` variable, for example `http://192.168.1.36:8080` if
 Label Studio is running on port 8080.
 
-Run the command `docker compse up --build` to build the container and run it
+Run the command `docker compose up --build` to build the container and run it
 locally.
 
 ### Setting up the Backend Manually
