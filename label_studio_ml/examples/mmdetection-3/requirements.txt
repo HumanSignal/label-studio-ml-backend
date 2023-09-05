@@ -7,7 +7,7 @@ werkzeug==2.0.2
 itsdangerous==2.0.1
 
 boto3~=1.26.103
-torch==1.13.0
+torch==1.13.1
 torchvision==0.14.0
 openmim~=0.3.7
 
