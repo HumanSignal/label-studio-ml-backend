@@ -19,6 +19,8 @@ jobs:
             backend_tag_name: sam-v0
           - backend_dir_name: llm_interactive
             backend_tag_name: llm-v7
+          - backend_dir_name: the_simplest_backend
+            backend_tag_name: simplebackend-v0
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
       examples_dir: label_studio_ml/examples
