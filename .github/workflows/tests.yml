@@ -67,7 +67,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: '3.8'
 
       - uses: actions/cache@v3
         name: Configure pip cache
@@ -83,7 +83,6 @@ jobs:
           sudo apt-get clean
           sudo apt-get update
           sudo apt-get install virtualenv libsasl2-dev python3-dev libldap2-dev libssl-dev
-          pip install -U pip==20.2
           pip install -r requirements-test.txt
           pip install -r requirements.txt
           pip install -e .
