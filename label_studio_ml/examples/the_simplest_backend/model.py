@@ -2,6 +2,7 @@ import os
 import json
 import random
 import label_studio_sdk
+from uuid import uuid4
 
 
 from label_studio_ml.model import LabelStudioMLBase
@@ -61,5 +62,4 @@ class MyModel(LabelStudioMLBase):
         """
         self.set('last_annotation', json.dumps(data['annotation']['result']))
         # to control the model versioning, you can use the model_version parameter
-        current_model_version = self.model_version or 0
-        self.set('model_version', str(int(current_model_version) + 1))
+        self.set('model_version', str(uuid4())[:8])
