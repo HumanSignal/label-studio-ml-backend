@@ -12,7 +12,6 @@ ENV PYTHONUNBUFFERED=True \
 
 RUN pip install -r requirements.txt
 
-
 WORKDIR /app
 
 COPY *.py /app/
