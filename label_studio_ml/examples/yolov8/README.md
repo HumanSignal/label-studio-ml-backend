@@ -1,0 +1,1 @@
+Here is the project that integrates YOLOV8 with Label Studio.
