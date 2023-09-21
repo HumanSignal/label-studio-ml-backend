@@ -14,13 +14,13 @@ logging.config.dictConfig({
   "handlers": {
     "console": {
       "class": "logging.StreamHandler",
-      "level": "DEBUG",
+      "level": os.getenv('LOG_LEVEL', 'DEBUG'),
       "stream": "ext://sys.stdout",
       "formatter": "standard"
     }
   },
   "root": {
-    "level": "ERROR",
+    "level": os.getenv('LOG_LEVEL', 'DEBUG'),
     "handlers": [
       "console"
     ],
@@ -106,12 +106,7 @@ if __name__ == "__main__":
         model = DialoGPTSimpleGenerator(**kwargs)
 
     app = init_app(
-        model_class=DialoGPTSimpleGenerator,
-        model_dir=os.environ.get('MODEL_DIR', args.model_dir),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379),
-        **kwargs
+        model_class=DialoGPTSimpleGenerator
     )
 
     app.run(host=args.host, port=args.port, debug=args.debug)
@@ -120,8 +115,4 @@ else:
     # for uWSGI use
     app = init_app(
         model_class=DialoGPTSimpleGenerator,
-        model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
     )
