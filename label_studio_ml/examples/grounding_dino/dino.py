@@ -45,10 +45,7 @@ class DINOBackend(LabelStudioMLBase):
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
 
-        # TEXT_PROMPT = "cats" # remove this line in a little bit
-        
-        # TEXT_PROMPT = "cats" # change input to be gathered using the user from frontend
-        self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
+        self.label = TEXT_PROMPT
 
         
         all_points = []
@@ -68,12 +65,8 @@ class DINOBackend(LabelStudioMLBase):
             except:
                 img_path = raw_img_path
 
-
-            # img_path = 'label_studio_ml/examples/grounding_dino/fire.jpg' # change to read out of the backend
-
             src, img = load_image(img_path)
 
-            # this has to use CPU or nvidia, otherwise it does not work (can't use MPS)
             boxes, logits, phrases = predict(
                 model=groundingdino_model,
                 image=img,
@@ -87,7 +80,7 @@ class DINOBackend(LabelStudioMLBase):
 
             boxes_xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.Tensor([W, H, W, H])
 
-            points = boxes_xyxy.cpu().numpy() # TODO: change so you can get multiple bounding boxes per image
+            points = boxes_xyxy.cpu().numpy()
 
             for point, logit in zip(points, logits):
                 all_points.append(point)
