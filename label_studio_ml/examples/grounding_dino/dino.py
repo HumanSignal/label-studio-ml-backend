@@ -39,6 +39,13 @@ if USE_MOBILE_SAM:
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+## TODO: 
+# 1. add downloadable MobileSAM model
+# 2. add new requirements to requirents.txt
+# 3. Test with the if main statements below
+# 4. test in the label studio software
+
+
 class DINOBackend(LabelStudioMLBase):
 
     def __init__(self, project_id, **kwargs):
