@@ -1,0 +1,18 @@
+version: "3.11"
+
+services:
+  ml-backend:
+    container_name: ml-backend
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+      - WORKERS=2
+      - THREADS=4
+      - LOG_LEVEL=DEBUG
+      # Add these variables if you want to access the images stored in Label Studio
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/ml-backend:/data"
