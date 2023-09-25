@@ -25,7 +25,7 @@ TEXT_TRESHOLD = os.environ.get("TEXT_THRESHOLD", 0.25)
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
-USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", False)
+USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", True) # TODO: set back to false
 MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
 
 
@@ -114,7 +114,7 @@ class DINOBackend(LabelStudioMLBase):
                 all_scores.append(logit)
                 all_lengths.append((H, W))
 
-        if TEXT_PROMPT.endswith("_SAM"):
+        if USE_MOBILE_SAM:
             predictions = self.get_sam_results(img_path, all_points, all_lengths)
         else:
             predictions = self.get_results(all_points, all_scores, all_lengths)
@@ -163,7 +163,12 @@ class DINOBackend(LabelStudioMLBase):
         lengths
     ):
         image = cv2.imread(img_path)
-        input_boxes = torch.tensor(input_boxes)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.predictor.set_image(image)
+
+        input_boxes = torch.from_numpy(np.array(input_boxes)) # convert to all numpy arrays first, then tenosr
+        # this is really slow
+
         
         transformed_boxes = transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
         masks, probs, _ = self.predictor.predict_torch(
@@ -172,6 +177,9 @@ class DINOBackend(LabelStudioMLBase):
             boxes=transformed_boxes,
             multimask_output=False,
         )
+
+        masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
+        probs = probs.cpu().numpy()
 
         # probs = float(probs)
         
@@ -182,6 +190,12 @@ class DINOBackend(LabelStudioMLBase):
             height, width = length
             # creates a random ID for your label everytime so no chance for errors
             label_id = str(uuid4())[:4]
+
+            from PIL import Image
+            image2 = Image.fromarray(mask * 255)
+            image2.save("test.jpeg") # testing to see if segmentation worked correctly
+
+
             # converting the mask from the model to RLE format which is usable in Label Studio
             mask = mask * 255
             rle = brush.mask2rle(mask)
@@ -190,18 +204,21 @@ class DINOBackend(LabelStudioMLBase):
                 'id': label_id,
                 'from_name': self.from_name,
                 'to_name': self.to_name,
-                'original_width': height,
-                'original_height': width,
+                'original_width': width,
+                'original_height': height,
                 'image_rotation': 0,
                 'value': {
                     'format': 'rle',
                     'rle': rle,
                     'brushlabels': [self.label],
                 },
-                'score': prob,
+                'score': float(prob[0]),
                 'type': 'brushlabels',
                 'readonly': False
             })
+        return [{
+            'result': results
+        }]
 
 
 
