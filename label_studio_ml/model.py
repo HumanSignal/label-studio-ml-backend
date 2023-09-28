@@ -29,12 +29,14 @@ _update_fn: Callable
 def predict_fn(f):
     global _predict_fn
     _predict_fn = f
+    logger.info(f'{Fore.GREEN}Predict function "{_predict_fn.__name__}" registered{Fore.RESET}')
     return f
 
 
-def updated_fn(f):
+def update_fn(f):
     global _update_fn
     _update_fn = f
+    logger.info(f'{Fore.GREEN}Update function "{_update_fn.__name__}" registered{Fore.RESET}')
     return f
 
 
