@@ -9,7 +9,7 @@ import pytesseract
 
 from PIL import Image
 from io import BytesIO
-from typing import Union, List, Dict, Any, Tuple
+from typing import Union, List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from uuid import uuid4
 from tenacity import retry, stop_after_attempt, wait_random
@@ -37,7 +37,7 @@ def gpt(messages: Union[List[Dict], str]):
 
 class OpenAIInteractive(LabelStudioMLBase):
 
-    PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', '')
+    PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
     PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
     SUPPORTED_INPUTS = ('Image', 'Text', 'HyperText', 'Paragraphs')
 
@@ -78,7 +78,7 @@ class OpenAIInteractive(LabelStudioMLBase):
             matched_labels.append(original_choices[scores.index(max(scores))])
         return matched_labels
 
-    def predict(self, tasks, context, **kwargs):
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         cfg = self.parsed_label_config
 
         prompt_from_name, prompt_to_name, value_key = self.get_first_tag_occurence(
@@ -176,8 +176,7 @@ class OpenAIInteractive(LabelStudioMLBase):
                     }
                 })
 
-            if base_result:
-                result.append(base_result)
+            result.append(base_result)
 
             predictions.append({'result': result, 'model_version': model_version})
 

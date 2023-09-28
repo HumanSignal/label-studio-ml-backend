@@ -1,5 +1,8 @@
 import logging
-from typing import List, Dict, Optional
+import os
+
+from uuid import uuid4
+from typing import List, Dict, Optional, Any
 from label_studio_ml.model import LabelStudioMLBase
 from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
@@ -19,12 +22,33 @@ class SearchResults(BaseCallbackHandler):
         super().__init__()
         self.snippets = []
 
+    def on_tool_start(
+        self, serialized: Dict[str, Any], input_str: str, **kwargs: Any
+    ) -> Any:
+        """Run when tool starts running."""
+        self.snippets = []
+
     def on_tool_end(self, output: str, **kwargs):
         """Run when tool ends running."""
-        self.snippets = [snippet.strip() for snippet in output.split(' ... ')]
+        for snippet in output.split('...'):
+            snippet = snippet.strip()
+            if snippet:
+                self.snippets.append(snippet)
 
 
 class NewModel(LabelStudioMLBase):
+    PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
+    RESPONSE_PREFIX = os.getenv('RESPONSE_PREFIX', 'response')
+    SNIPPETS_PREFIX = os.getenv('SNIPPETS_PREFIX', 'snippets')
+    PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '{prompt}{text}')
+
+    def get_prompt(self, annotation, prompt_from_name) -> str:
+        result = annotation['result']
+        for item in result:
+            if item.get('from_name') != prompt_from_name:
+                continue
+            return '\n'.join(item['value']['text'])
+        return ''
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Write your inference logic here
@@ -33,65 +57,98 @@ class NewModel(LabelStudioMLBase):
             :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-tasks)
         """
         from_name, to_name, value = self.get_first_tag_occurence('Choices', 'Text')
+        from_name_prompt, _, _ = self.get_first_tag_occurence(
+            'TextArea', 'Text', name_filter=lambda s: s.startswith(self.PROMPT_PREFIX))
+        from_name_response, _, _ = self.get_first_tag_occurence(
+            'TextArea', 'Text', name_filter=lambda s: s.startswith(self.RESPONSE_PREFIX))
+        from_name_snippets, _, _ = self.get_first_tag_occurence(
+            'TextArea', 'Text', name_filter=lambda s: s.startswith(self.SNIPPETS_PREFIX))
+
         search_results = SearchResults()
         tool = Tool(
             name="Google Search Snippets",
             description="Search Google for recent results.",
-            func=search.results,
+            func=search.run,
             callbacks=[search_results]
         )
-        llm = OpenAI(temperature=0)
+        llm = OpenAI(
+            temperature=0,
+            model_name='gpt-3.5-turbo-instruct'
+        )
         agent = initialize_agent(
             [tool],
             llm,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True
+            verbose=True,
+            max_iterations=3,
+            early_stopping_method="generate",
         )
 
         labels = self.parsed_label_config[from_name]['labels']
         predictions = []
+        if context:
+            prompt = self.get_prompt(context, from_name_prompt)
+        else:
+            prompt = self.get(from_name_prompt)
+
+        if not prompt:
+            return []
+
+        logger.debug(f'Prompt: {prompt}')
+
+        base_result = {
+            'id': str(uuid4())[:4],
+            'from_name': from_name_prompt,
+            'to_name': to_name,
+            'type': 'textarea',
+            'value': {
+                'text': [prompt]
+            }
+        }
+
         for task in tasks:
             text = task['data'][value]
-            llm_result = agent.run(f'"{text}" - Is this a company or product? Answer only "Company" or "Product"')
-            output_class = match_labels(llm_result, labels)
+            full_prompt = self.PROMPT_TEMPLATE.format(prompt=prompt, text=text)
+            logger.info(f'Full prompt: {full_prompt}')
+            llm_result = agent.run(full_prompt)
+            output_classes = match_labels(llm_result, labels)
             snippets = search_results.snippets
             logger.debug(f'LLM result: {llm_result}')
-            logger.debug(f'Output class: {output_class}')
+            logger.debug(f'Output classes: {output_classes}')
             logger.debug(f'Snippets: {snippets}')
-            predictions.append({
-                'result': [{
-                    'from_name': from_name,
-                    'to_name': to_name,
-                    'type': 'choices',
-                    'value': {
-                        'choices': [output_class]
-                    }
-                }]
-            })
+            result = [base_result.copy()] + [{
+                'from_name': from_name,
+                'to_name': to_name,
+                'type': 'choices',
+                'value': {
+                    'choices': output_classes
+                }
+            }, {
+                'from_name': from_name_response,
+                'to_name': to_name,
+                'type': 'textarea',
+                'value': {
+                    'text': [llm_result]
+                }
+            }, {
+                'from_name': from_name_snippets,
+                'to_name': to_name,
+                'type': 'textarea',
+                'value': {
+                    'text': snippets
+                }
+            }]
+            predictions.append({'result': result})
 
         return predictions
 
     def fit(self, event, data, **kwargs):
-        """
-        This method is called each time an annotation is created or updated
-        You can run your logic here to update the model and persist it to the cache
-        It is not recommended to perform long-running operations here, as it will block the main thread
-        Instead, consider running a separate process or a thread (like RQ worker) to perform the training
-        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
-        :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
-        """
+        logger.debug(f'Data received: {data}')
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+            return
 
-        # use cache to retrieve the data from the previous fit() runs
-        old_data = self.get('my_data')
-        old_model_version = self.get('model_version')
-        print(f'Old data: {old_data}')
-        print(f'Old model version: {old_model_version}')
-
-        # store new data to the cache
-        self.set('my_data', 'my_new_data_value')
-        self.set('model_version', 'my_new_model_version')
-        print(f'New data: {self.get("my_data")}')
-        print(f'New model version: {self.get("model_version")}')
-
-        print('fit() completed successfully.')
-
+        prompt_from_name, prompt_to_name, value_key = self.get_first_tag_occurence(
+            'TextArea', 'Text',
+            name_filter=lambda s: s.startswith(self.PROMPT_PREFIX))
+        prompt = self.get_prompt(data['annotation'], prompt_from_name)
+        self.set(prompt_from_name, prompt)

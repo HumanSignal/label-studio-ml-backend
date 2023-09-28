@@ -117,7 +117,7 @@ def match_labels(input: str, labels: List[str]) -> List[str]:
 
     matched_labels = []
     for pred in predicted_classes:
-        scores = list(map(lambda l: difflib.SequenceMatcher(None, pred, l).ratio(), original_choices))
+        scores = list(map(lambda l: difflib.SequenceMatcher(None, pred, l).ratio(), labels))
         matched_labels.append(labels[scores.index(max(scores))])
     return matched_labels
 
