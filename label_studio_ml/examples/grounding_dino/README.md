@@ -11,7 +11,7 @@ See [here](https://github.com/IDEA-Research/GroundingDINO) for more details abou
 Quickstart
 
 1. Make sure docker is installed
-2. Edit `docker-compose.yml` to include your LABEL_STUDIO_ACCESS_TOKEN found in teh Label Studio software, and the LABEL_STUDIO_HOST which includes the address on which the frontend is hosted on.
+2. Edit `docker-compose.yml` to include your LABEL_STUDIO_ACCESS_TOKEN found in the Label Studio software, and the LABEL_STUDIO_HOST which includes the address on which the frontend is hosted on.
 
 Example-
 - `LABEL_STUDIO_HOST=http://123.456.7.8:8080`
@@ -40,3 +40,12 @@ Example-
 This may be adjusted to your needs, but please keep the promp section and some rectangle labels.
 
 6. Go to an image task in one of your projects. Turn on the Auto-annotation switch. Then, type in the prompt box and press add. After this, you should receive your predictions. See the video above for a demo. 
+
+
+## Using GroundingSAM
+
+Combine the Segment Anything Model with your text input to automatically generate mask predictions! 
+
+To do this, set `USE_SAM=True` before running. 
+
+If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as well.
