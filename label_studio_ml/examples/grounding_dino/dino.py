@@ -91,10 +91,8 @@ class DINOBackend(LabelStudioMLBase):
             except:
                 img_path = raw_img_path
 
-
             src, img = load_image(img_path)
 
-            # this has to use CPU or nvidia, otherwise it does not work (can't use MPS)
             boxes, logits, phrases = predict(
                 model=groundingdino_model,
                 image=img,
