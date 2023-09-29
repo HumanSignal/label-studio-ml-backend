@@ -25,8 +25,12 @@ TEXT_TRESHOLD = os.environ.get("TEXT_THRESHOLD", 0.25)
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
-USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", True) # TODO: set back to false
+USE_SAM = os.environ.get("USE_SAM", False)
+USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", False)
+
 MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
+SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
+
 
 
 if USE_MOBILE_SAM:
@@ -34,16 +38,14 @@ if USE_MOBILE_SAM:
 
     model_checkpoint = MOBILESAM_CHECKPOINT
     reg_key = 'vit_t'
+elif USE_SAM:
+    from segment_anything import SamPredictor, sam_model_registry
+
+    model_checkpoint = SAM_CHECKPOINT
+    reg_key = 'vit_h'
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-## TODO: 
-# 1. add downloadable MobileSAM model
-# 2. add new requirements to requirents.txt
-# 3. Test with the if main statements below
-# 4. test in the label studio software
 
 
 class DINOBackend(LabelStudioMLBase):
@@ -57,10 +59,11 @@ class DINOBackend(LabelStudioMLBase):
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        if USE_MOBILE_SAM:
+        if USE_MOBILE_SAM or USE_SAM:
             sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
             sam.to(device=self.device)
-            self.predictor = SamPredictor(sam)
+            self.predictor = SamPredictor(sam)    
+            
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
 
@@ -89,8 +92,6 @@ class DINOBackend(LabelStudioMLBase):
                 img_path = raw_img_path
 
 
-            # img_path = 'label_studio_ml/examples/grounding_dino/fire.jpg' # change to read out of the backend
-
             src, img = load_image(img_path)
 
             # this has to use CPU or nvidia, otherwise it does not work (can't use MPS)
@@ -107,14 +108,14 @@ class DINOBackend(LabelStudioMLBase):
 
             boxes_xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.Tensor([W, H, W, H])
 
-            points = boxes_xyxy.cpu().numpy() # TODO: change so you can get multiple bounding boxes per image
+            points = boxes_xyxy.cpu().numpy()
 
             for point, logit in zip(points, logits):
                 all_points.append(point)
                 all_scores.append(logit)
                 all_lengths.append((H, W))
 
-        if USE_MOBILE_SAM:
+        if USE_MOBILE_SAM or USE_SAM:
             predictions = self.get_sam_results(img_path, all_points, all_lengths)
         else:
             predictions = self.get_results(all_points, all_scores, all_lengths)
@@ -166,8 +167,7 @@ class DINOBackend(LabelStudioMLBase):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         self.predictor.set_image(image)
 
-        input_boxes = torch.from_numpy(np.array(input_boxes)) # convert to all numpy arrays first, then tenosr
-        # this is really slow
+        input_boxes = torch.from_numpy(np.array(input_boxes))
 
         
         transformed_boxes = transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
@@ -180,8 +180,6 @@ class DINOBackend(LabelStudioMLBase):
 
         masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
-
-        # probs = float(probs)
         
         results = []
 
@@ -190,11 +188,6 @@ class DINOBackend(LabelStudioMLBase):
             height, width = length
             # creates a random ID for your label everytime so no chance for errors
             label_id = str(uuid4())[:4]
-
-            from PIL import Image
-            image2 = Image.fromarray(mask * 255)
-            image2.save("test.jpeg") # testing to see if segmentation worked correctly
-
 
             # converting the mask from the model to RLE format which is usable in Label Studio
             mask = mask * 255
@@ -219,28 +212,3 @@ class DINOBackend(LabelStudioMLBase):
         return [{
             'result': results
         }]
-
-
-
-        
-if __name__ == '__main__':
-    # test the model
-    model = DINOBackend()
-    model.use_label_config('''
-    <View>
-        <Image name="image" value="$image" zoom="true"/>
-        <RectangleLabels name="tag" toName="image">
-            <Label value="Fire" background="#FF0000"/>
-        </RectangleLabels>
-    </View>
-    ''')
-    results = model.predict(
-        tasks=[{
-            'data': {
-                # 'image': 'https://s3.amazonaws.com/htx-pub/datasets/images/125245483_152578129892066_7843809718842085333_n.jpg'
-                'image': 'label_studio_ml/examples/grounding_dino/fire.jpg'
-            }}],
-        context= None
-    )
-    # results[0]['result'][0]['value']['rle'] = f'...{len(results[0]["result"][0]["value"]["rle"])} integers...'
-    # print(json.dumps(results, indent=2))
