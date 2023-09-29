@@ -9,9 +9,15 @@ services:
       - WORKERS=2
       - THREADS=4
       - LOG_LEVEL=DEBUG
+
       # Add these variables if you want to access the images stored in Label Studio
       - LABEL_STUDIO_HOST=
       - LABEL_STUDIO_ACCESS_TOKEN=
+
+      # use these if you want to use segment anything instead of bounding box predictions from input text prompts
+      - USE_SAM = True  # if you want to automatically generate segment anything model predictions
+      - USE_MOBILE_SAM=True # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
+      - MOBILE_SAM_CHECKPOINT= # in case you want to point to another directory than where Docker automatically places the model
     ports:
       - "9090:9090"
     volumes:
