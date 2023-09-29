@@ -1,9 +1,10 @@
-https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/470c6cfc-bb2e-4fe3-9627-30a7e3bc28d5
+https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/d1d2f233-d7c0-40ac-ba6f-368c3c01fd36
+
 
 
 ## GroundingDINO Backend Integration
 
-Use text prompts for zero-shot detection of objects in images! Specify the detection of any object and get State of the Art results without any model fine tuning!
+Use text prompts for zero-shot detection of objects in images! Specify the detection of any object and get State of the Art results without any model fine tuning! In addition, get segmentation predictions from SAM with just text prompts!
 
 See [here](https://github.com/IDEA-Research/GroundingDINO) for more details about the pretrained GroundingDINO model. 
 
