@@ -50,3 +50,10 @@ Combine the Segment Anything Model with your text input to automatically generat
 To do this, set `USE_SAM=True` before running. 
 
 If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as well.
+
+
+## Other Environment Variables
+
+Adjust `BOX_THRESHOLD` and `TEXT_THRESHOLD` values in the Dockerfile to a number between 0 to 1 if experimenting. Defaults are set in `dino.py`. See explanation of these values in this [section](https://github.com/IDEA-Research/GroundingDINO#star-explanationstips-for-grounding-dino-inputs-and-outputs).
+
+If you want to use SAM models saved from either directories, you can use the `MOBILESAM_CHECKPOINT` and `SAM_CHECKPOINT` as shown in the Dockerfile.

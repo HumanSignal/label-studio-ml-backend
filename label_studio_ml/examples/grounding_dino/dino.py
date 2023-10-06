@@ -93,7 +93,7 @@ class DINOBackend(LabelStudioMLBase):
 
             src, img = load_image(img_path)
 
-            boxes, logits, phrases = predict(
+            boxes, logits, _ = predict(
                 model=groundingdino_model,
                 image=img,
                 caption=TEXT_PROMPT.strip("_SAM"),
@@ -168,7 +168,7 @@ class DINOBackend(LabelStudioMLBase):
         input_boxes = torch.from_numpy(np.array(input_boxes))
 
         
-        transformed_boxes = transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+        transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
         masks, probs, _ = self.predictor.predict_torch(
             point_coords=None,
             point_labels=None,
