@@ -74,6 +74,7 @@ class DINOBackend(LabelStudioMLBase):
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
 
+
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
 
         if self.use_sam == 'True':
@@ -137,7 +138,7 @@ class DINOBackend(LabelStudioMLBase):
         
         for points, scores, lengths in zip(all_points, all_scores, all_lengths):
             # random ID
-            label_id = str(uuid4())[:4]
+            label_id = str(uuid4())[:9]
 
             height, width = lengths
             
@@ -196,7 +197,7 @@ class DINOBackend(LabelStudioMLBase):
         for mask, prob, length in zip(masks, probs, lengths):
             height, width = length
             # creates a random ID for your label everytime so no chance for errors
-            label_id = str(uuid4())[:4]
+            label_id = str(uuid4())[:9]
 
             # converting the mask from the model to RLE format which is usable in Label Studio
             mask = mask * 255
