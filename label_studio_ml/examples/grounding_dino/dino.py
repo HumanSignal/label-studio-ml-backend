@@ -63,6 +63,9 @@ class DINOBackend(LabelStudioMLBase):
             sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
             sam.to(device=self.device)
             self.predictor = SamPredictor(sam)    
+
+        self.use_sam = USE_SAM
+        self.use_ms = USE_MOBILE_SAM
             
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
@@ -73,6 +76,14 @@ class DINOBackend(LabelStudioMLBase):
 
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
 
+        if self.use_sam == 'True':
+            self.use_sam=True
+        if self.use_sam == 'False':
+            self.use_sam = False
+        if self.use_ms == 'True':
+            self.use_ms = True
+        if self.use_ms == 'False':
+            self.use_ms = False
         
         all_points = []
         all_scores = []
@@ -97,8 +108,8 @@ class DINOBackend(LabelStudioMLBase):
                 model=groundingdino_model,
                 image=img,
                 caption=TEXT_PROMPT.strip("_SAM"),
-                box_threshold=BOX_TRESHOLD,
-                text_threshold=TEXT_TRESHOLD,
+                box_threshold=float(BOX_TRESHOLD),
+                text_threshold=float(TEXT_TRESHOLD),
                 device=DEVICE
             )
 
@@ -113,7 +124,7 @@ class DINOBackend(LabelStudioMLBase):
                 all_scores.append(logit)
                 all_lengths.append((H, W))
 
-        if USE_MOBILE_SAM or USE_SAM:
+        if self.use_ms or self.use_sam:
             predictions = self.get_sam_results(img_path, all_points, all_lengths)
         else:
             predictions = self.get_results(all_points, all_scores, all_lengths)
