@@ -15,14 +15,14 @@ services:
       - LABEL_STUDIO_ACCESS_TOKEN=
 
       # use these if you want to use segment anything instead of bounding box predictions from input text prompts
-      - USE_SAM=True  # if you want to automatically generate segment anything model predictions
-      - USE_MOBILE_SAM=True # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
+      - USE_SAM=False  # if you want to automatically generate segment anything model predictions
+      - USE_MOBILE_SAM=False # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
 
       - MOBILE_SAM_CHECKPOINT= # in case you want to point to another directory than where Docker automatically places the model
       - SAM_CHECKPOINT= # if you want to use regular SAM and point to another directory than where Docker automatically places the model
 
-      - BOX_THRESHOLD=
-      - TEXT_THRESHOLD=
+      - BOX_THRESHOLD=0.30
+      - TEXT_THRESHOLD=0.25
     ports:
       - "9090:9090"
     volumes:
