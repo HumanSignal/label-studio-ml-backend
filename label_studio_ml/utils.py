@@ -1,7 +1,9 @@
 import logging
+import difflib
 
 from PIL import Image, ImageOps
 from collections import OrderedDict
+from typing import List
 
 from label_studio_tools.core.utils.params import get_env
 from label_studio_tools.core.utils.io import get_local_path
@@ -106,6 +108,18 @@ class InMemoryLRUDictCache:
 
     def __str__(self):
         return str(self.cache)
+
+
+def match_labels(input: str, labels: List[str]) -> List[str]:
+    # assuming classes are separated by newlines - we can customize that in the future
+    # TODO: support other guardrails
+    predicted_classes = input.splitlines()
+
+    matched_labels = []
+    for pred in predicted_classes:
+        scores = list(map(lambda l: difflib.SequenceMatcher(None, pred, l).ratio(), labels))
+        matched_labels.append(labels[scores.index(max(scores))])
+    return matched_labels
 
 
 if __name__ == "__main__":

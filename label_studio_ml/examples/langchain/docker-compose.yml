@@ -10,6 +10,8 @@ services:
       - WORKERS=2
       - THREADS=4
       - LOG_LEVEL=DEBUG
-      - ANY=PARAMETER
+      - OPENAI_API_KEY=
+      - GOOGLE_CSE_ID=
+      - GOOGLE_API_KEY=
     ports:
       - "9090:9090"
