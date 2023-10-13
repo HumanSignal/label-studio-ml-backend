@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from uuid import uuid4
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path
+from segment_anything.utils.transforms import ResizeLongestSide
 
 from groundingdino.util.inference import load_model, load_image, predict, annotate
 from groundingdino.util import box_ops
@@ -15,6 +16,9 @@ import torch
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+
+
+# print("made it here first")
 
 # LOADING THE MODEL
 groundingdino_model = load_model("./GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", "./GroundingDINO/weights/groundingdino_swint_ogc.pth")
@@ -62,7 +66,8 @@ class DINOBackend(LabelStudioMLBase):
         if USE_MOBILE_SAM or USE_SAM:
             sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
             sam.to(device=self.device)
-            self.predictor = SamPredictor(sam)    
+            self.predictor = SamPredictor(sam)
+            self.sam = sam    
 
         self.use_sam = USE_SAM
         self.use_ms = USE_MOBILE_SAM
@@ -73,6 +78,10 @@ class DINOBackend(LabelStudioMLBase):
         self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
+
+        print(f"the tasks are {tasks}")
+
+        print("TESTING IF TEH CODE VOLUME WORKS LETS SEEEE")
 
 
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
@@ -89,6 +98,8 @@ class DINOBackend(LabelStudioMLBase):
         all_points = []
         all_scores = []
         all_lengths = []
+
+        predictions = []
 
         for task in tasks:
 
@@ -125,12 +136,81 @@ class DINOBackend(LabelStudioMLBase):
                 all_scores.append(logit)
                 all_lengths.append((H, W))
 
-        if self.use_ms or self.use_sam:
-            predictions = self.get_sam_results(img_path, all_points, all_lengths)
-        else:
-            predictions = self.get_results(all_points, all_scores, all_lengths)
+            if self.use_ms or self.use_sam:
+                predictions.append(self.get_sam_results(img_path, all_points, all_lengths))
+            else:
+                predictions.append(self.get_results(all_points, all_scores, all_lengths))
+            print("this is a test print")
         
         return predictions
+    
+    # here batch dino
+
+
+
+    
+    def batch_sam(self, input_boxes_list, image_paths):
+
+
+        # input_boxes_list should give all the boxes you need, separating info for each tasks in the shape 
+        # better if sent in as a tensor
+        # but, you will need to change some of the code
+
+
+        # image_paths are each image for the task
+
+        resize_transform = ResizeLongestSide(self.sam.image_encoder.img_size)
+
+        # from SAM code base
+        def prepare_image(image, transform, device):
+            image = transform.apply_image(image)
+            image = torch.as_tensor(image, device=device.device) 
+            return image.permute(2, 0, 1).contiguous()
+
+
+        batched_input = []
+        lengths = []
+        for input_box, path in zip(input_boxes_list, image_paths):
+            input_box = torch.from_numpy(np.array(input_box), device=self.device) # packaging input boxes for each image (change this when you get batched input)
+            image = cv2.imread(path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            batched_input.append({
+                'image': prepare_image(image, resize_transform, self.sam),
+                'boxes': resize_transform.apply_boxes_torch(input_box, image.shape[:2]),
+                'original_size': image.shape[:2]
+            })
+        
+        batched_output = self.sam(batched_input, multimask_output=False)
+
+        predictions = []
+
+        for output in batched_output:
+            masks = output['masks']
+            masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
+
+
+            probs = output['iou_predictions'].cpu().numpy()
+
+
+            num_masks = masks.shape[0]
+            height = masks.shape[-2]
+            width = masks.shape[-1]
+
+            lengths = [(height, width)] * num_masks
+
+            predictions.append(self.sam_predictions(masks, probs, lengths))
+
+        return predictions
+
+
+
+
+
+
+
+
+
+
 
     def get_results(self, all_points, all_scores, all_lengths):
         
@@ -163,9 +243,9 @@ class DINOBackend(LabelStudioMLBase):
             })
 
         
-        return [{
+        return {
             'result': results
-        }]
+        }
 
     def get_sam_results(
         self,
@@ -190,9 +270,12 @@ class DINOBackend(LabelStudioMLBase):
 
         masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
+
+        return self.sam_predictions(masks, probs, lengths)
+    
+    def sam_predictions(self, masks, probs, lengths):
         
         results = []
-
 
         for mask, prob, length in zip(masks, probs, lengths):
             height, width = length

@@ -25,7 +25,7 @@ RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.
 
 WORKDIR /app
 RUN wget -q https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
-RUN wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+# RUN wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 
 
 COPY . ./

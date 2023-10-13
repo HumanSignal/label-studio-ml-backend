@@ -28,3 +28,4 @@ services:
     volumes:
       - "./data/ml-backend:/data"
       - "./prompt.txt:/app/prompt.txt"
+      - ./dino.py:/app/dino.py
