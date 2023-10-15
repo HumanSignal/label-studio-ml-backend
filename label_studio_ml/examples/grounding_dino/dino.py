@@ -9,6 +9,7 @@ from segment_anything.utils.transforms import ResizeLongestSide
 
 from groundingdino.util.inference import load_model, load_image, predict, annotate
 from groundingdino.util import box_ops
+# from Grounding-DINO-Batch-Inference.batch_utlities import predict_batch
 
 # ----Extra Libraries
 from PIL import Image
@@ -17,11 +18,16 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
+import importlib
+batchutil = importlib.import_module("Grounding-DINO-Batch-Inference.batch_utlities")
+
+predict_batch = getattr(batchutil, "predict_batch")
+
 
 # print("made it here first")
 
 # LOADING THE MODEL
-groundingdino_model = load_model("./GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", "./GroundingDINO/weights/groundingdino_swint_ogc.pth")
+groundingdino_model = load_model("./Grounding-DINO-Batch-Inference/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", "./Grounding-DINO-Batch-Inference/GroundingDINO/weights/groundingdino_swint_ogc.pth")
 
 
 BOX_THRESHOLD = os.environ.get("BOX_THRESHOLD", 0.3)
@@ -34,6 +40,9 @@ USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", False)
 
 MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
 SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
+
+
+# TODO: add the right GroundingDINO clone with batching
 
 
 
@@ -81,8 +90,6 @@ class DINOBackend(LabelStudioMLBase):
 
         print(f"the tasks are {tasks}")
 
-        print("TESTING IF TEH CODE VOLUME WORKS LETS SEEEE")
-
 
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
 
@@ -99,7 +106,7 @@ class DINOBackend(LabelStudioMLBase):
         if len(tasks) > 1:
             final_predictions = self.multiple_tasks(tasks)
         if len(tasks) == 1:
-            final_predictions = self.one_task(tasks)
+            final_predictions = self.one_task(tasks[0])
 
         return final_predictions
         
@@ -174,13 +181,15 @@ class DINOBackend(LabelStudioMLBase):
             image_paths.append(img_path)
 
         boxes, logits, lengths = self.batch_dino(image_paths)
-
+        # shape of boxes is torch.Size([17, 4]) and 2 and shape of logits is torch.Size([17]) and 2
         box_by_task = []
         for (box_task, (H, W)) in zip(boxes, lengths):
 
             boxes_xyxy = box_ops.box_cxcywh_to_xyxy(box_task) * torch.Tensor([W, H, W, H]) # figure out how to get these values
 
             box_by_task.append(boxes_xyxy)
+
+        print(f"box after is {len(box_by_task)} and {box_by_task[0].shape}")
 
 
         if self.use_ms or self.use_sam:
@@ -190,7 +199,9 @@ class DINOBackend(LabelStudioMLBase):
         else:
             predictions = []
 
-            for boxes_xyxy, (H, W) in zip(box_by_task, lengths): 
+            print(f"{len(lengths)}")
+
+            for boxes_xyxy, (H, W), logits in zip(box_by_task, lengths, logits): 
                 points = boxes_xyxy.cpu().numpy()
 
                 all_points = []
@@ -198,13 +209,13 @@ class DINOBackend(LabelStudioMLBase):
                 all_lengths = []
 
                 for point, logit in zip(points, logits):
-                    predictions = []
                     all_points.append(point)
                     all_scores.append(logit)
                     all_lengths.append((H, W)) # figure out how to get this
-
+                    print(all_lengths)
+                
                 predictions.append(self.get_results(all_points, all_scores, all_lengths))
-        
+
         return predictions
             
     # make sure you use new github repo when predicting in batch
@@ -219,7 +230,7 @@ class DINOBackend(LabelStudioMLBase):
 
             H, W, _ = src.shape
 
-            lengths.append(H, W)
+            lengths.append((H, W))
 
         images = torch.stack(loaded_images)
 
@@ -228,8 +239,11 @@ class DINOBackend(LabelStudioMLBase):
             images=images,
             caption=self.label, # text prompt is same as self.label
             box_threshold=float(BOX_THRESHOLD),
-            text_threshold = float(TEXT_THRESHOLD)
+            text_threshold = float(TEXT_THRESHOLD),
+            device=self.device
         )
+
+        print(f"shape of boxes is {boxes[0].shape} and {len(boxes)} and shape of logits is {logits[0].shape} and {len(logits)}")
 
         return boxes, logits, lengths
 
