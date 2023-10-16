@@ -24,8 +24,6 @@ batchutil = importlib.import_module("Grounding-DINO-Batch-Inference.batch_utliti
 predict_batch = getattr(batchutil, "predict_batch")
 
 
-# print("made it here first")
-
 # LOADING THE MODEL
 groundingdino_model = load_model("./Grounding-DINO-Batch-Inference/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", "./Grounding-DINO-Batch-Inference/GroundingDINO/weights/groundingdino_swint_ogc.pth")
 
@@ -43,6 +41,10 @@ SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
 
 
 # TODO: add the right GroundingDINO clone with batching
+
+# remove this
+USE_SAM=False
+USE_MOBILE_SAM=False
 
 
 
@@ -88,7 +90,7 @@ class DINOBackend(LabelStudioMLBase):
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
 
-        print(f"the tasks are {tasks}")
+        print("here3")
 
 
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
@@ -155,12 +157,12 @@ class DINOBackend(LabelStudioMLBase):
             predictions.append(self.get_sam_results(img_path, all_points, all_lengths))
         else:
             predictions.append(self.get_results(all_points, all_scores, all_lengths))
-        print("this is a test print")
         
         return predictions
     
 
     def multiple_tasks(self, tasks):
+        print(f"here2")
 
         # first getting all the image paths
 
@@ -168,6 +170,7 @@ class DINOBackend(LabelStudioMLBase):
 
         for task in tasks:
             raw_img_path = task['data']['image']
+            print("here0")
 
             try:
                 img_path = get_image_local_path(
@@ -177,10 +180,15 @@ class DINOBackend(LabelStudioMLBase):
                 )
             except:
                 img_path = raw_img_path
-            
+            print("here3")
             image_paths.append(img_path)
+        print("here5")
+
+        print(image_paths)
 
         boxes, logits, lengths = self.batch_dino(image_paths)
+
+        print("here6")
         # shape of boxes is torch.Size([17, 4]) and 2 and shape of logits is torch.Size([17]) and 2
         box_by_task = []
         for (box_task, (H, W)) in zip(boxes, lengths):
@@ -189,17 +197,13 @@ class DINOBackend(LabelStudioMLBase):
 
             box_by_task.append(boxes_xyxy)
 
-        print(f"box after is {len(box_by_task)} and {box_by_task[0].shape}")
-
-
+        print(f"here1")
         if self.use_ms or self.use_sam:
-            batched_output = self.batch_sam(input_boxes_list=boxes, image_paths=image_paths) # TODO: package boxes in correctly
+            batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths) # TODO: package boxes in correctly
             predictions = self.get_batched_sam_results(batched_output)
 
         else:
             predictions = []
-
-            print(f"{len(lengths)}")
 
             for boxes_xyxy, (H, W), logits in zip(box_by_task, lengths, logits): 
                 points = boxes_xyxy.cpu().numpy()
@@ -212,27 +216,36 @@ class DINOBackend(LabelStudioMLBase):
                     all_points.append(point)
                     all_scores.append(logit)
                     all_lengths.append((H, W)) # figure out how to get this
-                    print(all_lengths)
                 
                 predictions.append(self.get_results(all_points, all_scores, all_lengths))
+            print(f"the predictions here are {predictions}")
+            
 
         return predictions
             
     # make sure you use new github repo when predicting in batch
     def batch_dino(self, image_paths):
-        
+        print("0here1")
         # text prompt is same as self.label
         loaded_images = []
         lengths = []
         for img in image_paths:
+            print("0here15")
             src, img = load_image(img)
             loaded_images.append(img)
 
             H, W, _ = src.shape
 
             lengths.append((H, W))
+        print("0here2")
 
         images = torch.stack(loaded_images)
+
+        print("0here3")
+
+
+        # FOUND THE PROBLEM -> IT'S THIS RIGHT HERE
+        # won't go past to 0here5 for some reason -> potentially cpu out of memory issue?
 
         boxes, logits, _ = predict_batch(
             model=groundingdino_model,
@@ -243,7 +256,7 @@ class DINOBackend(LabelStudioMLBase):
             device=self.device
         )
 
-        print(f"shape of boxes is {boxes[0].shape} and {len(boxes)} and shape of logits is {logits[0].shape} and {len(logits)}")
+        print("0here5")
 
         return boxes, logits, lengths
 
@@ -272,7 +285,7 @@ class DINOBackend(LabelStudioMLBase):
         batched_input = []
         lengths = []
         for input_box, path in zip(input_boxes_list, image_paths):
-            input_box = torch.from_numpy(np.array(input_box), device=self.device) # packaging input boxes for each image (change this when you get batched input)
+            # input_box = torch.from_numpy(np.array(input_box), device=self.device) # packaging input boxes for each image (change this when you get batched input)
             image = cv2.imread(path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             batched_input.append({
