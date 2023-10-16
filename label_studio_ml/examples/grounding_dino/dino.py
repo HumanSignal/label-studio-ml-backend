@@ -40,14 +40,6 @@ MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
 SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
 
 
-# TODO: add the right GroundingDINO clone with batching
-
-# remove this
-USE_SAM=False
-USE_MOBILE_SAM=False
-
-
-
 if USE_MOBILE_SAM:
     from mobile_sam import SamPredictor, sam_model_registry
 
@@ -90,9 +82,6 @@ class DINOBackend(LabelStudioMLBase):
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
 
-        print("here3")
-
-
         self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
 
         if self.use_sam == 'True':
@@ -104,10 +93,10 @@ class DINOBackend(LabelStudioMLBase):
         if self.use_ms == 'False':
             self.use_ms = False
 
-
+            
         if len(tasks) > 1:
             final_predictions = self.multiple_tasks(tasks)
-        if len(tasks) == 1:
+        elif len(tasks) == 1:
             final_predictions = self.one_task(tasks[0])
 
         return final_predictions
@@ -162,15 +151,12 @@ class DINOBackend(LabelStudioMLBase):
     
 
     def multiple_tasks(self, tasks):
-        print(f"here2")
 
         # first getting all the image paths
-
         image_paths = []
 
         for task in tasks:
             raw_img_path = task['data']['image']
-            print("here0")
 
             try:
                 img_path = get_image_local_path(
@@ -180,26 +166,22 @@ class DINOBackend(LabelStudioMLBase):
                 )
             except:
                 img_path = raw_img_path
-            print("here3")
+
             image_paths.append(img_path)
-        print("here5")
 
         print(image_paths)
 
         boxes, logits, lengths = self.batch_dino(image_paths)
 
-        print("here6")
-        # shape of boxes is torch.Size([17, 4]) and 2 and shape of logits is torch.Size([17]) and 2
         box_by_task = []
         for (box_task, (H, W)) in zip(boxes, lengths):
 
-            boxes_xyxy = box_ops.box_cxcywh_to_xyxy(box_task) * torch.Tensor([W, H, W, H]) # figure out how to get these values
+            boxes_xyxy = box_ops.box_cxcywh_to_xyxy(box_task) * torch.Tensor([W, H, W, H])
 
             box_by_task.append(boxes_xyxy)
 
-        print(f"here1")
         if self.use_ms or self.use_sam:
-            batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths) # TODO: package boxes in correctly
+            batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths)
             predictions = self.get_batched_sam_results(batched_output)
 
         else:
@@ -217,9 +199,7 @@ class DINOBackend(LabelStudioMLBase):
                     all_scores.append(logit)
                     all_lengths.append((H, W)) # figure out how to get this
                 
-                predictions.append(self.get_results(all_points, all_scores, all_lengths))
-            print(f"the predictions here are {predictions}")
-            
+                predictions.append(self.get_results(all_points, all_scores, all_lengths))            
 
         return predictions
             
@@ -230,33 +210,42 @@ class DINOBackend(LabelStudioMLBase):
         loaded_images = []
         lengths = []
         for img in image_paths:
-            print("0here15")
             src, img = load_image(img)
             loaded_images.append(img)
 
             H, W, _ = src.shape
 
             lengths.append((H, W))
-        print("0here2")
 
         images = torch.stack(loaded_images)
 
-        print("0here3")
+        if len(image_paths) <= 3:   
+            boxes, logits, _ = predict_batch(
+                model=groundingdino_model,
+                images=images,
+                caption=self.label, # text prompt is same as self.label
+                box_threshold=float(BOX_THRESHOLD),
+                text_threshold = float(TEXT_THRESHOLD),
+                device=self.device
+            )
 
+        else:
+            all_boxes = []
+            all_logits = []
+            for img in loaded_images:
+                boxes, logits, _ = predict(
+                    model=groundingdino_model,
+                    image=img,
+                    caption=self.label.strip("_SAM"),
+                    box_threshold=float(BOX_THRESHOLD),
+                    text_threshold=float(TEXT_THRESHOLD),
+                    device=DEVICE
+                )
+                all_boxes.append(boxes)
+                all_logits.append(logits)
 
-        # FOUND THE PROBLEM -> IT'S THIS RIGHT HERE
-        # won't go past to 0here5 for some reason -> potentially cpu out of memory issue?
-
-        boxes, logits, _ = predict_batch(
-            model=groundingdino_model,
-            images=images,
-            caption=self.label, # text prompt is same as self.label
-            box_threshold=float(BOX_THRESHOLD),
-            text_threshold = float(TEXT_THRESHOLD),
-            device=self.device
-        )
-
-        print("0here5")
+            boxes = all_boxes
+            logits = all_logits
 
         return boxes, logits, lengths
 
@@ -264,14 +253,6 @@ class DINOBackend(LabelStudioMLBase):
 
     
     def batch_sam(self, input_boxes_list, image_paths):
-
-
-        # input_boxes_list should give all the boxes you need, separating info for each tasks in the shape 
-        # better if sent in as a tensor
-        # but, you will need to change some of the code
-
-
-        # image_paths are each image for the task
 
         resize_transform = ResizeLongestSide(self.sam.image_encoder.img_size)
 
@@ -285,7 +266,6 @@ class DINOBackend(LabelStudioMLBase):
         batched_input = []
         lengths = []
         for input_box, path in zip(input_boxes_list, image_paths):
-            # input_box = torch.from_numpy(np.array(input_box), device=self.device) # packaging input boxes for each image (change this when you get batched input)
             image = cv2.imread(path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             batched_input.append({
@@ -321,8 +301,6 @@ class DINOBackend(LabelStudioMLBase):
         return predictions
 
 
-
-    # get_results and get_sam_results do it for only 1 task
     def get_results(self, all_points, all_scores, all_lengths):
         
         results = []
