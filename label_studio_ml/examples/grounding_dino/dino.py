@@ -9,7 +9,6 @@ from segment_anything.utils.transforms import ResizeLongestSide
 
 from groundingdino.util.inference import load_model, load_image, predict, annotate
 from groundingdino.util import box_ops
-# from Grounding-DINO-Batch-Inference.batch_utlities import predict_batch
 
 # ----Extra Libraries
 from PIL import Image
@@ -78,11 +77,24 @@ class DINOBackend(LabelStudioMLBase):
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
 
-        self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
+        self.from_name_r, self.to_name_r, self.value_r = self.get_first_tag_occurence('RectangleLabels', 'Image')
+        self.from_name_b, self.to_name_b, self.value_b = self.get_first_tag_occurence('BrushLabels', 'Image')
 
         TEXT_PROMPT = context['result'][0]['value']['text'][0]
 
-        self.label = TEXT_PROMPT.strip("_SAM") # make sure that using as text prompt allows you to label it a certain way
+
+        x = TEXT_PROMPT.split("_")
+
+        if len(x) > 1:
+            self.label = x[1]
+            self.prompt = x[0]
+        else:
+            self.label = x[0]
+            self.prompt = x[0]
+        
+        print(f"the label is {self.label} and prompt {self.prompt} and {self.from_name_r} and {self.from_name_b}")
+
+        # self.label = TEXT_PROMPT.split("_")[0] # make sure that using as text prompt allows you to label it a certain way
 
         if self.use_sam == 'True':
             self.use_sam=True
@@ -125,7 +137,7 @@ class DINOBackend(LabelStudioMLBase):
         boxes, logits, _ = predict(
             model=groundingdino_model,
             image=img,
-            caption=self.label.strip("_SAM"),
+            caption=self.prompt,
             box_threshold=float(BOX_THRESHOLD),
             text_threshold=float(TEXT_THRESHOLD),
             device=DEVICE
@@ -223,7 +235,7 @@ class DINOBackend(LabelStudioMLBase):
             boxes, logits, _ = predict_batch(
                 model=groundingdino_model,
                 images=images,
-                caption=self.label, # text prompt is same as self.label
+                caption=self.prompt, # text prompt is same as self.label
                 box_threshold=float(BOX_THRESHOLD),
                 text_threshold = float(TEXT_THRESHOLD),
                 device=self.device
@@ -236,7 +248,7 @@ class DINOBackend(LabelStudioMLBase):
                 boxes, logits, _ = predict(
                     model=groundingdino_model,
                     image=img,
-                    caption=self.label.strip("_SAM"),
+                    caption=self.prompt,
                     box_threshold=float(BOX_THRESHOLD),
                     text_threshold=float(TEXT_THRESHOLD),
                     device=DEVICE
@@ -311,10 +323,11 @@ class DINOBackend(LabelStudioMLBase):
 
             height, width = lengths
             
+            #TODO: add model version
             results.append({
                 'id': label_id,
-                'from_name': self.from_name,
-                'to_name': self.to_name,
+                'from_name': self.from_name_r,
+                'to_name': self.to_name_r,
                 'original_width': width,
                 'original_height': height,
                 'image_rotation': 0,
@@ -378,8 +391,8 @@ class DINOBackend(LabelStudioMLBase):
 
             results.append({
                 'id': label_id,
-                'from_name': self.from_name,
-                'to_name': self.to_name,
+                'from_name': self.from_name_b,
+                'to_name': self.to_name_b,
                 'original_width': width,
                 'original_height': height,
                 'image_rotation': 0,
