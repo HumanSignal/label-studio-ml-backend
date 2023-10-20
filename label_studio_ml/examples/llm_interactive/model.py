@@ -19,18 +19,22 @@ logger = logging.getLogger(__name__)
 
 
 @retry(wait=wait_random(min=5, max=10), stop=stop_after_attempt(6))
-def chat_completion_call(messages, model):
-    return openai.ChatCompletion.create(model=model, messages=messages)
+def chat_completion_call(messages):
+    return openai.ChatCompletion.create(
+        model=OpenAIInteractive.OPENAI_MODEL,
+        messages=messages,
+        n=OpenAIInteractive.NUM_RESPONSES,
+        temperature=OpenAIInteractive.TEMPERATURE
+    )
 
 
 def gpt(messages: Union[List[Dict], str]):
     if isinstance(messages, str):
         messages = [{'role': 'user', 'content': messages}]
     logger.debug(f'OpenAI request: {json.dumps(messages, indent=2)}')
-    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4')
-    completion = chat_completion_call(messages, openai_model)
+    completion = chat_completion_call(messages)
     logger.debug(f'OpenAI response: {json.dumps(completion, indent=2)}')
-    response = completion.choices[0]['message']['content']
+    response = [choice['message']['content'] for choice in completion.choices]
     # response = ''.join(random.choice(string.ascii_letters) for i in range(50))
     return response
 
@@ -40,6 +44,9 @@ class OpenAIInteractive(LabelStudioMLBase):
     PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
     PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
     SUPPORTED_INPUTS = ('Image', 'Text', 'HyperText', 'Paragraphs')
+    NUM_RESPONSES = int(os.getenv('NUM_RESPONSES', 1))
+    TEMPERATURE = float(os.getenv('TEMPERATURE', 0.7))
+    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
 
     def ocr(self, image_url):
         # Open the image containing the text
@@ -172,7 +179,8 @@ class OpenAIInteractive(LabelStudioMLBase):
                     'to_name': prompt_to_name,
                     'type': 'textarea',
                     'value': {
-                        'text': [response]
+                        # 'text': [response]
+                        'text': response
                     }
                 })
 
