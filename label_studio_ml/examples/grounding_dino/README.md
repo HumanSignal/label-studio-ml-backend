@@ -21,7 +21,7 @@ Example-
 3. Run `docker compose up`
 4. Check the IP of your backend using `docker ps` and add it to the Machine Learning backend in the Label Studio software. Usually this is on `http://localhost:9090`.
 
-5. Edit the labelling config below. When editing the labeling config, make sure to add all rectangle labels under the RectangleLabels tag, and all corresponding brush labels under the BrushLabels tag.
+5. Create a project and edit the labelling config (an example is provided below). When editing the labeling config, make sure to add all rectangle labels under the RectangleLabels tag, and all corresponding brush labels under the BrushLabels tag.
 
 ```
 <View>
@@ -43,7 +43,7 @@ Example-
 </View>
 ```
 
-6. Go to an image task in one of your projects. Turn on the Auto-annotation switch. Then, type in the prompt box and press add. After this, you should receive your predictions. See the video above for a demo. 
+6. Go to an image task in your project. Turn on the Auto-annotation switch. Then, type in the prompt box and press add. After this, you should receive your predictions. See the video above for a demo. 
 
 
 ## Using GroundingSAM
@@ -65,7 +65,7 @@ If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as
 
 2. Run this branch with `docker compose up`
 3. Do steps 2-5 from the [quickstart section](#quickstart), now using access code and host IP info of the newly clones Label Studio branch. GroundingSAM is supported.
-4. Go to the task menu and select the tasks you would like to annotate.
+4. Go to the task menu inside your project and select the tasks you would like to annotate.
 5. Click the dropdown in the upper left hand side and select `Add Text Prompt for GroundingDINO`
 6. Enter in the prompt you would like to retrieve predictions for and press submit.
 - If your prompt is different from the label values you have assigned, you can use the underscore to give the correct label values to your prompt outputs. For example, if I wanted to select all brown cats but still give them the label value "cats" from my labeling config, my prompt would be "brown cat_cats".
