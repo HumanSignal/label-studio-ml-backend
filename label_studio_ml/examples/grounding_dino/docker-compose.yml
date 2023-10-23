@@ -1,0 +1,30 @@
+version: "3.11"
+
+services:
+  ml-backend:
+    container_name: ml-backend
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+      - WORKERS=2
+      - THREADS=4
+      - LOG_LEVEL=DEBUG
+
+      # Add these variables if you want to access the images stored in Label Studio
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
+
+      # use these if you want to use segment anything instead of bounding box predictions from input text prompts
+      - USE_SAM=False  # if you want to automatically generate segment anything model predictions
+      - USE_MOBILE_SAM=False # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
+
+      - MOBILE_SAM_CHECKPOINT= # in case you want to point to another directory than where Docker automatically places the model
+      - SAM_CHECKPOINT= # if you want to use regular SAM and point to another directory than where Docker automatically places the model
+
+      - BOX_THRESHOLD=0.30
+      - TEXT_THRESHOLD=0.25
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/ml-backend:/data"
+      - "./prompt.txt:/app/prompt.txt"
