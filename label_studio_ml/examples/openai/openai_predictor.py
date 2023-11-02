@@ -6,20 +6,18 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class PalmyraSmallInteractive(LabelStudioMLBase):
 
-    TEMPERATURE = 0.7
-
-    def __init__(self, **kwargs):
-        super(PalmyraSmallInteractive, self).__init__(**kwargs)
-        self.tokenizer = AutoTokenizer.from_pretrained("Writer/palmyra-small")
-        self.model = AutoModelForCausalLM.from_pretrained("Writer/palmyra-small")
+    def _init_(self, **kwargs):
+        super(PalmyraSmallInteractive, self)._init_(**kwargs)
+        self.tokenizer = AutoTokenizer.from_pretrained("aashay96/indic-gpt")
+        self.model = AutoModelForCausalLM.from_pretrained("aashay96/indic-gpt")
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         predictions = []
-        model_version = "writer/palmyra-small"
+        model_version = "aashay96/indic-gpt"
         for task in tasks:
             prompt = task['data']['prompt']
             inputs = self.tokenizer.encode(prompt, return_tensors='pt')
-            outputs = self.model.generate(inputs, max_length=512, temperature=self.TEMPERATURE)
+            outputs = self.model.generate(inputs, max_length=200)
             generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             result = [{
                 'id': str(uuid4())[:4],
@@ -31,5 +29,4 @@ class PalmyraSmallInteractive(LabelStudioMLBase):
                 }
             }]
             predictions.append({'result': result, 'model_version': model_version})
-        return predictions
-
+        return predictions
