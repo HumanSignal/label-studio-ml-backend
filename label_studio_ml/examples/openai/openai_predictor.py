@@ -6,8 +6,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class PalmyraSmallInteractive(LabelStudioMLBase):
 
-    def _init_(self, **kwargs):
-        super(PalmyraSmallInteractive, self)._init_(**kwargs)
+
+    def __init__(self, **kwargs):
+        super(PalmyraSmallInteractive, self).__init__(**kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained("aashay96/indic-gpt")
         self.model = AutoModelForCausalLM.from_pretrained("aashay96/indic-gpt")
 
@@ -17,7 +18,7 @@ class PalmyraSmallInteractive(LabelStudioMLBase):
         for task in tasks:
             prompt = task['data']['prompt']
             inputs = self.tokenizer.encode(prompt, return_tensors='pt')
-            outputs = self.model.generate(inputs, max_length=200)
+            outputs = self.model.generate(inputs, max_length=512)
             generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             result = [{
                 'id': str(uuid4())[:4],
@@ -29,4 +30,5 @@ class PalmyraSmallInteractive(LabelStudioMLBase):
                 }
             }]
             predictions.append({'result': result, 'model_version': model_version})
-        return predictions
+        return predictions
+
