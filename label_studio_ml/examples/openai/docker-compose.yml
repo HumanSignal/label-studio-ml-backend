@@ -1,14 +1,25 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
+  label-studio-ml-backend:
     build: .
+    container_name: ls-ml-backend
     environment:
-      - LABEL_STUDIO_ML_BACKEND_V2=true
-      - LOG_LEVEL=DEBUG
-      - OPENAI_API_KEY=<your-openai-api-key>
+      - PYTHONUNBUFFERED=1
     ports:
       - "9090:9090"
     volumes:
-      - "./prompt.txt:/app/prompt.txt"
+      - .:/app
+    command: python openai_predictor.py
+
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: label-studio
+    environment:
+      - LABEL_STUDIO_ML_BACKENDS=ml_backend:9090
+    ports:
+      - "8080:8080"
+    depends_on:
+      - label-studio-ml-backend
+    volumes:
+      - label-studio-data:/label-studio/data
