@@ -1,34 +1,40 @@
+from label_studio_ml.model import LabelStudioMLBase
 import logging
 from typing import List, Dict, Optional
-from label_studio_ml.model import LabelStudioMLBase
-from uuid import uuid4
+import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-class PalmyraSmallInteractive(LabelStudioMLBase):
-
+class GPTIndicBackend(LabelStudioMLBase):
 
     def __init__(self, **kwargs):
-        super(PalmyraSmallInteractive, self).__init__(**kwargs)
+        # Initialization for the ML backend
+        super(GPTIndicBackend, self).__init__(**kwargs)
+        
+        # Load the pre-trained tokenizer and model from HuggingFace
         self.tokenizer = AutoTokenizer.from_pretrained("aashay96/indic-gpt")
         self.model = AutoModelForCausalLM.from_pretrained("aashay96/indic-gpt")
 
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
+    def predict(self, tasks, **kwargs):
         predictions = []
-        model_version = "aashay96/indic-gpt"
+        
         for task in tasks:
-            prompt = task['data']['prompt']
-            inputs = self.tokenizer.encode(prompt, return_tensors='pt')
-            outputs = self.model.generate(inputs, max_length=512)
-            generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            result = [{
-                'id': str(uuid4())[:4],
-                'from_name': 'instruction',
-                'to_name': 'prompt',
-                'type': 'textarea',
-                'value': {
-                    'text': generated_text
-                }
-            }]
-            predictions.append({'result': result, 'model_version': model_version})
+            # Extract prompt from the task data
+            prompt_text = task['data']['prompt']
+            inputs = self.tokenizer.encode(prompt_text, return_tensors="pt")
+            
+            # Generate the response using the model
+            outputs = self.model.generate(inputs, max_length=100)
+            response_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Structure the prediction result
+            predictions.append({
+                'result': [{
+                    'from_name': 'instruction',
+                    'to_name': 'prompt',
+                    'type': 'textarea',
+                    'value': {'text': [response_text[len(prompt_text):]]},
+                }],
+                'score': 1.0  # Confidence score
+            })
+        
         return predictions
-
