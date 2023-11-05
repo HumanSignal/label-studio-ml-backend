@@ -13,21 +13,46 @@ import os
 import yaml
 
 
+# TODO: use the best.pt saved to load nstead
+# https://github.com/ultralytics/ultralytics/issues/2750#issuecomment-1556847848
+
+
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 
 # change config file depending on how many classes there are in the saved model
 
-NEW_START = False
+NEW_START = True
 
+
+
+# defining model start
+model = YOLO('yolov8n.pt')
+
+# add logic that creates it from regular here
 if NEW_START:
-    model = YOLO('yolov8n.pt')
+    custom_model = YOLO('yolov8n(custom).pt')
 else:
-    model = YOLO('./yolov8n.yml')
-    # model = torch.hub.load('ultralytics/yolov8', 'yolov8n', classes=2)
-    model.load_state_dict(torch.load('yolov8n(testing).pt'))
-    # model.eval()
+    custom_model = YOLO('yolov8n(custom).pt')
+
+# else:
+#     dir_path = './runs/detect/'
+#     folders = os.listdir(dir_path)
+#     # sorted_folders = sorted(folders, key=lambda x: int(x.split("train")[-1]))
+#     import re
+#     # https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically
+#     sorted_folders = folders.sort(key=lambda var:[int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
+    
+#     for folder in folders:
+#         split = folder.split("train")[-1]
+
+#         if split is not "train":
+
+
+#     last_folder = folders[-1]
+#     print(f"the last folder is {last_folder} and {folders}")
+#     model = YOLO(f'./runs/detect/{last_folder}/weights/best.pt')
 
 # TODO:
 # figure out how to integrate class names for things not predicted
@@ -39,49 +64,51 @@ class YOLO(LabelStudioMLBase):
         super(YOLO, self).__init__(**kwargs)
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
 
-
-        # read this from the config file
-        self.class_to_name = {
-            0: "cats",
-            1: "dog"
-        }
-
         # print(self.label_config)
         # print(self.parsed_label_config)
 
-
-        # TODO: this should all be done before loading the model
-
-
+        # this just needs to be done before training, not model loading
         # create a new YAML file for training
         parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
-        self.class_to_name = {i:v for i,v in enumerate(classes)}
-        self.name_to_class = {v:k for k, v in self.class_to_name.items()}
 
-        input_file = "train_config.yml"
+        # if they change the labelling config, it shouldn't automatically destroy everything
+        input_file = "custom_config.yml"
         with open(input_file, "r") as file:
             data = yaml.safe_load(file)
-        
-        data["names"] = self.class_to_name
 
-        with open(input_file, "w") as file:
-            yaml.dump(data, file, default_flow_style=False)
+        if NEW_START: 
 
-        # TODO: adjust num_classes in the yolov8 yaml file as well
-        weights_file = "yolov8.yml"
-        with open(weights_file, "r") as file:
-            weights = yaml.safe_load(file)
-        
-        weights["nc"] = len(self.class_to_name)
+            self.class_to_name = {i:v for i,v in enumerate(classes)}
+            
+            data["names"] = self.class_to_name
 
-        with open(weights_file, "w") as file:
-            yaml.dump(weights, file, default_flow_style=False)
+            with open(input_file, "w") as file:
+                yaml.dump(data, file, default_flow_style=False)
+        else:
+            self.class_to_name = data["names"]
         
-        # model = YOLO('./yolov8n.yml')
-        # # model = torch.hub.load('ultralytics/yolov8', 'yolov8n', classes=2)
-        # model.load_state_dict(torch.load('yolov8n(testing).pt'))
+        print(f"self class to name is {self.class_to_name}")
+        self.name_to_class = {v:k for k, v in self.class_to_name.items()}
+
+
+        # logic for using predefined YOLO classes
+
+
+
+        # TODO: get from docker -> user dictionary that maps labelling config to COCO classes
+        config_to_COCO = {
+            "cats": "cat",
+            "lights": "traffic light",
+            "cars": "car",
+        }
+
+        # TODO: use google images V7 instead for access to more classes
+        # calculate box overlap and remove the new model in that case
+        # otherwise, for now, just wait until predictions overlap then add a flag where you just use the new model now
+    
+
 
 
 
@@ -217,6 +244,7 @@ class YOLO(LabelStudioMLBase):
         data = data['task']['data']
         image_path = data['image']
         image_paths = [image_path]
+        all_new_paths = []
 
         true_img_paths = []
         for raw_img_path in image_paths:
@@ -249,6 +277,9 @@ class YOLO(LabelStudioMLBase):
         img1 = img.save(f"./datasets/temp/images/{image_name}")
         img2 = img.save(f"./datasets/temp/images/(2){image_name}")
 
+        all_new_paths.append(f"./datasets/temp/images/{image_name}")
+        all_new_paths.append(f"./datasets/temp/images/(2){image_name}")
+
         # these rename the directories for label studio format
         # os.rename(project_path.split("/"), project_path.replace((f"/{project_path.split('/')[-2]}/"), "images"))
             
@@ -259,9 +290,12 @@ class YOLO(LabelStudioMLBase):
         txt_name = (image_path.split('/')[-1]).split('.')[0]
 
         with open(f'./datasets/temp/labels/{txt_name}.txt', 'w') as f:
-                f.write("")
+            f.write("")
         with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'w') as f:
             f.write("")
+
+        all_new_paths.append(f'./datasets/temp/labels/{txt_name}.txt')
+        all_new_paths.append(f'./datasets/temp/labels/(2){txt_name}.txt')
 
 
         for result in results:
@@ -303,6 +337,9 @@ class YOLO(LabelStudioMLBase):
         results = model.train(data='train_config.yml', epochs = 1, imgsz=640)
         # indexing error if there is only one image
         # do two images or more images for no error
+        
+        # remove all these files so train starts from nothing next time
+        self.remove_train_files(all_new_paths)
 
 
 
@@ -315,6 +352,8 @@ class YOLO(LabelStudioMLBase):
 
         # TODO: make sure this rewrites whatever images were already there
         # having so many images rewritten is a time consuming process - think of a way to mitigate this
+
+
 
         """Here is the process
         
@@ -353,7 +392,10 @@ class YOLO(LabelStudioMLBase):
         # self.set("new_model", model)
         
         # save the model to the directory
-        torch.save(model.state_dict(), 'yolov8n(testing).pt')
+        # torch.save(model.state_dict(), 'yolov8n(testing).pt')
+    
+    def remove_train_files(self, file_paths):
+        for path in file_paths:
+            os.remove(path)
 
-        # return {'model_file': 'yolov8n(testing).pt'}
 
