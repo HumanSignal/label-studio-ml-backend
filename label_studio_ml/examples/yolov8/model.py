@@ -21,6 +21,33 @@ LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 
+"""TODO
+
+CHOOSING THE RIGHT MODEL FOR PREDICTIONS AND PRETRAINING
+1. add two models - 1 YOLO that will stay the same, 1 that will be used for fine tune
+      - dataset guide: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml
+2. only fine tune the second model
+
+GETTING THE RIGHT PREDICTIONS FROM BOTH THE MODELS
+
+One option - have 2 models, use the second model for classes not contained in the first model, and the first model for classes that are already contained
+Note: if they want to train the best model, they'll have to train from scratch anyways (not just use the one from Label Studio). 
+
+
+CHOOSING CLASSES THAT OVERLAP WITH PRETRAINED YOLO
+1. exchange YOLO with google v7 images model with more classes - https://docs.ultralytics.com/models/yolov8/#supported-modes
+2. let user give overlaps in the docker file
+
+## ^ after the above, send a PR
+
+
+FINE TUNING ON MULTIPLE IMAGES AT A TIME
+1. add the ability to batch send things to train the second model
+2. integrate DINO in to train the model on a bunch of images
+
+"""
+
+
 # change config file depending on how many classes there are in the saved model
 
 NEW_START = True
