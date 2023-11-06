@@ -23,15 +23,20 @@ LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 """TODO
 
+TODO: PROBLEM--------
+make sure the classes are cut before using the custom model, otherwise it will double up on predictions and then provide output labels with the None type
+
 CHOOSING THE RIGHT MODEL FOR PREDICTIONS AND PRETRAINING
 1. add two models - 1 YOLO that will stay the same, 1 that will be used for fine tune
       - dataset guide: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml
 2. only fine tune the second model
+CHECK FINE TUNING COORDINATE LOCATIONT TRANSFORMS
 
 GETTING THE RIGHT PREDICTIONS FROM BOTH THE MODELS
 
 One option - have 2 models, use the second model for classes not contained in the first model, and the first model for classes that are already contained
 Note: if they want to train the best model, they'll have to train from scratch anyways (not just use the one from Label Studio). 
+ALSO REMOVE UNNCECESSARY CLASSES FROM BEING USED FROM THE FIRST MODEL
 
 
 CHOOSING CLASSES THAT OVERLAP WITH PRETRAINED YOLO
@@ -42,7 +47,7 @@ CHOOSING CLASSES THAT OVERLAP WITH PRETRAINED YOLO
 
 
 FINE TUNING ON MULTIPLE IMAGES AT A TIME
-1. add the ability to batch send things to train the second model
+1. add the ability to batch send things to train the models
 2. integrate DINO in to train the model on a bunch of images
 
 """
@@ -55,7 +60,7 @@ NEW_START = True
 
 
 # defining model start
-model = YOLO('yolov8n.pt')
+pretrained_model = YOLO('yolov8n.pt')
 
 # add logic that creates it from regular here
 if NEW_START:
@@ -99,6 +104,19 @@ class YOLO(LabelStudioMLBase):
         parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
+        # TODO: get from docker -> user dictionary that maps labelling config to COCO classes
+        label_to_COCO = {
+            "cats": "cat",
+            "lights": "traffic light",
+            "cars": "car",
+        }
+
+        self.COCO_to_label = {v:k for k, v in label_to_COCO.items()}
+
+        first_label_classes = list(label_to_COCO.keys()) # raw labels from labelling config
+        second_label_classes = [x for x in classes if x not in set(first_label_classes)] # raw labels from labelling config
+
+
 
         # if they change the labelling config, it shouldn't automatically destroy everything
         input_file = "custom_config.yml"
@@ -107,29 +125,20 @@ class YOLO(LabelStudioMLBase):
 
         if NEW_START: 
 
-            self.class_to_name = {i:v for i,v in enumerate(classes)}
+            self.custom_num_to_name = {i:v for i,v in enumerate(second_label_classes)}
             
-            data["names"] = self.class_to_name
+            data["names"] = self.custom_num_to_name
 
             with open(input_file, "w") as file:
                 yaml.dump(data, file, default_flow_style=False)
         else:
-            self.class_to_name = data["names"]
+            self.custom_num_to_name = data["names"]
         
-        print(f"self class to name is {self.class_to_name}")
-        self.name_to_class = {v:k for k, v in self.class_to_name.items()}
+        print(f"self class to name is {self.custom_num_to_name}")
+        self.custom_name_to_num = {v:k for k, v in self.custom_num_to_name.items()}
 
 
         # logic for using predefined YOLO classes
-
-
-
-        # TODO: get from docker -> user dictionary that maps labelling config to COCO classes
-        config_to_COCO = {
-            "cats": "cat",
-            "lights": "traffic light",
-            "cars": "car",
-        }
 
         # TODO: use google images V7 instead for access to more classes
         # calculate box overlap and remove the new model in that case
@@ -183,20 +192,25 @@ class YOLO(LabelStudioMLBase):
             lengths.append((H, W))
 
         # predicting from PIL loaded images
-        results = model.predict(source=imgs) # define model earlier
+        results_1 = pretrained_model.predict(source=imgs) # define model earlier
+        results_2 = custom_model.predict(source=imgs)
 
         # each item will be the predictions for a task
         predictions = []
 
         # basically, running this loop for each task
-        for (result, len) in zip(results, lengths):
-            boxes = result.boxes.cpu().numpy()
+        for res_num, results in enumerate([results_1, results_2]):
+            
+            for (result, len) in zip(results, lengths):
+                boxes = result.boxes.cpu().numpy()
 
-            print(result.names)
+                print(result.names) # gives dict matching num to names ex. {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4
 
-            print(f"the confidences are {boxes.conf}")
+                print(f"the confidences are {boxes.conf}")
 
-            predictions.append(self.get_results(boxes.xywh, boxes.cls, len, boxes.conf, result.names))
+                pretrained = True if res_num == 1 else False
+                # results names
+                predictions.append(self.get_results(boxes.xywh, boxes.cls, len, boxes.conf, result.names, pretrained=pretrained))
         
 
 
@@ -212,10 +226,12 @@ class YOLO(LabelStudioMLBase):
 
         return predictions
 
-    def get_results(self, boxes, classes, length, confidences, names_dict):
+    def get_results(self, boxes, classes, length, confidences, num_to_names_dict, pretrained=True):
         results = []
 
-        for box, name, conf in zip(boxes, classes, confidences):
+        print(f"the to and from names are {self.from_name} and {self.to_name}")
+
+        for box, class_num, conf in zip(boxes, classes, confidences):
 
             label_id = str(uuid4())[:9]
 
@@ -223,6 +239,14 @@ class YOLO(LabelStudioMLBase):
 
             height, width = length
 
+            if pretrained:
+                name = num_to_names_dict[int(class_num)]
+                label = self.COCO_to_label.get(name)
+                print(f"class num is {class_num} and name is {name}")
+            else: # then, we are using the custom model
+                label = num_to_names_dict[int(class_num)]
+                
+            print(f"the labellllllll is {label}")
 
             results.append({
                 'id': label_id,
@@ -234,7 +258,7 @@ class YOLO(LabelStudioMLBase):
                 'value': {
                     'rotation': 0,
                     # 'rectanglelabels': [self.class_to_name[f"{int(name)}"]],
-                    'rectanglelabels': [names_dict[int(name)]],
+                    'rectanglelabels': [label],
                     'width': w / width * 100, # this is correcrt
                     'height': h / height * 100, # this is also correct
                     'x': (x - 0.5*w) / width * 100,
@@ -326,42 +350,45 @@ class YOLO(LabelStudioMLBase):
 
 
         for result in results:
+
             value = result['value']
             label = value['rectanglelabels'][0]
+
+            if label in self.custom_name_to_num:
             
-            # these are out of 100, so you need to convert them back
-            x = value['x']
-            y = value['y']
-            width = value['width']
-            height = value['height']
+                # these are out of 100, so you need to convert them back
+                x = value['x']
+                y = value['y']
+                width = value['width']
+                height = value['height']
 
-            orig_width = result['original_width']
-            orig_height = result['original_height']
+                orig_width = result['original_width']
+                orig_height = result['original_height']
 
 
-            # doing the inverse of these operation, but keeping it normalized
-            # 'width': w / width * 100, # this is correcrt
-            # 'height': h / height * 100, # this is also correct
-            # 'x': (x - 0.5*w) / width * 100,
-            # 'y': (y-0.5*h) / height * 100
+                # doing the inverse of these operation, but keeping it normalized
+                # 'width': w / width * 100, # this is correcrt
+                # 'height': h / height * 100, # this is also correct
+                # 'x': (x - 0.5*w) / width * 100,
+                # 'y': (y-0.5*h) / height * 100
 
-            # so, in YOLO format, we just need to to be normalize to 1
+                # so, in YOLO format, we just need to to be normalize to 1
 
-            w = width / 100
-            h = height / 100
-            trans_x = (x / 100) + 0.5 * w
-            trans_y = (y / 100) + 0.5 * h
+                w = width / 100
+                h = height / 100
+                trans_x = (x / 100) + 0.5 * w
+                trans_y = (y / 100) + 0.5 * h
 
-            # now getting the class label 
-            label = self.name_to_class.get(label)
+                # now getting the class label 
+                label_num = self.custom_name_to_num.get(label)
 
-            with open(f'./datasets/temp/labels/{txt_name}.txt', 'a') as f:
-                f.write(f"{label} {trans_x} {trans_y} {w} {h}\n")
-            with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
-                f.write(f"{label} {trans_x} {trans_y} {w} {h}\n")
+                with open(f'./datasets/temp/labels/{txt_name}.txt', 'a') as f:
+                    f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
+                with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
+                    f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
 
-        results = model.train(data='train_config.yml', epochs = 1, imgsz=640)
+        results = custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
         # indexing error if there is only one image
         # do two images or more images for no error
         
