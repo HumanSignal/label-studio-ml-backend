@@ -12,7 +12,10 @@ import torch
 import os
 import yaml
 
+import shutil
 
+
+"""USE THIS TO UPDATE WHICH MODEL YOU ARE USING"""
 # TODO: use the best.pt saved to load nstead
 # https://github.com/ultralytics/ultralytics/issues/2750#issuecomment-1556847848
 
@@ -23,73 +26,12 @@ LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 """TODO
 
-TODO: PROBLEM--------
-make sure the classes are cut before using the custom model, otherwise it will double up on predictions and then provide output labels with the None type
-
-CHOOSING THE RIGHT MODEL FOR PREDICTIONS AND PRETRAINING
-1. add two models - 1 YOLO that will stay the same, 1 that will be used for fine tune
-      - dataset guide: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml
-2. only fine tune the second model
-CHECK FINE TUNING COORDINATE LOCATIONT TRANSFORMS
-
-GETTING THE RIGHT PREDICTIONS FROM BOTH THE MODELS
-
-One option - have 2 models, use the second model for classes not contained in the first model, and the first model for classes that are already contained
-Note: if they want to train the best model, they'll have to train from scratch anyways (not just use the one from Label Studio). 
-ALSO REMOVE UNNCECESSARY CLASSES FROM BEING USED FROM THE FIRST MODEL
-
-
-CHOOSING CLASSES THAT OVERLAP WITH PRETRAINED YOLO
-1. exchange YOLO with google v7 images model with more classes - https://docs.ultralytics.com/models/yolov8/#supported-modes
 2. let user give overlaps in the docker file
 
 ## ^ after the above, send a PR
 
 
-FINE TUNING ON MULTIPLE IMAGES AT A TIME
-1. add the ability to batch send things to train the models
-2. integrate DINO in to train the model on a bunch of images
-
-ADD FLAG TO 
-
 """
-
-
-# change config file depending on how many classes there are in the saved model
-
-NEW_START = True
-
-
-
-# defining model start
-pretrained_model = YOLO('yolov8n.pt')
-
-# add logic that creates it from regular here
-if NEW_START:
-    custom_model = YOLO('yolov8n(custom).pt')
-else:
-    custom_model = YOLO('yolov8n(custom).pt')
-
-# else:
-#     dir_path = './runs/detect/'
-#     folders = os.listdir(dir_path)
-#     # sorted_folders = sorted(folders, key=lambda x: int(x.split("train")[-1]))
-#     import re
-#     # https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically
-#     sorted_folders = folders.sort(key=lambda var:[int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
-    
-#     for folder in folders:
-#         split = folder.split("train")[-1]
-
-#         if split is not "train":
-
-
-#     last_folder = folders[-1]
-#     print(f"the last folder is {last_folder} and {folders}")
-#     model = YOLO(f'./runs/detect/{last_folder}/weights/best.pt')
-
-# TODO:
-# figure out how to integrate class names for things not predicted
 
 
 class YOLO(LabelStudioMLBase):
@@ -98,20 +40,48 @@ class YOLO(LabelStudioMLBase):
         super(YOLO, self).__init__(**kwargs)
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
 
-        # print(self.label_config)
+        print(self.label_config)
         # print(self.parsed_label_config)
 
-        # this just needs to be done before training, not model loading
-        # create a new YAML file for training
-        parsed = self.parsed_label_config
+
+
+        # parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
-        # TODO: get from docker -> user dictionary that maps labelling config to COCO classes
-        label_to_COCO = {
-            "cats": "cat",
-            "lights": "traffic light",
-            "cars": "car",
-        }
+
+        with open("ls_config.yml", "r") as file:
+            ls_config = yaml.safe_load(file)
+
+
+        label_to_COCO = ls_config["labels_to_coco"]
+        self.NEW_START = True if label_to_COCO['NEW_START']=='True' else False
+        self.JUST_CUSTOM = True if label_to_COCO['JUST_CUSTOM']=='True' else False
+
+        print(f"{self.NEW_START} and {self.JUST_CUSTOM}")
+
+
+        # TODO: get from docker
+        # label_to_COCO = {
+        #     "cats": "Cat",
+        #     "lights": "Traffic light",
+        #     "cars": "Car",
+        # }
+        
+
+
+        # defining model start
+
+        if not self.JUST_CUSTOM: 
+            self.pretrained_model = YOLO('yolov8n-oiv7.pt')
+
+        # add logic that creates it from regular here
+        if self.NEW_START:
+            shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
+            self.custom_model = YOLO('yolov8n(custom).pt')
+            FIRST_USE = True
+        else:
+            self.custom_model = YOLO('yolov8n(custom).pt')
+
 
         self.COCO_to_label = {v:k for k, v in label_to_COCO.items()}
 
@@ -126,7 +96,7 @@ class YOLO(LabelStudioMLBase):
             data = yaml.safe_load(file)
         
         # obious way to toggle
-        if NEW_START: 
+        if self.NEW_START: 
 
             self.custom_num_to_name = {i:v for i,v in enumerate(second_label_classes)}
             
@@ -139,15 +109,6 @@ class YOLO(LabelStudioMLBase):
         
         print(f"self class to name is {self.custom_num_to_name}")
         self.custom_name_to_num = {v:k for k, v in self.custom_num_to_name.items()}
-
-
-        # logic for using predefined YOLO classes
-
-        # TODO: use google images V7 instead for access to more classes
-        # calculate box overlap and remove the new model in that case
-        # otherwise, for now, just wait until predictions overlap then add a flag where you just use the new model now
-    
-
 
 
 
@@ -195,14 +156,23 @@ class YOLO(LabelStudioMLBase):
             lengths.append((H, W))
 
         # predicting from PIL loaded images
-        results_1 = pretrained_model.predict(source=imgs) # define model earlier
-        results_2 = custom_model.predict(source=imgs)
+        if not self.JUST_CUSTOM:
+            results_1 = self.pretrained_model.predict(source=imgs) # define model earlier
+        else:
+            results_1 = None
+
+        if not self.FIRST_USE:
+            results_2 = self.custom_model.predict(source=imgs)
+        else:
+            results_2 = None
 
         # each item will be the predictions for a task
         predictions = []
 
         # basically, running this loop for each task
         for res_num, results in enumerate([results_1, results_2]):
+            if results == None:
+                continue
             
             for (result, len) in zip(results, lengths):
                 boxes = result.boxes.cpu().numpy()
@@ -211,21 +181,9 @@ class YOLO(LabelStudioMLBase):
 
                 print(f"the confidences are {boxes.conf}")
 
-                pretrained = True if res_num == 1 else False
+                pretrained = True if res_num == 0 else False
                 # results names
                 predictions.append(self.get_results(boxes.xywh, boxes.cls, len, boxes.conf, result.names, pretrained=pretrained))
-        
-
-
-        # # TODO: here figure out what type of prediction we are looking for -> classification, segmentation, bounding boxes, etc.
-        # context = "classification"
-
-        # if context=="classification":
-        #     model = YOLO('yolov8n-cls.pt')
-        # img = 'https://ultralytics.com/images/bus.jpg'
-        # results = model(img)
-
-        # find how to get images and labels from different places YOLO
 
         return predictions
 
@@ -265,10 +223,9 @@ class YOLO(LabelStudioMLBase):
                 'image_rotation': 0,
                 'value': {
                     'rotation': 0,
-                    # 'rectanglelabels': [self.class_to_name[f"{int(name)}"]],
                     'rectanglelabels': [label],
-                    'width': w / width * 100, # this is correcrt
-                    'height': h / height * 100, # this is also correct
+                    'width': w / width * 100,
+                    'height': h / height * 100,
                     'x': (x - 0.5*w) / width * 100,
                     'y': (y-0.5*h) / height * 100
                 },
@@ -290,14 +247,6 @@ class YOLO(LabelStudioMLBase):
         :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
-
-        # model.train()
-
-        print(f"the fit is {data}")
-        # results = data["annotation"]["result"]
-        # ^ this will be a list of all the rectangles you are fine tuning
-
-        # figure out how to do this with multiple images at once
 
         results = data['annotation']['result']
         data = data['task']['data']
@@ -322,8 +271,6 @@ class YOLO(LabelStudioMLBase):
 
             true_img_paths.append(img_path)
             
-            # im_save = img.save(f"dataset/images/{name}")
-
         sample_img_path = true_img_paths[0]
 
         img = Image.open(sample_img_path)
@@ -339,14 +286,8 @@ class YOLO(LabelStudioMLBase):
         all_new_paths.append(f"./datasets/temp/images/{image_name}")
         all_new_paths.append(f"./datasets/temp/images/(2){image_name}")
 
-        # these rename the directories for label studio format
-        # os.rename(project_path.split("/"), project_path.replace((f"/{project_path.split('/')[-2]}/"), "images"))
-            
-        # # making the labels directory
-        # os.mkdir(img_path.split("/")[:-1], "labels")
-
         # now saving text file labels
-        txt_name = (image_path.split('/')[-1]).split('.')[0]
+        txt_name = (image_path.split('/')[-1]).rsplit('.', 1)[0]
 
         with open(f'./datasets/temp/labels/{txt_name}.txt', 'w') as f:
             f.write("")
@@ -384,8 +325,8 @@ class YOLO(LabelStudioMLBase):
 
                 w = width / 100
                 h = height / 100
-                trans_x = (x / 100) + 0.5 * w
-                trans_y = (y / 100) + 0.5 * h
+                trans_x = (x / 100) + (0.5 * w)
+                trans_y = (y / 100) + (0.5 * h)
 
                 # now getting the class label 
                 label_num = self.custom_name_to_num.get(label)
@@ -396,12 +337,15 @@ class YOLO(LabelStudioMLBase):
                     f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
 
-        results = custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
+        results = self.custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
+
+        FIRST_USE = False
+
         # indexing error if there is only one image
         # do two images or more images for no error
         
         # remove all these files so train starts from nothing next time
-        self.remove_train_files(all_new_paths)
+        # self.remove_train_files(all_new_paths)
 
 
 
