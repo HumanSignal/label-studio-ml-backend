@@ -29,7 +29,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from model import NewModel
+from model import YOLO
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -102,13 +102,13 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + NewModel.__name__ + '" instance creation..')
-        model = NewModel(**kwargs)
+        print('Check "' + YOLO.__name__ + '" instance creation..')
+        model = YOLO(**kwargs)
 
-    app = init_app(model_class=NewModel)
+    app = init_app(model_class=YOLO)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(model_class=NewModel)
+    app = init_app(model_class=YOLO)
