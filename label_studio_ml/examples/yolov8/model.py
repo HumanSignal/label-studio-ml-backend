@@ -15,11 +15,6 @@ import yaml
 import shutil
 
 
-"""USE THIS TO UPDATE WHICH MODEL YOU ARE USING"""
-# TODO: use the best.pt saved to load nstead
-# https://github.com/ultralytics/ultralytics/issues/2750#issuecomment-1556847848
-
-
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
@@ -30,8 +25,26 @@ LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 ## ^ after the above, send a PR
 
+worry about first use FIRST_USE key
+how to switch off new start automatically after first time
+
 
 """
+
+JUST_CUSTOM = False
+NEW_START = False
+
+if not JUST_CUSTOM: 
+    pretrained_model = YOLO('yolov8n-oiv7.pt')
+
+# add logic that creates it from regular here
+if NEW_START:
+    shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
+    custom_model = YOLO('yolov8n(custom).pt')
+    FIRST_USE = True
+else:
+    custom_model = YOLO('yolov8n(custom).pt')
+    FIRST_USE = False
 
 
 class YOLO(LabelStudioMLBase):
@@ -41,11 +54,15 @@ class YOLO(LabelStudioMLBase):
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
 
         print(self.label_config)
-        # print(self.parsed_label_config)
+        print(self.parsed_label_config)
+
+        self.first_use = FIRST_USE
+
+        
 
 
 
-        # parsed = self.parsed_label_config
+        parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
 
@@ -54,8 +71,11 @@ class YOLO(LabelStudioMLBase):
 
 
         label_to_COCO = ls_config["labels_to_coco"]
-        self.NEW_START = True if label_to_COCO['NEW_START']=='True' else False
-        self.JUST_CUSTOM = True if label_to_COCO['JUST_CUSTOM']=='True' else False
+        # self.NEW_START = True if ls_config.get('NEW_START')=='True' else False
+        # self.JUST_CUSTOM = True if ls_config.get('JUST_CUSTOM')=='True' else False
+
+        self.NEW_START = NEW_START
+        self.JUST_CUSTOM = JUST_CUSTOM
 
         print(f"{self.NEW_START} and {self.JUST_CUSTOM}")
 
@@ -70,17 +90,6 @@ class YOLO(LabelStudioMLBase):
 
 
         # defining model start
-
-        if not self.JUST_CUSTOM: 
-            self.pretrained_model = YOLO('yolov8n-oiv7.pt')
-
-        # add logic that creates it from regular here
-        if self.NEW_START:
-            shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
-            self.custom_model = YOLO('yolov8n(custom).pt')
-            FIRST_USE = True
-        else:
-            self.custom_model = YOLO('yolov8n(custom).pt')
 
 
         self.COCO_to_label = {v:k for k, v in label_to_COCO.items()}
@@ -157,12 +166,15 @@ class YOLO(LabelStudioMLBase):
 
         # predicting from PIL loaded images
         if not self.JUST_CUSTOM:
-            results_1 = self.pretrained_model.predict(source=imgs) # define model earlier
+            results_1 = pretrained_model.predict(source=imgs) # define model earlier
         else:
             results_1 = None
 
-        if not self.FIRST_USE:
-            results_2 = self.custom_model.predict(source=imgs)
+
+        # we don't want the predictions from the pretrained version of the custom model
+        # because it hasn't reshaped to the new classes yet
+        if not self.first_use:
+            results_2 = custom_model.predict(source=imgs)
         else:
             results_2 = None
 
@@ -203,17 +215,12 @@ class YOLO(LabelStudioMLBase):
             if pretrained:
                 name = num_to_names_dict[int(class_num)]
                 label = self.COCO_to_label.get(name)
-                print(f"class num is {class_num} and name is {name}")
             else: # then, we are using the custom model
                 label = num_to_names_dict[int(class_num)]
                 
-            print(f"the labellllllll is {label}")
-
             if label==None:
-                print(f"it's none {label}")
                 continue
             
-            print("but we're still going")
             results.append({
                 'id': label_id,
                 'from_name': self.from_name,
@@ -337,15 +344,15 @@ class YOLO(LabelStudioMLBase):
                     f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
 
-        results = self.custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
+        results = custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
 
-        FIRST_USE = False
+        self.first_use = False
 
         # indexing error if there is only one image
         # do two images or more images for no error
         
         # remove all these files so train starts from nothing next time
-        # self.remove_train_files(all_new_paths)
+        self.remove_train_files(all_new_paths)
 
 
 
