@@ -1,0 +1,7 @@
+# Note: check here to match class names
+# https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml
+# the key should be what you've named your label, the value is what class it matches from the link above
+labels_to_coco:
+  cats: Cat
+  lights: Traffic light
+  cars: Car

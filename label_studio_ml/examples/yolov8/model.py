@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path
+from label_studio_tools.core.label_config import parse_config
 
 import os
 from PIL import Image
@@ -15,10 +16,13 @@ import shutil
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
-JUST_CUSTOM = os.environ.get("JUST_CUSTOM")
 
-# TODO: delete this line
-JUST_CUSTOM = False
+with open("label_to_coco.yml", "r") as file:
+    ls_config = yaml.safe_load(file)
+
+label_to_COCO = ls_config["labels_to_coco"]
+
+JUST_CUSTOM = True if len(label_to_COCO) == 0 else False
 
 # checks if you have already built a custom model
 # if you want to do it for a new task, move this model out of the directory
@@ -40,21 +44,23 @@ class YOLO(LabelStudioMLBase):
 
     def __init__(self, project_id, **kwargs):
         super(YOLO, self).__init__(**kwargs)
+
+        print(f"initializing teh model the kwargs are {kwargs}")
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
 
-        print(self.label_config)
-        print(self.parsed_label_config)
+
+        self.custom_parsed_label_config = parse_config(self.label_config)
+
+        # print(self.label_config)
+        # print(self.custom_parsed_label_config)
 
         self.first_use = FIRST_USE
 
-        parsed = self.parsed_label_config
+        print(f"can it gather the config? {self.custom_parsed_label_config} and {self.label_config}")
+        parsed = self.custom_parsed_label_config
         classes = parsed['label']['labels']
 
-        with open("label_to_coco.yml", "r") as file:
-            ls_config = yaml.safe_load(file)
-
-
-        label_to_COCO = ls_config["labels_to_coco"]
+        print(f"the classes are {classes}")
 
         self.NEW_START = NEW_START
         self.JUST_CUSTOM = JUST_CUSTOM        
@@ -91,6 +97,8 @@ class YOLO(LabelStudioMLBase):
         print(classes)
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Inference logic for YOLO model """
+
+        print("getting predictions")
 
         self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
 
