@@ -5,39 +5,28 @@ from label_studio_ml.utils import get_image_local_path
 import os
 from PIL import Image
 from uuid import uuid4
-
 from ultralytics import YOLO
 import torch
-
 import os
 import yaml
-
 import shutil
 
 
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
+JUST_CUSTOM = os.environ.get("JUST_CUSTOM")
 
-"""TODO
-
-2. let user give overlaps in the docker file
-
-## ^ after the above, send a PR
-
-worry about first use FIRST_USE key
-how to switch off new start automatically after first time
-
-
-"""
-
+# TODO: delete this line
 JUST_CUSTOM = False
-NEW_START = False
+
+# checks if you have already built a custom model
+# if you want to do it for a new task, move this model out of the directory
+NEW_START = os.path.isfile('yolov8n(custom).pt')
 
 if not JUST_CUSTOM: 
     pretrained_model = YOLO('yolov8n-oiv7.pt')
 
-# add logic that creates it from regular here
 if NEW_START:
     shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
     custom_model = YOLO('yolov8n(custom).pt')
@@ -58,39 +47,17 @@ class YOLO(LabelStudioMLBase):
 
         self.first_use = FIRST_USE
 
-        
-
-
-
         parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
-
-        with open("ls_config.yml", "r") as file:
+        with open("label_to_coco.yml", "r") as file:
             ls_config = yaml.safe_load(file)
 
 
         label_to_COCO = ls_config["labels_to_coco"]
-        # self.NEW_START = True if ls_config.get('NEW_START')=='True' else False
-        # self.JUST_CUSTOM = True if ls_config.get('JUST_CUSTOM')=='True' else False
 
         self.NEW_START = NEW_START
-        self.JUST_CUSTOM = JUST_CUSTOM
-
-        print(f"{self.NEW_START} and {self.JUST_CUSTOM}")
-
-
-        # TODO: get from docker
-        # label_to_COCO = {
-        #     "cats": "Cat",
-        #     "lights": "Traffic light",
-        #     "cars": "Car",
-        # }
-        
-
-
-        # defining model start
-
+        self.JUST_CUSTOM = JUST_CUSTOM        
 
         self.COCO_to_label = {v:k for k, v in label_to_COCO.items()}
 
@@ -98,13 +65,13 @@ class YOLO(LabelStudioMLBase):
         second_label_classes = [x for x in classes if x not in set(first_label_classes)] # raw labels from labelling config
 
 
+        # if the user changes the labelling config, it shouldn't automatically destroy everything
+        # so only change it if we are starting brand new
 
-        # if they change the labelling config, it shouldn't automatically destroy everything
         input_file = "custom_config.yml"
         with open(input_file, "r") as file:
             data = yaml.safe_load(file)
         
-        # obious way to toggle
         if self.NEW_START: 
 
             self.custom_num_to_name = {i:v for i,v in enumerate(second_label_classes)}
@@ -123,19 +90,7 @@ class YOLO(LabelStudioMLBase):
 
         print(classes)
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
-        """ Write your inference logic here
-            :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
-            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml.html#Passing-data-to-ML-backend)
-            :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-tasks)
-        """
-        # print(f'''\
-        # Run prediction on {tasks}
-        # Received context: {context}
-        # Label config: {self.label_config}
-        # Parsed JSON Label config: {self.parsed_label_config}''')
-
-                # Project ID: {self.project_id}
-        # model.eval()
+        """ Inference logic for YOLO model """
 
         self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
 
@@ -200,6 +155,8 @@ class YOLO(LabelStudioMLBase):
         return predictions
 
     def get_results(self, boxes, classes, length, confidences, num_to_names_dict, pretrained=True):
+        """This method returns annotation results that will be packaged and sent to Label Studio frontend"""
+        
         results = []
 
         print(f"the to and from names are {self.from_name} and {self.to_name}")
@@ -248,11 +205,7 @@ class YOLO(LabelStudioMLBase):
     def fit(self, event, data, **kwargs):
         """
         This method is called each time an annotation is created or updated
-        You can run your logic here to update the model and persist it to the cache
-        It is not recommended to perform long-running operations here, as it will block the main thread
-        Instead, consider running a separate process or a thread (like RQ worker) to perform the training
-        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
-        :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
+        You can run your logic here to update the model       
         """
 
         results = data['annotation']['result']
@@ -321,15 +274,6 @@ class YOLO(LabelStudioMLBase):
                 orig_width = result['original_width']
                 orig_height = result['original_height']
 
-
-                # doing the inverse of these operation, but keeping it normalized
-                # 'width': w / width * 100, # this is correcrt
-                # 'height': h / height * 100, # this is also correct
-                # 'x': (x - 0.5*w) / width * 100,
-                # 'y': (y-0.5*h) / height * 100
-
-                # so, in YOLO format, we just need to to be normalize to 1
-
                 w = width / 100
                 h = height / 100
                 trans_x = (x / 100) + (0.5 * w)
@@ -347,68 +291,11 @@ class YOLO(LabelStudioMLBase):
         results = custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
 
         self.first_use = False
-
-        # indexing error if there is only one image
-        # do two images or more images for no error
         
         # remove all these files so train starts from nothing next time
         self.remove_train_files(all_new_paths)
-
-
-
-        # you can send a list of images into the YAML file
-        # so we can just save thelabels int eh data upload directory?
-        # for now let's just work on saving all the images in a new directory and then using that?
-
-        # this is assuming all images are in a list
-
-
-        # TODO: make sure this rewrites whatever images were already there
-        # having so many images rewritten is a time consuming process - think of a way to mitigate this
-
-
-
-        """Here is the process
-        
-        - whatever project you are in, rename that project to images
-        - create a labels directory there as well 
-        - make sure the above doesn't break label studio 
-        - put the label text files in there
-        - create a images.txt file that contains only the paths of the images that have been chosen by the user
-        - remove the txt files when done and labels and RENAME back the labels directory
-        """ 
-
-        # setting the new model
-        # self.set("new_model", model)
-        # set a new model version
-
-
-        print(f"the event is {event}") # ANNOTATION CREATED
-        print(f"kwargs are {kwargs}")
-
-        # use cache to retrieve the data from the previous fit() runs
-        old_data = self.get('my_data')
-        old_model_version = self.get('model_version')
-        print(f'Old data: {old_data}')
-        print(f'Old model version: {old_model_version}')
-
-        # store new data to the cache
-        self.set('my_data', 'my_new_data_value')
-        self.set('model_version', 'my_new_model_version')
-        print(f'New data: {self.get("my_data")}')
-        print(f'New model version: {self.get("model_version")}')
-
-        print('fit() completed successfully.')
-
-
-        # setting the new model -> this is only key settting so that we can retrieve it later
-        # self.set("new_model", model)
-        
-        # save the model to the directory
-        # torch.save(model.state_dict(), 'yolov8n(testing).pt')
     
     def remove_train_files(self, file_paths):
+        """This cleans the dataset directory"""
         for path in file_paths:
             os.remove(path)
-
-
