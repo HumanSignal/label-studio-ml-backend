@@ -50,6 +50,8 @@ FINE TUNING ON MULTIPLE IMAGES AT A TIME
 1. add the ability to batch send things to train the models
 2. integrate DINO in to train the model on a bunch of images
 
+ADD FLAG TO 
+
 """
 
 
@@ -122,7 +124,8 @@ class YOLO(LabelStudioMLBase):
         input_file = "custom_config.yml"
         with open(input_file, "r") as file:
             data = yaml.safe_load(file)
-
+        
+        # obious way to toggle
         if NEW_START: 
 
             self.custom_num_to_name = {i:v for i,v in enumerate(second_label_classes)}
@@ -248,6 +251,11 @@ class YOLO(LabelStudioMLBase):
                 
             print(f"the labellllllll is {label}")
 
+            if label==None:
+                print(f"it's none {label}")
+                continue
+            
+            print("but we're still going")
             results.append({
                 'id': label_id,
                 'from_name': self.from_name,
