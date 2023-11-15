@@ -2,6 +2,7 @@ from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path
 from label_studio_tools.core.label_config import parse_config
+from label_studio_tools.core.utils.io import get_local_path
 
 import os
 from PIL import Image
@@ -42,22 +43,22 @@ else:
 
 class YOLO(LabelStudioMLBase):
 
-    def __init__(self, project_id, **kwargs):
+    def __init__(self, **kwargs):
         super(YOLO, self).__init__(**kwargs)
 
         print(f"initializing teh model the kwargs are {kwargs}")
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
 
 
-        self.custom_parsed_label_config = parse_config(self.label_config)
+        # self.custom_parsed_label_config = parse_config(self.label_config)
 
-        # print(self.label_config)
+        print(self.parsed_label_config)
         # print(self.custom_parsed_label_config)
 
         self.first_use = FIRST_USE
 
-        print(f"can it gather the config? {self.custom_parsed_label_config} and {self.label_config}")
-        parsed = self.custom_parsed_label_config
+        # print(f"can it gather the config? {self.custom_parsed_label_config} and {self.label_config}")
+        parsed = self.parsed_label_config
         classes = parsed['label']['labels']
 
         print(f"the classes are {classes}")
@@ -100,7 +101,10 @@ class YOLO(LabelStudioMLBase):
 
         print("getting predictions")
 
-        self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
+        # self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
+
+        self.from_name = "label"
+        self.to_name = "image"
 
         imgs = []
         lengths = []
@@ -111,27 +115,35 @@ class YOLO(LabelStudioMLBase):
             raw_img_path = task['data']['image']
 
             try:
-                img_path = get_image_local_path(
-                    raw_img_path,
-                    label_studio_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                    label_studio_host=LABEL_STUDIO_HOST
+                print(f"......the local image path is {raw_img_path}")
+
+                img_path = get_local_path(
+                    url=raw_img_path,
+                    hostname=LABEL_STUDIO_HOST,
+                    access_token=LABEL_STUDIO_ACCESS_TOKEN
                 )
-                print(f"the real image path is {img_path}")
+
+                print(f"........the real image path is {img_path}")
             except:
+                print("..... umm we shouldn't be here")
                 img_path = raw_img_path
             
             img = Image.open(img_path)
+
 
             imgs.append(img)
 
             W, H = img.size
             lengths.append((H, W))
 
+
         # predicting from PIL loaded images
         if not self.JUST_CUSTOM:
             results_1 = pretrained_model.predict(source=imgs) # define model earlier
         else:
             results_1 = None
+
+        print(f"....did we make it here?")
 
 
         # we don't want the predictions from the pretrained version of the custom model
@@ -140,6 +152,9 @@ class YOLO(LabelStudioMLBase):
             results_2 = custom_model.predict(source=imgs)
         else:
             results_2 = None
+
+        print(f"....did we make it here2222?")
+
 
         # each item will be the predictions for a task
         predictions = []
@@ -159,7 +174,8 @@ class YOLO(LabelStudioMLBase):
                 pretrained = True if res_num == 0 else False
                 # results names
                 predictions.append(self.get_results(boxes.xywh, boxes.cls, len, boxes.conf, result.names, pretrained=pretrained))
-
+        print(f"the predictions are {predictions}")
+        
         return predictions
 
     def get_results(self, boxes, classes, length, confidences, num_to_names_dict, pretrained=True):
