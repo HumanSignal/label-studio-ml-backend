@@ -1,7 +1,6 @@
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path
-from label_studio_tools.core.label_config import parse_config
 from label_studio_tools.core.utils.io import get_local_path
 
 import os
@@ -18,10 +17,11 @@ LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 
-with open("label_to_coco.yml", "r") as file:
+with open("class_matching.yml", "r") as file:
     ls_config = yaml.safe_load(file)
 
 label_to_COCO = ls_config["labels_to_coco"]
+all_classes = ls_config["all_classes"]
 
 JUST_CUSTOM = True if len(label_to_COCO) == 0 else False
 
@@ -35,18 +35,10 @@ class YOLO_LS(LabelStudioMLBase):
     def __init__(self, project_id, **kwargs):
         super(YOLO_LS, self).__init__(**kwargs)
 
-        print(f"initializing teh model the kwargs are {kwargs}")
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
-
-
-        # self.custom_parsed_label_config = parse_config(self.label_config)
-
-        # print(self.parsed_label_config)
-        # print(self.custom_parsed_label_config)
 
         if not JUST_CUSTOM: 
             self.pretrained_model = YOLO('yolov8n-oiv7.pt')
-            # test = self.pretrained_model('./feral-cat-Kevin-Patrick.jpg')
 
         if not NEW_START:
             shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
@@ -58,13 +50,10 @@ class YOLO_LS(LabelStudioMLBase):
 
         self.first_use = FIRST_USE
 
-        # print(f"can it gather the config? {self.custom_parsed_label_config} and {self.label_config}")
-        # parsed = self.parsed_label_config
-        # classes = parsed['label']['labels']
+        self.from_name = "label"
+        self.to_name = "image"
 
-        classes = ["cats", "cars", "taxi", "lights", "others"]
-
-        print(f"the classes are {classes}")
+        classes = all_classes
 
         self.NEW_START = NEW_START
         self.JUST_CUSTOM = JUST_CUSTOM        
@@ -73,10 +62,6 @@ class YOLO_LS(LabelStudioMLBase):
 
         first_label_classes = list(label_to_COCO.keys()) # raw labels from labelling config
         second_label_classes = [x for x in classes if x not in set(first_label_classes)] # raw labels from labelling config
-
-
-        # if the user changes the labelling config, it shouldn't automatically destroy everything
-        # so only change it if we are starting brand new
 
         input_file = "custom_config.yml"
         with open(input_file, "r") as file:
@@ -93,21 +78,11 @@ class YOLO_LS(LabelStudioMLBase):
         else:
             self.custom_num_to_name = data["names"]
         
-        print(f"self class to name is {self.custom_num_to_name}")
         self.custom_name_to_num = {v:k for k, v in self.custom_num_to_name.items()}
 
 
-
-        print(classes)
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Inference logic for YOLO model """
-
-        print("getting predictions")
-
-        # self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
-
-        self.from_name = "label"
-        self.to_name = "image"
 
         imgs = []
         lengths = []
@@ -118,22 +93,15 @@ class YOLO_LS(LabelStudioMLBase):
             raw_img_path = task['data']['image']
 
             try:
-                print(f"......the local image path is {raw_img_path}")
-
                 img_path = get_local_path(
                     url=raw_img_path,
                     hostname=LABEL_STUDIO_HOST,
                     access_token=LABEL_STUDIO_ACCESS_TOKEN
                 )
 
-                print(f"........the real image path is {img_path}")
             except:
-                print("..... umm we shouldn't be here")
                 img_path = raw_img_path
             
-            # print(f"....did we make it here0.1?")
-
-            print(f"the image path is {img_path}")
             img = Image.open(img_path)
 
 
@@ -142,31 +110,21 @@ class YOLO_LS(LabelStudioMLBase):
             W, H = img.size
             lengths.append((H, W))
 
-        print(f"....did we make it here0.0? {W} {H}")
-
         # predicting from PIL loaded images
         if not self.JUST_CUSTOM:
-            print(f"at least we made it")
             try:
-                results_1 = self.pretrained_model.predict(imgs[0]) # define model earlier
+                results_1 = self.pretrained_model.predict(imgs) # define model earlier
             except Exception as e:
                 print(f"the error was {e}")
-            # results_1 = self.pretrained_model(imgs)
         else:
             results_1 = None
-
-        print(f"....did we make it here?")
-
 
         # we don't want the predictions from the pretrained version of the custom model
         # because it hasn't reshaped to the new classes yet
         if not self.first_use:
-            results_2 = self.custom_model.predict(source=imgs, sync=False)
+            results_2 = self.custom_model.predict(source=imgs)
         else:
             results_2 = None
-
-        print(f"....did we make it here2222?")
-
 
         # each item will be the predictions for a task
         predictions = []
@@ -178,15 +136,9 @@ class YOLO_LS(LabelStudioMLBase):
             
             for (result, len) in zip(results, lengths):
                 boxes = result.boxes.cpu().numpy()
-
-                print(result.names) # gives dict matching num to names ex. {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4
-
-                print(f"the confidences are {boxes.conf}")
-
                 pretrained = True if res_num == 0 else False
                 # results names
                 predictions.append(self.get_results(boxes.xywh, boxes.cls, len, boxes.conf, result.names, pretrained=pretrained))
-        print(f"the predictions are {predictions}")
         
         return predictions
 
@@ -194,8 +146,6 @@ class YOLO_LS(LabelStudioMLBase):
         """This method returns annotation results that will be packaged and sent to Label Studio frontend"""
         
         results = []
-
-        print(f"the to and from names are {self.from_name} and {self.to_name}")
 
         for box, class_num, conf in zip(boxes, classes, confidences):
 
@@ -274,8 +224,6 @@ class YOLO_LS(LabelStudioMLBase):
         project_path = sample_img_path.split("/")[:-1]
         image_name = sample_img_path.split("/")[-1]
 
-        print(f"image name is {image_name}")
-
         img1 = img.save(f"./datasets/temp/images/{image_name}")
         img2 = img.save(f"./datasets/temp/images/(2){image_name}")
 
@@ -323,9 +271,7 @@ class YOLO_LS(LabelStudioMLBase):
                 with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
                     f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
-        print(f"........at least we started")
         results = self.custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
-        print(f"........maybe we can end")
 
         self.first_use = False
         

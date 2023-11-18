@@ -5,3 +5,9 @@ labels_to_coco:
   cats: Cat
   lights: Traffic light
   cars: Car
+all_classes:
+  - "cats"
+  - "cars"
+  - "taxi"
+  - "lights"
+  - "others"

@@ -31,11 +31,13 @@ Edit your labeling config to something like the following
 </View>
 ```
 
-In the `label_to_coco.yml` edit the dictionary to where the keys are the exact names of your rectangular labels in label studio and the values are the exact names of the same classes in [open-images-v7.yaml](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml).
+In the `class_matching.yml` edit the `labels_to_coco` dictionary to where the keys are the exact names of your rectangular labels in label studio and the values are the exact names of the same classes in [open-images-v7.yaml](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/open-images-v7.yaml).
 
-Any classes in your labeling config that you do not add to `label_to_coco.yml` will be trained using the second, custom model.
+Any classes in your labeling config that you do not add to the `labels_to_coco` dictionary in `class_matching.yml` will be trained using the second, custom model.
 
-Note: if you leave this YAML file empty with no keys and values, only the custom model will be trained and then used for predictions. In such a case, the model trained on 600 classes will not be used at all.
+In the `all_classes` dictionary add all of the classes in your Label Studio labeling config that are under the rectangular labels.
+
+Note: if you leave the `labels_to_coco` dictionary empty with no keys and values, only the custom model will be trained and then used for predictions. In such a case, the model trained on 600 classes will not be used at all.
 
 2. Editing `docker-compose.yml`
 
@@ -46,7 +48,6 @@ Set `LABEL_STUDIO_ACCESS_TOKEN` by going to your Label Studio Accounts & Setting
 3. Running the backend
 
 Run `docker compose up` to start the backend. Under the `Machine Learning` settings in your project in Label Studio enter the following URL while adding the model: `http://{your_private_ip}:9090`. Note: if you changed the port before running the backend, you will have to change it here as well. 
-
 
 
 ## Notes
