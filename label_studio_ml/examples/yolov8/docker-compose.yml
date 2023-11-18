@@ -14,8 +14,6 @@ services:
     build: .
     environment:
       - MODEL_DIR=/data/models
-      # - WORKERS=2
-      # - THREADS=4
       - LOG_LEVEL=DEBUG
       - LABEL_STUDIO_HOST=
       - LABEL_STUDIO_ACCESS_TOKEN=
