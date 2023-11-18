@@ -1,13 +1,34 @@
 version: "3.8"
 
 services:
-  ml-backend:
+  redis:
+    image: redis:alpine
+    container_name: redis
+    hostname: redis
+    volumes:
+      - "./data/redis:/data"
+    expose:
+      - 6379
+  server:
     container_name: ml-backend
     build: .
     environment:
       - MODEL_DIR=/data/models
-      - WORKERS=2
-      - THREADS=4
+      # - WORKERS=2
+      # - THREADS=4
       - LOG_LEVEL=DEBUG
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
+      - RQ_QUEUE_NAME=default
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LABEL_STUDIO_USE_REDIS=true
     ports:
       - "9090:9090"
+    depends_on:
+      - redis
+    links:
+      - redis
+    volumes:
+      - "./data/server:/data"
+      - "./logs:/tmp"

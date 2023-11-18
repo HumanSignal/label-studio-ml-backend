@@ -29,22 +29,11 @@ JUST_CUSTOM = True if len(label_to_COCO) == 0 else False
 # if you want to do it for a new task, move this model out of the directory
 NEW_START = os.path.isfile('yolov8n(custom).pt')
 
-if not JUST_CUSTOM: 
-    pretrained_model = YOLO('yolov8n-oiv7.pt')
 
-if NEW_START:
-    shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
-    custom_model = YOLO('yolov8n(custom).pt')
-    FIRST_USE = True
-else:
-    custom_model = YOLO('yolov8n(custom).pt')
-    FIRST_USE = False
+class YOLO_LS(LabelStudioMLBase):
 
-
-class YOLO(LabelStudioMLBase):
-
-    def __init__(self, **kwargs):
-        super(YOLO, self).__init__(**kwargs)
+    def __init__(self, project_id, **kwargs):
+        super(YOLO_LS, self).__init__(**kwargs)
 
         print(f"initializing teh model the kwargs are {kwargs}")
         self.device = "cuda" if torch.cuda.is_available else "cpu" # can to mps
@@ -52,14 +41,28 @@ class YOLO(LabelStudioMLBase):
 
         # self.custom_parsed_label_config = parse_config(self.label_config)
 
-        print(self.parsed_label_config)
+        # print(self.parsed_label_config)
         # print(self.custom_parsed_label_config)
+
+        if not JUST_CUSTOM: 
+            self.pretrained_model = YOLO('yolov8n-oiv7.pt')
+            # test = self.pretrained_model('./feral-cat-Kevin-Patrick.jpg')
+
+        if not NEW_START:
+            shutil.copyfile('./yolov8n.pt', 'yolov8n(custom).pt')
+            self.custom_model = YOLO('yolov8n(custom).pt')
+            FIRST_USE = True
+        else:
+            self.custom_model = YOLO('yolov8n(custom).pt')
+            FIRST_USE = False
 
         self.first_use = FIRST_USE
 
         # print(f"can it gather the config? {self.custom_parsed_label_config} and {self.label_config}")
-        parsed = self.parsed_label_config
-        classes = parsed['label']['labels']
+        # parsed = self.parsed_label_config
+        # classes = parsed['label']['labels']
+
+        classes = ["cats", "cars", "taxi", "lights", "others"]
 
         print(f"the classes are {classes}")
 
@@ -128,6 +131,9 @@ class YOLO(LabelStudioMLBase):
                 print("..... umm we shouldn't be here")
                 img_path = raw_img_path
             
+            # print(f"....did we make it here0.1?")
+
+            print(f"the image path is {img_path}")
             img = Image.open(img_path)
 
 
@@ -136,10 +142,16 @@ class YOLO(LabelStudioMLBase):
             W, H = img.size
             lengths.append((H, W))
 
+        print(f"....did we make it here0.0? {W} {H}")
 
         # predicting from PIL loaded images
         if not self.JUST_CUSTOM:
-            results_1 = pretrained_model.predict(source=imgs) # define model earlier
+            print(f"at least we made it")
+            try:
+                results_1 = self.pretrained_model.predict(imgs[0]) # define model earlier
+            except Exception as e:
+                print(f"the error was {e}")
+            # results_1 = self.pretrained_model(imgs)
         else:
             results_1 = None
 
@@ -149,7 +161,7 @@ class YOLO(LabelStudioMLBase):
         # we don't want the predictions from the pretrained version of the custom model
         # because it hasn't reshaped to the new classes yet
         if not self.first_use:
-            results_2 = custom_model.predict(source=imgs)
+            results_2 = self.custom_model.predict(source=imgs, sync=False)
         else:
             results_2 = None
 
@@ -311,8 +323,9 @@ class YOLO(LabelStudioMLBase):
                 with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
                     f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
-
-        results = custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
+        print(f"........at least we started")
+        results = self.custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
+        print(f"........maybe we can end")
 
         self.first_use = False
         
