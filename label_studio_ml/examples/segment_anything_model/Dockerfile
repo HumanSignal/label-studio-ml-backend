@@ -25,7 +25,7 @@ COPY * /app/
 
 
 
-ENV ACCESS_TOKEN=0c5e516d37ed2bc1d11ff5fc59ebaf5e0f756386
+ENV ACCESS_TOKEN=be24dfbee45f8916fc2fee2d6f71da1dc9d5f109
 
 RUN pip install opencv-python
 
