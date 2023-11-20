@@ -6,11 +6,9 @@ RUN apt-get update && \
     apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev gcc
 
 ENV PYTHONUNBUFFERED=True \
-    PORT=9090 \
-    WORKERS=2 \
-    THREADS=4
+    PORT=9090 
 
-WORKDIR /app
+WORKDIR /tmp
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
@@ -18,6 +16,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN wget https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n-oiv7.pt
 RUN wget https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt
 
-COPY . ./
+COPY uwsgi.ini /etc/uwsgi/
+COPY supervisord.conf /etc/supervisor/conf.d/
 
-CMD exec gunicorn --preload --bind :$PORT --workers $WORKERS --threads $THREADS --timeout 0 _wsgi:app
+WORKDIR /app
+
+RUN mkdir -p datasets/temp/images
+RUN mkdir -p datasets/temp/labels
+
+COPY * /app/
+
+EXPOSE 9090
+
+CMD ["/usr/local/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

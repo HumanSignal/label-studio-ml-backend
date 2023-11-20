@@ -47,5 +47,6 @@ typing_extensions==4.8.0
 tzdata==2023.3
 ultralytics==8.0.200
 urllib3==2.0.7
-# Werkzeug==2.0.2
+supervisor==4.2.2
+uwsgi==2.0.21
 rq
