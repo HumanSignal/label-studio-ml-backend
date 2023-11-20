@@ -81,6 +81,7 @@ class YOLO_LS(LabelStudioMLBase):
         self.custom_name_to_num = {v:k for k, v in self.custom_num_to_name.items()}
 
 
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Inference logic for YOLO model """
 
@@ -224,6 +225,8 @@ class YOLO_LS(LabelStudioMLBase):
         project_path = sample_img_path.split("/")[:-1]
         image_name = sample_img_path.split("/")[-1]
 
+        
+
         img1 = img.save(f"./datasets/temp/images/{image_name}")
         img2 = img.save(f"./datasets/temp/images/(2){image_name}")
 
@@ -231,7 +234,7 @@ class YOLO_LS(LabelStudioMLBase):
         all_new_paths.append(f"./datasets/temp/images/(2){image_name}")
 
         # now saving text file labels
-        txt_name = (image_path.split('/')[-1]).rsplit('.', 1)[0]
+        txt_name = image_name.rsplit('.', 1)[0]
 
         with open(f'./datasets/temp/labels/{txt_name}.txt', 'w') as f:
             f.write("")
@@ -246,7 +249,7 @@ class YOLO_LS(LabelStudioMLBase):
 
             value = result['value']
             label = value['rectanglelabels'][0]
-
+            
             if label in self.custom_name_to_num:
             
                 # these are out of 100, so you need to convert them back
@@ -263,7 +266,7 @@ class YOLO_LS(LabelStudioMLBase):
                 trans_x = (x / 100) + (0.5 * w)
                 trans_y = (y / 100) + (0.5 * h)
 
-                # now getting the class label 
+                # now getting the class label
                 label_num = self.custom_name_to_num.get(label)
 
                 with open(f'./datasets/temp/labels/{txt_name}.txt', 'a') as f:
