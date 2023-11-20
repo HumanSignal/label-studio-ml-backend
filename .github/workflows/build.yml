@@ -57,7 +57,7 @@ jobs:
 
       - name: Push Docker image
         if: steps.check_changes.outputs.skip != 'true'
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v5.1.0
         id: docker_build_and_push
         with:
           context: ${{ env.examples_dir }}/${{ env.backend_dir_name }}
