@@ -69,6 +69,9 @@ class DINOBackend(LabelStudioMLBase):
             
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
+        if not context or not context.get('result'):
+            # if there is no context, no interaction has happened yet
+            return []
 
         self.from_name, self.to_name, self.value = self.get_first_tag_occurence('RectangleLabels', 'Image')
 
