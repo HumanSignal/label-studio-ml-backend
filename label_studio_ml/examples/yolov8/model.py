@@ -85,6 +85,8 @@ class YOLO_LS(LabelStudioMLBase):
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Inference logic for YOLO model """
 
+        print("..... we here 3.9")
+
         imgs = []
         lengths = []
 
@@ -195,14 +197,23 @@ class YOLO_LS(LabelStudioMLBase):
         You can run your logic here to update the model       
         """
 
-        results = data['annotation']['result']
-        data = data['task']['data']
-        image_path = data['image']
-        image_paths = [image_path]
         all_new_paths = []
 
-        true_img_paths = []
-        for raw_img_path in image_paths:
+        try:
+            total_results = data['annotations']
+        except: # then this is a submission of just one image from the annotation image page
+            total_results = [data]
+
+        multiple_results = True if len(total_results) > 1 else False
+
+        for task in total_results:
+
+            if not multiple_results:
+                raw_img_path = task["task"]["data"]["image"]
+            else:
+                raw_img_path = task["data"]["image"]
+
+            
             try:
                 img_path = get_image_local_path(
                     raw_img_path,
@@ -211,68 +222,77 @@ class YOLO_LS(LabelStudioMLBase):
                 )
             except:
                 img_path = raw_img_path
-            
+        
             img = Image.open(img_path)
 
-            name = raw_img_path.split("/")[-1]
+            sample_img_path = img_path
 
-            true_img_paths.append(img_path)
+            img = Image.open(sample_img_path)
+
+            image_name = sample_img_path.split("/")[-1]
             
-        sample_img_path = true_img_paths[0]
+            img1 = img.save(f"./datasets/temp/images/{image_name}")
 
-        img = Image.open(sample_img_path)
+            if not multiple_results:
+                img2 = img.save(f"./datasets/temp/images/(2){image_name}")
 
-        project_path = sample_img_path.split("/")[:-1]
-        image_name = sample_img_path.split("/")[-1]
+            all_new_paths.append(f"./datasets/temp/images/{image_name}")
 
-        
+            if not multiple_results:
+                all_new_paths.append(f"./datasets/temp/images/(2){image_name}")
 
-        img1 = img.save(f"./datasets/temp/images/{image_name}")
-        img2 = img.save(f"./datasets/temp/images/(2){image_name}")
+            # now saving text file labels
+            txt_name = image_name.rsplit('.', 1)[0]
 
-        all_new_paths.append(f"./datasets/temp/images/{image_name}")
-        all_new_paths.append(f"./datasets/temp/images/(2){image_name}")
+            with open(f'./datasets/temp/labels/{txt_name}.txt', 'w') as f:
+                f.write("")
 
-        # now saving text file labels
-        txt_name = image_name.rsplit('.', 1)[0]
-
-        with open(f'./datasets/temp/labels/{txt_name}.txt', 'w') as f:
-            f.write("")
-        with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'w') as f:
-            f.write("")
-
-        all_new_paths.append(f'./datasets/temp/labels/{txt_name}.txt')
-        all_new_paths.append(f'./datasets/temp/labels/(2){txt_name}.txt')
-
-
-        for result in results:
-
-            value = result['value']
-            label = value['rectanglelabels'][0]
             
-            if label in self.custom_name_to_num:
-            
-                # these are out of 100, so you need to convert them back
-                x = value['x']
-                y = value['y']
-                width = value['width']
-                height = value['height']
+            if not multiple_results:
+                with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'w') as f:
+                    f.write("")
 
-                orig_width = result['original_width']
-                orig_height = result['original_height']
+            all_new_paths.append(f'./datasets/temp/labels/{txt_name}.txt')
 
-                w = width / 100
-                h = height / 100
-                trans_x = (x / 100) + (0.5 * w)
-                trans_y = (y / 100) + (0.5 * h)
+            if not multiple_results:
+                all_new_paths.append(f'./datasets/temp/labels/(2){txt_name}.txt')
 
-                # now getting the class label
-                label_num = self.custom_name_to_num.get(label)
+            if not multiple_results:
+                results = task["annotation"]["result"]
+            else:
+                results = task["annotations"][0]["result"]
 
-                with open(f'./datasets/temp/labels/{txt_name}.txt', 'a') as f:
-                    f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
-                with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
-                    f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
+
+            for result in results:
+
+                value = result['value']
+                label = value['rectanglelabels'][0]
+                
+                if label in self.custom_name_to_num:
+                
+                    # these are out of 100, so you need to convert them back
+                    x = value['x']
+                    y = value['y']
+                    width = value['width']
+                    height = value['height']
+
+                    orig_width = result['original_width']
+                    orig_height = result['original_height']
+
+                    w = width / 100
+                    h = height / 100
+                    trans_x = (x / 100) + (0.5 * w)
+                    trans_y = (y / 100) + (0.5 * h)
+
+                    # now getting the class label
+                    label_num = self.custom_name_to_num.get(label)
+
+                    with open(f'./datasets/temp/labels/{txt_name}.txt', 'a') as f:
+                        f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
+                    
+                    if not multiple_results:
+                        with open(f'./datasets/temp/labels/(2){txt_name}.txt', 'a') as f:
+                            f.write(f"{label_num} {trans_x} {trans_y} {w} {h}\n")
         
         results = self.custom_model.train(data='custom_config.yml', epochs = 1, imgsz=640)
 
