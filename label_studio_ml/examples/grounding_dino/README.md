@@ -57,6 +57,8 @@ If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as
 
 ## Batching Inputs
 
+https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/79b788e3-9147-47c0-90db-0404066ee43f
+
 > Note: this is an experimental feature.
 
 1. Clone the label studio branch with the added batching features.
