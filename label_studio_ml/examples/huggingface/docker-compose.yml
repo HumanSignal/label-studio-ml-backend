@@ -1,28 +1,16 @@
 version: "3.8"
 
 services:
-  redis:
-    image: redis:alpine
-    container_name: redis
-    hostname: redis
-    volumes:
-      - "./data/redis:/data"
-    expose:
-      - 6379
   server:
     container_name: server
+    image: humansignal/huggingface-gpt:v0
     build: .
     environment:
       - MODEL_DIR=/data/models
-      - RQ_QUEUE_NAME=default
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - TRANSFORMERS_CACHE=/data/models/transformers-cache
+      - MODEL_NAME=microsoft/DialoGPT-small
+      - LOG_LEVEL=DEBUG
     ports:
-      - 9090:9090
-    depends_on:
-      - redis
-    links:
-      - redis
+      - 9091:9090
     volumes:
       - "./data/server:/data"
-      - "./logs:/tmp"

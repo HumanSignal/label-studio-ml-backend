@@ -1,0 +1,4 @@
+gunicorn==20.1.0
+label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@e62d71d7d3cd21f70aa8c7d5c2d8db8b2c1b7d80
+langchain
+google-search-results==2.4.2

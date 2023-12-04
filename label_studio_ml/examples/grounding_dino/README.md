@@ -10,6 +10,8 @@ See [here](https://github.com/IDEA-Research/GroundingDINO) for more details abou
 
 
 ## Quickstart
+=======
+Quickstart
 
 1. Make sure docker is installed
 2. Edit `docker-compose.yml` to include your LABEL_STUDIO_ACCESS_TOKEN found in the Label Studio software, and the LABEL_STUDIO_HOST which includes the address on which the frontend is hosted on.

@@ -21,6 +21,25 @@ CACHE = create_cache(
     path=os.getenv('MODEL_DIR', '.'))
 
 
+# Decorator to register predict function
+_predict_fn: Callable
+_update_fn: Callable
+
+
+def predict_fn(f):
+    global _predict_fn
+    _predict_fn = f
+    logger.info(f'{Fore.GREEN}Predict function "{_predict_fn.__name__}" registered{Fore.RESET}')
+    return f
+
+
+def update_fn(f):
+    global _update_fn
+    _update_fn = f
+    logger.info(f'{Fore.GREEN}Update function "{_update_fn.__name__}" registered{Fore.RESET}')
+    return f
+
+
 class LabelStudioMLBase(ABC):
     
     TRAIN_EVENTS = (
@@ -67,7 +86,7 @@ class LabelStudioMLBase(ABC):
     def model_version(self):
         return self.get('model_version')
 
-    @abstractmethod
+    # @abstractmethod
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """
         Predict method should return a list of dicts with predictions for each task.
@@ -76,7 +95,10 @@ class LabelStudioMLBase(ABC):
         :param kwargs:
         :return: the list of dicts with predictions
         """
-        pass
+
+        # if there is a registered predict function, use it
+        if _predict_fn:
+            return _predict_fn(tasks, context, helper=self, **kwargs)
 
     def process_event(self, event, data, job_id, additional_params):
         if event in self.TRAIN_EVENTS:
@@ -86,7 +108,9 @@ class LabelStudioMLBase(ABC):
             return train_output
 
     def fit(self, event, data, **additional_params):
-        pass
+        # if there is a registered update function, use it
+        if _update_fn:
+            return _update_fn(event, data, helper=self, **additional_params)
 
     def get_local_path(self, url, project_dir=None):
         return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)

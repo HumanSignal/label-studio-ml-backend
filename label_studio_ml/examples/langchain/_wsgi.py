@@ -1,6 +1,6 @@
-import json
 import os
 import argparse
+import json
 import logging
 import logging.config
 
@@ -14,13 +14,13 @@ logging.config.dictConfig({
   "handlers": {
     "console": {
       "class": "logging.StreamHandler",
-      "level": os.getenv('LOG_LEVEL', 'DEBUG'),
+      "level": os.getenv('LOG_LEVEL'),
       "stream": "ext://sys.stdout",
       "formatter": "standard"
     }
   },
   "root": {
-    "level": os.getenv('LOG_LEVEL', 'DEBUG'),
+    "level": os.getenv('LOG_LEVEL'),
     "handlers": [
       "console"
     ],
@@ -29,7 +29,8 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from gpt import DialoGPTSimpleGenerator
+
+from .model import NewModel
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -88,7 +89,7 @@ if __name__ == "__main__":
                 param[k] = int(v)
             elif v == 'True' or v == 'true':
                 param[k] = True
-            elif v == 'False' or v == 'False':
+            elif v == 'False' or v == 'false':
                 param[k] = False
             elif isfloat(v):
                 param[k] = float(v)
@@ -102,17 +103,13 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + DialoGPTSimpleGenerator.__name__ + '" instance creation..')
-        model = DialoGPTSimpleGenerator(**kwargs)
+        print('Check "' + NewModel.__name__ + '" instance creation..')
+        model = NewModel(**kwargs)
 
-    app = init_app(
-        model_class=DialoGPTSimpleGenerator
-    )
+    app = init_app(model_class=NewModel)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(
-        model_class=DialoGPTSimpleGenerator,
-    )
+    app = init_app(model_class=NewModel)

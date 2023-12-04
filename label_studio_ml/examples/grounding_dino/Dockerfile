@@ -21,6 +21,7 @@ WORKDIR /app/Grounding-DINO-Batch-Inference/GroundingDINO
 RUN pip -q install -e .
 RUN mkdir weights
 WORKDIR /app/Grounding-DINO-Batch-Inference/GroundingDINO/weights
+
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
 
 WORKDIR /app

@@ -2,6 +2,7 @@ import os
 import json
 import random
 import label_studio_sdk
+from uuid import uuid4
 
 
 from label_studio_ml.model import LabelStudioMLBase
@@ -32,7 +33,10 @@ class MyModel(LabelStudioMLBase):
             prediction_result_example = json.loads(last_annotation)
             output_prediction = [{
                 'result': prediction_result_example,
-                'score': random.uniform(0, 1)
+                'score': random.uniform(0, 1),
+                # to control the model versioning, you can use the model_version parameter
+                # it will be displayed in the UI and also will be available in the exported results
+                'model_version': self.model_version
             }] * len(tasks)
         else:
             output_prediction = []
@@ -57,3 +61,5 @@ class MyModel(LabelStudioMLBase):
         It simply stores the latest annotation as a "prediction model" artifact
         """
         self.set('last_annotation', json.dumps(data['annotation']['result']))
+        # to control the model versioning, you can use the model_version parameter
+        self.set('model_version', str(uuid4())[:8])

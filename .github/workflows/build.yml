@@ -19,19 +19,21 @@ jobs:
             backend_tag_name: sam-v0
           - backend_dir_name: llm_interactive
             backend_tag_name: llm-v7
+          - backend_dir_name: the_simplest_backend
+            backend_tag_name: simplebackend-v0
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
       examples_dir: label_studio_ml/examples
       backend_dir_name: ${{ matrix.backend_dir_name }}
       backend_tag_name: ${{ matrix.backend_tag_name }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: "${{ env.GITHUB_SHA }}"
           fetch-depth: 0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2.10.0
+        uses: docker/setup-buildx-action@v3.0.0
 
       - name: Check for Changes in Directory
         id: check_changes
@@ -48,14 +50,14 @@ jobs:
 
       - name: Login to DockerHub
         if: ${{ steps.check_changes.outputs.skip != 'true' && !github.event.pull_request.head.repo.fork }}
-        uses: docker/login-action@v2.2.0
+        uses: docker/login-action@v3.0.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push Docker image
         if: steps.check_changes.outputs.skip != 'true'
-        uses: docker/build-push-action@v4.1.1
+        uses: docker/build-push-action@v5.1.0
         id: docker_build_and_push
         with:
           context: ${{ env.examples_dir }}/${{ env.backend_dir_name }}
