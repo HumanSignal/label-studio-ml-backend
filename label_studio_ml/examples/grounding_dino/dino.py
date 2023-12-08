@@ -181,8 +181,6 @@ class DINOBackend(LabelStudioMLBase):
 
             image_paths.append(img_path)
 
-        print(image_paths)
-
         boxes, logits, lengths = self.batch_dino(image_paths)
 
         box_by_task = []
@@ -217,7 +215,6 @@ class DINOBackend(LabelStudioMLBase):
             
     # make sure you use new github repo when predicting in batch
     def batch_dino(self, image_paths):
-        print("0here1")
         # text prompt is same as self.label
         loaded_images = []
         lengths = []
