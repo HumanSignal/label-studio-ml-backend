@@ -32,4 +32,4 @@ RUN pip install olefile
 COPY . ./
 
 
-CMD gunicorn --preload --bind :$PORT --workers $WORKERS --threads $THREADS --timeout 0 --debug _wsgi:app
+CMD gunicorn --preload --bind :$PORT --workers $WORKERS --threads $THREADS --timeout 0 _wsgi:app
