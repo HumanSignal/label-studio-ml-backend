@@ -7,4 +7,4 @@ rq==1.10.1
 supervisor==4.2.2
 torch==1.12
 torchvision==0.13
-uwsgi==2.0.19.1
+uwsgi==2.0.22
