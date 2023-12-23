@@ -4,4 +4,4 @@ rq
 supervisor==4.2.2
 torch
 transformers
-uwsgi==2.0.19.1
+uwsgi==2.0.22
