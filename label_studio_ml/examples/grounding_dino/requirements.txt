@@ -22,7 +22,7 @@ diffusers==0.20.1
 executing==1.2.0
 filelock==3.12.3
 Flask==2.3.3
-fonttools==4.42.1
+fonttools==4.43.0
 fsspec==2023.6.0
 huggingface-hub==0.16.4
 idna==3.4
