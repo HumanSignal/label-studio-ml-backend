@@ -42,6 +42,7 @@ def gpt(messages: Union[List[Dict], str]):
 class OpenAIInteractive(LabelStudioMLBase):
 
     PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
+    USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv('USE_INTERNAL_PROMPT_TEMPLATE', 1)))
     PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
     SUPPORTED_INPUTS = ('Image', 'Text', 'HyperText', 'Paragraphs')
     NUM_RESPONSES = int(os.getenv('NUM_RESPONSES', 1))
@@ -133,10 +134,10 @@ class OpenAIInteractive(LabelStudioMLBase):
         if context:
             # interactive mode - get prompt from context
             prompts = self.get_prompts(context, prompt_from_name)
-            prompt = '\n'.join(prompts)
         elif prompt := self.get(prompt_from_name):
             # initializing - get existing prompt from storage
             prompts = [prompt]
+        prompt = '\n'.join(prompts)
 
         if not prompts:
             return []
@@ -155,9 +156,16 @@ class OpenAIInteractive(LabelStudioMLBase):
         for task in tasks:
             text = self.get_text(task, data_type, value_key)
 
-            norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
-            # run inference
-            response = gpt(norm_prompt)
+            if not prompts:
+                response = gpt(text)
+            else:
+                if self.USE_INTERNAL_PROMPT_TEMPLATE:
+                    norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
+                else:
+                    task_data = task['data']
+                    norm_prompt = prompt.format(**task_data)
+                # run inference
+                response = gpt(norm_prompt)
 
             result = []
             if use_choices:
