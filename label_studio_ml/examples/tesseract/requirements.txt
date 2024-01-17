@@ -1,10 +1,11 @@
-Jinja2==3.0.3
-boto3==1.22.0
-click==7.1.2
-itsdangerous==2.0.1
-label-studio-ml==1.0.8
-pytesseract==0.3.9
-rq==1.10.1
-supervisor==4.2.2
-uwsgi==2.0.19.1
-werkzeug==2.0.2
+Jinja2
+boto3
+click
+itsdangerous
+pytesseract
+rq
+supervisor
+werkzeug
+gunicorn
+
+label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git

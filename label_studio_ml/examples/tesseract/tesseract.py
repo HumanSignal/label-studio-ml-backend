@@ -3,20 +3,22 @@ import pytesseract as pt
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_image_local_path
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 global OCR_config
 OCR_config = "--psm 6"
 
+LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
+LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 class BBOXOCR(LabelStudioMLBase):
-    def __init__(self, **kwargs):
-        super(BBOXOCR, self).__init__(**kwargs)
 
     def predict(self, tasks, **kwargs):
         # extract task meta data: labels, from_name, to_name and other
         task = tasks[0]
         img_path_url = task["data"]["ocr"]
+
         context = kwargs.get('context')
         if context:
             if not context["result"]:
@@ -27,11 +29,14 @@ class BBOXOCR(LabelStudioMLBase):
             y = meta["y"]*meta["original_height"]/100
             w = meta["width"]*meta["original_width"]/100
             h = meta["height"]*meta["original_height"]/100
-            filepath = get_image_local_path(img_path_url)
+            filepath = get_image_local_path(img_path_url,
+                    label_studio_access_token=LABEL_STUDIO_ACCESS_TOKEN,
+                    label_studio_host=LABEL_STUDIO_HOST)
             IMG = Image.open(filepath)
             result_text = pt.image_to_string(IMG.crop((x,y,x+w,y+h)),
                                             config=OCR_config)
             meta["text"] = result_text
+            print(result_text)
             temp = {
                 "original_width": meta["original_width"],
                 "original_height": meta["original_height"],
