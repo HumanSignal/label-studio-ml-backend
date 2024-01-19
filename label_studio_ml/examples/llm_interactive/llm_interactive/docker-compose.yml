@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  ml-backend:
+    container_name: ml-backend
+    image: humansignal/ml-backend:v0
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+      - WORKERS=2
+      - THREADS=4
+      - LOG_LEVEL=DEBUG
+      - ANY=PARAMETER
+    ports:
+      - "9090:9090"
