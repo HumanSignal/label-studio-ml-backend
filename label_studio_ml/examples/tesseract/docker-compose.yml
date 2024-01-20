@@ -2,14 +2,26 @@ version: "3.8"
 
 services:
 
-  server:
-    container_name: server
+  tesseract-backend:
+    container_name: tesseract-backend
     build: .
-    environment:
-      - LABEL_STUDIO_HOST=http://host.docker.internal:8080
-      - LABEL_STUDIO_ACCESS_TOKEN=967a701bb2bf7791f08c1cd357e73abd780609fd
+    env_file:
+      - example.env
     ports:
       - 9090:9090
     volumes:
       - "./data/server:/data"
       - "./logs:/tmp"
+
+  minio:
+    container_name: minio
+    image: quay.io/minio/minio
+    env_file:
+      - example.env
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - ".data/storage:/data"
+    command: server /data --console-address ":9001"
+
