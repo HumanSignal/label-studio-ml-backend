@@ -84,7 +84,7 @@ tokenizers==0.13.3
 tomli==2.0.1
 torch==2.0.1
 torchvision==0.15.2
-tornado==6.3.2
+tornado==6.3.3
 tqdm==4.66.1
 traitlets==5.9.0
 transformers==4.32.1
