@@ -38,7 +38,7 @@ Minio.
 
 2. Create a new project for Tesseract OCR. In the project **Settings** set up the **Labeling Interface**.
 
-   Fill in the following template code. It's important to specifiy `smart="true"` in RectangleLabels.
+   Fill in the following template code. It's important to specify `smart="true"` in RectangleLabels.
    ```
    <View>    
       <Image name="image" value="$ocr" zoom="true" zoomControl="false"
@@ -67,8 +67,8 @@ Minio.
 4. Configure the backend and the Minio server by editing the `example.env` file. If you opted to use Label Studio
    Local File Storage, be sure to set the `LABEL_STUDIO_HOST` and `LABEL_STUDIO_ACCESS_TOKEN` variables. If you're
    using the Minio storage example, set the `MINIO_ROOT_USER` AND `MINIO_ROOT_PASSWORD` variables, and make the 
-   `AWS_ACCESS_KEY_ID` AND `AWS_SECRET_ACCESS_KEY` variables equal to those values. You may optionally connect to you
-   own AWS cloud storage setting those variables. _note that you may need to make additional software changes to the
+   `AWS_ACCESS_KEY_ID` AND `AWS_SECRET_ACCESS_KEY` variables equal to those values. You may optionally connect to your
+   own AWS cloud storage by setting those variables. Note that you may need to make additional software changes to the
    `tesseract.py` file to match your particular infrastructure configuration.
 
    ```
@@ -93,22 +93,22 @@ Minio.
 6. Upload tasks.
 
    If you're using the Label Studio Local File Storage option, upload images
-   directly to Label Studio using the Label Studio inteface.
+   directly to Label Studio using the Label Studio interface.
 
    If you're using minio for task storage, log into the minio control panel at
-   `http://localhost:9001`. Create a new bucket, making anote of the name, and
+   `http://localhost:9001`. Create a new bucket, making a note of the name, and
    upload your tasks to minio. Set the visibility of the tasks to be public.
    Furtner configuration of your cloud storage is beyond the scope of this
    tutorial, and you will want to configure your storage according to your
    particular needs. 
 
-7. If using mini, In the project **Settings**, set up the **Cloud storage**.
+7. If using minio, In the project **Settings**, set up the **Cloud storage**.
 
    Add your source S3 storage by connecting to the S3 Endpoint
    `http://host.docker.internal:9000`, using the bucket name from the previous
-   step, and Access Key ID and Secret Access Key as configured in the prvious
-   steps. For the minio example, uncheck **Use pre-signed-URLS**. Check the
-   connection and save the storage
+   step, and Access Key ID and Secret Access Key as configured in the previous
+   steps. For the minio example, uncheck **Use pre-signed URLS**. Check the
+   connection and save the storage.
 
 8. Open the **Machine Learning** settings and click **Add Model**.
 
