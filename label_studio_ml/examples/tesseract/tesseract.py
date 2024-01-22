@@ -32,9 +32,6 @@ class BBOXOCR(LabelStudioMLBase):
 
     @staticmethod
     def load_image(img_path_url):
-
-        print(img_path_url)
-
         # load an s3 image, this is very basic demonstration code
         # you may need to modify to fit your own needs
         if img_path_url.startswith("s3:"):
@@ -59,7 +56,6 @@ class BBOXOCR(LabelStudioMLBase):
 
 
         context = kwargs.get('context')
-        print(json.dumps(context, indent=2))
         if context:
             if not context["result"]:
                 return []
@@ -76,7 +72,6 @@ class BBOXOCR(LabelStudioMLBase):
             result_text = pt.image_to_string(IMG.crop((x,y,x+w,y+h)),
                                             config=OCR_config).strip()
             meta["text"] = result_text
-            print(result_text)
             temp = {
                 "original_width": meta["original_width"],
                 "original_height": meta["original_height"],
