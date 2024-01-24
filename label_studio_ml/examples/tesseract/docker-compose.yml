@@ -1,28 +1,27 @@
 version: "3.8"
 
 services:
-  redis:
-    image: redis:alpine
-    container_name: redis
-    hostname: redis
-    volumes:
-      - "./data/redis:/data"
-    expose:
-      - 6379
-  server:
-    container_name: server
+
+  tesseract-backend:
+    container_name: tesseract-backend
     build: .
-    environment:
-      - MODEL_DIR=/data/models
-      - RQ_QUEUE_NAME=default
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+    env_file:
+      - example.env
     ports:
       - 9090:9090
-    depends_on:
-      - redis
-    links:
-      - redis
     volumes:
       - "./data/server:/data"
       - "./logs:/tmp"
+
+  minio:
+    container_name: minio
+    image: quay.io/minio/minio
+    env_file:
+      - example.env
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - ".data/storage:/data"
+    command: server /data --console-address ":9001"
+
