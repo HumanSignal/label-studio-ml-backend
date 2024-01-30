@@ -18,7 +18,7 @@ jobs:
           - backend_dir_name: segment_anything_model
             backend_tag_name: sam-v0
           - backend_dir_name: llm_interactive
-            backend_tag_name: llm-v7
+            backend_tag_name: llm-v8
           - backend_dir_name: the_simplest_backend
             backend_tag_name: simplebackend-v0
     env:
