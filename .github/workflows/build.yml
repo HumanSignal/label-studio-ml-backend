@@ -62,12 +62,14 @@ jobs:
         id: check_changes
         shell: bash
         run: |
-          changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- "${{ env.examples_dir }}/${{ env.backend_dir_name }}" || true)
+          set -xueo pipefail
+          directory="${{ env.examples_dir }}/${{ env.backend_dir_name }}"
+          changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- "${directory}" || true)
           if [ -z "$changes" ]; then
-            echo "No changes in directory ${{ matrix.dir }}. Exiting job."
+            echo "::notice::No changes in directory ${directory}. Skipping build."
             echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "Changes detected in directory ${{ matrix.dir }}."
+            echo "Changes detected in directory ${directory}."
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
@@ -86,7 +88,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           IMAGE_NAME: "${{ env.IMAGE_NAME }}"
-          TAGS: "${{ steps.version.outpust.image_version }},${{ steps.version.outpust.image_branch_version }}"
+          TAGS: "${{ steps.version.outputs.image_version }},${{ steps.version.outputs.image_branch_version }}"
         with:
           script: |
             const raw_tags_input = process.env.TAGS;
@@ -97,7 +99,7 @@ jobs:
               .map(x => x.trim())
               .map(x => `${image_name}:${x}`)
               .join(',');
-            console.log(tags);
+            core.notice(`tags='${tags}'`)
             core.setOutput("tags", tags);
 
 
