@@ -16,24 +16,47 @@ jobs:
         # Allow list of models
         include:
           - backend_dir_name: segment_anything_model
-            backend_tag_name: sam-v0
+            backend_tag_prefix: sam-
           - backend_dir_name: llm_interactive
-            backend_tag_name: llm-v8
+            backend_tag_prefix: llm-
           - backend_dir_name: the_simplest_backend
-            backend_tag_name: simplebackend-v0
+            backend_tag_prefix: simplebackend-
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
       examples_dir: label_studio_ml/examples
       backend_dir_name: ${{ matrix.backend_dir_name }}
-      backend_tag_name: ${{ matrix.backend_tag_name }}
+      backend_tag_prefix: ${{ matrix.backend_tag_prefix }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GITHUB_SHA }}"
           fetch-depth: 0
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.0.0
+      - name: Calculate version
+        id: version
+        env:
+          BRANCH_NAME: "${{ github.event.pull_request.head.ref || github.ref_name }}"
+          PREFIX: "${{ env.backend_tag_prefix }}"
+        run: |
+          set -xueo pipefail
+          MAX_TAG_LENGTH=50
+          pretty_branch_name="$(echo -n "${BRANCH_NAME#refs/heads/}" | sed 's#/#-#g' | sed 's#_#-#g'| sed 's#\.#-#g' | tr '[:upper:]' '[:lower:]')"
+          echo "pretty_branch_name=$pretty_branch_name" >> $GITHUB_OUTPUT
+          timestamp="$(date +'%Y%m%d.%H%M%S')"
+          echo "timestamp=$timestamp" >> $GITHUB_OUTPUT
+          short_sha="$(git rev-parse --short HEAD)"
+          echo "short_sha=$short_sha" >> $GITHUB_OUTPUT
+          long_sha="$(git rev-parse HEAD)"
+          echo "sha=$long_sha" >> $GITHUB_OUTPUT
+          short_sha_length="$(echo $short_sha | awk '{print length}')"
+          timestamp_length="$(echo $timestamp | awk '{print length}')"
+          prefix_length="$(echo $PREFIX | awk '{print length}')"
+          short_branch="$(echo $pretty_branch_name | cut -c1-$((MAX_TAG_LENGTH - 2 - short_sha_length - timestamp_length - prefix_length)))"
+          echo "short_branch=$short_branch" >> $GITHUB_OUTPUT
+          image_version="${PREFIX}${timestamp}-${short_branch}-${short_sha}"
+          echo "image_version=$image_version" >> $GITHUB_OUTPUT
+          image_branch_version="${PREFIX}${short_branch}"
+          echo "image_branch_version=$image_branch_version" >> $GITHUB_OUTPUT
 
       - name: Check for Changes in Directory
         id: check_changes
@@ -48,6 +71,9 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.0.0
+
       - name: Login to DockerHub
         if: ${{ steps.check_changes.outputs.skip != 'true' && !github.event.pull_request.head.repo.fork }}
         uses: docker/login-action@v3.0.0
@@ -55,13 +81,33 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Calculate Docker tags
+        id: calculate-docker-tags
+        uses: actions/github-script@v7
+        env:
+          IMAGE_NAME: "${{ env.IMAGE_NAME }}"
+          TAGS: "${{ steps.version.outpust.image_version }},${{ steps.version.outpust.image_branch_version }}"
+        with:
+          script: |
+            const raw_tags_input = process.env.TAGS;
+            const image_name = process.env.IMAGE_NAME;
+            
+            const tags = raw_tags_input
+              .split(',')
+              .map(x => x.trim())
+              .map(x => `${image_name}:${x}`)
+              .join(',');
+            console.log(tags);
+            core.setOutput("tags", tags);
+
+
       - name: Push Docker image
         if: steps.check_changes.outputs.skip != 'true'
         uses: docker/build-push-action@v5.1.0
         id: docker_build_and_push
         with:
-          context: ${{ env.examples_dir }}/${{ env.backend_dir_name }}
+          context: "${{ env.examples_dir }}/${{ env.backend_dir_name }}"
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.backend_tag_name }}
+          tags: "${{ steps.calculate-docker-tags.outputs.tags }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
