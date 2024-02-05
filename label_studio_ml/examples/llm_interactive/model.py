@@ -168,8 +168,8 @@ class OpenAIInteractive(LabelStudioMLBase):
                 response = gpt(norm_prompt)
 
             result = []
-            if use_choices:
-                matched_labels = self.match_choices(response, original_choices)
+            if use_choices and len(response) > 0:
+                matched_labels = self.match_choices(response[0], original_choices)
                 result.append({
                     'id': str(uuid4())[:4],
                     'from_name': choices_from_name,
