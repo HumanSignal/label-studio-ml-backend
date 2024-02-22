@@ -47,7 +47,7 @@ class OpenAIInteractive(LabelStudioMLBase):
     SUPPORTED_INPUTS = ('Image', 'Text', 'HyperText', 'Paragraphs')
     NUM_RESPONSES = int(os.getenv('NUM_RESPONSES', 1))
     TEMPERATURE = float(os.getenv('TEMPERATURE', 0.7))
-    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
+    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
 
     def ocr(self, image_url):
         # Open the image containing the text
