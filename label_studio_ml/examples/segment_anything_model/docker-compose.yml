@@ -23,7 +23,7 @@ services:
       - SAM_CHOICE=MobileSAM
       - LOG_LEVEL=DEBUG
       # Add these variables if you want to access the images stored in Label Studio
-      - LABEL_STUDIO_HOST=http://...
+      - LABEL_STUDIO_HOST=  
       - LABEL_STUDIO_ACCESS_TOKEN=
     ports:
       - 9090:9090
