@@ -22,7 +22,7 @@ services:
       # Change this to your model name
       - SAM_CHOICE=MobileSAM
       - LOG_LEVEL=DEBUG
-      # Add these variables if you want to access the images stored in Label Studio
+      # Add these variables if you want to access the images stored in Label Studio, host should start with http:// or https://
       - LABEL_STUDIO_HOST=  
       - LABEL_STUDIO_ACCESS_TOKEN=
     ports:
