@@ -35,7 +35,7 @@ class SamMLBackend(LabelStudioMLBase):
             ctx_type = ctx['type']
             selected_label = ctx['value'][ctx_type][0]
             if ctx_type == 'keypointlabels':
-                point_labels.append(int(ctx['is_positive']))
+                point_labels.append(int(ctx.get('is_positive', 0)))
                 point_coords.append([int(x), int(y)])
             elif ctx_type == 'rectanglelabels':
                 box_width = ctx['value']['width'] * image_width / 100
