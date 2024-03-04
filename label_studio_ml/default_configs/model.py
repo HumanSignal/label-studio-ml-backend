@@ -24,7 +24,7 @@ class NewModel(LabelStudioMLBase):
         Project ID: {self.project_id}
         Label config: {self.label_config}
         Parsed JSON Label config: {self.parsed_label_config}
-        Extra params: {self.get_extra_params}''')
+        Extra params: {self.extra_params}''')
 
         # example for simple classification
         # return [{

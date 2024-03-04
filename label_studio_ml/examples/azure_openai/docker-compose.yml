@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  server:
+    container_name: server
+    image: humansignal/llm-interactive:v0
+    build: .
+    environment:
+      - MODEL_DIR=/data/models
+      - OPENAI_API_KEY=
+      - OPENAI_MODEL=gpt-4
+      - PROMPT_PREFIX=
+      - LOG_LEVEL=DEBUG
+      - NUM_RESPONSES=1
+      - TEMPERATURE=0.7
+    ports:
+      - 9090:9090
+    volumes:
+      - "./data/server:/data"
