@@ -7,24 +7,24 @@ from .response import ModelResponse
 from .model import LabelStudioMLBase
 from .exceptions import exception_handler
 
-
 logger = logging.getLogger(__name__)
 
 _server = Flask(__name__)
 MODEL_CLASS = LabelStudioMLBase
 BASIC_AUTH = None
 
+
 def init_app(model_class, basic_auth_user=None, basic_auth_pass=None):
     global MODEL_CLASS
     global BASIC_AUTH
-    
+
     if not issubclass(model_class, LabelStudioMLBase):
         raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
 
     MODEL_CLASS = model_class
     if basic_auth_user and basic_auth_pass:
         BASIC_AUTH = (basic_auth_user, basic_auth_pass)
-    
+
     return _server
 
 
@@ -60,11 +60,11 @@ def _predict():
 
     model = MODEL_CLASS(project_id=project_id,
                         label_config=label_config)
-    
+
     # model.use_label_config(label_config)
-    
+
     response = model.predict(tasks, context=context, **params)
-    
+
     # if there is no model version we will take the default
     if isinstance(response, ModelResponse):
         if not response.has_model_version:
@@ -73,17 +73,17 @@ def _predict():
                 response.set_version(mv)
         else:
             response.update_predictions_version()
-        
+
         response = response.serialize()
 
     res = response
     if res is None:
         res = []
-    
+
     if isinstance(res, dict):
         res = response.get("predictions", response)
-    
-    return jsonify({'results': res })
+
+    return jsonify({'results': res})
 
 
 @_server.route('/setup', methods=['POST'])
@@ -95,10 +95,10 @@ def _setup():
     extra_params = data.get('extra_params')
     model = MODEL_CLASS(project_id=project_id,
                         label_config=label_config)
-    
+
     if extra_params:
         model.set_extra_params(extra_params)
-        
+
     model_version = model.get('model_version')
     return jsonify({'model_version': model_version})
 
@@ -119,7 +119,7 @@ def webhook():
         return jsonify({'status': 'Unknown event'}), 200
     project_id = str(data['project']['id'])
     label_config = data['project']['label_config']
-    model = MODEL_CLASS(project_id, label_config=label_config)    
+    model = MODEL_CLASS(project_id, label_config=label_config)
     model.fit(event, data)
     return jsonify({}), 201
 
@@ -169,9 +169,9 @@ def check_auth():
         if not auth or not (safe_str_cmp(auth.username, BASIC_AUTH[0]) and safe_str_cmp(auth.password, BASIC_AUTH[1])):
             return Response('Unauthorized', 401, {'WWW-Authenticate': 'Basic realm="Login required"'})
 
+
 @_server.before_request
 def log_request_info():
-    
     logger.debug('Request headers: %s', request.headers)
     logger.debug('Request body: %s', request.get_data())
 
