@@ -10,8 +10,7 @@ import json
 import easyocr
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import get_image_size, \
-    get_single_tag_keys, DATA_UNDEFINED_NAME
+from label_studio_ml.utils import get_image_size, DATA_UNDEFINED_NAME
 from label_studio_tools.core.utils.io import get_data_dir
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse

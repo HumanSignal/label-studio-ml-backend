@@ -25,8 +25,8 @@ CACHE = create_cache(
 
 
 # Decorator to register predict function
-_predict_fn: Callable
-_update_fn: Callable
+_predict_fn: Callable = None
+_update_fn: Callable = None
 
 
 def predict_fn(f):
@@ -90,7 +90,7 @@ class LabelStudioMLBase(ABC):
         Args:
             label_config (str): The label configuration.
         """
-        self.label_interface = LabelingConfig(config=label_config)
+        self.label_interface = LabelInterface(config=label_config)
         
         # if not current_label_config:
             # first time model is initialized

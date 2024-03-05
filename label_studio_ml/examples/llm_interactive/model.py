@@ -14,6 +14,7 @@ from label_studio_ml.model import LabelStudioMLBase
 from uuid import uuid4
 from tenacity import retry, stop_after_attempt, wait_random
 
+
 openai.api_key = os.getenv('OPENAI_API_KEY')
 logger = logging.getLogger(__name__)
 

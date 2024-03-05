@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
 from label_studio_ml.model import LabelStudioMLBase
-from label_studio_ml.utils import (get_choice, get_env, get_local_path,
+from label_studio_ml.utils import (get_env, get_local_path,
                                    get_single_tag_keys, is_skipped)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

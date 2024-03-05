@@ -28,10 +28,13 @@ def chat_completion_call(messages, params, *args, **kwargs):
     # temperature=0.7, num_responses=1, 
     openai.api_key = params.get("api_key",
                                 os.getenv('OPENAI_API_KEY', OpenAIInteractive.OPENAI_KEY))
+
+    provider = params.get("provider", os.getenv('OPENAI_PROVIDER', "openai"))
     
     model = params.get("model", OpenAIInteractive.OPENAI_MODEL)
     num   = params.get("num_responses", OpenAIInteractive.NUM_RESPONSES)
     temp  = params.get("temperature", OpenAIInteractive.TEMPERATURE)
+    
     
     model_params = {
         "model": model,
@@ -40,8 +43,7 @@ def chat_completion_call(messages, params, *args, **kwargs):
         "temperature": temp
     }
         
-    if params and "provider" in params and \
-       params["provider"] == "azure":
+    if provider == "azure":
         openai.api_type = "azure"
         openai.api_base = params.get("resource_endpoint", None)
         openai.api_version = "2023-05-15"

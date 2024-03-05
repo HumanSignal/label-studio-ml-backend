@@ -13,11 +13,15 @@ LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY', 'you-label-studio-api-k
 
 
 class MyModel(LabelStudioMLBase):
-    """This simple Label Studio ML backend demonstrates training & inference steps with a simple scenario:
-    on training: it gets the latest created annotation and stores it as "prediction model" artifact
-    on inference: it returns the latest annotation as a pre-annotation for every incoming task
+    """This simple Label Studio ML backend demonstrates training &
+    inference steps with a simple scenario: on training: it gets the
+    latest created annotation and stores it as "prediction model"
+    artifact on inference: it returns the latest annotation as a
+    pre-annotation for every incoming task
 
-    When connected to Label Studio, this is a simple repeater model that repeats your last action on a new task
+    When connected to Label Studio, this is a simple repeater model
+    that repeats your last action on a new task
+
     """
 
     def predict(self, tasks, **kwargs):
@@ -40,7 +44,9 @@ class MyModel(LabelStudioMLBase):
             }] * len(tasks)
         else:
             output_prediction = []
+
         print(f'Return output prediction: {json.dumps(output_prediction, indent=2)}')
+
         return output_prediction
 
     def download_tasks(self, project):
@@ -53,6 +59,7 @@ class MyModel(LabelStudioMLBase):
         ls = label_studio_sdk.Client(LABEL_STUDIO_HOST, LABEL_STUDIO_API_KEY)
         project = ls.get_project(id=project)
         tasks = project.get_labeled_tasks()
+
         return tasks
 
     def fit(self, event, data,  **kwargs):

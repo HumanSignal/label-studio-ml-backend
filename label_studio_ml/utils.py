@@ -7,6 +7,7 @@ from typing import List
 
 from label_studio_tools.core.utils.params import get_env
 from label_studio_tools.core.utils.io import get_local_path
+from label_studio_sdk.label_interface import LabelInterface
 
 DATA_UNDEFINED_NAME = '$undefined$'
 
@@ -41,7 +42,7 @@ def get_first_tag_keys(parsed_label_config, control_type, object_type):
     :param control_type:
     :param object_type:
     :return:
-    """
+    """    
     for from_name, info in parsed_label_config.items():
         if info['type'] == control_type:
             for input in info['inputs']:

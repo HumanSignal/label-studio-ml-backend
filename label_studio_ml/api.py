@@ -75,8 +75,10 @@ def _predict():
             response.update_predictions_version()
         
         response = response.serialize()
+
+    res = response.get("predictions", response) if response else None
     
-    return jsonify({'results': response.get("predictions") if "predictions" in response else response })
+    return jsonify({'results': res })
 
 
 @_server.route('/setup', methods=['POST'])

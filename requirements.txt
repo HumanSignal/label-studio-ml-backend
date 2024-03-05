@@ -3,3 +3,4 @@ colorama~=0.4
 requests~=2.31
 semver~=3.0.2
 label-studio-tools
+label-studio-sdk~=0.0.34
