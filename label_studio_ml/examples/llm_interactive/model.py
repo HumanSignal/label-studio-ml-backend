@@ -23,8 +23,22 @@ logger = logging.getLogger(__name__)
 
 @retry(wait=wait_random(min=5, max=10), stop=stop_after_attempt(6))
 def chat_completion_call(messages, params, *args, **kwargs):
-    # provider="openai", endpoint=None, model="gpt-4",
-    # temperature=0.7, num_responses=1,
+    """
+    Request to OpenAI API (OpenAI, Azure)
+
+    Args:
+        messages: list of messages
+        params: dict with parameters
+           Example:
+               ```json
+              {
+                "api_key": "YOUR_API_KEY",
+                "provider": "openai",
+                "model": "gpt-4",
+                "num_responses": 1,
+                "temperature": 0.7
+                }```
+    """
     openai.api_key = params.get("api_key",
                                 os.getenv('OPENAI_API_KEY', OpenAIInteractive.OPENAI_KEY))
 
