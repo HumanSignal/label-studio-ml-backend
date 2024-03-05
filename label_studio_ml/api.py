@@ -76,7 +76,12 @@ def _predict():
         
         response = response.serialize()
 
-    res = response.get("predictions", response) if response else None
+    res = response
+    if res is None:
+        res = []
+    
+    if isinstance(res, dict):
+        res = response.get("predictions", response)
     
     return jsonify({'results': res })
 
