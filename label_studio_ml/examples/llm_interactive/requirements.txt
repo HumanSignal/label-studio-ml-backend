@@ -3,4 +3,4 @@ rq==1.10.1
 pytesseract==0.3.10
 openai==1.13.3
 tenacity==8.2.2
-label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git
+label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
