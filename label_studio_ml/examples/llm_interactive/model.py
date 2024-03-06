@@ -220,7 +220,7 @@ class OpenAIInteractive(LabelStudioMLBase):
         """
         regions = []
 
-        if choices_tag:
+        if choices_tag and len(response) > 0:
             matched_labels = self._match_choices(response, choices_tag.labels)
             regions.append(choices_tag.label(matched_labels))
 

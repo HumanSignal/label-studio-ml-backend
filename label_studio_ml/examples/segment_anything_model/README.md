@@ -158,7 +158,8 @@ This step is only necessary if you are not using the Docker build for this model
 You can download all weights and models using the following command:
 
 ```bash
-./download_weights.sh
+./download_models.sh
+cp models/* .
 ```
 
 #### Install Requirements
@@ -172,7 +173,7 @@ pip install -r requirements.txt
 
 You can set the following environment variables to change the behavior of the model.
 
-* `LABEL_STUDIO_HOST` sets the endpoint of the Label Studio host.
+* `LABEL_STUDIO_HOST` sets the endpoint of the Label Studio host. Must begin with "http://" 
 * `LABEL_STUDIO_ACCESS_TOKEN` sets the API access token for the Label Studio host.
 * `SAM_CHOICE` selects which model to use.
     * `SAM_CHOICE=MobileSAM` to use MobileSAM (default)
