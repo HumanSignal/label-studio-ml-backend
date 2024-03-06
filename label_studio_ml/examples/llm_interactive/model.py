@@ -2,7 +2,6 @@ import logging
 import json
 import difflib
 import re
-import openai
 import os
 import requests
 import pytesseract
@@ -12,6 +11,7 @@ from PIL import Image
 from io import BytesIO
 from typing import Union, List, Dict, Optional, Any
 from tenacity import retry, stop_after_attempt, wait_random
+from openai import OpenAI, AzureOpenAI
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
@@ -39,29 +39,36 @@ def chat_completion_call(messages, params, *args, **kwargs):
                 "temperature": 0.7
                 }```
     """
-    openai.api_key = params.get("api_key",
-                                os.getenv('OPENAI_API_KEY', OpenAIInteractive.OPENAI_KEY))
-
-    provider = params.get("provider", os.getenv('OPENAI_PROVIDER', "openai"))
-
+    provider = params.get("provider", OpenAIInteractive.OPENAI_PROVIDER)
     model = params.get("model", OpenAIInteractive.OPENAI_MODEL)
-    num = params.get("num_responses", OpenAIInteractive.NUM_RESPONSES)
-    temp = params.get("temperature", OpenAIInteractive.TEMPERATURE)
+    if provider == "openai":
+        client = OpenAI(
+            api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
+        )
+        if not model:
+            model = 'gpt-3.5-turbo-instruct'
+    elif provider == "azure":
+        client = AzureOpenAI(
+            api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
+            api_version=params.get("api_version", OpenAIInteractive.AZURE_API_VERSION),
+            azure_endpoint=params.get('resource_endpoint', OpenAIInteractive.AZURE_RESOURCE_ENDPOINT).rstrip('/'),
+            azure_deployment=params.get('deployment_name', OpenAIInteractive.AZURE_DEPLOYMENT_NAME)
+        )
+        if not model:
+            model = 'gpt-35-turbo-instruct'
+    else:
+        raise
 
-    model_params = {
-        "model": model,
+    request_params = {
         "messages": messages,
-        "n": num,
-        "temperature": temp
+        "model": model,
+        "n": params.get("num_responses", OpenAIInteractive.NUM_RESPONSES),
+        "temperature": params.get("temperature", OpenAIInteractive.TEMPERATURE)
     }
 
-    if provider == "azure":
-        openai.api_type = "azure"
-        openai.api_base = params.get("resource_endpoint", None)
-        openai.api_version = "2023-05-15"
-        model_params["engine"] = params.get("deployment_name")
+    completion = client.chat.completions.create(**request_params)
 
-    return openai.ChatCompletion.create(**model_params)
+    return completion
 
 
 def gpt(messages: Union[List[Dict], str], params, *args, **kwargs):
@@ -70,11 +77,10 @@ def gpt(messages: Union[List[Dict], str], params, *args, **kwargs):
     if isinstance(messages, str):
         messages = [{"role": "user", "content": messages}]
 
-    logger.debug(f"OpenAI request: {json.dumps(messages, indent=2)}")
+    logger.debug(f"OpenAI request: {messages}, params={params}")
     completion = chat_completion_call(messages, params)
-
-    logger.debug(f"OpenAI response: {json.dumps(completion, indent=2)}")
-    response = [choice["message"]["content"] for choice in completion.choices]
+    logger.debug(f"OpenAI response: {completion}")
+    response = [choice.message.content for choice in completion.choices]
 
     return response
 
@@ -82,7 +88,8 @@ def gpt(messages: Union[List[Dict], str], params, *args, **kwargs):
 class OpenAIInteractive(LabelStudioMLBase):
     """
     """
-    OPENAI_KEY = ""
+    OPENAI_PROVIDER = os.getenv("OPENAI_PROVIDER", "openai")
+    OPENAI_KEY = os.getenv('OPENAI_API_KEY')
     PROMPT_PREFIX = os.getenv("PROMPT_PREFIX", "prompt")
     USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv("USE_INTERNAL_PROMPT_TEMPLATE", 1)))
     PROMPT_TEMPLATE = os.getenv("PROMPT_TEMPLATE", '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
@@ -90,7 +97,10 @@ class OpenAIInteractive(LabelStudioMLBase):
     SUPPORTED_INPUTS = ("Image", "Text", "HyperText", "Paragraphs")
     NUM_RESPONSES = int(os.getenv("NUM_RESPONSES", 1))
     TEMPERATURE = float(os.getenv("TEMPERATURE", 0.7))
-    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+    AZURE_RESOURCE_ENDPOINT = os.getenv("AZURE_RESOURCE_ENDPOINT", '')
+    AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
+    AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2023-05-15")
 
     def _ocr(self, image_url):
         # Open the image containing the text
@@ -290,12 +300,13 @@ class OpenAIInteractive(LabelStudioMLBase):
 
         # find substrings that differ between current and new prompt
         # if there are no differences, skip training
-        diff = self._prompt_diff(current_prompt, prompt)
-        if not diff:
-            logger.debug('No prompt diff found.')
-            return
+        if current_prompt:
+            diff = self._prompt_diff(current_prompt, prompt)
+            if not diff:
+                logger.debug('No prompt diff found.')
+                return
 
-        logger.debug(f'Prompt diff: {diff}')
+            logger.debug(f'Prompt diff: {diff}')
         self.set(prompt_tag.name, prompt)
         model_version = self.bump_model_version()
 
