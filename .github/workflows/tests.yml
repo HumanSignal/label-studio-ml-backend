@@ -104,8 +104,7 @@ jobs:
 
       - name: Run general functional tests
         run: |
-          cd label_studio_ml/
-          pytest --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml
+          pytest -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml
 
       - name: Pull the logs
         if: always()

@@ -1,4 +1,7 @@
 Flask~=2.3
 colorama~=0.4
 requests~=2.31
+semver~=3.0.2
 label-studio-tools
+# label_studio_sdk from git master branch
+label_studio_sdk @ git+https://github.com/heartexlabs/label-studio-sdk.git@master

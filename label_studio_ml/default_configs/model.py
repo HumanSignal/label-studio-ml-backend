@@ -3,21 +3,47 @@ from label_studio_ml.model import LabelStudioMLBase
 
 
 class NewModel(LabelStudioMLBase):
+    """Custom ML Backend model
+    """
+    
+    def setup(self):
+        """Configure any paramaters of your model here
+        """
+        self.set("model_version", "0.0.1")
 
+        
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
-            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml.html#Passing-data-to-ML-backend)
-            :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Raw-JSON-format-of-completed-tasks)
+            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
+            :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
         print(f'''\
         Run prediction on {tasks}
         Received context: {context}
         Project ID: {self.project_id}
         Label config: {self.label_config}
-        Parsed JSON Label config: {self.parsed_label_config}''')
+        Parsed JSON Label config: {self.parsed_label_config}
+        Extra params: {self.extra_params}''')
+
+        # example for simple classification
+        # return [{
+        #     "model_version": self.get("model_version"),
+        #     "score": 0.12,
+        #     "result": [{
+        #         "id": "vgzE336-a8",
+        #         "from_name": "sentiment",
+        #         "to_name": "text",
+        #         "type": "choices",
+        #         "value": {
+        #             "choices": [ "Negative" ]
+        #         }
+        #     }]
+        # }]
+        
         return []
 
+    
     def fit(self, event, data, **kwargs):
         """
         This method is called each time an annotation is created or updated

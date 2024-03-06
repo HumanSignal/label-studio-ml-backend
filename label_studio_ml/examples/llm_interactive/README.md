@@ -1,6 +1,6 @@
 ## Interactive LLM labeling
 
-This example server connects Label Studio to OpenAI's API to interact with GPT chat models (gpt-3.5-turbo, gpt-4, etc.).
+This example server connects Label Studio to [OpenAI](https://platform.openai.com/) or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (gpt-3.5-turbo, gpt-4, etc.).
 
 The interactive flow allows you to perform the following scenarios:
 
@@ -231,7 +231,18 @@ When deploying the server, you can specify the following parameters as environme
 - `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
   the default internal prompt template. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt template provided
   in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). In the later case, the user has to provide the placeholders that match input task fields. For example, if the user wants to use the `input_text` and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
-- `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use.
+- `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use. 
+- `OPENAI_PROVIDER` (available options: `openai`, `azure`, default - `openai`) : The OpenAI provider to use.
 - `TEMPERATURE` (default: `0.7`): The temperature to use for the model.
 - `NUM_RESPONSES` (default: `1`): The number of responses to generate in `<TextArea>` output fields. Useful if you want to generate multiple responses and let the user rank the best one.
-- `OPENAI_API_KEY`: The OpenAI API key to use. Must be set before deploying the server.
+- `OPENAI_API_KEY`: The OpenAI or Azure API key to use. Must be set before deploying the server.
+
+### Azure Configuration
+
+If you are using Azure as your OpenAI provider (`OPENAI_PROVIDER=azure`), you need to specify the following environment variables:
+
+- `AZURE_RESOURCE_ENDPOINT`: This is the endpoint for your Azure resource. It should be set to the appropriate value based on your Azure setup.
+
+- `AZURE_DEPLOYMENT_NAME`: This is the name of your Azure deployment. It should match the name you've given to your deployment in Azure.
+
+- `AZURE_API_VERSION`: This is the version of the Azure API you are using. The default value is `2023-05-15`.

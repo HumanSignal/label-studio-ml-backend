@@ -2,54 +2,107 @@ import logging
 import json
 import difflib
 import re
-import openai
 import os
 import requests
 import pytesseract
 
+from uuid import uuid4
 from PIL import Image
 from io import BytesIO
-from typing import Union, List, Dict, Optional
-from label_studio_ml.model import LabelStudioMLBase
-from uuid import uuid4
+from typing import Union, List, Dict, Optional, Any
 from tenacity import retry, stop_after_attempt, wait_random
+from openai import OpenAI, AzureOpenAI
 
-openai.api_key = os.getenv('OPENAI_API_KEY')
+from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.response import ModelResponse
+from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.object_tags import ImageTag, ParagraphsTag
+
 logger = logging.getLogger(__name__)
 
 
 @retry(wait=wait_random(min=5, max=10), stop=stop_after_attempt(6))
-def chat_completion_call(messages):
-    return openai.ChatCompletion.create(
-        model=OpenAIInteractive.OPENAI_MODEL,
-        messages=messages,
-        n=OpenAIInteractive.NUM_RESPONSES,
-        temperature=OpenAIInteractive.TEMPERATURE
-    )
+def chat_completion_call(messages, params, *args, **kwargs):
+    """
+    Request to OpenAI API (OpenAI, Azure)
+
+    Args:
+        messages: list of messages
+        params: dict with parameters
+           Example:
+               ```json
+              {
+                "api_key": "YOUR_API_KEY",
+                "provider": "openai",
+                "model": "gpt-4",
+                "num_responses": 1,
+                "temperature": 0.7
+                }```
+    """
+    provider = params.get("provider", OpenAIInteractive.OPENAI_PROVIDER)
+    model = params.get("model", OpenAIInteractive.OPENAI_MODEL)
+    if provider == "openai":
+        client = OpenAI(
+            api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
+        )
+        if not model:
+            model = 'gpt-3.5-turbo-instruct'
+    elif provider == "azure":
+        client = AzureOpenAI(
+            api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
+            api_version=params.get("api_version", OpenAIInteractive.AZURE_API_VERSION),
+            azure_endpoint=params.get('resource_endpoint', OpenAIInteractive.AZURE_RESOURCE_ENDPOINT).rstrip('/'),
+            azure_deployment=params.get('deployment_name', OpenAIInteractive.AZURE_DEPLOYMENT_NAME)
+        )
+        if not model:
+            model = 'gpt-35-turbo-instruct'
+    else:
+        raise
+
+    request_params = {
+        "messages": messages,
+        "model": model,
+        "n": params.get("num_responses", OpenAIInteractive.NUM_RESPONSES),
+        "temperature": params.get("temperature", OpenAIInteractive.TEMPERATURE)
+    }
+
+    completion = client.chat.completions.create(**request_params)
+
+    return completion
 
 
-def gpt(messages: Union[List[Dict], str]):
+def gpt(messages: Union[List[Dict], str], params, *args, **kwargs):
+    """
+    """
     if isinstance(messages, str):
-        messages = [{'role': 'user', 'content': messages}]
-    logger.debug(f'OpenAI request: {json.dumps(messages, indent=2)}')
-    completion = chat_completion_call(messages)
-    logger.debug(f'OpenAI response: {json.dumps(completion, indent=2)}')
-    response = [choice['message']['content'] for choice in completion.choices]
-    # response = ''.join(random.choice(string.ascii_letters) for i in range(50))
+        messages = [{"role": "user", "content": messages}]
+
+    logger.debug(f"OpenAI request: {messages}, params={params}")
+    completion = chat_completion_call(messages, params)
+    logger.debug(f"OpenAI response: {completion}")
+    response = [choice.message.content for choice in completion.choices]
+
     return response
 
 
 class OpenAIInteractive(LabelStudioMLBase):
+    """
+    """
+    OPENAI_PROVIDER = os.getenv("OPENAI_PROVIDER", "openai")
+    OPENAI_KEY = os.getenv('OPENAI_API_KEY')
+    PROMPT_PREFIX = os.getenv("PROMPT_PREFIX", "prompt")
+    USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv("USE_INTERNAL_PROMPT_TEMPLATE", 1)))
+    PROMPT_TEMPLATE = os.getenv("PROMPT_TEMPLATE", '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
+    PROMPT_TAG = "TextArea"
+    SUPPORTED_INPUTS = ("Image", "Text", "HyperText", "Paragraphs")
+    NUM_RESPONSES = int(os.getenv("NUM_RESPONSES", 1))
+    TEMPERATURE = float(os.getenv("TEMPERATURE", 0.7))
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+    AZURE_RESOURCE_ENDPOINT = os.getenv("AZURE_RESOURCE_ENDPOINT", '')
+    AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
+    AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2023-05-15")
 
-    PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
-    USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv('USE_INTERNAL_PROMPT_TEMPLATE', 1)))
-    PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
-    SUPPORTED_INPUTS = ('Image', 'Text', 'HyperText', 'Paragraphs')
-    NUM_RESPONSES = int(os.getenv('NUM_RESPONSES', 1))
-    TEMPERATURE = float(os.getenv('TEMPERATURE', 0.7))
-    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
-
-    def ocr(self, image_url):
+    def _ocr(self, image_url):
         # Open the image containing the text
         response = requests.get(image_url)
         image = Image.open(BytesIO(response.content))
@@ -58,195 +111,203 @@ class OpenAIInteractive(LabelStudioMLBase):
         text = pytesseract.image_to_string(image)
         return text
 
-    def get_text(self, task, data_type, value_key):
-        data = task['data'][value_key]
-        if data_type == 'Image':
-            return self.ocr(data)
-        elif data_type == 'Paragraphs':
+    def _get_text(self, task_data, object_tag):
+        """
+        """
+        data = task_data.get(object_tag.value_name)
+
+        if data is None:
+            return None
+
+        if isinstance(object_tag, ImageTag):
+            return self._ocr(data)
+        elif isinstance(object_tag, ParagraphsTag):
             return json.dumps(data)
         else:
             return data
 
-    def get_prompts(self, annotation, prompt_from_name) -> List[str]:
-        result = annotation['result']
-        for item in result:
-            if item.get('from_name') != prompt_from_name:
-                continue
-            return item['value']['text']
+    def _get_prompts(self, context, prompt_tag) -> List[str]:
+        """Getting prompt values
+        """
+        if context:
+            # Interactive mode - get prompt from context
+            result = context.get('result')
+            for item in result:
+                if item.get('from_name') == prompt_tag.name:
+                    return item['value']['text']
+        # Initializing - get existing prompt from storage
+        elif prompt := self.get(prompt_tag.name):
+            return [prompt]
+
         return []
 
-    def match_choices(self, response: str, original_choices: List[str]) -> List[str]:
+    def _match_choices(self, response: List[str], original_choices: List[str]) -> List[str]:
         # assuming classes are separated by newlines
         # TODO: support other guardrails
-        predicted_classes = response.splitlines()
-
         matched_labels = []
+        predicted_classes = response[0].splitlines()
+
         for pred in predicted_classes:
             scores = list(map(lambda l: difflib.SequenceMatcher(None, pred, l).ratio(), original_choices))
             matched_labels.append(original_choices[scores.index(max(scores))])
+
         return matched_labels
 
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
-        cfg = self.parsed_label_config
+    def _find_choices_tag(self, object_tag):
+        """Classification predictor
+        """
+        li = self.label_interface
 
-        prompt_from_name, prompt_to_name, value_key = self.get_first_tag_occurence(
+        try:
+            choices_from_name, _, _ = li.get_first_tag_occurence(
+                'Choices',
+                self.SUPPORTED_INPUTS,
+                to_name_filter=lambda s: s == object_tag.name,
+            )
+
+            return li.get_control(choices_from_name)
+        except:
+            return None
+
+    def _find_textarea_tag(self, prompt_tag, object_tag):
+        """Free-form text predictor
+        """
+        li = self.label_interface
+
+        try:
+            textarea_from_name, _, _ = li.get_first_tag_occurence(
+                'TextArea',
+                self.SUPPORTED_INPUTS,
+                name_filter=lambda s: s != prompt_tag.name,
+                to_name_filter=lambda s: s == object_tag.name,
+            )
+
+            return li.get_control(textarea_from_name)
+        except:
+            return None
+
+    def _find_prompt_tags(self):
+        """Find prompting tags in the config
+        """
+        li = self.label_interface
+        prompt_from_name, prompt_to_name, value = li.get_first_tag_occurence(
             # prompt tag
-            'TextArea',
+            self.PROMPT_TAG,
             # supported input types
             self.SUPPORTED_INPUTS,
             # if multiple <TextArea> are presented, use one with prefix specified in PROMPT_PREFIX
             name_filter=lambda s: s.startswith(self.PROMPT_PREFIX))
-        data_type = cfg[prompt_from_name]['inputs'][0]['type']
 
-        # classification predictor
-        use_choices = False
-        original_choices = []
-        choices_from_name = None
-        try:
-            choices_from_name, _, _ = self.get_first_tag_occurence(
-                'Choices',
-                self.SUPPORTED_INPUTS,
-                to_name_filter=lambda s: s == prompt_to_name,
-            )
-            original_choices = cfg[choices_from_name]['labels']
-            use_choices = True
-        except:
-            pass
+        return li.get_control(prompt_from_name), li.get_object(prompt_to_name)
 
-        # free-form text predictor
-        use_textarea = False
-        textarea_from_name = None
-        try:
-            textarea_from_name, _, _ = self.get_first_tag_occurence(
-                'TextArea',
-                self.SUPPORTED_INPUTS,
-                name_filter=lambda s: s != prompt_from_name,
-                to_name_filter=lambda s: s == prompt_to_name,
-            )
-            use_textarea = True
-        except:
-            pass
-
-        if not use_choices and not use_textarea:
+    def _validate_tags(self, choices_tag: str, textarea_tag: str) -> None:
+        if not choices_tag and not textarea_tag:
             raise ValueError('No supported tags found: <Choices> or <TextArea>')
 
-        prompts = []
-        if context:
-            # interactive mode - get prompt from context
-            prompts = self.get_prompts(context, prompt_from_name)
-        elif prompt := self.get(prompt_from_name):
-            # initializing - get existing prompt from storage
-            prompts = [prompt]
-        prompt = '\n'.join(prompts)
+    def _generate_normalized_prompt(self, text: str, prompt: str, task_data: Dict) -> str:
+        """
+        """
+        if self.USE_INTERNAL_PROMPT_TEMPLATE:
+            norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
+        else:
+            norm_prompt = prompt.format(**task_data)
 
-        if not prompts:
-            return []
+        return norm_prompt
 
+    def _generate_response_regions(self, response: str, prompt_tag,
+                                   choices_tag: str, textarea_tag: str, prompts: List[str]) -> List:
+        """
+        """
+        regions = []
+
+        if choices_tag and len(response) > 0:
+            matched_labels = self._match_choices(response, choices_tag.labels)
+            regions.append(choices_tag.label(matched_labels))
+
+        if textarea_tag:
+            regions.append(textarea_tag.label(text=response))
+
+        # not sure why we need this but it was in the original code
+        regions.append(prompt_tag.label(text=prompts))
+
+        return regions
+
+    def _predict_single_task(self, task_data: Dict, prompt_tag: Any, object_tag: Any, prompt: str,
+                             choices_tag: str, textarea_tag: str, prompts: List[str]) -> Dict:
+        """
+        """
+        text = self._get_text(task_data, object_tag)
+        norm_prompt = self._generate_normalized_prompt(text, prompt, task_data)
+
+        # run inference
+        # this are params provided through the web interface
+        response = gpt(norm_prompt, self.extra_params)
+        regions = self._generate_response_regions(response, prompt_tag, choices_tag, textarea_tag, prompts)
+
+        return PredictionValue(result=regions, score=0.1, model_version=str(self.model_version))
+
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
+        """
+        """
         predictions = []
-        base_result = {
-            'id': str(uuid4())[:4],
-            'from_name': prompt_from_name,
-            'to_name': prompt_to_name,
-            'type': 'textarea',
-            'value': {
-                'text': prompts
-            }
-        }
-        model_version = self.model_version
-        for task in tasks:
-            text = self.get_text(task, data_type, value_key)
 
-            if not prompts:
-                response = gpt(text)
-            else:
-                if self.USE_INTERNAL_PROMPT_TEMPLATE:
-                    norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
-                else:
-                    task_data = task['data']
-                    norm_prompt = prompt.format(**task_data)
-                # run inference
-                response = gpt(norm_prompt)
+        # prompt tag contains the prompt in the config
+        # object tag contains what we plan to label
+        prompt_tag, object_tag = self._find_prompt_tags()
+        prompts = self._get_prompts(context, prompt_tag)
 
-            result = []
-            if use_choices and len(response) > 0:
-                matched_labels = self.match_choices(response[0], original_choices)
-                result.append({
-                    'id': str(uuid4())[:4],
-                    'from_name': choices_from_name,
-                    'to_name': prompt_to_name,
-                    'type': 'choices',
-                    'value': {
-                        'choices': matched_labels
-                    }
-                })
+        if prompts:
+            prompt = "\n".join(prompts)
 
-            if use_textarea:
-                result.append({
-                    'id': str(uuid4())[:4],
-                    'from_name': textarea_from_name,
-                    'to_name': prompt_to_name,
-                    'type': 'textarea',
-                    'value': {
-                        # 'text': [response]
-                        'text': response
-                    }
-                })
+            choices_tag = self._find_choices_tag(object_tag)
+            textarea_tag = self._find_textarea_tag(prompt_tag, object_tag)
+            self._validate_tags(choices_tag, textarea_tag)
 
-            result.append(base_result)
+            for task in tasks:
+                task_data = task['data']
+                pred = self._predict_single_task(task_data, prompt_tag, object_tag, prompt,
+                                                 choices_tag, textarea_tag, prompts)
+                predictions.append(pred)
 
-            predictions.append({'result': result, 'model_version': model_version})
+        return ModelResponse(predictions=predictions)
 
-        return predictions
-
-    def prompt_diff(self, old_prompt, new_prompt):
+    def _prompt_diff(self, old_prompt, new_prompt):
+        """
+        """
         old_lines = old_prompt.splitlines()
         new_lines = new_prompt.splitlines()
-        diff = difflib.unified_diff(old_lines, new_lines, lineterm='')
-        return '\n'.join(
-                line for line in diff if line.startswith(('+',)) and not line.startswith(('+++', '---')))
+        diff = difflib.unified_diff(old_lines, new_lines, lineterm="")
 
-    def extract_number(self, s):
-        match = re.search(r'^\[(\d+)\]', s)
-        return int(match.group(1)) if match else None
+        return "\n".join(
+            line for line in diff if line.startswith(('+',)) and not line.startswith(('+++', '---')))
 
     def fit(self, event, data, **additional_params):
+        """
+        """
         logger.debug(f'Data received: {data}')
         if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
             return
 
-        prompt_from_name, prompt_to_name, value_key = self.get_first_tag_occurence(
-            'TextArea',
-            self.SUPPORTED_INPUTS,
-            name_filter=lambda s: s.startswith(self.PROMPT_PREFIX))
+        prompt_tag, object_tag = self._find_prompt_tags()
+        prompts = self._get_prompts(data['annotation'], prompt_tag)
 
-        prompts = self.get_prompts(data['annotation'], prompt_from_name)
         if not prompts:
             logger.debug(f'No prompts recorded.')
             return
 
         prompt = '\n'.join(prompts)
-
-        current_model_version = self.get('model_version')
-        if current_model_version == 'INITIAL':
-            current_prompt = ''
-            version_number = -1
-            logger.info('No previous model version found.')
-
-        else:
-            current_prompt = self.get(prompt_from_name)
-            version_number = self.extract_number(current_model_version)
-            logger.info(f'Found previous model version {current_model_version}')
+        current_prompt = self.get(prompt_tag.name)
 
         # find substrings that differ between current and new prompt
         # if there are no differences, skip training
-        diff = self.prompt_diff(current_prompt, prompt)
-        if not diff:
-            logger.debug('No prompt diff found.')
-            return
+        if current_prompt:
+            diff = self._prompt_diff(current_prompt, prompt)
+            if not diff:
+                logger.debug('No prompt diff found.')
+                return
 
-        logger.debug(f'Prompt diff: {diff}')
-        self.set(prompt_from_name, prompt)
+            logger.debug(f'Prompt diff: {diff}')
+        self.set(prompt_tag.name, prompt)
+        model_version = self.bump_model_version()
 
-        model_version = f'[{version_number + 1}]{diff}'.strip()
-        self.set('model_version', model_version)
-        logger.debug(f'Updated model version to {self.get("model_version")}')
+        logger.debug(f'Updated model version to {str(model_version)}')

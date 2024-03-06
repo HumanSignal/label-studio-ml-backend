@@ -46,6 +46,14 @@ def get_args():
         'project_name',
         help='Path to directory where project state will be initialized')
 
+    parser_start.add_argument('--basic-auth-user', dest="basic_auth_user",
+                              default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
+                              help='Basic auth user')
+    
+    parser_start.add_argument('--basic-auth-pass', dest="basic_auth_pass",
+                              default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
+                              help='Basic auth pass')
+    
     # start deploy to gcp
     parser_deploy = subparsers.add_parser('deploy', help='Deploy Label Studio', parents=[root_parser])
     parser_deploy.add_argument(
@@ -155,9 +163,18 @@ def create_dir(args):
 
 
 def start_server(args, subprocess_params):
+
     project_dir = os.path.join(args.root_dir, args.project_name)
     wsgi = os.path.join(project_dir, '_wsgi.py')
-    os.system('python ' + wsgi + ' ' + ' '.join(subprocess_params))
+
+    cmd_args = []
+    if args.basic_auth_user and args.basic_auth_pass:
+        cmd_args = ["--basic-auth-user", args.basic_auth_user,
+                    "--basic-auth-pass", args.basic_auth_pass]
+    
+    cmd = 'python ' + wsgi + ' ' + ' '.join(cmd_args) + ' ' + ' '.join(subprocess_params)
+    
+    os.system(cmd)
 
 
 def deploy_to_gcp(args):

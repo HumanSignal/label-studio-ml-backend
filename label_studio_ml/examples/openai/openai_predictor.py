@@ -19,6 +19,7 @@ class OpenAIPredictor(LabelStudioMLBase):
 
         # Parsed label config contains only one output of <Choices> type
         assert len(self.parsed_label_config) == 1
+        
         self.from_name, self.info = list(self.parsed_label_config.items())[0]
         assert self.info['type'] == 'Choices'
 
