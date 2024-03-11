@@ -165,6 +165,7 @@ def safe_str_cmp(a, b):
 @_server.before_request
 def check_auth():
     if BASIC_AUTH is not None:
+
         auth = request.authorization
         if not auth or not (safe_str_cmp(auth.username, BASIC_AUTH[0]) and safe_str_cmp(auth.password, BASIC_AUTH[1])):
             return Response('Unauthorized', 401, {'WWW-Authenticate': 'Basic realm="Login required"'})
