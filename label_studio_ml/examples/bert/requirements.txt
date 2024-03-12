@@ -4,6 +4,6 @@ label-studio>=1.0.0
 supervisor==4.2.2
 tensorboardX==1.9
 torch==1.8.1
-transformers==4.4.2
+transformers==4.36.0
 uwsgi==2.0.19.1
 packaging==21.3
