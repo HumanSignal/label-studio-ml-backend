@@ -12,15 +12,15 @@ services:
     volumes:
       - "./data/server:/data"
       - "./logs:/tmp"
-
+  
   minio:
     container_name: minio
-    image: quay.io/minio/minio
+    image: bitnami/minio:latest
     env_file:
       - example.env
     ports:
-      - 9000:9000
-      - 9001:9001
+      - 9003:9000
+      - 9004:9001
     volumes:
       - ".data/storage:/data"
     command: server /data --console-address ":9001"
