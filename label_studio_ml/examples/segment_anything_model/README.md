@@ -193,7 +193,15 @@ or
 ```bash
 docker-compose up
 ```
-to start the backend in a docker container.
+to start the backend in a docker container;
+
+or
+
+```bash
+MOBILESAM_CHECKPOINT=path/to/mobile_sam.pt label-studio-ml start segment_anything_model/
+```
+
+> Note: if you see the error on MacOS, try set the environment variable `KMP_DUPLICATE_LIB_OK=True`
 
 ## Set up a Project in Label Studio for Segment Anything
 

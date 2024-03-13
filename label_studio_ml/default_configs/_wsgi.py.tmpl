@@ -112,7 +112,7 @@ if __name__ == "__main__":
         print('Check "' + {model_class}.__name__ + '" instance creation..')
         model = {model_class}(**kwargs)
 
-    app = init_app(model_class={model_class})
+    app = init_app(model_class={model_class}, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
