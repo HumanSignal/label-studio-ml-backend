@@ -10,7 +10,7 @@ import boto3
 
 logger = logging.getLogger(__name__)
 global OCR_config
-OCR_config = "--psm 6"
+OCR_config = "--psm 6 -l chi_sim+eng+deu"
 
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST         = os.environ.get("LABEL_STUDIO_HOST")

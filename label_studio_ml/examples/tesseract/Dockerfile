@@ -11,6 +11,9 @@ ENV PYTHONUNBUFFERED=True \
 RUN apt update -y \
  && apt upgrade -y
 RUN apt install tesseract-ocr git -y
+RUN apt install tesseract-ocr-chi-sim
+RUN apt install tesseract-ocr-chi-tra
+RUN apt install tesseract-ocr-deu
 
 RUN pip install --upgrade pip \
  && pip install -r requirements.txt

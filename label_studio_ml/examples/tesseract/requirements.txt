@@ -7,5 +7,4 @@ rq
 supervisor
 werkzeug
 gunicorn
-
-label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git
+label-studio-ml
