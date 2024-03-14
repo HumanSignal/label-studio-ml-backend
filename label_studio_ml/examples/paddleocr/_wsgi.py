@@ -68,6 +68,14 @@ if __name__ == "__main__":
         '--check', dest='check', action='store_true',
         help='Validate model instance before launching server')
 
+    parser.add_argument('--basic-auth-user',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
+                        help='Basic auth user')
+
+    parser.add_argument('--basic-auth-pass',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
+                        help='Basic auth pass')
+    
     args = parser.parse_args()
 
     # setup logging level
@@ -107,6 +115,8 @@ if __name__ == "__main__":
 
     app = init_app(
         model_class=paddleocrLabeling,
+        basic_auth_user=args.basic_auth_user, 
+        basic_auth_pass=args.basic_auth_pass,
         **kwargs
     )
 
