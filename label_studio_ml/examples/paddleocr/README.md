@@ -1,9 +1,9 @@
-## Interactive BBOX OCR using Tesseract
+## Interactive BBOX OCR using PaddleOCR
 Using an OCR engine for Interactive ML-Assisted Labelling, this functionality
 can speed up annotation for layout detection, classification and recognition
 models.
 
-Tesseract is used for OCR but minimal adaptation is needed to connect other OCR
+PaddleOCR is used for OCR but minimal adaptation is needed to connect other OCR
 engines or models.
 
 Tested againt Label Studio 1.10.1, with basic support for both Label Studio
@@ -36,7 +36,7 @@ Minio.
    If you're using local file serving, be sure to get a copy of the API token from
    Label Studio to connect the model.
 
-2. Create a new project for Tesseract OCR. In the project **Settings** set up the **Labeling Interface**.
+2. Create a new project for PaddleOCR OCR. In the project **Settings** set up the **Labeling Interface**.
 
    Fill in the following template code. It's important to specify `smart="true"` in RectangleLabels.
    ```
@@ -61,7 +61,7 @@ Minio.
 3. Download the Label Studio Machine Learning backend backend repository.
    ```
    git clone https://github.com/humansignal/label-studio-ml-backend
-   cd label-studio-ml-backend/label_studio_ml/examples/tesseract
+   cd label-studio-ml-backend/label_studio_ml/examples/paddleocr
    ```
 
 4. Configure the backend and the Minio server by editing the `example.env` file. If you opted to use Label Studio
@@ -69,7 +69,7 @@ Minio.
    using the Minio storage example, set the `MINIO_ROOT_USER` AND `MINIO_ROOT_PASSWORD` variables, and make the 
    `AWS_ACCESS_KEY_ID` AND `AWS_SECRET_ACCESS_KEY` variables equal to those values. You may optionally connect to your
    own AWS cloud storage by setting those variables. Note that you may need to make additional software changes to the
-   `tesseract.py` file to match your particular infrastructure configuration.
+   `paddleocr_ch.py` file to match your particular infrastructure configuration.
 
    ```
    LABEL_STUDIO_HOST=http://host.docker.internal:8080
@@ -84,10 +84,22 @@ Minio.
    MINIO_API_CORS_ALLOW_ORIGIN=*
    ```
 
-5. Start the Tesseract and minio servers.
+5. Start the PaddleOCR and minio servers.
 
    ```
-   docker compose up
+   # build image
+   sudo docker build . -t paddleocr-backend:latest
+   # or
+   sudo docker compose build .
+
+   # only start paddleocr-backend
+   sudo docker compose up paddleocr-backend
+   # or and start with minio
+   docker compose up -d
+   # shutdown container
+   docker compose down 
+
+
    ```
 
 6. Upload tasks.
@@ -118,7 +130,7 @@ Minio.
 
 Example below :
 
-![ls_demo_ocr](https://user-images.githubusercontent.com/17755198/165186574-05f0236f-a5f2-4179-ac90-ef11123927bc.gif)
+![ls_demo_ocr](https://github.com/HumanSignal/label-studio-ml-backend/assets/1549611/fcc44c8b-12fd-495c-b0b4-9d5c0ceb2ed2)
 
 Reference links : 
 - https://labelstud.io/blog/Improve-OCR-quality-with-Tesseract-and-Label-Studio.html
