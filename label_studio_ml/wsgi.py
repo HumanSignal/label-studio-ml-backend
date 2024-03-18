@@ -4,6 +4,16 @@ import json
 import logging
 import logging.config
 
+try:
+    import torch.multiprocessing as mp
+    try:
+        # avoid "cannot reinit CUDA in forked process" error in loading cuda?
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass
+except ImportError:
+    import multiprocessing as mp
+
 from flask_ngrok import run_with_ngrok
 
 logging.config.dictConfig({

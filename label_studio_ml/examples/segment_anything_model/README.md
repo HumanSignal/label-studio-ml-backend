@@ -159,7 +159,6 @@ You can download all weights and models using the following command:
 
 ```bash
 ./download_models.sh
-cp models/* .
 ```
 
 #### Install Requirements

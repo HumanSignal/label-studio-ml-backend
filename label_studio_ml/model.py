@@ -8,7 +8,7 @@ import inspect
 from semver import Version
 
 from typing import Tuple, Callable, Union, List, Dict, Optional
-from abc import ABC, abstractmethod
+from abc import ABC
 from colorama import Fore
 
 from label_studio_sdk.label_interface import LabelInterface
