@@ -14,6 +14,21 @@ To start the server with lightweight mobile version of SAM, run the following co
 docker-compose up
 ```
 
+### GPU Support
+
+By default, the docker-compose file runs the model on the CPU. If you have a GPU, you can enable it by adding the following lines in `docker-compose.yml`:
+
+```yaml
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+```
+
 # Intro
 
 There are three models in this repo that you can use.

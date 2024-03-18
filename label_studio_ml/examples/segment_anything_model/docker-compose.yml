@@ -17,7 +17,7 @@ services:
 #            devices:
 #              - driver: nvidia
 #                count: 1
-#                capabilities: [gpu] 
+#                capabilities: [gpu]
     environment:
       # Change this to your model name
       - SAM_CHOICE=MobileSAM
