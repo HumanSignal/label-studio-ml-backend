@@ -103,9 +103,10 @@ jobs:
           done
 
       - name: Run general functional tests
+        env:
+          ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          cd label_studio_ml/examples/${{ matrix.ml_backend }}
-          pytest -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml
+          pytest -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
 
       - name: Pull the logs
         if: always()
