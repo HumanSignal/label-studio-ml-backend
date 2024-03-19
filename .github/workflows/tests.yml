@@ -67,14 +67,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: '3.10'
 
       - uses: actions/cache@v4
         name: Configure pip cache
         id: pip-cache
         with:
           path: ~/.cache/pip
-          key: ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements-test.txt') }}
+          key: ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ hashFiles('**/requirements-test.txt') }}
           restore-keys: |
             ${{ env.CACHE_NAME_PREFIX }}-${{ runner.os }}-pip-
 
@@ -83,7 +83,7 @@ jobs:
           sudo apt-get clean
           sudo apt-get update
           sudo apt-get install virtualenv libsasl2-dev python3-dev libldap2-dev libssl-dev
-          pip install -r requirements-test.txt
+          pip install -r tests/requirements-test.txt
           pip install -r requirements.txt
           pip install -e .
 
@@ -103,8 +103,10 @@ jobs:
           done
 
       - name: Run general functional tests
+        env:
+          ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          pytest -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml
+          pytest -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
 
       - name: Pull the logs
         if: always()
@@ -115,8 +117,8 @@ jobs:
       - name: "Upload cloud coverage to Codecov"
         uses: codecov/codecov-action@v4.1.0
         with:
-          name: codecov
-          files: ./label_studio_ml/coverage.xml
+          name: codecov-${{ matrix.ml_backend }}
+          files: ./label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
