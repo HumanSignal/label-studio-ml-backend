@@ -1,4 +1,6 @@
 import os
+import pathlib
+import logging
 
 from label_studio_converter import brush
 from typing import List, Dict, Optional
@@ -11,20 +13,69 @@ from groundingdino.util.inference import load_model, load_image, predict, annota
 from groundingdino.util import box_ops
 
 # ----Extra Libraries
-from PIL import Image
-import torch
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from typing import Tuple, List
 
-import importlib
-batchutil = importlib.import_module("Grounding-DINO-Batch-Inference.batch_utlities")
+from groundingdino.util.utils import get_phrases_from_posmap
+from groundingdino.util.inference import preprocess_caption
 
-predict_batch = getattr(batchutil, "predict_batch")
+logger = logging.getLogger(__name__)
+
+
+def predict_batch(
+    model,
+    images: torch.Tensor,
+    caption: str,
+    box_threshold: float,
+    text_threshold: float,
+    device: str = "cuda"
+) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[List[str]]]:
+    # copy from https://github.com/yuwenmichael/Grounding-DINO-Batch-Inference/blob/main/batch_utlities.py
+    '''
+    return:
+        bboxes_batch: list of tensors of shape (n, 4)
+        predicts_batch: list of tensors of shape (n,)
+        phrases_batch: list of list of strings of shape (n,)
+        n is the number of boxes in one image
+    '''
+    caption = preprocess_caption(caption=caption)
+    model = model.to(device)
+    image = images.to(device)
+    with torch.no_grad():
+        outputs = model(image, captions=[caption for _ in range(
+            len(images))])  # <------- I use the same caption for all the images for my use-case
+    prediction_logits = outputs["pred_logits"].cpu().sigmoid()  # prediction_logits.shape = (num_batch, nq, 256)
+    prediction_boxes = outputs["pred_boxes"].cpu()  # prediction_boxes.shape = (num_batch, nq, 4)
+
+    mask = prediction_logits.max(dim=2)[0] > box_threshold  # mask: torch.Size([num_batch, 256])
+
+    bboxes_batch = []
+    predicts_batch = []
+    phrases_batch = []  # list of lists
+    tokenizer = model.tokenizer
+    tokenized = tokenizer(caption)
+    for i in range(prediction_logits.shape[0]):
+        logits = prediction_logits[i][mask[i]]  # logits.shape = (n, 256)
+        phrases = [
+            get_phrases_from_posmap(logit > text_threshold, tokenized, tokenizer).replace('.', '')
+            for logit  # logit is a tensor of shape (256,) torch.Size([256])
+            in logits  # torch.Size([7, 256])
+        ]
+        boxes = prediction_boxes[i][mask[i]]  # boxes.shape = (n, 4)
+        phrases_batch.append(phrases)
+        bboxes_batch.append(boxes)
+        predicts_batch.append(logits.max(dim=1)[0])
+
+    return bboxes_batch, predicts_batch, phrases_batch
 
 
 # LOADING THE MODEL
-groundingdino_model = load_model("./Grounding-DINO-Batch-Inference/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", "./Grounding-DINO-Batch-Inference/GroundingDINO/weights/groundingdino_swint_ogc.pth")
+groundingdino_model = load_model(
+    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', "./GroundingDINO")) / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py",
+    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', "./GroundingDINO")) / "weights" / "groundingdino_swint_ogc.pth"
+)
 
 
 BOX_THRESHOLD = os.environ.get("BOX_THRESHOLD", 0.3)
@@ -64,6 +115,7 @@ class DINOBackend(LabelStudioMLBase):
         self.from_name, self.to_name, self.value = None, None, None
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Using device {self.device}")
 
         if USE_MOBILE_SAM or USE_SAM:
             sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
@@ -73,7 +125,6 @@ class DINOBackend(LabelStudioMLBase):
 
         self.use_sam = USE_SAM
         self.use_ms = USE_MOBILE_SAM
-            
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         if not context or not context.get('result'):
@@ -108,7 +159,6 @@ class DINOBackend(LabelStudioMLBase):
         if self.use_ms == 'False':
             self.use_ms = False
 
-            
         if len(tasks) > 1:
             final_predictions = self.multiple_tasks(tasks)
         elif len(tasks) == 1:
@@ -163,7 +213,6 @@ class DINOBackend(LabelStudioMLBase):
             predictions.append(self.get_results(all_points, all_scores, all_lengths))
         
         return predictions
-    
 
     def multiple_tasks(self, tasks):
 
