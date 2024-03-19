@@ -25,6 +25,8 @@ services:
       # Add these variables if you want to access the images stored in Label Studio, host should start with http:// or https://
       - LABEL_STUDIO_HOST=  
       - LABEL_STUDIO_ACCESS_TOKEN=
+      # Enable this to use the GPU
+      # - NVIDIA_VISIBLE_DEVICES=all
     ports:
       - 9090:9090
     volumes:

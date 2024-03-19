@@ -5,6 +5,17 @@ import json
 import importlib
 import importlib.util
 import inspect
+
+try:
+    import torch.multiprocessing as mp
+    try:
+        # avoid "cannot reinit CUDA in forked process" error in loading cuda?
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass
+except ImportError:
+    import multiprocessing as mp
+
 from semver import Version
 
 from typing import Tuple, Callable, Union, List, Dict, Optional
