@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.10-slim-bullseye
 
 WORKDIR /tmp
 COPY requirements.txt .
@@ -9,9 +9,7 @@ ENV PYTHONUNBUFFERED=True \
 
 # Installing libGL
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-dev
-
-RUN apt-get install -y poppler-utils libpoppler-cpp-dev libglib2.0-0
+    libgl1 libgomp1 libglib2.0-0 libsm6 libxrender1 libxext6
 
 
 RUN pip install --upgrade pip \

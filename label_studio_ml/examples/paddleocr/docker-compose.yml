@@ -4,7 +4,7 @@ services:
 
   paddleocr-backend:
     container_name: paddleocr-backend
-    build: .
+    image: paddleocr-backend:latest
     env_file:
       - example.env
     ports:
@@ -19,8 +19,8 @@ services:
     env_file:
       - example.env
     ports:
-      - 9003:9000
-      - 9004:9001
+      - 9000:9000
+      - 9001:9001
     volumes:
       - ".data/storage:/data"
     command: server /data --console-address ":9001"

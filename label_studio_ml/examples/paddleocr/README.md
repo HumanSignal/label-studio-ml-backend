@@ -36,7 +36,7 @@ Minio.
    If you're using local file serving, be sure to get a copy of the API token from
    Label Studio to connect the model.
 
-2. Create a new project for PaddleOCR OCR. In the project **Settings** set up the **Labeling Interface**.
+2. Create a new project for PaddleOCR. In the project **Settings** set up the **Labeling Interface**.
 
    Fill in the following template code. It's important to specify `smart="true"` in RectangleLabels.
    ```
@@ -82,6 +82,8 @@ Minio.
    MINIO_ROOT_USER=<username>
    MINIO_ROOT_PASSWORD=<password>
    MINIO_API_CORS_ALLOW_ORIGIN=*
+
+   OCR_LANGUAGE=<Language Abbreviation ch,en,fr,japan>
    ```
 
 5. Start the PaddleOCR and minio servers.
@@ -100,6 +102,9 @@ Minio.
    docker compose down 
 
 
+   # or docker pull image from docker-hub
+   docker pull blazordevlab/paddleocr-backend:latest
+   
    ```
 
 6. Upload tasks.
