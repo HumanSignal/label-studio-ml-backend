@@ -107,13 +107,13 @@ jobs:
           ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
           pytest tests/ -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:tests/${{ matrix.ml_backend }}_coverage.xml
-          
+
       - name: Run per-ml-backend tests
         env:
           ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          docker compose exec ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
-          docker compose cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
+          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
 
       - name: Pull the logs
         if: always()
@@ -130,7 +130,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
-      - name: "Upload ml-backend coverage to Codecov"
+      - name: "Upload ml-backend ${{ matrix.ml_backend }} coverage to Codecov"
         uses: codecov/codecov-action@v4.1.0
         with:
           name: codecov-${{ matrix.ml_backend }}
