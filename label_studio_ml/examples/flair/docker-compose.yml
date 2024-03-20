@@ -9,8 +9,8 @@ services:
       - "./data/redis:/data"
     expose:
       - 6379
-  server:
-    container_name: server
+  flair:
+    container_name: flair
     build: .
     environment:
       - MODEL_DIR=/data/models
