@@ -1,8 +1,8 @@
 version: "3.11"
 
 services:
-  ml-backend:
-    container_name: ml-backend
+  grounding_dino:
+    container_name: grounding_dino
     build: .
     environment:
       - MODEL_DIR=/data/models

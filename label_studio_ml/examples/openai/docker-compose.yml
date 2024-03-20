@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
+  openai:
+    container_name: openai
     build: .
     environment:
       - LABEL_STUDIO_ML_BACKEND_V2=true

@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
 
-  tesseract-backend:
-    container_name: tesseract-backend
+  tesseract:
+    container_name: tesseract
     build: .
     env_file:
       - example.env
