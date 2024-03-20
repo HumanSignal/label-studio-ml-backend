@@ -112,7 +112,7 @@ jobs:
         env:
           ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
           docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
 
       - name: Pull the logs
