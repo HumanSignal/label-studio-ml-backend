@@ -8,10 +8,13 @@ import os
 import json
 import boto3
 import numpy as np
+from botocore.exceptions import BotoCoreError, ClientError
 
 logger = logging.getLogger(__name__)
-# just for chinese
-ocr = PaddleOCR(use_angle_cls=True, lang="ch")  
+# Obtain language for OCR from an environment variable
+OCR_LANGUAGE = os.environ.get("OCR_LANGUAGE", "ch")
+# Initialize PaddleOCR with language and angle classification settings
+ocr = PaddleOCR(use_angle_cls=True, lang=OCR_LANGUAGE)
 
 LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST         = os.environ.get("LABEL_STUDIO_HOST")
@@ -35,19 +38,23 @@ class paddleocrLabeling(LabelStudioMLBase):
     def load_image(img_path_url):
         # load an s3 image, this is very basic demonstration code
         # you may need to modify to fit your own needs
-        if img_path_url.startswith("s3:"):
-            bucket_name = img_path_url.split("/")[2]
-            key = "/".join(img_path_url.split("/")[3:])
-
-            obj = S3_TARGET.Object(bucket_name, key).get()
-            data =  obj['Body'].read()
-            image = Image.open(io.BytesIO(data))
-            return image
-        else:
-            filepath = get_image_local_path(img_path_url,
-                    label_studio_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                    label_studio_host=LABEL_STUDIO_HOST)
-            return  Image.open(filepath)
+        try:
+            if img_path_url.startswith("s3:"):
+                bucket_name = img_path_url.split("/")[2]
+                key = "/".join(img_path_url.split("/")[3:])
+    
+                obj = S3_TARGET.Object(bucket_name, key).get()
+                data =  obj['Body'].read()
+                image = Image.open(io.BytesIO(data))
+                return image
+            else:
+                filepath = get_image_local_path(img_path_url,
+                        label_studio_access_token=LABEL_STUDIO_ACCESS_TOKEN,
+                        label_studio_host=LABEL_STUDIO_HOST)
+                return  Image.open(filepath)
+        except (BotoCoreError, ClientError, IOError) as e:
+            logger.error(f"Failed to load image {img_path_url}: {e}")
+            return None
 
 
     def predict(self, tasks, **kwargs):
@@ -72,11 +79,11 @@ class paddleocrLabeling(LabelStudioMLBase):
 
             crop_img = IMG.crop((x, y, x + w, y + h))
 
-            # 使用 PaddleOCR 进行文字识别
+            # Perform OCR with PaddleOCR
             ocr_result = ocr.ocr(np.array(crop_img), cls=True)
-            # PaddleOCR 返回结果的格式是 [(区域, (文本, 置信度))], 我们只关心文本部分
-            ocr_texts = [line[1][0] for line in ocr_result[0]]  # 提取所有识别的文本行
-            result_text = "\n".join(ocr_texts).strip()  # 将文本行合并为一个字符串
+            # PaddleOCR's result format is [(region, (text, confidence))]; we're interested in the text
+            ocr_texts = [line[1][0] for line in ocr_result[0]]  # Extract all recognized text lines
+            result_text = "\n".join(ocr_texts).strip()  # Join text lines into a single string
             meta["text"] = result_text
             temp = {
                 "original_width": meta["original_width"],
