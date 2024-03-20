@@ -93,7 +93,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
+        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
 
       - name: Wait for stack
         timeout-minutes: 10
@@ -112,17 +112,17 @@ jobs:
         env:
           ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+          docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 
       - name: Copy per-ml-backend coverage.xml from the container
         run: |
-          docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
+          docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
 
       - name: Pull the logs
         if: always()
         env:
           DOCKER_BUILDKIT: 1
-        run: docker-compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml logs
+        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml logs
 
       - name: "Upload general coverage to Codecov"
         if: ${{ matrix.ml_backend == 'the_simplest_backend' }}
