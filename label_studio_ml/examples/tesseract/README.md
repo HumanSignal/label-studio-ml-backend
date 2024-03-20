@@ -66,7 +66,7 @@ Create a new project for Tesseract OCR. In the project **Settings** set up the *
 
 #### 3. Install Tesseract OCR
 
-Download the Label Studio Machine Learning backend backend repository.
+Download the Label Studio Machine Learning backend repository.
    ```
    git clone https://github.com/humansignal/label-studio-ml-backend
    cd label-studio-ml-backend/label_studio_ml/examples/tesseract
@@ -140,7 +140,7 @@ Open the **Machine Learning** settings and click **Add Model**.
 
 #### 7. Label in interactive mode
 
-To use this functionality, activate `Auto-Annotation` and use `Autotdetect` rectangle for drawing boxes
+To use this functionality, activate `Auto-Annotation` and use `Autodetect` rectangle for drawing boxes
 
 Example below :
 
