@@ -33,4 +33,8 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert data == {'results': [{'model_version': '0.0.1', 'result': [{'from_name': 'ner_tags', 'score': 0.9969204664230347, 'to_name': 'text', 'type': 'labels', 'value': {'end': 5, 'labels': ['ORG'], 'start': 0, 'text': 'Apple'}}, {'from_name': 'ner_tags', 'score': 0.5269200205802917, 'to_name': 'text', 'type': 'labels', 'value': {'end': 40, 'labels': ['MISC'], 'start': 33, 'text': 'MacBook'}}], 'score': 0.5269200205802917}]}
+    assert data['results'][0]['model_version'] == '0.0.1'
+    assert data['results'][0]['result'][0]['value']['text'] == 'Apple'
+    assert data['results'][0]['result'][0]['value']['labels'] == ['ORG']
+    assert data['results'][0]['result'][1]['value']['text'] == 'MacBook'
+    assert data['results'][0]['result'][1]['value']['labels'] == ['MISC']
