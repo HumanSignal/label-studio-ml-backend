@@ -154,6 +154,10 @@ To run without docker (for example, for debugging purposes), you can use the fol
 label-studio-ml start my_ml_backend
 ```
 
+#### Test your ML backend
+
+Modify the `my_ml_backend/test_api.py` to ensure that your ML backend works as expected.
+
 #### Modify the port
 
 To modify the port, use the `-p` parameter:
