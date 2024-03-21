@@ -46,6 +46,10 @@ The model is compatible with the following labeling configurations:
 </View>
 ```
 
+You can also use the default configuration from project `Settings > Labeling Interface > Natural Language Processing > Named Entity Recognition`.
+
+> Note: if your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model.
+
 ## Parameters
 To change default parameters, specify the following environment variables:
 
