@@ -13,14 +13,14 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=1 \
     THREADS=8
 
-# Update the base OS and install Tesseract
+# Update the base OS
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
     set -eux; \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        tesseract-ocr git; \
+        git; \
     apt-get autoremove -y
 
 # install base requirements
