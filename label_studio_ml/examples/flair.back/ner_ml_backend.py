@@ -92,68 +92,7 @@ class SequenceTaggerModel(LabelStudioMLBase):
                                   f'the list of annotated tasks from Label Studio project ID = {project_id}')
 
     
-    def fit(self, event, data, **kwargs):
-        #completions contain ALL the annotated samples.
-        #train a model from scratch here.
-        flair_sents = []
-        completions = self._get_annotated_dataset(data['project_id'])
-        for compl in completions:
-            sent = Sentence(compl['data'][self.to_name]) #get raw sentence and convert to flair
-            annotations = compl['annotations']
-            sent = self.convert_to_flair_annotation(sent, annotations)
-            
-            #only add sentences that contain entities to dataset
-            if len(sent.get_spans('ner')) != 0:
-                flair_sents.append(sent)
-        
-        
-        #make data ready for flair by making SentenceDataset and Corpus object
-        data = SentenceDataset(flair_sents)
-        corpus = Corpus(train=data, dev=None, test=None, name="ner-corpus", sample_missing_splits=True)
-        
-        #for debugging
-        print("size train set: ", len(corpus.train))
-        print("size dev set: ", len(corpus.dev))
-        print("size test set: ", len(corpus.test))
-        
-        tag_type = 'ner'
-        # 3. make the tag dictionary from the corpus
-        tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
-        print(tag_dictionary)
 
-        # 4. initialize embeddings, here embeddings for dutch language
-        embedding_types = [
-            FlairEmbeddings('news-forward'),
-            FlairEmbeddings('news-backward'),
-        ]
-
-        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
-
-        # 5. initialize sequence tagger
-        model: SequenceTagger = SequenceTagger(hidden_size=256//4,
-                                                embeddings=embeddings,
-                                                tag_dictionary=tag_dictionary,
-                                                tag_type=tag_type,
-                                                use_crf=True)
-
-        trainer: ModelTrainer = ModelTrainer(model, corpus)
-
-        # 7. start training
-        parameters = {
-            'base_path': workdir, #workdir is set by label-studio
-            'learning_rate':1e-1,
-            'mini_batch_size':16,
-            'max_epochs':20
-        }
-        
-        #train and evaluate on test set
-        trainer.train(**parameters)
-        
-        #print out evaluation for train set in console
-        print("training evaluation:")
-        print(model.evaluate(corpus.train, gold_label_type='ner')) 
-        
-        return parameters
     
     def predict(self, tasks, **kwargs):
         #make predictions with currently set model
