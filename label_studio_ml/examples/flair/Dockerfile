@@ -35,10 +35,13 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install test requirements if needed
 COPY requirements-test.txt .
-RUN if [ "$TEST_ENV" = "true" ]; then \
-    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements-test.txt; \
-    fi
+# TODO: build only when TEST_ENV="true"
+#RUN if [ "$TEST_ENV" = "true" ]; then \
+#    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+#    pip install -r requirements-test.txt; \
+#    fi
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install -r requirements-test.txt
 
 COPY . .
 
