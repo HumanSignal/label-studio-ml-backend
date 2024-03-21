@@ -6,6 +6,8 @@ models.
 PaddleOCR is used for OCR but minimal adaptation is needed to connect other OCR
 engines or models.
 
+PaddleOCR supports 80 languages. refer to https://github.com/Mushroomcat9998/PaddleOCR/blob/main/doc/doc_en/multi_languages_en.md#language_abbreviations
+
 Tested againt Label Studio 1.10.1, with basic support for both Label Studio
 Local File Storage and S3-compatible storage, with a example data storage with
 Minio.
@@ -83,7 +85,7 @@ Minio.
    MINIO_ROOT_PASSWORD=<password>
    MINIO_API_CORS_ALLOW_ORIGIN=*
 
-   OCR_LANGUAGE=<Language Abbreviation ch,en,fr,japan>
+   OCR_LANGUAGE=<Language Abbreviation ch,en,fr,japan> # support 80 languages. refer to https://github.com/Mushroomcat9998/PaddleOCR/blob/main/doc/doc_en/multi_languages_en.md#language_abbreviations
    ```
 
 5. Start the PaddleOCR and minio servers.
@@ -106,8 +108,77 @@ Minio.
    docker pull blazordevlab/paddleocr-backend:latest
    
    ```
+   below is my docker-compose file include label-studio,minio and paddleocr-backend
 
-6. Upload tasks.
+   ```
+   version: "3.9"
+
+   x-logging:
+     logging: &default-logging
+       driver: "local"
+       options:
+         max-size: "10m"
+         max-file: "3"
+
+   services:
+     label-studio:
+       container_name: label-studio
+       image: heartexlabs/label-studio:latest
+       restart: unless-stopped
+       ports:
+         - "8080:8080"
+       depends_on:
+         - minio
+       environment:
+         - JSON_LOG=1
+         - LOG_LEVEL=DEBUG
+       volumes:
+         - label-studio-data:/label-studio/data
+
+     # not replicated setup for test setup, use a proper aws S3 compatible cluster in production
+     minio:
+       container_name: minio
+       image: bitnami/minio:latest
+       restart: unless-stopped
+       logging: *default-logging
+       ports:
+         - "9000:9000"
+         - "9001:9001"
+       volumes:
+         - minio-data:/data
+         - minio-certs:/certs
+       # configure env vars in .env file or your systems environment
+       environment:
+         - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio_admin_do_not_use_in_production}
+         - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio_admin_do_not_use_in_production}
+         - MINIO_PROMETHEUS_AUTH_TYPE=${MINIO_PROMETHEUS_AUTH_TYPE:-public}
+     paddleocr-backend:
+       container_name: paddleocr-backend
+       image: blazordevlab/paddleocr-backend:latest
+       environment:
+         - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://label-studio:8080}
+         - LABEL_STUDIO_ACCESS_TOKEN=${LABEL_STUDIO_ACCESS_TOKEN}
+         - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+         - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+         - AWS_ENDPOINT=${AWS_ENDPOINT:-http://minio:9000}
+         - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio_admin_do_not_use_in_production}
+         - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio_admin_do_not_use_in_production}
+         - MINIO_API_CORS_ALLOW_ORIGIN=${MINIO_API_CORS_ALLOW_ORIGIN:-*}
+         - OCR_LANGUAGE=${OCR_LANGUAGE:-ch}
+       ports:
+         - 9090:9090
+       volumes:
+         - paddleocr-backend-data:/data
+         - paddleocr-backend-logs:/tmp
+   volumes:
+     label-studio-data:
+     minio-data:
+     minio-certs:
+     paddleocr-backend-data:
+     paddleocr-backend-logs:
+   ```
+
+7. Upload tasks.
 
    If you're using the Label Studio Local File Storage option, upload images
    directly to Label Studio using the Label Studio interface.
@@ -119,7 +190,7 @@ Minio.
    tutorial, and you will want to configure your storage according to your
    particular needs. 
 
-7. If using minio, In the project **Settings**, set up the **Cloud storage**.
+8. If using minio, In the project **Settings**, set up the **Cloud storage**.
 
    Add your source S3 storage by connecting to the S3 Endpoint
    `http://host.docker.internal:9000`, using the bucket name from the previous
@@ -127,11 +198,11 @@ Minio.
    steps. For the minio example, uncheck **Use pre-signed URLS**. Check the
    connection and save the storage.
 
-8. Open the **Machine Learning** settings and click **Add Model**.
+9. Open the **Machine Learning** settings and click **Add Model**.
 
    Add the URL `http://host.docker.internal:9090` and save the model as an ML backend.
 
-9. To use this functionality, activate `Auto-Annotation` and use `Autotdetect` rectangle for drawing boxes
+10. To use this functionality, activate `Auto-Annotation` and use `Autotdetect` rectangle for drawing boxes
 
 Example below :
 
