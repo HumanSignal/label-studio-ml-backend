@@ -5,9 +5,17 @@ services:
     container_name: spacy
     build: .
     environment:
-      - WORKERS=2
-      - THREADS=4
+      # specify the spacy model to use
+      - SPACY_MODEL=en_core_web_sm
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
       - LOG_LEVEL=DEBUG
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
     volumes:
       - "./data:/data"
