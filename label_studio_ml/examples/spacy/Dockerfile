@@ -11,7 +11,8 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=${PORT:-9090} \
     PIP_CACHE_DIR=/.cache \
     WORKERS=1 \
-    THREADS=8
+    THREADS=8 \
+    SPACY_MODEL=en_core_web_sm
 
 # Update the base OS
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
