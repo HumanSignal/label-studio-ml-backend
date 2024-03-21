@@ -134,6 +134,9 @@ def create_dir(args):
     script_base_name = os.path.basename(script_path)
     use(script_base_name)
     use('requirements.txt')
+    use('requirements-base.txt')
+    use('requirements-test.txt')
+    use('test_api.py')
     use('README.md')
 
     wsgi_script_file = os.path.join(default_configs_dir, '_wsgi.py.tmpl')

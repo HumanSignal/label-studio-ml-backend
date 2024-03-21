@@ -9,8 +9,8 @@ services:
       - "./data/redis:/data"
     expose:
       - 6379
-  server:
-    container_name: server
+  pytorch_transfer_learning:
+    container_name: pytorch_transfer_learning
     build: .
     environment:
       - MODEL_DIR=/data/models
