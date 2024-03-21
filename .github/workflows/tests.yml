@@ -93,6 +93,7 @@ jobs:
       - name: Build the stack
         env:
           DOCKER_BUILDKIT: 1
+          TEST_ENV: "true"
         run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
 
       - name: Wait for stack

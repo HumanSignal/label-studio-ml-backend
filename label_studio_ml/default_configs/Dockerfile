@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 ARG PYTHON_VERSION=3.12
-ARG RUN_TEST="false"
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
+ARG TEST_ENV="false"
 
 WORKDIR /app
 
@@ -26,14 +26,16 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
 # install base requirements
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements.txt
+    pip install -r requirements-base.txt
 
+# install custom requirements
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt
 
+# install test requirements if needed
 COPY requirements-test.txt .
-RUN if [ "$RUN_TEST" = "true" ]; then \
+RUN if [ "$TEST_ENV" = "true" ]; then \
     --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements-test.txt; \
     fi
