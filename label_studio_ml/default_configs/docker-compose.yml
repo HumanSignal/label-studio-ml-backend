@@ -4,11 +4,14 @@ services:
   ml-backend:
     container_name: ml-backend
     image: humansignal/ml-backend:v0
-    build: .
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV:-"false"}
     environment:
       - MODEL_DIR=/data/models
-      - WORKERS=2
-      - THREADS=4
+      - WORKERS=1
+      - THREADS=8
       - LOG_LEVEL=DEBUG
       - ANY=PARAMETER
     ports:
