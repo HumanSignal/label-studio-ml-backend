@@ -1,9 +1,12 @@
-FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+ARG DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
 ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN conda update conda -y
 
 RUN apt-get -y update \
     && apt-get install -y git \
@@ -18,6 +21,10 @@ ENV PYTHONUNBUFFERED=True \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda
 
+RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
+ENV CUDA_HOME=/opt/conda \
+    TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
+
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
@@ -28,7 +35,6 @@ RUN pip3 install -e .
 RUN mkdir weights
 WORKDIR /app/GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
-RUN pip3 install --upgrade --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
 
 WORKDIR /app
 RUN wget -q https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
