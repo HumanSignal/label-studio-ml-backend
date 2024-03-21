@@ -9,8 +9,8 @@ services:
       - "./data/redis:/data"
     expose:
       - 6379
-  server:
-    container_name: server
+  ner_using_transformers:
+    container_name: ner_using_transformers
     build: .
     environment:
       - MODEL_DIR=/data/models

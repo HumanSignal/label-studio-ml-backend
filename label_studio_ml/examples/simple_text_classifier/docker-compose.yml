@@ -9,8 +9,8 @@ services:
       - "./data/redis:/data"
     expose:
       - 6379
-  server:
-    container_name: server
+  simple_text_classifier:
+    container_name: simple_text_classifier
     build: .
     environment:
       - MODEL_DIR=/data/models

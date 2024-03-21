@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
+  spacy:
+    container_name: spacy
     build: .
     environment:
       - WORKERS=2

@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
-    image: humansignal/ml-backend:v0
+  langchain:
+    container_name: langchain
+    image: humansignal/langchain:v0
     build: .
     environment:
       - MODEL_DIR=/data/models
