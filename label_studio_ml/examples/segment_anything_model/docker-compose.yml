@@ -19,6 +19,9 @@ services:
 #                count: 1
 #                capabilities: [gpu]
     environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
       # Change this to your model name
       - SAM_CHOICE=MobileSAM
       - LOG_LEVEL=DEBUG
@@ -27,6 +30,11 @@ services:
       - LABEL_STUDIO_ACCESS_TOKEN=
       # Enable this to use the GPU
       # - NVIDIA_VISIBLE_DEVICES=all
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
     ports:
       - 9090:9090
     volumes:
