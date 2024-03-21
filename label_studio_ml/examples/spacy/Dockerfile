@@ -35,10 +35,12 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install test requirements if needed
 COPY requirements-test.txt .
-RUN if [ "$TEST_ENV" = "true" ]; then \
-    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements-test.txt; \
-    fi
+#RUN if [ "$TEST_ENV" = "true" ]; then \
+#    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+#    pip install -r requirements-test.txt; \
+#    fi
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install -r requirements-test.txt
 
 # install spacy model
 RUN python -m spacy download $SPACY_MODEL
