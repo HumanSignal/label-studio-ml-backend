@@ -9,9 +9,9 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=${PORT:-9090} \
-    PIP_CACHE_DIR=/.cache
+    PIP_CACHE_DIR=/.cache \
     WORKERS=1 \
-    THREADS=8 \
+    THREADS=8
 
 # Update the base OS and install Tesseract
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
