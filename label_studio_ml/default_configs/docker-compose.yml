@@ -9,10 +9,17 @@ services:
       args:
         TEST_ENV: ${TEST_ENV:-"false"}
     environment:
-      - MODEL_DIR=/data/models
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
       - WORKERS=1
       - THREADS=8
-      - LOG_LEVEL=DEBUG
-      - ANY=PARAMETER
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
     ports:
       - "9090:9090"

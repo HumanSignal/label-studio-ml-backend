@@ -12,6 +12,8 @@ services:
     volumes:
       - "./data/server:/data"
       - "./logs:/tmp"
+    environment:
+      - LOG_LEVEL=DEBUG
 
   minio:
     container_name: minio
