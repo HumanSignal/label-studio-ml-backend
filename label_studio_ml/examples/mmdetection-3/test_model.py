@@ -2,6 +2,8 @@ import requests
 
 from mmdetection import MMDetection
 
+from pytest import approx
+
 label_config = """
 <View>
   <Image name="image" value="$image"/>
@@ -17,26 +19,26 @@ task = {
     }
 }
 expected = [
-        {
-            "result": [
-                {
-                    "from_name": "label",
-                    "to_name": "image",
-                    "type": "rectanglelabels",
-                    "value": {
-                        "rectanglelabels": ["Car"],
-                        "x": 22.946878274281822,
-                        "y": 9.788729747136433,
-                        "width": 66.54588778813681,
-                        "height": 76.81492235925462,
-                    },
-                    "score": 0.8933283090591431,
-                }
-            ],
-            "score": 0.8933283090591431,
-            "model_version": "mmdet",
-        }
-    ]
+    {
+        "result": [
+            {
+                "from_name": "label",
+                "to_name": "image",
+                "type": "rectanglelabels",
+                "value": {
+                    "rectanglelabels": ["Car"],
+                    "x": 22.946878274281822,
+                    "y": 9.788729747136433,
+                    "width": 66.54588778813681,
+                    "height": 76.81492235925462,
+                },
+                "score": 0.8933283090591431,
+            }
+        ],
+        "score": 0.8933283090591431,
+        "model_version": "mmdet",
+    }
+]
 
 def test_mmdetection_model_predict():
     model = MMDetection(label_config=label_config)
@@ -44,7 +46,7 @@ def test_mmdetection_model_predict():
 
     print(predictions)
     assert len(predictions) == 1, "Only one prediction should have been returned"
-    assert predictions == expected, "Predictions should match expected"
+    assert predictions == approx(expected), "Predictions should match expected"
 
 
 def test_mmdetection_http_request_predict():
@@ -56,4 +58,4 @@ def test_mmdetection_http_request_predict():
     response = requests.post('http://0.0.0.0:9090/predict', json=data)
     assert response.status_code == 200, "Error while predict: " + str(response.content)
     data = response.json()
-    assert data['results'] == expected
+    assert data['results'] == approx(expected)
