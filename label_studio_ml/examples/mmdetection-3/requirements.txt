@@ -9,8 +9,6 @@ itsdangerous==2.0.1
 boto3~=1.26.103
 torch==1.13.0
 torchvision==0.14.0
-openmim~=0.3.7
+openmim~=0.3.9
 
 opencv-contrib-python-headless~=4.7.0
-# mmcv==2.0.0rc3
-mmdet==3.0.0rc5
