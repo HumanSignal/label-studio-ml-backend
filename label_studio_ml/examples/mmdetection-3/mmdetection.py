@@ -4,6 +4,7 @@ import boto3
 import io
 import json
 
+from typing import List, Dict
 from mmdet.apis import init_detector, inference_detector
 from mmdet.utils import register_all_modules
 
@@ -31,7 +32,7 @@ class MMDetection(LabelStudioMLBase):
         image_dir=None,
         labels_file=None,
         score_threshold=0.5,
-        device='cpu',
+        device="cpu",
         **kwargs,
     ):
         """
@@ -48,16 +49,16 @@ class MMDetection(LabelStudioMLBase):
         :param kwargs:
         """
         super(MMDetection, self).__init__(**kwargs)
-        config_file = config_file or os.environ['config_file']
-        checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
+        config_file = config_file or os.environ["config_file"]
+        checkpoint_file = checkpoint_file or os.environ["checkpoint_file"]
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
         self.labels_file = labels_file
 
         # default Label Studio image upload folder
-        upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
+        upload_dir = os.path.join(get_data_dir(), "media", "upload")
         self.image_dir = image_dir or upload_dir
-        logger.debug(f'{self.__class__.__name__} reads images from {self.image_dir}')
+        logger.debug(f"{self.__class__.__name__} reads images from {self.image_dir}")
 
         if self.labels_file and os.path.exists(self.labels_file):
             self.label_map = json_load(self.labels_file)
@@ -69,15 +70,15 @@ class MMDetection(LabelStudioMLBase):
             self.to_name,
             self.value,
             self.labels_in_config,
-        ) = get_single_tag_keys(self.parsed_label_config, 'RectangleLabels', 'Image')
+        ) = get_single_tag_keys(self.parsed_label_config, "RectangleLabels", "Image")
         schema = list(self.parsed_label_config.values())[0]
         self.labels_in_config = set(self.labels_in_config)
 
-        print('Load new model from: ', config_file, checkpoint_file)
+        print("Load new model from: ", config_file, checkpoint_file)
         self.model = init_detector(config_file, checkpoint_file, device=device)
         self.score_thresh = score_threshold
 
-        self.labels_attrs = schema.get('labels_attrs')
+        self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
 
     def build_labels_from_labeling_config(self, schema):
@@ -85,19 +86,24 @@ class MMDetection(LabelStudioMLBase):
         Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tags,
         e.g. "airplane", "car" are label names from COCO dataset
         """
-        mmdet_labels = self.model.dataset_meta.get('classes', [])
+        mmdet_labels = self.model.dataset_meta.get("classes", [])
         mmdet_labels_lower = [label.lower() for label in mmdet_labels]
-        print('COCO dataset labels supported by this mmdet model:', self.model.dataset_meta)
+        print(
+            "COCO dataset labels supported by this mmdet model:",
+            self.model.dataset_meta,
+        )
 
         # if labeling config has Label tags
         if self.labels_attrs:
             # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
             for ls_label, label_attrs in self.labels_attrs.items():
-                predicted_values = label_attrs.get('predicted_values', '').split(',')
+                predicted_values = label_attrs.get("predicted_values", "").split(",")
                 for predicted_value in predicted_values:
                     if predicted_value:  # it shouldn't be empty (like '')
                         if predicted_value not in mmdet_labels:
-                            print(f'Predicted value "{predicted_value}" is not in mmdet labels')
+                            print(
+                                f'Predicted value "{predicted_value}" is not in mmdet labels'
+                            )
                         self.label_map[predicted_value] = ls_label
 
         # label map is still empty, not predicted_values found in Label tags,
@@ -112,32 +118,34 @@ class MMDetection(LabelStudioMLBase):
                 else:
                     self.label_map[mmdet_labels[index]] = ls_label
 
-        print('MMDetection => Label Studio mapping of labels :\n', self.label_map)
+        print("MMDetection => Label Studio mapping of labels :\n", self.label_map)
 
-    def _get_image_url(self, task):
-        image_url = task['data'].get(self.value) or task['data'].get(
+    def _get_image_url(self, task: Dict) -> str:
+        image_url = task["data"].get(self.value) or task["data"].get(
             DATA_UNDEFINED_NAME
         )
-        if image_url.startswith('s3://'):
+        if image_url.startswith("s3://"):
             # pre-sign s3 url
             r = urlparse(image_url, allow_fragments=False)
             bucket_name = r.netloc
-            key = r.path.lstrip('/')
-            client = boto3.client('s3')
+            key = r.path.lstrip("/")
+            client = boto3.client("s3")
             try:
                 image_url = client.generate_presigned_url(
-                    ClientMethod='get_object',
-                    Params={'Bucket': bucket_name, 'Key': key},
+                    ClientMethod="get_object",
+                    Params={"Bucket": bucket_name, "Key": key},
                 )
             except ClientError as exc:
                 logger.warning(
-                    f'Can\'t generate presigned URL for {image_url}. Reason: {exc}'
+                    f"Can't generate presigned URL for {image_url}. Reason: {exc}"
                 )
         return image_url
 
-    def predict(self, tasks, **kwargs):
+    def predict(self, tasks: List[Dict], **kwargs):
         if len(tasks) > 1:
-            print("==> Only the first task will be processed to avoid ML backend overloading")
+            print(
+                "==> Only the first task will be processed to avoid ML backend overloading"
+            )
             tasks = [tasks[0]]
 
         predictions = []
@@ -146,23 +154,23 @@ class MMDetection(LabelStudioMLBase):
             predictions.append(prediction)
         return predictions
 
-    def predict_one_task(self, task):
+    def predict_one_task(self, task: Dict):
         image_url = self._get_image_url(task)
         image_path = self.get_local_path(image_url)
         model_results = inference_detector(self.model, image_path).pred_instances
         results = []
         all_scores = []
         img_width, img_height = get_image_size(image_path)
-        classes = self.model.dataset_meta.get('classes')
+        classes = self.model.dataset_meta.get("classes")
         # print(f">>> model_results: {model_results}")
         # print(f">>> label_map {self.label_map}")
         # print(f">>> self.model.dataset_meta: {self.model.dataset_meta}")
 
         for item in model_results:
-            bboxes, label, scores = item['bboxes'], item['labels'][0], item['scores']
+            bboxes, label, scores = item["bboxes"], item["labels"][0], item["scores"]
             mmdet_label = classes[label]
             score = float(scores[-1])
-            print('----------------------')
+            print("----------------------")
             print(f"task id > {task.get('id')}")
             print(f"bboxes > {bboxes}")
             print(f"label > {mmdet_label}")
@@ -176,10 +184,12 @@ class MMDetection(LabelStudioMLBase):
             if mmdet_label not in self.label_map:
                 continue
 
-            output_label = self.label_map[mmdet_label]  # map from MMDet label to LS label name
+            output_label = self.label_map[
+                mmdet_label
+            ]  # map from MMDet label to LS label name
             print(f">>> LS output label: {output_label}")
             if output_label not in self.labels_in_config:
-                print(output_label + ' label not found in project config.')
+                print(output_label + " label not found in project config.")
                 continue
 
             for bbox in bboxes:
@@ -190,27 +200,27 @@ class MMDetection(LabelStudioMLBase):
                 x, y, xmax, ymax = bbox[:4]
                 results.append(
                     {
-                        'from_name': self.from_name,
-                        'to_name': self.to_name,
-                        'type': 'rectanglelabels',
-                        'value': {
-                            'rectanglelabels': [output_label],
-                            'x': float(x) / img_width * 100,
-                            'y': float(y) / img_height * 100,
-                            'width': (float(xmax) - float(x)) / img_width * 100,
-                            'height': (float(ymax) - float(y)) / img_height * 100,
+                        "from_name": self.from_name,
+                        "to_name": self.to_name,
+                        "type": "rectanglelabels",
+                        "value": {
+                            "rectanglelabels": [output_label],
+                            "x": float(x) / img_width * 100,
+                            "y": float(y) / img_height * 100,
+                            "width": (float(xmax) - float(x)) / img_width * 100,
+                            "height": (float(ymax) - float(y)) / img_height * 100,
                         },
-                        'score': score,
+                        "score": score,
                     }
                 )
                 all_scores.append(score)
         avg_score = sum(all_scores) / max(len(all_scores), 1)
         print(f">>> RESULTS: {results}")
-        return {'result': results, 'score': avg_score, 'model_version': 'mmdet'}
+        return {"result": results, "score": avg_score, "model_version": "mmdet"}
 
 
 def json_load(file, int_keys=False):
-    with io.open(file, encoding='utf8') as f:
+    with io.open(file, encoding="utf8") as f:
         data = json.load(f)
         if int_keys:
             return {int(k): v for k, v in data.items()}

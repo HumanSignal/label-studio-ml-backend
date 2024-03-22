@@ -14,7 +14,6 @@ on:
     branches:
       - master
       - 'release/**'
-      - '*'
 
 env:
   CACHE_NAME_PREFIX: v1
@@ -114,7 +113,6 @@ jobs:
         env:
           ML_BACKEND: ${{ matrix.ml_backend }}
         run: |
-          docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pip install pytest pytest-cov
           docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 
       - name: Copy per-ml-backend coverage.xml from the container
