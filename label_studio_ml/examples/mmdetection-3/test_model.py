@@ -40,14 +40,28 @@ expected = [
     }
 ]
 
+def compare_nested_structures(actual, expected, path=''):
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        assert actual.keys() == expected.keys(), f"Keys mismatch at {path}"
+        for key in actual.keys():
+            compare_nested_structures(actual[key], expected[key], path + '.' + str(key))
+    elif isinstance(actual, list) and isinstance(expected, list):
+        assert len(actual) == len(expected), f"List size mismatch at {path}"
+        for i, (act_item, exp_item) in enumerate(zip(actual, expected)):
+            compare_nested_structures(act_item, exp_item, path + f"[{i}]")
+    elif isinstance(actual, float) and isinstance(expected, float):
+        assert actual == approx(expected), f"Mismatch at {path}"
+    else:
+        assert actual == expected, f"Mismatch at {path}"
+      
+
 def test_mmdetection_model_predict():
     model = MMDetection(label_config=label_config)
     predictions = model.predict([task])
 
     print(predictions)
     assert len(predictions) == 1, "Only one prediction should have been returned"
-    assert predictions == approx(expected), "Predictions should match expected"
-
+    compare_nested_structures(predictions, expected)
 
 def test_mmdetection_http_request_predict():
     data = {'schema': label_config, 'project': '42'}
@@ -59,3 +73,4 @@ def test_mmdetection_http_request_predict():
     assert response.status_code == 200, "Error while predict: " + str(response.content)
     data = response.json()
     assert data['results'] == approx(expected)
+    compare_nested_structures(data['results'], expected)
