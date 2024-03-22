@@ -14,6 +14,7 @@ on:
     branches:
       - master
       - 'release/**'
+      - '*'
 
 env:
   CACHE_NAME_PREFIX: v1
