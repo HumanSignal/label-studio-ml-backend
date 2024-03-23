@@ -40,19 +40,21 @@ expected = [
     }
 ]
 
-def compare_nested_structures(actual, expected, path=''):
-    if isinstance(actual, dict) and isinstance(expected, dict):
-        assert actual.keys() == expected.keys(), f"Keys mismatch at {path}"
-        for key in actual.keys():
-            compare_nested_structures(actual[key], expected[key], path + '.' + str(key))
-    elif isinstance(actual, list) and isinstance(expected, list):
-        assert len(actual) == len(expected), f"List size mismatch at {path}"
-        for i, (act_item, exp_item) in enumerate(zip(actual, expected)):
+def compare_nested_structures(a, b, path=''):
+    """ Compare two dicts or list with approx() for float values
+    """
+    if isinstance(a, dict) and isinstance(b, dict):
+        assert a.keys() == b.keys(), f"Keys mismatch at {path}"
+        for key in a.keys():
+            compare_nested_structures(a[key], b[key], path + '.' + str(key))
+    elif isinstance(a, list) and isinstance(b, list):
+        assert len(a) == len(b), f"List size mismatch at {path}"
+        for i, (act_item, exp_item) in enumerate(zip(a, b)):
             compare_nested_structures(act_item, exp_item, path + f"[{i}]")
-    elif isinstance(actual, float) and isinstance(expected, float):
-        assert actual == approx(expected), f"Mismatch at {path}"
+    elif isinstance(a, float) and isinstance(b, float):
+        assert a == approx(b), f"Mismatch at {path}"
     else:
-        assert actual == expected, f"Mismatch at {path}"
+        assert a == b, f"Mismatch at {path}"
       
 
 def test_mmdetection_model_predict():
@@ -72,5 +74,4 @@ def test_mmdetection_http_request_predict():
     response = requests.post('http://0.0.0.0:9090/predict', json=data)
     assert response.status_code == 200, "Error while predict: " + str(response.content)
     data = response.json()
-    assert data['results'] == approx(expected)
     compare_nested_structures(data['results'], expected)
