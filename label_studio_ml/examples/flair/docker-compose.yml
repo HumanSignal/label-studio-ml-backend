@@ -7,7 +7,7 @@ services:
     build:
       context: .
       args:
-        TEST_ENV: ${TEST_ENV:-"false"}
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=1

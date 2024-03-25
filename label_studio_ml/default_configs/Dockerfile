@@ -2,7 +2,7 @@
 ARG PYTHON_VERSION=3.12
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
-ARG TEST_ENV="false"
+ARG TEST_ENV
 
 WORKDIR /app
 
@@ -35,9 +35,10 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install test requirements if needed
 COPY requirements-test.txt .
-RUN if [ "$TEST_ENV" = "true" ]; then \
-    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements-test.txt; \
+# build only when TEST_ENV="true"
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    if [ "$TEST_ENV" = "true" ]; then \
+      pip install -r requirements-test.txt; \
     fi
 
 COPY . .
