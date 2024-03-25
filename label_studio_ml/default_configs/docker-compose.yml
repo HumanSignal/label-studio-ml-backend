@@ -7,7 +7,7 @@ services:
     build:
       context: .
       args:
-        TEST_ENV: ${TEST_ENV:-"false"}
+        TEST_ENV: ${TEST_ENV}
     environment:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=

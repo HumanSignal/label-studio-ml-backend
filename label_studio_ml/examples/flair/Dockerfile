@@ -2,7 +2,7 @@
 ARG PYTHON_VERSION=3.11
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
-ARG TEST_ENV="false"
+ARG TEST_ENV
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        git; \
+        git gcc python3-dev; \
     apt-get autoremove -y
 
 # install base requirements
@@ -35,13 +35,11 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install test requirements if needed
 COPY requirements-test.txt .
-# TODO: build only when TEST_ENV="true"
-#RUN if [ "$TEST_ENV" = "true" ]; then \
-#    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-#    pip install -r requirements-test.txt; \
-#    fi
+# build only when TEST_ENV="true"
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements-test.txt
+    if [ "$TEST_ENV" = "true" ]; then \
+      pip install -r requirements-test.txt; \
+    fi
 
 COPY . .
 
