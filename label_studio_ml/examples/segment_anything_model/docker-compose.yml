@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
-    image: humansignal/sam:v0
+  segment_anything_model:
+    container_name: segment_anything_model
+    image: heartexlabs/label-studio-ml-backend:sam-latest
     build:
       context: .
       shm_size: '4gb'

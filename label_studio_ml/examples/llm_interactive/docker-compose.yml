@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
-    image: humansignal/llm-interactive:v0
+  llm_interactive:
+    container_name: llm_interactive
+    image: heartexlabs/label-studio-ml-backend:llm-latest
     build: .
     environment:
       - MODEL_DIR=/data/models

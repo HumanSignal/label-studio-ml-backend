@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
+  huggingface:
+    container_name: huggingface
     image: humansignal/huggingface-gpt:v0
     build: .
     environment:
