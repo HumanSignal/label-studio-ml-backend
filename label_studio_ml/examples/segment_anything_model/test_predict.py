@@ -1,4 +1,4 @@
-from label_studio_ml.examples.segment_anything_model.model import SamMLBackend
+from model import SamMLBackend
 
 _TEST_CONFIG = '''
 <View>
