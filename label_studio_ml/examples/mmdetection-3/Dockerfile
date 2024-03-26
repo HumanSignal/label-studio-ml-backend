@@ -25,13 +25,12 @@ RUN --mount=type=cache,target=$PIP_CACHE_DIR \
 RUN pip install label_studio_ml
 WORKDIR /app
 
-RUN mim install mmengine
+RUN mim install mmengine==0.10.3
+RUN mim install mmdet==3.3.0
 RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .
-RUN mim install mmcv==2.0.0rc3
+# RUN mim install mmcv==2.0.0rc4
 
-
-COPY _wsgi.py .
-COPY mmdetection.py .
+COPY *.py .
 EXPOSE 9090
 
 ENV checkpoint_file=yolov3_mobilenetv2_320_300e_coco_20210719_215349-d18dff72.pth

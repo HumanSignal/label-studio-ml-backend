@@ -23,7 +23,7 @@ def get_single_tag_keys(parsed_label_config, control_type, object_type):
     :param object_type: object tag str as it written in label config (e.g. 'Text')
     :return: 3 string keys and 1 array of string labels: (from_name, to_name, value, labels)
     """
-    assert len(parsed_label_config) == 1
+    assert len(parsed_label_config) == 1, "Please check your Labeling Interface configuration: At least one control tag should be in the labeling config."  # noqa
     from_name, info = list(parsed_label_config.items())[0]
     assert info['type'] == control_type, 'Label config has control tag "<' + info['type'] + '>" but "<' + control_type + '>" is expected for this model.'  # noqa
 

@@ -4,7 +4,7 @@ services:
   the_simplest_backend:
     container_name: the_simplest_backend
     build: .
-    image: humansignal/the_simplest_backend:v0
+    image: heartexlabs/label-studio-ml-backend:simplebackend-latest
     environment:
       - MODEL_DIR=/data/models
       - LABEL_STUDIO_HOST=
