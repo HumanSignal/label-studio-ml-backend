@@ -45,6 +45,22 @@ Example
 6. Go to an image task in your project. Turn on the Auto-annotation switch. Then, type in the prompt box and press add. After this, you should receive your predictions. See the video above for a demo. 
 
 
+## Using GPU
+
+For the best user experience, it is recommended to use a GPU. To do this, you can update the `docker-compose.yml` file including the following lines:
+
+```yaml
+environment:
+  - NVIDIA_VISIBLE_DEVICES=all
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+```
+
 ## Using GroundingSAM
 
 Combine the Segment Anything Model with your text input to automatically generate mask predictions! 
