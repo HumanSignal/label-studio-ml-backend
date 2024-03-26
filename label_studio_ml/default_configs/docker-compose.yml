@@ -23,3 +23,5 @@ services:
       - MODEL_DIR=/data/models
     ports:
       - "9090:9090"
+    volumes:
+      - "./data/server:/data"
