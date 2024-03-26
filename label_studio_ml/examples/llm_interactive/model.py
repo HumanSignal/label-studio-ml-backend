@@ -46,7 +46,7 @@ def chat_completion_call(messages, params, *args, **kwargs):
             api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
         )
         if not model:
-            model = 'gpt-3.5-turbo-instruct'
+            model = 'gpt-3.5-turbo'
     elif provider == "azure":
         client = AzureOpenAI(
             api_key=params.get("api_key", OpenAIInteractive.OPENAI_KEY),
@@ -55,7 +55,7 @@ def chat_completion_call(messages, params, *args, **kwargs):
             azure_deployment=params.get('deployment_name', OpenAIInteractive.AZURE_DEPLOYMENT_NAME)
         )
         if not model:
-            model = 'gpt-35-turbo-instruct'
+            model = 'gpt-35-turbo'
     else:
         raise
 

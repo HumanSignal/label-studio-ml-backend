@@ -11,8 +11,8 @@ services:
       - OPENAI_PROVIDER=openai
       # Specify API key for openai or azure
       - OPENAI_API_KEY=
-      # Specify model name for openai or azure (by default it uses "gpt-3.5-turbo-instruct")
-      - OPENAI_MODEL=
+      # Specify model name for openai or azure (by default it uses "gpt-3.5-turbo")
+      - OPENAI_MODEL=gpt-3.5-turbo
       # Internal prompt template for the model is:
       # **Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"
       # if you want to specify task data keys in the prompt (i.e. input <TextArea name="$PROMPT_PREFIX..."/>, set this to 0
