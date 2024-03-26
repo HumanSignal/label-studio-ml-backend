@@ -7,6 +7,8 @@ services:
     build:
       context: .
       shm_size: '4gb'
+      args:
+        TEST_ENV: ${TEST_ENV}
     deploy:
       resources:
         limits:
