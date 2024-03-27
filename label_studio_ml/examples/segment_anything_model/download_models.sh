@@ -18,5 +18,6 @@ MODELS["sam_vit_h_4b8939.pth"]="https://dl.fbaipublicfiles.com/segment_anything/
 MODELS["mobile_sam.pt"]="https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt"
 
 for model in "${!MODELS[@]}"; do
+  echo "Downloading ${model} to ${MODELS_DIR}/..."
   download_model "${model}" "${MODELS[${model}]}"
 done
