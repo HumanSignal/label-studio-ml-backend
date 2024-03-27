@@ -8,23 +8,17 @@ on:
 jobs:
   build-image:
     name: Build image
+    needs: calculate_matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
-      matrix:
-        # Allow list of models
-        include:
-          - backend_dir_name: segment_anything_model
-            backend_tag_prefix: sam-
-          - backend_dir_name: llm_interactive
-            backend_tag_prefix: llm-
-          - backend_dir_name: the_simplest_backend
-            backend_tag_prefix: simplebackend-
+      fail-fast: false
+      matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
       examples_dir: label_studio_ml/examples
-      backend_dir_name: ${{ matrix.backend_dir_name }}
-      backend_tag_prefix: ${{ matrix.backend_tag_prefix }}
+      backend_dir_name: ${{ matrix.ml_backend.backend_dir_name }}
+      backend_tag_prefix: ${{ matrix.ml_backend.backend_tag_prefix }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,26 +51,11 @@ jobs:
           image_branch_version="${PREFIX}${short_branch}"
           echo "image_branch_version=$image_branch_version" >> $GITHUB_OUTPUT
 
-      - name: Check for Changes in Directory
-        id: check_changes
-        shell: bash
-        run: |
-          set -xueo pipefail
-          directory="${{ env.examples_dir }}/${{ env.backend_dir_name }}"
-          changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- "${directory}" || true)
-          if [ -z "$changes" ]; then
-            echo "::notice::No changes in directory ${directory}. Skipping build."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "Changes detected in directory ${directory}."
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.2.0
 
       - name: Login to DockerHub
-        if: ${{ steps.check_changes.outputs.skip != 'true' && !github.event.pull_request.head.repo.fork }}
+        if: ${{ !github.event.pull_request.head.repo.fork }}
         uses: docker/login-action@v3.1.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -103,7 +82,6 @@ jobs:
 
 
       - name: Push Docker image
-        if: steps.check_changes.outputs.skip != 'true'
         uses: docker/build-push-action@v5.3.0
         id: docker_build_and_push
         with:
@@ -112,3 +90,62 @@ jobs:
           tags: "${{ steps.calculate-docker-tags.outputs.tags }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  calculate_matrix:
+    name: "Calculate build matrix"
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: hmarr/debug-action@v3.0.0
+
+      - name: Extract branch name on direct push to a branch
+        if: github.event_name == 'push'
+        run: |
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_REF_NAME=${{ github.sha }}^" >> $GITHUB_ENV
+
+      - name: Extract branch name on 'pull_request'
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BASE_REF_NAME=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GITHUB_SHA }}"
+          fetch-depth: 2
+
+      - name: Build matrix
+        id: set-matrix
+        shell: bash
+        env:
+          BASE_REF_NAME: ${{ env.BASE_REF_NAME }}
+          CONFIG: .github/docker-build-config.yml
+        run: |
+          set -xuo pipefail
+          set +e
+          CHANGED=$(git diff --name-only HEAD.."${BASE_REF_NAME}" -- label_studio_ml/ | xargs -L1 dirname | uniq | cut -d'/' -f2-)
+          CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples )
+          set -e
+          echo "Finding examples to test"
+          if [[ $(echo "$CHANGED" | grep -c -v ^$) == 0 ]]; then
+            echo "matrix={\"ml_backend\":[]}" >> $GITHUB_OUTPUT
+          else
+            ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
+            echo "Reading configuration from $CONFIG"
+            MATRIX="{\"ml_backend\": ["
+            while IFS= read -r line; do
+              FOLDER=$(echo $line | awk '{print $1}')
+              TAG_PREFIX=$(echo $line | awk '{print $2}')
+              if egrep -q $FOLDER <<< "${CHANGED_EXAMPLES}"; then
+                MATRIX+="{\"backend_dir_name\":\"$FOLDER\", \"backend_tag_prefix\":\"$TAG_PREFIX\"},"
+              fi
+            done < <(yq '.[] | .backend_dir_name + " " + .backend_tag_prefix' $CONFIG)
+            MATRIX=$(echo "$MATRIX" | sed 's/,$//')
+            MATRIX+="]}"
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          fi
