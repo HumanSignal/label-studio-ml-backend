@@ -4,19 +4,20 @@ ARG TEST_ENV
 
 WORKDIR /app
 
-ENV TZ=America/New_York
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
 RUN conda update conda -y
 
-RUN apt-get -y update \
+RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
+    --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
+    apt-get -y update \
     && apt-get install -y git \
     && apt-get install -y wget \
     && apt-get install -y g++ freeglut3-dev build-essential libx11-dev \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-ENV PYTHONUNBUFFERED=True \
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_CACHE_DIR=/.cache
     PORT=9090 \
     WORKERS=2 \
     THREADS=4 \
@@ -27,12 +28,14 @@ ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip3 install --no-cache-dir -r requirements.txt
 
 # install GroundingDINO
 RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /app/GroundingDINO
-RUN pip3 install -e .
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip3 install -e .
 RUN mkdir weights
 WORKDIR /app/GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
@@ -46,9 +49,8 @@ COPY requirements-test.txt .
 # build only when TEST_ENV="true"
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     if [ "$TEST_ENV" = "true" ]; then \
-      pip install -r requirements-test.txt; \
+      pip3 install -r requirements-test.txt; \
     fi
-
 
 COPY . ./
 
