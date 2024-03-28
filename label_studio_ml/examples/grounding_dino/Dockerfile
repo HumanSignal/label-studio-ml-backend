@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install --no-cache-dir -r requirements.txt
 
 # install GroundingDINO
-RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
+RUN cd / && git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /GroundingDINO
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
