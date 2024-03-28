@@ -24,7 +24,7 @@ services:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
-      # Change this to your model name
+      # Change this to your model name: MobileSAM or SAM
       - SAM_CHOICE=MobileSAM
       - LOG_LEVEL=DEBUG
       # Add these variables if you want to access the images stored in Label Studio, host should start with http:// or https://
