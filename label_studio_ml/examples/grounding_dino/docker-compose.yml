@@ -3,7 +3,10 @@ version: "3.11"
 services:
   grounding_dino:
     container_name: grounding_dino
-    build: .
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=2
@@ -23,6 +26,15 @@ services:
 
       - BOX_THRESHOLD=0.30
       - TEXT_THRESHOLD=0.25
+# # Uncomment the following lines if you want to use GPU
+#      - NVIDIA_VISIBLE_DEVICES=all
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [gpu]
     ports:
       - "9090:9090"
     volumes:

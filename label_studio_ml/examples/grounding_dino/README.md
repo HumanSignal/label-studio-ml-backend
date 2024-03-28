@@ -1,7 +1,6 @@
 https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/d1d2f233-d7c0-40ac-ba6f-368c3c01fd36
 
 
-
 ## GroundingDINO Backend Integration
 
 Use text prompts for zero-shot detection of objects in images! Specify the detection of any object and get State of the Art results without any model fine tuning! In addition, get segmentation predictions from SAM with just text prompts!
@@ -10,13 +9,11 @@ See [here](https://github.com/IDEA-Research/GroundingDINO) for more details abou
 
 
 ## Quickstart
-=======
-Quickstart
 
 1. Make sure docker is installed
 2. Edit `docker-compose.yml` to include your LABEL_STUDIO_ACCESS_TOKEN found in the Label Studio software, and the LABEL_STUDIO_HOST which includes the address on which the frontend is hosted on.
 
-Example-
+Example
 - `LABEL_STUDIO_HOST=http://123.456.7.8:8080`
 - `LABEL_STUDIO_ACCESS_TOKEN=c9djf998eii2948ee9hh835nferkj959923`
 
@@ -25,7 +22,7 @@ Example-
 
 5. Create a project and edit the labelling config (an example is provided below). When editing the labeling config, make sure to add all rectangle labels under the RectangleLabels tag, and all corresponding brush labels under the BrushLabels tag.
 
-```
+```xml
 <View>
   <Image name="image" value="$image"/>
   <Style>
@@ -47,6 +44,22 @@ Example-
 
 6. Go to an image task in your project. Turn on the Auto-annotation switch. Then, type in the prompt box and press add. After this, you should receive your predictions. See the video above for a demo. 
 
+
+## Using GPU
+
+For the best user experience, it is recommended to use a GPU. To do this, you can update the `docker-compose.yml` file including the following lines:
+
+```yaml
+environment:
+  - NVIDIA_VISIBLE_DEVICES=all
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+```
 
 ## Using GroundingSAM
 
