@@ -3,7 +3,10 @@ version: "3.11"
 services:
   grounding_dino:
     container_name: grounding_dino
-    build: .
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=2

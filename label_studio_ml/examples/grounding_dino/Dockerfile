@@ -1,5 +1,6 @@
 FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TEST_ENV
 
 WORKDIR /app
 
@@ -39,6 +40,15 @@ RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.
 WORKDIR /app
 RUN wget -q https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
 RUN wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+
+# install test requirements if needed
+COPY requirements-test.txt .
+# build only when TEST_ENV="true"
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    if [ "$TEST_ENV" = "true" ]; then \
+      pip install -r requirements-test.txt; \
+    fi
+
 
 COPY . ./
 
