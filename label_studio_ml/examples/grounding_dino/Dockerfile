@@ -17,7 +17,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_CACHE_DIR=/.cache
+    PIP_CACHE_DIR=/.cache \
     PORT=9090 \
     WORKERS=2 \
     THREADS=4 \
