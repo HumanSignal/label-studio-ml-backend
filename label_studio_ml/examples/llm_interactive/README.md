@@ -53,6 +53,79 @@ $ curl http://localhost:9090/health
 
 ## Configuration examples
 
+#### Prompt engineering and model response evaluation
+
+```xml
+<View>
+ <Style>
+  .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+
+  .text-container {
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      line-height: 1.6;
+      font-size: 16px;
+   }
+</Style>
+<Header value="Context:"/>
+<View className="text-container">
+  <Text name="context" value="$text" />
+</View>
+<Header value="Prompt:" />
+<View className="prompt">
+  <TextArea name="prompt"
+            toName="context"
+            rows="4"
+            editable="true"
+            maxSubmissions="1"
+            showSubmitButton="false"
+            placeholder="Type your prompt here then Shift+Enter..."
+  />
+</View>
+<Header value="Response:"/>
+<TextArea name="response"
+          toName="context"
+          rows="4"
+          editable="true"
+          maxSubmissions="1"
+          showSubmitButton="false"
+          placeholder="Generated response will appear here..."
+/>
+<Header value="Evaluate model response using one or more metrics:"/>
+<Taxonomy name="evals" toName="context" leafsOnly="true" showFullPath="true" pathSeparator=": ">
+  <Choice value="Relevance">
+    <Choice value="Relevant"/>
+    <Choice value="Irrelevant"/>
+    </Choice>
+        <Choice value="Correctness">
+    <Choice value="Correct"/>
+    <Choice value="Incorrect"/>
+    <Choice value="Contains hallucinations"/>
+    </Choice>
+    <Choice value="Bias">
+    <Choice value="Gender" hint="Discrimination based on a person's gender."/>
+    <Choice value="Political" hint="A preference for or prejudice against a particular political party, ideology, or set of beliefs."/>
+    <Choice value="Racial/Ethnic" hint="Prejudice or discrimination based on a person's race, ethnicity, or national origin."/>
+    <Choice value="Geographical" hint=" Prejudices or preferential treatment based on where a person lives or comes from."/>
+    </Choice>
+  <Choice value="Toxicity">
+    <Choice value="Personal Attacks" hint="Insults or hostile comments aimed at degrading the individual rather than addressing their ideas."/>
+    <Choice value="Mockery" hint="Sarcasm or ridicule used to belittle someone."/>
+    <Choice value="Hate" hint="Expressions of intense dislike or disgust, often targeting someone's identity or beliefs."/>
+    <Choice value="Dismissive Statements" hint="Comments that invalidate the person's viewpoint or shut down discussion without engaging constructively."/>
+    <Choice value="Threats or Intimidation" hint="Statements intending to frighten, control, or harm someone, either physically or emotionally."/>
+    <Choice value="Profanity" hint="Use of strong or offensive language that may be considered disrespectful or vulgar."/>
+    <Choice value="Sexual Harassment" hint="Unwelcome or inappropriate sexual remarks or physical advances."/>
+  </Choice>
+  </Taxonomy>
+<Header value="Overall response quality:"/>
+<Rating name="rating" toName="context"/>
+</View>
+```
+
 #### Automatic text classification
 
 ```xml
