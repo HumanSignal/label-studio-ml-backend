@@ -2,7 +2,7 @@ Jinja2==3.0.3
 click==7.1.2
 itsdangerous==2.0.1
 label-studio-ml==1.0.8
-requests==2.22.0
+requests==2.31.0
 rq==1.10.1
 scikit-learn==0.24.1
 supervisor==4.2.2
