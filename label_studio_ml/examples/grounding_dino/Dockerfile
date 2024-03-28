@@ -21,7 +21,8 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=9090 \
     WORKERS=2 \
     THREADS=4 \
-    CUDA_HOME=/usr/local/cuda
+    CUDA_HOME=/usr/local/cuda \
+    GROUNDINGDINO_REPO_PATH=/GroundingDINO
 
 RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
 ENV CUDA_HOME=/opt/conda \
@@ -33,11 +34,11 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install GroundingDINO
 RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
-WORKDIR /app/GroundingDINO
+WORKDIR /GroundingDINO
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
 RUN mkdir weights
-WORKDIR /app/GroundingDINO/weights
+WORKDIR /GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
 
 WORKDIR /app
