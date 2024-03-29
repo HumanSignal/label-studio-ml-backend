@@ -1,3 +1,7 @@
+"""
+!!! Note:
+This model is deprecated, see label_studio_ml/default_configs/model.py for the actual model format.
+"""
 import random
 
 from label_studio_ml.model import LabelStudioMLBase

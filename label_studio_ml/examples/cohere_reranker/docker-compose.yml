@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  ml-backend:
+    container_name: ml-backend
+    image: humansignal/ml-backend:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
