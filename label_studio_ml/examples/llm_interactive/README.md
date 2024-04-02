@@ -1,3 +1,19 @@
+---
+title: Interactive LLM labeling with GPT
+type: blog
+tier: all
+order: 30
+meta_title: Interactive LLM labeling with OpenAI or Azure API
+meta_description: Label Studio tutorial for interactive LLM labeling with OpenAI or Azure API
+categories:
+    - tutorial
+    - openai
+    - azure
+    - gpt
+    - llm
+image: "/tutorials/gpt2.png"
+---
+
 ## Interactive LLM labeling
 
 This example server connects Label Studio to [OpenAI](https://platform.openai.com/) or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (gpt-3.5-turbo, gpt-4, etc.).
