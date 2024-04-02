@@ -1,3 +1,4 @@
+<!--
 ---
 title: Interactive LLM labeling with GPT
 type: blog
@@ -13,6 +14,7 @@ categories:
     - llm
 image: "/tutorials/gpt2.png"
 ---
+-->
 
 ## Interactive LLM labeling
 
