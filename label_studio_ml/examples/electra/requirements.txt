@@ -1,7 +1,0 @@
-click==7.1.2
-label-studio-ml==1.0.8
-rq
-supervisor==4.2.2
-torch
-transformers
-uwsgi==2.0.19.1
