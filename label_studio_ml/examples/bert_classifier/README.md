@@ -28,6 +28,7 @@ $ curl http://localhost:9090/
 
 3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
 
+> Warning! Please note the current limitation of the ML backend: models are loaded dynamically from huggingface.co. You may need `HF_TOKEN` env variable provided in your environment. Consequently, this may result in a slow response time for the first prediction request. If you are experiencing timeouts on Label Studio side (i.e., no predictions are visible when opening the task), please check the logs of the ML backend for any errors, and refresh the page in a few minutes.
 
 ## Building from source (Advanced)
 
