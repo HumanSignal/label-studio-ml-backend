@@ -48,7 +48,7 @@ The model is compatible with the following labeling configurations:
 
 You can also use the default configuration from project `Settings > Labeling Interface > Natural Language Processing > Named Entity Recognition`.
 
-> Note: if your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model.
+> Note: if your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model. Go to `model.py` and change `_custom_labels_mapping` to map from SpaCy entities to your labels
 
 ## Parameters
 To change default parameters, specify the following environment variables:
