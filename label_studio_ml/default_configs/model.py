@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.response import ModelResponse
 
 
 class NewModel(LabelStudioMLBase):
@@ -12,11 +13,13 @@ class NewModel(LabelStudioMLBase):
         self.set("model_version", "0.0.1")
 
         
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
             :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
-            :return predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
+            :return model_response
+                ModelResponse(predictions=predictions) with
+                predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
         print(f'''\
         Run prediction on {tasks}
