@@ -10,13 +10,13 @@ services:
         TEST_ENV: ${TEST_ENV}
     environment:
       # If you are using this model for training, you have to connect it to Label Studio
-      - LABEL_STUDIO_HOST=https://app.heartex.com/
-      - LABEL_STUDIO_API_KEY=your_api_key
+      - LABEL_STUDIO_HOST=http://localhost:8080
+      - LABEL_STUDIO_API_KEY=your-api-key
       # Use any model for [AutoModelForSequenceClassification](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification)
-      # - BASELINE_MODEL_NAME=bert-base-uncased
-      - BASELINE_MODEL_NAME=google/electra-small-discriminator
+      - BASELINE_MODEL_NAME=bert-base-uncased
+      # - BASELINE_MODEL_NAME=google/electra-small-discriminator
       # The model directory for the fine-tuned checkpoints (relative to $MODEL_DIR)
-      - FINETUNED_MODEL_NAME=finetuned-electra
+      - FINETUNED_MODEL_NAME=finetuned-model-path
       # The number of labeled tasks to download from Label Studio before starting training
       - START_TRAINING_EACH_N_UPDATES=1
       # Learning rate
