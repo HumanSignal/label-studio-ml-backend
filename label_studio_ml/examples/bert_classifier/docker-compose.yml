@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   ml-backend:
-    container_name: ml-backend
+    container_name: bert_classifier
     image: humansignal/ml-backend:v0
     build:
       context: .
