@@ -10,6 +10,9 @@ nlp = spacy.load(SPACY_MODEL)
 
 class SpacyMLBackend(LabelStudioMLBase):
 
+    # define your custom labels mapping here
+    _custom_labels_mapping = {}
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> Union[List[Dict], ModelResponse]:
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
         predictions = []
@@ -26,7 +29,7 @@ class SpacyMLBackend(LabelStudioMLBase):
                         'start': ent.start_char,
                         'end': ent.end_char,
                         'text': ent.text,
-                        'labels': [ent.label_]
+                        'labels': [_custom_labels_mapping.get(ent.label_, ent.label_)]
                     }
                 })
             predictions.append(PredictionValue(
