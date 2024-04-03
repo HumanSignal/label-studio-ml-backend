@@ -44,7 +44,7 @@ class NewModel(LabelStudioMLBase):
         #     }]
         # }]
         
-        return []
+        return ModelResponse(predictions=[])
 
     
     def fit(self, event, data, **kwargs):
