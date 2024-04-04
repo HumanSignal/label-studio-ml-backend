@@ -131,6 +131,8 @@ class NewModel(LabelStudioMLBase):
             logger.info(f"Skip training: the number of tasks is not divisible by {self.START_TRAINING_EACH_N_UPDATES}")
             return
 
+        from_name, to_name, value = self.label_interface.get_first_tag_occurence('Choices', 'Text')
+
         ds_raw = {
             'id': [],
             'text': [],
@@ -142,7 +144,7 @@ class NewModel(LabelStudioMLBase):
                     for result in annotation['result']:
                         if 'choices' in result['value']:
                             ds_raw['id'].append(task['id'])
-                            ds_raw['text'].append(task['data']['text'])
+                            ds_raw['text'].append(task['data'][value])
                             ds_raw['label'].append(result['value']['choices'])
 
         hf_dataset = Dataset.from_dict(ds_raw)
