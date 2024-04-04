@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  huggingface_ner:
+    container_name: huggingface_ner
+    image: humansignal/ml-backend:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # If you are using this model for training, you have to connect it to Label Studio
+      - LABEL_STUDIO_HOST=http://localhost:8080
+      - LABEL_STUDIO_API_KEY=your-api-key
+      # Use any model for [AutoModelForSequenceClassification](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification)
+      - BASELINE_MODEL_NAME=dslim/bert-base-NER
+      # change it to this model if you want to run training
+      # - BASELINE_MODEL_NAME=distilbert/distilbert-base-uncased
+      # The model directory for the fine-tuned checkpoints (relative to $MODEL_DIR)
+      - FINETUNED_MODEL_NAME=finetuned-model-path
+      # The number of labeled tasks to download from Label Studio before starting training
+      - START_TRAINING_EACH_N_UPDATES=1
+      # Learning rate
+      - LEARNING_RATE=2e-5
+      # Number of epochs
+      - NUM_TRAIN_EPOCHS=3
+      # Weight decay
+      - WEIGHT_DECAY=0.01
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
+      - "./data/.cache:/root/.cache"
