@@ -166,7 +166,7 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
 
     # assert new model is created in ./results/finetuned_model directory
     import os
-    results_dir = os.path.dirname(__file__) + '/results/finetuned_model'
+    results_dir = os.path.join(NewModel.MODEL_DIR, 'finetuned_model')
     assert os.path.exists(os.path.join(results_dir, 'pytorch_model.bin'))
 
     # now let's test whether the model is trained by running predict
