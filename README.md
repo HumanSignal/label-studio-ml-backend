@@ -37,14 +37,14 @@ Please check **Required parameters** column to see if you need to set any additi
 | [spacy](/label_studio_ml/examples/spacy)                                   | Named entity recognition model from [SpaCy](https://spacy.io/)                                                                                   | None                |
 | [flair](/label_studio_ml/examples/flair)                                   | NLP models by [flair](https://flairnlp.github.io/)                                                                                               | None                |
 | [bert_classifier](/label_studio_ml/examples/bert_classifier)               | Text classification models from [Huggingface](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification) | None                |
-| [huggingface_llm](/label_studio_ml/examples/huggingface_llm)               | Text generation models by [Hugging Face](https://huggingface.co/tasks/text-generation)                                                                                | None                |
+| [huggingface_llm](/label_studio_ml/examples/huggingface_llm)               | Text generation models by [Hugging Face](https://huggingface.co/tasks/text-generation)                                                           | None                |
+| [huggingface_ner](/label_studio_ml/examples/huggingface_ner)               | NER models (TokenClassification) by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                       | None                |
 | [nemo](/label_studio_ml/examples/nemo)                                     | Speech transcription models by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                     | None                |
 | [mmetection](/label_studio_ml/examples/mmetection)                         | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
 | [simple_text_classifier](/label_studio_ml/examples/simple_text_classifier) | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
 | [substring_matching](/label_studio_ml/examples/substring_matching)         | Select keyword to highlight all occurrences of the keyword in the text                                                                           | None                |
 
-
-# (Advanced usage) Develop your model 
+# (Advanced usage) Develop your model
 
 To start developing your own ML backend, follow the instructions below.
 
@@ -64,8 +64,8 @@ Download and install `label-studio-ml` from the repository:
 label-studio-ml create my_ml_backend
 ```
 
-   You can go to the `my_ml_backend` directory and modify the code to implement your own inference logic.
-   The directory structure should look like this:
+You can go to the `my_ml_backend` directory and modify the code to implement your own inference logic.
+The directory structure should look like this:
 
 ```
 my_ml_backend/
@@ -76,12 +76,12 @@ my_ml_backend/
 ├── README.md
 └── requirements.txt
 ```
-    
-   `Dockefile` and `docker-compose.yml` are used to run the ML backend with Docker.
-   `model.py` is the main file where you can implement your own training and inference logic.
-   `_wsgi.py` is a helper file that is used to run the ML backend with Docker (you don't need to modify it)
-   `README.md` is a readme file with instructions on how to run the ML backend.
-   `requirements.txt` is a file with Python dependencies.
+
+`Dockefile` and `docker-compose.yml` are used to run the ML backend with Docker.
+`model.py` is the main file where you can implement your own training and inference logic.
+`_wsgi.py` is a helper file that is used to run the ML backend with Docker (you don't need to modify it)
+`README.md` is a readme file with instructions on how to run the ML backend.
+`requirements.txt` is a file with Python dependencies.
 
 ### 3. Implement prediction logic
 
