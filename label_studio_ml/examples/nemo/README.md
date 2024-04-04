@@ -1,6 +1,23 @@
+<!--
+---
+title: Automatic Speech Recognition with NVIDIA NeMo
+type: blog
+tier: all
+order: 55
+meta_title: Automatic Speech Recognition with Label Studio and NVIDIA NeMo
+meta_description: This is a tutorial on how to use the example NVIDIA NeMO model backend with Label Studio.
+categories:
+    - tutorial
+    - automatic speech recognition
+    - nemo
+    - nvidia
+image: "/tutorials/nemo_asr.png"
+---
+-->
+
 ## Quickstart
 
-Build and start Machine Learning backend on `http://localhost:9090`
+Build and start the Machine Learning backend on `http://localhost:9090`
 
 ```bash
 docker-compose up -d
@@ -13,7 +30,7 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-Then connect running backend to Label Studio:
+Then connect tje running backend to Label Studio:
 
 ```bash
 label-studio start --init new_project --ml-backends http://localhost:9090 
@@ -27,6 +44,6 @@ https://github.com/heartexlabs/label-studio/blob/master/docs/source/tutorials/ne
 
 ## License
 
-This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [Heartex](https://www.heartex.com/). 2022
+This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [HumanSignal](https://www.humansignal.com/) 2024
 
 <img src="https://github.com/heartexlabs/label-studio/blob/master/images/opossum_looking.png?raw=true" title="Hey everyone!" height="140" width="140" />

@@ -3,7 +3,7 @@
 title: Interactive LLM labeling with GPT
 type: blog
 tier: all
-order: 30
+order: 10
 meta_title: Interactive LLM labeling with OpenAI or Azure API
 meta_description: Label Studio tutorial for interactive LLM labeling with OpenAI or Azure API
 categories:
@@ -22,52 +22,52 @@ This example server connects Label Studio to [OpenAI](https://platform.openai.co
 
 The interactive flow allows you to perform the following scenarios:
 
-1. Autolabel data given LLM prompt (e.g. "Classify this text as sarcastic or not")
-2. Collect pair of input user prompts and responses to finetune your own LLM
-3. Automate data collection and summarization over image documents
-4. Create RLHF (Reinforcement Learning from Human Feedback) loop to improve LLM's performance
-5. Evaluate LLM's performance.
+* Autolabel data given an LLM prompt (e.g. "Classify this text as sarcastic or not")
+* Collect pairs of user prompts and response inputs to fine tune your own LLM.
+* Automate data collection and summarization over image documents.
+* Create a RLHF (Reinforcement Learning from Human Feedback) loop to improve the LLM's performance.
+* Evaluate the LLM's performance.
 
-Check [Generative AI templates](https://labelstud.io/templates/gallery_generative_ai) section for more examples.
+Check the [Generative AI templates](https://labelstud.io/templates/gallery_generative_ai) section for more examples.
 
 ## Quickstart
 
-1. Build and start Machine Learning backend on `http://localhost:9090`
+1. Build and start the Machine Learning backend on `http://localhost:9090`
 
-```bash
+    ```bash
 docker-compose up
 ```
 
-Check if it works:
+    Check if it works:
 
-```bash
+    ```bash
 $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-2. Open [Label Studio project](http://localhost:8080) and navigate to `Settings > Machine Learning` page. Add a new ML
-   backend and specify the URL `http://localhost:9090`. Ensure `Use for interactive preannotations` toggle is set **ON**
-   . Save the settings.
-3. The project config should be compatible with the ML backend. This ML backend can support various input data formats
+1. Open a [Label Studio project](http://localhost:8080) and go to **Settings > Model**. [Connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio), specifying `http://localhost:9090` as the URL. 
+   
+   Ensure the **Interactive preannotations** toggle is enabled and click **Validate and Save**.
+2. The project config should be compatible with the ML backend. This ML backend can support various input data formats
    like plain text, hypertext, image, structured dialogs. To ensure the project config is compatible, follow these
    rules:
 
-- The project should contain at least one `<TextArea>` tag to be used as a prompt input. To specify which `<TextArea>`
-  tag to use, set `PROMPT_PREFIX` environmental variable. For example, `<TextArea name="prompt" ...>` tag should be used
+   - The project should contain at least one `<TextArea>` tag to be used as a prompt input. To specify which `<TextArea>`
+  tag to use, set the `PROMPT_PREFIX` environmental variable. For example, the `<TextArea name="prompt" ...>` tag should be used
   with `PROMPT_PREFIX=prompt`.
-- The project should contain at least one input data tag from the following list of supported tags: `<Text>`, `<Image>`
+   - The project should contain at least one input data tag from the following list of supported tags: `<Text>`, `<Image>`
   , `<HyperText>`, `<Paragraphs>`.
-- If you want to directly capture generated LLM response, your labeling config should contain a `<TextArea>` tag
-  different from the prompt input. To specify which `<TextArea>` tag to use, set `RESPONSE_PREFIX` environmental
+   - If you want to directly capture generated LLM responses, your labeling config should contain a `<TextArea>` tag
+  different from the prompt input. To specify which `<TextArea>` tag to use, set the `RESPONSE_PREFIX` environmental
   variable. For example, `<TextArea name="response" ...>`.
-- If you want to capture generated LLM response as a label, your labeling config should contain a `<Choices>` tag. For
+   - If you want to capture the generated LLM response as a label, your labeling config should contain a `<Choices>` tag. For
   example, `<Choices name="choices" ...>`.
 
-4. Go to the labeling page, and ensure the `Auto-Annotation` toggle is enabled (it is located below the labeling screen)
-   .
-5. Type a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
+1. Open a task and ensure the **Auto-Annotation** toggle is enabled (it is located at the bottom of the labeling interface).
+2. Enter a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
    the response field.
-6. If you want to apply LLM auto-annotation to the multiple tasks at once , go to the Data Manager, select the batch of tasks then use `Batch Predictions` option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
+3. If you want to apply LLM auto-annotation to the multiple tasks at once, go to the [Data Manager]((https://labelstud.io/guide/manage_data)), 
+   select the tasks, and then select **Actions > Batch Predictions**. 
 
 ## Configuration examples
 
@@ -127,7 +127,7 @@ $ curl http://localhost:9090/health
     <Choice value="Gender" hint="Discrimination based on a person's gender."/>
     <Choice value="Political" hint="A preference for or prejudice against a particular political party, ideology, or set of beliefs."/>
     <Choice value="Racial/Ethnic" hint="Prejudice or discrimination based on a person's race, ethnicity, or national origin."/>
-    <Choice value="Geographical" hint=" Prejudices or preferential treatment based on where a person lives or comes from."/>
+    <Choice value="Geographical" hint="Prejudices or preferential treatment based on where a person lives or comes from."/>
     </Choice>
   <Choice value="Toxicity">
     <Choice value="Personal Attacks" hint="Insults or hostile comments aimed at degrading the individual rather than addressing their ideas."/>
@@ -178,7 +178,7 @@ $ curl http://localhost:9090/health
 }
 ```
 
-#### Collecting data for LLM supervised finetuning
+#### Collecting data for LLM supervised fine-tuning
 
 Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/tags/paragraphs) tag:
 
@@ -319,9 +319,14 @@ When deploying the server, you can specify the following parameters as environme
   `PROMPT_PREFIX` to `my-prompt`, the following input field will be used for the prompt: `<TextArea name="my-prompt" ...>`.
 - `USE_INTERNAL_PROMPT_TEMPLATE` (default: `1`). If set to `1`, the server will use the internal prompt template. If set to
   `0`, the server will use the prompt template provided in the input prompt.
-- `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
-  the default internal prompt template. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt template provided
-  in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). In the later case, the user has to provide the placeholders that match input task fields. For example, if the user wants to use the `input_text` and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
+- `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use:
+
+  - If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
+  the default internal prompt template. 
+  - If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt template provided
+  in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). 
+  
+  In the later case, the user has to provide the placeholders that match input task fields. For example, if the user wants to use the `input_text` and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
 - `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use. 
 - `OPENAI_PROVIDER` (available options: `openai`, `azure`, default - `openai`) : The OpenAI provider to use.
 - `TEMPERATURE` (default: `0.7`): The temperature to use for the model.

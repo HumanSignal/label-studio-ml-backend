@@ -1,3 +1,21 @@
+<!--
+---
+title: MMDetection for image segmentation
+type: blog
+tier: all
+order: 60
+meta_title: Object detection in images with Label Studio and MMDetection
+meta_description: This is a tutorial on how to use the example MMDetection model backend with Label Studio for image segmentation tasks.
+categories:
+    - tutorial
+    - pytorch
+    - openmmlab
+    - mmdetection
+    - image segmentation
+image: "/tutorials/object-detection-with-bounding-boxes.png"
+---
+-->
+
 # Quick usage
 
 For quick usage run docker-compose in your working directory:
@@ -13,13 +31,15 @@ See the tutorial in the documentation for building your own image and advanced u
 https://github.com/heartexlabs/label-studio/blob/master/docs/source/tutorials/object-detector.md
 
 
-# Labeling Config
+# Labeling config
+
 There are two possible variants of labeling configurations that can be used:
 
 1. In this example, you can provide labels "as is" and they will be automatically mapped to MMDetection model's labels.
-This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
 
-```
+    This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
+
+    ```
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="label" toName="image">
@@ -31,7 +51,7 @@ This will work for simple use cases. For example, Label Studio `Airplane` maps t
 
 2. More complex labeling config with `predicted_values`:
 
-```
+    ```
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="label" toName="image">
@@ -40,14 +60,14 @@ This will work for simple use cases. For example, Label Studio `Airplane` maps t
 </View>
 ```
 
-In this example, you can combine multiple labels into one Label Studio label. For example, Label Studio Vehicle maps to MMDetection "airplane" and "car".
+In this example, you can combine multiple labels into one Label Studio annotation the. For example, Label Studio `Vehicle` maps to MMDetection "airplane" and "car".
 
 
-# Run without docker
+# Run without Docker
 
 > These steps provided by @raash1d [in this issue](https://github.com/heartexlabs/label-studio-ml-backend/issues/167#issuecomment-1495061050). Note: the patch from the comment is already applied, except hardcoding of label_config into kwargs.
 
-**It's highly recomended to use docker, it allows to avoid lots of dependency problems!**
+**It's highly recommended to use Docker, it allows you to avoid lots of dependency problems!**
 
 1. Clone the Label Studio ML Backend repository in your directory of choice
 ```
@@ -55,14 +75,14 @@ git clone https://github.com/heartexlabs/label-studio-ml-backend
 cd label-studio-ml-backend/label_studio_ml/examples/mmdetection-3
 ```
 
-2. Create a virtual environment using venv and install all dependencies using pip
+2. Create a virtual environment using `venv` and install all dependencies using pip
 ```
 python -m venv ml-backend
 source ml-backend/bin/activate # assuming you're on bash or zsh
 pip install -r requirements.txt
 ```
 
-3. Install and Download mmdet related dependencies in the virtual environment
+3. Install and Download `mmdet` related dependencies in the virtual environment
 ```
 mim install mmengine
 mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .

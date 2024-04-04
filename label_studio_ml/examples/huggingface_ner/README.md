@@ -1,19 +1,37 @@
-# Huggingface NER Model with Label Studio
+<!--
+---
+title: Hugging Face NER backend
+type: blog
+tier: all
+order: 50
+meta_title: Label Studio tutorial to run Hugging Face NER backend
+meta_description: This tutorial explains how to run a Hugging Face NER backend in Label Studio. 
+categories:
+    - tutorial
+    - hugging face
+    - ner
+    - text-generation
+image: "/tutorials/huggingface_llm.png"
+---
+-->
 
-This project uses a custom machine learning backend model for Named Entity Recognition (NER) with Huggingface's transformers and Label Studio.
-The model instantiate `AutoModelForTokenClassification` from Huggingface's transformers library and fine-tunes it on the NER task.
+# Hugging Face NER model with Label Studio
 
-If you want to use this model only in inference mode, it serves predictions from the pre-trained model. 
-If you want to fine-tune the model, you can use the Label Studio interface to provide training data and train the model.
+This project uses a custom machine learning backend model for Named Entity Recognition (NER) with Hugging Face's transformers and Label Studio.
 
-Read more about the compatible models from [Huggingface official documentation](https://huggingface.co/docs/transformers/en/tasks/token_classification)
+The model instantiates `AutoModelForTokenClassification` from Hugging Face's transformers library and fine-tunes it on the NER task.
 
-> Note: if you plan to train the model, you have to provide the baseline pretrained model that can be finetuned (i.e. where the last layer can be trained, for example, `distilbert/distilbert-base-uncased`). Otherwise you may see the error about tensor sizes mismatch during training.
+- If you want to use this model only in inference mode, it serves predictions from the pre-trained model. 
+- If you want to fine-tune the model, you can use the Label Studio interface to provide training data and train the model.
+
+Read more about the compatible models from [Hugging Face's official documentation](https://huggingface.co/docs/transformers/en/tasks/token_classification)
+
+> Note: If you plan to train the model, you have to provide the baseline pre-trained model that can be fine-tuned (i.e. where the last layer can be trained, for example, `distilbert/distilbert-base-uncased`). Otherwise you may see the error about tensor sizes mismatch during training.
 
 
-## Running with Docker (Recommended)
+## Running with Docker (recommended)
 
-1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
+1. Start the Machine Learning backend on `http://localhost:9090` with prebuilt image:
 
 ```bash
 docker-compose up
@@ -26,10 +44,10 @@ $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). Specify `http://localhost:9090` as the URL.
 
 
-## Building from source (Advanced)
+## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
 
@@ -37,7 +55,7 @@ To build the ML backend from source, you have to clone the repository and build 
 docker-compose build
 ```
 
-## Running without Docker (Advanced)
+## Running without Docker (advanced)
 
 To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
@@ -54,24 +72,25 @@ label-studio-ml start ./hubbingface_ner
 ```
 
 # Configuration
+
 Parameters can be set in `docker-compose.yml` before running the container.
 
 
 The following common parameters are available:
-- `BASIC_AUTH_USER` - specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
-- `LOG_LEVEL` - set the log level for the model server
-- `WORKERS` - specify the number of workers for the model server
-- `THREADS` - specify the number of threads for the model server
-- `BASELINE_MODEL_NAME`: The name of the baseline model to use. Default is 'dslim/bert-base-NER'.
-- `FINTUNED_MODEL_NAME`: The name of the fine-tuned model. Default is 'finetuned_model'.
-- `LABEL_STUDIO_HOST`: The host of the Label Studio instance. Default is 'http://localhost:8080'.
-- `LABEL_STUDIO_API_KEY`: The API key for the Label Studio instance.
-- `START_TRAINING_EACH_N_UPDATES`: The number of updates after which to start training. Default is 10.
-- `LEARNING_RATE`: The learning rate for the model. Default is 1e-3.
-- `NUM_TRAIN_EPOCHS`: The number of training epochs. Default is 10.
-- `WEIGHT_DECAY`: The weight decay for the model. Default is 0.01.
-- `MODEL_DIR`: The directory where the model is stored. Default is './results'.
+- `BASIC_AUTH_USER` - Specify the basic auth user for the model server
+- `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
+- `LOG_LEVEL` - Set the log level for the model server
+- `WORKERS` - Specify the number of workers for the model server
+- `THREADS` - Specify the number of threads for the model server
+- `BASELINE_MODEL_NAME`: The name of the baseline model to use. Default is `dslim/bert-base-NER`.
+- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`.
+- `LABEL_STUDIO_HOST`: The host of the Label Studio instance. Default is `http://localhost:8080`.
+- `LABEL_STUDIO_API_KEY`: The [API key](https://labelstud.io/guide/user_account#Access-token) for the Label Studio instance.
+- `START_TRAINING_EACH_N_UPDATES`: The number of updates after which to start training. Default is `10`.
+- `LEARNING_RATE`: The learning rate for the model. Default is `1e-3`.
+- `NUM_TRAIN_EPOCHS`: The number of training epochs. Default is `10`.
+- `WEIGHT_DECAY`: The weight decay for the model. Default is `0.01`.
+- `MODEL_DIR`: The directory where the model is stored. Default is `./results`.
 
 # Customization
 

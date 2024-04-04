@@ -1,25 +1,27 @@
 <!--
 ---
-title: Hugging Face Large Language Model Backend
+title: Hugging Face Large Language Model backend
 type: blog
 tier: all
-order: 30
+order: 45
 meta_title: Label Studio tutorial to run Hugging Face Large Language Model Backend
 meta_description: This tutorial explains how to run Hugging Face Large Language Model Backend in Label Studio. Hugging Face Large Language Model Backend is a machine learning backend designed to work with Label Studio, providing a custom model for text generation.
 categories:
-    - huggingface
+    - tutorial
+    - hugging face
     - llm
     - text-generation
 image: "/tutorials/huggingface_llm.png"
 ---
 -->
 
-# Hugging Face Large Language Model Backend
+# Hugging Face Large Language Model backend
 
 This machine learning backend is designed to work with Label Studio, providing a custom model for text generation. The model is based on the Hugging Face's transformers library and uses a pre-trained.
+
 Check [text generation pipelines on Hugging Face](https://huggingface.co/tasks/text-generation) for more details.
 
-## Label Studio XML Labeling Config
+## Label Studio XML labeling config
 
 This ML backend is compatible with a Label Studio labeling configuration that uses a `<TextArea>` tag. Here is an example of a compatible labeling configuration:
 
@@ -48,7 +50,7 @@ $ curl http://localhost:9090/
 3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
 
 
-## Building from source (Advanced)
+## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
 
@@ -56,7 +58,7 @@ To build the ML backend from source, you have to clone the repository and build 
 docker-compose build
 ```
 
-## Running without Docker (Advanced)
+## Running without Docker (advanced)
 
 To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
@@ -73,6 +75,7 @@ label-studio-ml start ./dir_with_your_model
 ```
 
 # Configuration
+
 Parameters can be set in `docker-compose.yml` before running the container.
 
 The following common parameters are available:

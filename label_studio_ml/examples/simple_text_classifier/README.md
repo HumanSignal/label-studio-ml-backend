@@ -1,3 +1,18 @@
+<!--
+---
+title: Simple text classifier model
+type: blog
+tier: all
+order: 65
+meta_title: Simple text classifier model to use with Label Studio
+meta_description: This is a tutorial on how to use the example simple text classifier model with your Label Studio text annotation projects. 
+categories:
+    - tutorial
+    - text classification
+image: "/tutorials/object-detection-with-bounding-boxes.png"
+---
+-->
+
 ## Quickstart
 
 1. Build and start Machine Learning backend on `http://localhost:9090`
@@ -66,6 +81,6 @@ Check out https://github.com/heartexlabs/label-studio-ml-backend/tree/master#Cre
 
 ## License
 
-This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [Heartex](https://www.heartex.com/). 2022
+This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [HumanSignal](https://www.humansignal.com/). 2024
 
 <img src="https://github.com/heartexlabs/label-studio/blob/master/images/opossum_looking.png?raw=true" title="Hey everyone!" height="140" width="140" />
