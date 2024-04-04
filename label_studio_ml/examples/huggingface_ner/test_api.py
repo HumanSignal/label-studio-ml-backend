@@ -166,7 +166,8 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
 
     # assert new model is created in ./results/finetuned_model directory
     import os
-    assert os.path.exists('./results/finetuned_model/pytorch_model.bin')
+    results_dir = os.path.dirname(__file__) + '/results/finetuned_model'
+    assert os.path.exists(os.path.join(results_dir, 'pytorch_model.bin'))
 
     # now let's test whether the model is trained by running predict
     request = {
@@ -197,4 +198,4 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
 
     # remove './results/finetuned_model' directory after testing
     import shutil
-    shutil.rmtree('./results/finetuned_model')
+    shutil.rmtree(results_dir)
