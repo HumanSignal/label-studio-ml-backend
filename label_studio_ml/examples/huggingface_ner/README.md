@@ -8,8 +8,27 @@ If you want to fine-tune the model, you can use the Label Studio interface to pr
 
 Read more about the compatible models from [Huggingface official documentation](https://huggingface.co/docs/transformers/en/tasks/token_classification)
 
-> Note: if you plan to train the model, you have to provide the baseline pretrained model that can be finetuned (i.e. where the last layer can be trained, for example, `distilbert/distilbert-base-uncased`). Otherwise you may see the error about tensor sizes mismatch during training.
 
+## Labeling configuration
+
+This ML backend works with the default NER template from Label Studio, i.e. in project `Settings > Labeling Interface > Browse Templates > Natural Language Processing > Named Entity Recognition`:
+
+```xml
+<View>
+  <Labels name="label" toName="text">
+    <Label value="PER" background="red"/>
+    <Label value="ORG" background="darkorange"/>
+    <Label value="LOC" background="orange"/>
+    <Label value="MISC" background="green"/>
+  </Labels>
+
+  <Text name="text" value="$text"/>
+</View>
+```
+
+Feel free to modify the label names. If this case, note the model outputs compatibility:
+
+> If you plan to use your model only for the inference, make sure the output label names are compatible with what is listed in XML labeling configuration. If you plan to train the model, you have to provide the baseline pretrained model that can be finetuned (i.e. where the last layer can be trained, for example, `distilbert/distilbert-base-uncased`). Otherwise you may see the error about tensor sizes mismatch during training.
 
 ## Running with Docker (Recommended)
 
