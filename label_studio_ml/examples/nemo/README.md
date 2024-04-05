@@ -3,7 +3,7 @@
 title: Automatic Speech Recognition with NVIDIA NeMo
 type: blog
 tier: all
-order: 55
+order: 45
 meta_title: Automatic Speech Recognition with Label Studio and NVIDIA NeMo
 meta_description: This is a tutorial on how to use the example NVIDIA NeMO model backend with Label Studio.
 categories:

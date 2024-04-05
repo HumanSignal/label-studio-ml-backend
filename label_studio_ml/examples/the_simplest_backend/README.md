@@ -3,7 +3,7 @@
 title: Simple backend example
 type: blog
 tier: all
-order: 150
+order: 90
 meta_title: Simple backend for getting started with Label Studio models
 meta_description: This is a tutorial on how to get started with Label Studio models using `the_simplest_backend` example. 
 categories:

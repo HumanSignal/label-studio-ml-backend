@@ -4,7 +4,7 @@ title: Dummy model example for getting started
 type: blog
 tier: all
 order: 85
-meta_title: Dummy model backend for getting started with Label Studio models
+meta_title: Dummy model backend example for getting started with Label Studio models
 meta_description: This is a tutorial on how to use the Label Studio with a dummy model as you get started with ML backends 
 categories:
     - tutorial

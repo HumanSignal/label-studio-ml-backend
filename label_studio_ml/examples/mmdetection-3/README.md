@@ -3,7 +3,7 @@
 title: MMDetection for image segmentation
 type: blog
 tier: all
-order: 60
+order: 55
 meta_title: Object detection in images with Label Studio and MMDetection
 meta_description: This is a tutorial on how to use the example MMDetection model backend with Label Studio for image segmentation tasks.
 categories:

@@ -3,7 +3,7 @@
 title: Simple text classifier model
 type: blog
 tier: all
-order: 65
+order: 80
 meta_title: Simple text classifier model to use with Label Studio
 meta_description: This is a tutorial on how to use the example simple text classifier model with your Label Studio text annotation projects. 
 categories:

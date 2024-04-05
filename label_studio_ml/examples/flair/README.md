@@ -3,7 +3,7 @@
 title: NLP labeling with Flair 
 type: blog
 tier: all
-order: 35
+order: 65
 meta_title: Use Flair with Label Studio
 meta_description: Tutorial on how to use Label Studio and Flair for faster NLP labeling 
 categories:

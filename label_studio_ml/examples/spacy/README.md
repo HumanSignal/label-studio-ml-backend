@@ -3,7 +3,7 @@
 title: spaCy models for NER 
 type: blog
 tier: all
-order: 30
+order: 60
 meta_title: Use spaCy models with Label Studio
 meta_description: Tutorial on how to use Label Studio and spaCy for faster NER labeling 
 categories:

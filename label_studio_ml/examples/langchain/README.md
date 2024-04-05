@@ -3,7 +3,7 @@
 title: Backend example for LangChain integration
 type: blog
 tier: all
-order: 80
+order: 70
 meta_title: Label Studio ML backend for LangChain
 meta_description: This is a tutorial on how to use the Label Studio ML backend with LangChain to power your labeling projects 
 categories:

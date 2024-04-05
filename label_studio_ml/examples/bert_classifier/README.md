@@ -3,7 +3,7 @@
 title: BERT-based text classification
 type: blog
 tier: all
-order: 40
+order: 30
 meta_title: BERT-based text classification
 meta_description: Tutorial on how to use BERT-based text classification with your Label Studio project
 categories:

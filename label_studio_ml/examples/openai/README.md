@@ -3,7 +3,7 @@
 title: Backend example for OpenAI integration
 type: blog
 tier: all
-order: 75
+order: 40
 meta_title: Label Studio ML backend for OpenAI
 meta_description: This is a tutorial on how to use the Label Studio ML backend with OpenAI to power your labeling projects 
 categories:

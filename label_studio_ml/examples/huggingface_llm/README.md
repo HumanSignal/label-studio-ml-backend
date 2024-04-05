@@ -3,9 +3,9 @@
 title: Hugging Face Large Language Model backend
 type: blog
 tier: all
-order: 45
-meta_title: Label Studio tutorial to run Hugging Face Large Language Model Backend
-meta_description: This tutorial explains how to run Hugging Face Large Language Model Backend in Label Studio. Hugging Face Large Language Model Backend is a machine learning backend designed to work with Label Studio, providing a custom model for text generation.
+order: 15
+meta_title: Label Studio tutorial to run Hugging Face Large Language Model backend
+meta_description: This tutorial explains how to run Hugging Face Large Language model backend in Label Studio. Hugging Face Large Language Model Backend is a machine learning backend designed to work with Label Studio, providing a custom model for text generation.
 categories:
     - tutorial
     - hugging face

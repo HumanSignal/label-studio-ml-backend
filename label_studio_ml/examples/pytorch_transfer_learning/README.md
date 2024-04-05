@@ -3,7 +3,7 @@
 title: Transfer learning with PyTorch
 type: blog
 tier: all
-order: 70
+order: 50
 meta_title: Label Studio backend to demonstrate transfer learning with PyTorch
 meta_description: This is a tutorial on how to use the example model for image classification with the possibility of transfer learning. 
 categories:

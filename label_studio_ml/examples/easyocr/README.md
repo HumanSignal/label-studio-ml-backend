@@ -3,7 +3,7 @@
 title: Easy OCR model 
 type: blog
 tier: all
-order: 25
+order: 75
 meta_title: Easy OCR labeling with Label Studio
 meta_description: Tutorial for how to use the example OCR backend with Label Studio 
 categories:
