@@ -30,6 +30,8 @@ This ML backend is compatible with a Label Studio labeling configuration that us
 </View>
 ```
 
+When you open the task in Label Studio, the text box will show the generated text based on the prompt defined in `<Text>`. Be sure you include some instructions in prompt (for example, _"Summarize the following text: ..."_) to see the meaningful results.
+
 ## Running with Docker (Recommended)
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
