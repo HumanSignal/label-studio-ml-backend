@@ -1,10 +1,26 @@
+<!--
+---
+title: Sklearn Text Classifier Model
+type: blog
+tier: all
+order: 30
+meta_title: Sklearn Text Classifier Model for Label Studio
+meta_description: Tutorial on how to use an example ML backend for Label Studio with Scikit-learn logistic regression
+categories:
+    - tutorial
+    - text classification
+    - scikit-learn
+image: "/tutorials/scikit-learn.png"
+---
+-->
+
 # Sklearn Text Classifier Model for Label Studio
 
 The Sklearn Text Classifier Model is a custom machine learning backend for Label Studio. It uses a [Logistic Regression model from the Scikit-learn](https://scikit-learn.org/) library to classify text data. This model is particularly useful for text classification tasks in Label Studio, providing an efficient way to generate pre-annotations based on the model's predictions.
 
 The model is trained on the labeled texts collected from Label Studio, and it uses the Label Studio API to fetch the labeled tasks for training. This integration with Label Studio allows for a seamless and efficient labeling workflow, as the model can be retrained and updated as new labeled data becomes available.
 
-## Labeling Configuration
+## Labeling configuration
 
 The Sklearn Text Classifier Model is designed to work with the default labeling configuration for text classification in Label Studio. This configuration includes a single output of `<Choices>` type and a single input of `<Text>` type. The model retrieves the first occurrence of these tags from the labeling configuration and uses them for prediction:
 
