@@ -11,7 +11,7 @@ categories:
     - hugging face
     - ner
     - text-generation
-image: "/tutorials/huggingface_llm.png"
+image: "/tutorials/hf-ner.png"
 ---
 -->
 

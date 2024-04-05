@@ -10,7 +10,7 @@ categories:
     - tutorial
     - named language processing
     - flair
-image: "/tutorials/gpt2.png"
+image: "/tutorials/flair.png"
 ---
 -->
 

@@ -11,7 +11,7 @@ categories:
     - named entity recognition
     - spacy
     - parts of speech
-image: "/tutorials/gpt2.png"
+image: "/tutorials/spacy.png"
 ---
 -->
 

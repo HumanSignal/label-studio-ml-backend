@@ -11,7 +11,7 @@ categories:
     - tesseract
     - optical character recognition
     - bboxes
-image: "/tutorials/gpt2.png"
+image: "/tutorials/tesseract.png"
 ---
 -->
 

@@ -11,7 +11,7 @@ categories:
     - automatic speech recognition
     - nemo
     - nvidia
-image: "/tutorials/nemo_asr.png"
+image: "/tutorials/nvidia.png"
 ---
 -->
 

@@ -12,7 +12,7 @@ categories:
     - openmmlab
     - mmdetection
     - image segmentation
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/openmmlab.png"
 ---
 -->
 

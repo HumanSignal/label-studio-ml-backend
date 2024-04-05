@@ -10,7 +10,7 @@ categories:
     - tutorial
     - pytorch
     - image classification
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/pytorch.png"
 ---
 -->
 

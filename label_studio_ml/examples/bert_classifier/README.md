@@ -12,7 +12,7 @@ categories:
     - bert
     - hugging face
     - natural language processing
-image: "/tutorials/gpt2.png"
+image: "/tutorials/bert.png"
 ---
 -->
 

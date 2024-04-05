@@ -11,7 +11,7 @@ categories:
     - hugging face
     - llm
     - text-generation
-image: "/tutorials/huggingface_llm.png"
+image: "/tutorials/hf-llm.png"
 ---
 -->
 

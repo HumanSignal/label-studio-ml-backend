@@ -9,7 +9,7 @@ meta_description: This is a tutorial on how to use the Label Studio ML backend w
 categories:
     - tutorial
     - langchain
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/langchain.png"
 ---
 -->
 

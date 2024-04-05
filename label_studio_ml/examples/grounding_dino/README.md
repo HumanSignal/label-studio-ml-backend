@@ -10,7 +10,7 @@ categories:
     - tutorial
     - grounding dino
     - image annotation
-image: "/tutorials/gpt2.png"
+image: "/tutorials/grounding-dino.png"
 ---
 -->
 

@@ -12,7 +12,7 @@ categories:
     - Facebook
     - ONNX
     - image annotation
-image: "/tutorials/gpt2.png"
+image: "/tutorials/segment-anything.png"
 ---
 -->
 

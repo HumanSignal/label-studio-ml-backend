@@ -8,8 +8,8 @@ meta_title: Dummy model backend example for getting started with Label Studio mo
 meta_description: This is a tutorial on how to use the Label Studio with a dummy model as you get started with ML backends 
 categories:
     - tutorial
-    - gettings started
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+    - getting started
+image: "/tutorials/simple-image-classification.png"
 ---
 -->
 

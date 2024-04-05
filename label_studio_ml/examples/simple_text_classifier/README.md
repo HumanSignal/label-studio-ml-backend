@@ -9,7 +9,7 @@ meta_description: This is a tutorial on how to use the example simple text class
 categories:
     - tutorial
     - text classification
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/scikit-learn.png"
 ---
 -->
 

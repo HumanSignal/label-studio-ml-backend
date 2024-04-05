@@ -9,7 +9,7 @@ meta_description: This is a tutorial on how to get started with Label Studio mod
 categories:
     - tutorial
     - getting started
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/simple-image-classification.png"
 ---
 -->
 

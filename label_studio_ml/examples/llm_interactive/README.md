@@ -12,7 +12,7 @@ categories:
     - azure
     - gpt
     - llm
-image: "/tutorials/gpt2.png"
+image: "/tutorials/llm-interactive.png"
 ---
 -->
 

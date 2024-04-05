@@ -11,7 +11,7 @@ categories:
     - openai
     - llm
     - gpt
-image: "/tutorials/object-detection-with-bounding-boxes.png"
+image: "/tutorials/openai.png"
 ---
 -->
 
