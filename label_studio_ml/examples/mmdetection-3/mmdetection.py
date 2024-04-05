@@ -5,8 +5,8 @@ import io
 import json
 
 from typing import List, Dict
-from mmdet.apis import init_detector, inference_detector
-from mmdet.utils import register_all_modules
+# from mmdet.apis import init_detector, inference_detector
+# from mmdet.utils import register_all_modules
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import (
@@ -19,7 +19,7 @@ from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
-register_all_modules()
+# register_all_modules()
 
 
 class MMDetection(LabelStudioMLBase):
@@ -27,12 +27,12 @@ class MMDetection(LabelStudioMLBase):
 
     def __init__(
         self,
-        config_file=None,
-        checkpoint_file=None,
         image_dir=None,
         labels_file=None,
-        score_threshold=0.5,
-        device="cpu",
+        config_file=os.environ.get("config_file"),
+        checkpoint_file=os.environ.get("checkpoint_file"),
+        score_threshold=float(os.environ.get("score_threshold", 0.5)),
+        device=os.environ.get("device", "cpu"),
         **kwargs,
     ):
         """
@@ -49,35 +49,39 @@ class MMDetection(LabelStudioMLBase):
         :param kwargs:
         """
         super(MMDetection, self).__init__(**kwargs)
-        config_file = config_file or os.environ["config_file"]
-        checkpoint_file = checkpoint_file or os.environ["checkpoint_file"]
-        self.config_file = config_file
-        self.checkpoint_file = checkpoint_file
-        self.labels_file = labels_file
 
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), "media", "upload")
         self.image_dir = image_dir or upload_dir
         logger.debug(f"{self.__class__.__name__} reads images from {self.image_dir}")
 
+        # try to load label map from json file (optional)
+        self.labels_file = labels_file
         if self.labels_file and os.path.exists(self.labels_file):
             self.label_map = json_load(self.labels_file)
         else:
             self.label_map = {}
 
+        # try to parse labeling config to get image $value, from_name, to_name, labels
         params = get_single_tag_keys(
             self.parsed_label_config, "RectangleLabels", "Image"
         )
         self.from_name, self.to_name, self.value, self.labels_in_config = params
-        schema = list(self.parsed_label_config.values())[0]
         self.labels_in_config = set(self.labels_in_config)
 
-        print("Load new model from: ", config_file, checkpoint_file)
-        self.model = init_detector(config_file, checkpoint_file, device=device)
-        self.score_thresh = score_threshold
-
+        # try to build label map from mmdet labels to LS labels
+        schema = list(self.parsed_label_config.values())[0]
         self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
+
+        print("Load new model from: ", config_file, checkpoint_file)
+        self.config_file = config_file
+        self.checkpoint_file = checkpoint_file
+        self.device = device
+        self.score_threshold = score_threshold
+        self.model = init_detector(
+            self.config_file, self.checkpoint_file, device=self.device
+        )
 
     def build_labels_from_labeling_config(self, schema):
         """
@@ -179,7 +183,7 @@ class MMDetection(LabelStudioMLBase):
             print(f"score > {score}")
 
             # bbox score is too low
-            if score < self.score_thresh:
+            if score < self.score_threshold:
                 continue
 
             # there is no mapping between MMDet label and LS label

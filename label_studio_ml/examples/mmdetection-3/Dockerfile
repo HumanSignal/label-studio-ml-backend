@@ -9,7 +9,9 @@ RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/
     && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
 
 # Install system dependencies for opencv-python
-RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 \
+RUN apt-get update  \
+    && apt-get install -y libgl1 libglib2.0-0 \
+    && apt-get install -y git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,8 +23,11 @@ ENV PYTHONUNBUFFERED=True \
     PIP_CACHE_DIR=/.cache
 
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
+    pip install -U pip
+RUN --mount=type=cache,target=$PIP_CACHE_DIR \
     pip install -r requirements.txt
-RUN pip install label_studio_ml
+# RUN pip install label_studio_ml
+
 WORKDIR /app
 
 RUN mim install mmengine==0.10.3
