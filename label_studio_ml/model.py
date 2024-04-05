@@ -226,7 +226,7 @@ class LabelStudioMLBase(ABC):
         if _update_fn:
             return _update_fn(event, data, helper=self, **additional_params)
 
-    def get_local_path(self, url, project_dir=None):
+    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None):
         """
         Return the local path for a given URL.
 
@@ -237,7 +237,7 @@ class LabelStudioMLBase(ABC):
         Returns:
           The local path for the given URL.
         """
-        return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
+        return get_local_path(url, project_dir=project_dir, hostname=ls_host, access_token=ls_access_token)
 
     ## TODO this should go into SDK
     def get_first_tag_occurence(
