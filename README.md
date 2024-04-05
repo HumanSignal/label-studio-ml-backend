@@ -23,7 +23,7 @@ Replace `{MODEL_NAME}` with the name of the model you want to use:
 
 ## Models
 
-The following models are available in the repository. Some of them working without any additional setup, some of them
+The following models are supported in the repository. Some of them working without any additional setup, some of them
 require additional parameters to be set.
 Please check **Required parameters** column to see if you need to set any additional parameters.
 
@@ -41,7 +41,7 @@ Please check **Required parameters** column to see if you need to set any additi
 | [huggingface_ner](/label_studio_ml/examples/huggingface_ner)               | NER models (TokenClassification) by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                       | None                |
 | [nemo](/label_studio_ml/examples/nemo)                                     | Speech transcription models by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                     | None                |
 | [mmetection](/label_studio_ml/examples/mmetection)                         | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
-| [simple_text_classifier](/label_studio_ml/examples/simple_text_classifier) | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
+| [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier) | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
 | [substring_matching](/label_studio_ml/examples/substring_matching)         | Select keyword to highlight all occurrences of the keyword in the text                                                                           | None                |
 
 # (Advanced usage) Develop your model
