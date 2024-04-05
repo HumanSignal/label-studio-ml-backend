@@ -3,7 +3,7 @@
 title: Sklearn Text Classifier Model
 type: blog
 tier: all
-order: 30
+order: 28
 meta_title: Sklearn Text Classifier Model for Label Studio
 meta_description: Tutorial on how to use an example ML backend for Label Studio with Scikit-learn logistic regression
 categories:
