@@ -1,8 +1,28 @@
-# OpenAI Label Studio ML Backend Example
+<!--
+---
+title: Backend example for OpenAI integration
+type: blog
+tier: all
+order: 75
+meta_title: Label Studio ML backend for OpenAI
+meta_description: This is a tutorial on how to use the Label Studio ML backend with OpenAI to power your labeling projects 
+categories:
+    - tutorial
+    - openai
+    - llm
+    - gpt
+image: "/tutorials/object-detection-with-bounding-boxes.png"
+---
+-->
+
+# OpenAI Label Studio ML backend example
+
 This repository provides an example of how to use the OpenAI GPT model with the Label Studio Machine Learning (ML) backend. The Label Studio ML backend is an SDK that allows you to wrap your machine learning code and turn it into a web server. You can then connect that server to a Label Studio instance to perform tasks such as dynamically pre-annotating data based on model inference results.
 
 ## Getting Started
+
 ### Prerequisites
+
 Before you begin, ensure you have the following installed:
 - Docker
 - Docker Compose
@@ -32,7 +52,9 @@ docker-compose up
 ```
 
 5. Configure the model endpoint. 
-Once all of the services have started, we will create a sentiment analysis project and [configure the model endpoint](https://labelstud.io/guide/ml.html#Add-an-ML-backend-using-the-Label-Studio-UI) in our Label Studio project. 
-In Docker Compose, our model service can be accessed at `http://localhost:9090`.
+
+    Once all of the services have started, we will create a sentiment analysis project and [configure the model endpoint](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio) in our Label Studio project. 
+
+    In Docker Compose, our model service can be accessed at `http://localhost:9090`.
 
 6. You can now select tasks to retrieve predictions from the GPT models. 

@@ -1,11 +1,11 @@
 <!--
 ---
-title: Interactive segmentation with GroundingDINO 
+title: Interactive segmentation with Grounding DINO 
 type: blog
 tier: all
 order: 15
-meta_title: Image segmentation in Label Studio using a GroundingDINO backend
-meta_description: Label Studio tutorial for using GroundingDINO for zero-shot object detection in images
+meta_title: Image segmentation in Label Studio using a Grounding DINO backend
+meta_description: Label Studio tutorial for using Grounding DINO for zero-shot object detection in images
 categories:
     - tutorial
     - groundingdino
@@ -25,7 +25,7 @@ This integration will allow you to:
 * Specify the detection of any object and get state-of-the-art results without any model fine tuning.
 * Get segmentation predictions from SAM with just text prompts.
 
-See [here](https://github.com/IDEA-Research/GroundingDINO) for more details about the pre-trained GroundingDINO model. 
+See [here](https://github.com/IDEA-Research/GroundingDINO) for more details about the pre-trained Grounding DINO model. 
 
 
 ## Quickstart

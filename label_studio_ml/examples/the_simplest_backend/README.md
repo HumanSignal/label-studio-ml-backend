@@ -1,3 +1,18 @@
+<!--
+---
+title: Simple backend example
+type: blog
+tier: all
+order: 150
+meta_title: Simple backend for getting started with Label Studio models
+meta_description: This is a tutorial on how to get started with Label Studio models using `the_simplest_backend` example. 
+categories:
+    - tutorial
+    - getting started
+image: "/tutorials/object-detection-with-bounding-boxes.png"
+---
+-->
+
 ## Quickstart
 
 Build and start Machine Learning (ML) backend on `http://localhost:9090`. 
@@ -13,4 +28,4 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-After starting the ML backend, connect it to Label Studio. See [Add an ML backend to Label Studio](https://labelstud.io/guide/ml.html#Add-an-ML-backend-to-Label-Studio).
+After starting the ML backend, [connect it to a Label Studio project](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). 

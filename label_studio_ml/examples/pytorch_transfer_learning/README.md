@@ -1,13 +1,26 @@
+<!--
 ---
-
+title: Transfer learning with PyTorch
+type: blog
+tier: all
+order: 70
+meta_title: Label Studio backend to demonstrate transfer learning with PyTorch
+meta_description: This is a tutorial on how to use the example model for image classification with the possibility of transfer learning. 
+categories:
+    - tutorial
+    - pytorch
+    - image classification
+image: "/tutorials/object-detection-with-bounding-boxes.png"
 ---
+-->
 
 ## Overview 
-This is the Label Studio ML Backend for Image classification with the possibility of transfer learning. 
+
+This is the Label Studio ML Backend for image classification with the possibility of transfer learning. 
 
 ## Quickstart
 
-Build and start Machine Learning backend on `http://localhost:9090`
+Build and start the Machine Learning backend on `http://localhost:9090`
 
 ```bash
 docker-compose up
@@ -28,6 +41,7 @@ label-studio start --init new_project --ml-backends http://localhost:9090 --temp
 
 
 ## Writing your own model
+
 1. Place your scripts for model training & inference inside root directory. Follow the [API guidelines](#api-guidelines) described bellow. You can put everything in a single file, or create 2 separate one say `my_training_module.py` and `my_inference_module.py`
 
 2. Write down your python dependencies in `requirements.txt`
@@ -49,10 +63,10 @@ label-studio start my-annotation-project --init --ml-backend http://localhost:90
    
 ## API guidelines
 
-Check out https://github.com/heartexlabs/label-studio-ml-backend/tree/master#Create_your_own_ML_backend
+Check out [how to create your own ML backend](https://github.com/HumanSignal/label-studio-ml-backend/tree/master?tab=readme-ov-file#advanced-usage-develop-your-model).
 
 ## License
 
-This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [Heartex](https://www.heartex.com/). 2022
+This software is licensed under the [Apache 2.0 LICENSE](/LICENSE) © [HumanSignal](https://www.humansignal.com/). 2024
 
 <img src="https://github.com/heartexlabs/label-studio/blob/master/images/opossum_looking.png?raw=true" title="Hey everyone!" height="140" width="140" />

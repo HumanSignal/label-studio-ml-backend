@@ -1,3 +1,18 @@
+<!--
+---
+title: Dummy model example for getting started
+type: blog
+tier: all
+order: 85
+meta_title: Dummy model backend for getting started with Label Studio models
+meta_description: This is a tutorial on how to use the Label Studio with a dummy model as you get started with ML backends 
+categories:
+    - tutorial
+    - gettings started
+image: "/tutorials/object-detection-with-bounding-boxes.png"
+---
+-->
+
 ## Quick usage
 
 Build and start Machine Learning backend on `http://localhost:9090`
@@ -65,7 +80,7 @@ Follow this example tutorial to run an ML backend with a simple text classifier:
 Follow this tutorial to wrap existing machine learning model code with the Label Studio ML SDK to use it as an ML backend with Label Studio. 
 
 Before you start, determine the following:
-1. The expected inputs and outputs for your model. In other words, the type of labeling that your model supports in Label Studio, which informs the [Label Studio labeling config](https://labelstud.io/guide/setup.html#Set-up-the-labeling-interface-for-your-project). For example, text classification labels of "Dog", "Cat", or "Opossum" could be possible inputs and outputs. 
+1. The expected inputs and outputs for your model. In other words, the type of labeling that your model supports in Label Studio, which informs the [Label Studio labeling config](https://labelstud.io/guide/setup). For example, text classification labels of "Dog", "Cat", or "Opossum" could be possible inputs and outputs. 
 2. The [prediction format](https://labelstud.io/guide/predictions.html) returned by your ML backend server.
 
 This example tutorial outlines how to wrap your model with the Label Studio ML SDK.
@@ -87,7 +102,7 @@ def __init__(self, **kwargs):
 ```
 
 There are special variables provided by the inherited class:
-- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. See [ref for details](). Use might want to use this to align your model input/output with Label Studio labeling configuration;
+- `self.parsed_label_config` is a Python dict that provides a Label Studio project config structure. Use might want to use this to align your model input/output with Label Studio labeling configuration;
 - `self.label_config` is a raw labeling config string;
 - `self.train_output` is a Python dict with the results of the previous model training runs (the output of the `fit()` method described bellow) Use this if you want to load the model for the next updates for active learning and model fine-tuning.
 
