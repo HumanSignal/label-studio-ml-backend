@@ -65,12 +65,10 @@ class MMDetection(LabelStudioMLBase):
         else:
             self.label_map = {}
 
-        (
-            self.from_name,
-            self.to_name,
-            self.value,
-            self.labels_in_config,
-        ) = get_single_tag_keys(self.parsed_label_config, "RectangleLabels", "Image")
+        params = get_single_tag_keys(
+            self.parsed_label_config, "RectangleLabels", "Image"
+        )
+        self.from_name, self.to_name, self.value, self.labels_in_config = params
         schema = list(self.parsed_label_config.values())[0]
         self.labels_in_config = set(self.labels_in_config)
 
@@ -124,6 +122,10 @@ class MMDetection(LabelStudioMLBase):
         image_url = task["data"].get(self.value) or task["data"].get(
             DATA_UNDEFINED_NAME
         )
+
+        # retrieve image from s3 bucket,
+        # set env vars AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        # and AWS_SESSION_TOKEN to allow boto3 to access the bucket
         if image_url.startswith("s3://"):
             # pre-sign s3 url
             r = urlparse(image_url, allow_fragments=False)
@@ -137,7 +139,7 @@ class MMDetection(LabelStudioMLBase):
                 )
             except ClientError as exc:
                 logger.warning(
-                    f"Can't generate presigned URL for {image_url}. Reason: {exc}"
+                    f"Can't generate pre-signed URL for {image_url}. Reason: {exc}"
                 )
         return image_url
 
