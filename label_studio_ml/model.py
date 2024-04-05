@@ -173,8 +173,10 @@ class LabelStudioMLBase(ABC):
         """
         """
         mv = self.model_version
-        
+
+        # TODO: check if this is correct - seems like it doesn't work, check RND-7 and make sure it's test covered
         mv.bump_minor()
+        logger.debug(f'Bumping model version from {self.model_version} to {mv}')
         self.set('model_version', str(mv))
         
         return mv
