@@ -1,9 +1,12 @@
 name: "Docs"
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
+    paths:
+      - 'examples/**/README.md'
 
 concurrency:
   group: "Docs"
@@ -33,15 +36,6 @@ jobs:
         with:
           username: "${{ github.event.sender.login }}"
 
-      - name: Find or Create Branch
-        uses: ./.github/actions-hub/actions/github-find-or-create-branch
-        id: get-branch
-        with:
-          repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
-          base_branch_name: "develop"
-          branch_name: "docs-ml-backend"
-          github-token: "${{ secrets.GIT_PAT }}"
-
       - name: Checkout ML
         uses: actions/checkout@v4
         with:
@@ -53,7 +47,6 @@ jobs:
         with:
           token: "${{ secrets.GIT_PAT }}"
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
-          ref: "${{ steps.get-branch.outputs.branch_name }}"
           path: "${{ env.DOCS_REPO_PATH }}"
 
       - name: Generate Docs
@@ -74,16 +67,3 @@ jobs:
         uses: ./.github/actions-hub/actions/git-push
         with:
           working_directory: "${{ env.DOCS_REPO_PATH }}"
-
-      - name: Find or Create Pull Request
-        uses: ./.github/actions-hub/actions/github-find-or-create-pull-request
-        id: get-pull-request
-        with:
-          title: "${{ env.COMMIT_MESSAGE }}"
-          repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
-          base_branch_name: "develop"
-          branch_name: "docs-ml-backend"
-          github-token: "${{ secrets.GIT_PAT }}"
-
-      - name: Set notice
-        run: echo "::notice::Pull Request ${{ fromJSON(steps.get-pull-request.outputs.pull).html_url }}"
