@@ -20,6 +20,7 @@ The Sklearn Text Classifier Model is designed to work with the default labeling 
 
 > Please note that you must specify the `LABEL_STUDIO_HOST` and `LABEL_STUDIO_API_KEY` environment variables in order to download examples for training the model. These variables should point to your Label Studio instance and its API key, respectively.
 
+For training, you must label at least 2 examples with different labels.
 
 ## Running with Docker (Recommended)
 
