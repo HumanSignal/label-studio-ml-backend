@@ -6,7 +6,7 @@ on:
     branches:
       - master
     paths:
-      - 'examples/**/README.md'
+      - 'label_studio_ml/examples/**/README.md'
 
 concurrency:
   group: "Docs"
