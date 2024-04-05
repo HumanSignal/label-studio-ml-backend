@@ -197,3 +197,47 @@ label-studio-ml deploy gcp {ml-backend-local-dir} \
 ```
 
 3. After label studio deploys the model - you will get model endpoint in console.
+
+
+# Troubleshooting
+
+## Troubleshooting Docker Build on Windows
+
+If you encounter an error similar to the following when running `docker-compose up --build` on Windows:
+
+```
+exec /app/start.sh : No such file or directory
+exited with code 1
+```
+
+This issue is likely caused by Windows' handling of line endings in text files, which can affect scripts like `start.sh`. To resolve this issue, follow the steps below:
+
+### Step 1: Adjust Git Configuration
+
+Before cloning the repository, ensure your Git is configured to not automatically convert line endings to Windows-style (CRLF) when checking out files. This can be achieved by setting `core.autocrlf` to `false`. Open Git Bash or your preferred terminal and execute the following command:
+
+```
+git config --global core.autocrlf false
+```
+
+### Step 2: Clone the Repository Again
+
+If you have already cloned the repository before adjusting your Git configuration, you'll need to clone it again to ensure that the line endings are preserved correctly:
+
+1. **Delete the existing local repository.** Ensure you have backed up any changes or work in progress.
+2. **Clone the repository again.** Use the standard Git clone command to clone the repository to your local machine.
+
+### Step 3: Build and Run the Docker Containers
+
+Navigate to the appropriate directory within your cloned repository that contains the Dockerfile and `docker-compose.yml`. Then, proceed with the Docker commands:
+
+1. **Build the Docker containers:** Run `docker-compose build` to build the Docker containers based on the configuration specified in `docker-compose.yml`.
+
+2. **Start the Docker containers:** Once the build process is complete, start the containers using `docker-compose up`.
+
+### Additional Notes
+
+- This solution specifically addresses issues encountered on Windows due to the automatic conversion of line endings. If you're using another operating system, this solution may not apply.
+- Remember to check your project's `.gitattributes` file, if it exists, as it can also influence how Git handles line endings in your files.
+
+By following these steps, you should be able to resolve issues related to Docker not recognizing the `start.sh` script on Windows due to line ending conversions.
