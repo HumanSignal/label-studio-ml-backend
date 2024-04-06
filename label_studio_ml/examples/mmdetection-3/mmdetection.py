@@ -128,7 +128,7 @@ class MMDetection(LabelStudioMLBase):
         # retrieve image from s3 bucket,
         # set env vars AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
         # and AWS_SESSION_TOKEN to allow boto3 to access the bucket
-        if image_url.startswith("s3://"):
+        if image_url.startswith("s3://") and os.getenv('AWS_ACCESS_KEY_ID'):
             # pre-sign s3 url
             r = urlparse(image_url, allow_fragments=False)
             bucket_name = r.netloc
@@ -143,6 +143,7 @@ class MMDetection(LabelStudioMLBase):
                 logger.warning(
                     f"Can't generate pre-signed URL for {image_url}. Reason: {exc}"
                 )
+
         return image_url
 
     def predict(self, tasks: List[Dict], **kwargs):
@@ -160,7 +161,7 @@ class MMDetection(LabelStudioMLBase):
 
     def predict_one_task(self, task: Dict):
         image_url = self._get_image_url(task)
-        image_path = self.get_local_path(image_url)
+        image_path = self.get_local_path(image_url, task_id=task.get('id'))
         model_results = inference_detector(self.model, image_path).pred_instances
         results = []
         all_scores = []
