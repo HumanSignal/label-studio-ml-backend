@@ -5,8 +5,8 @@ import io
 import json
 
 from typing import List, Dict
-# from mmdet.apis import init_detector, inference_detector
-# from mmdet.utils import register_all_modules
+from mmdet.apis import init_detector, inference_detector
+from mmdet.utils import register_all_modules
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import (
@@ -19,7 +19,7 @@ from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
-# register_all_modules()
+register_all_modules()
 
 
 class MMDetection(LabelStudioMLBase):
@@ -29,10 +29,6 @@ class MMDetection(LabelStudioMLBase):
         self,
         image_dir=None,
         labels_file=None,
-        config_file=os.environ.get("config_file"),
-        checkpoint_file=os.environ.get("checkpoint_file"),
-        score_threshold=float(os.environ.get("score_threshold", 0.5)),
-        device=os.environ.get("device", "cpu"),
         **kwargs,
     ):
         """
@@ -69,19 +65,21 @@ class MMDetection(LabelStudioMLBase):
         self.from_name, self.to_name, self.value, self.labels_in_config = params
         self.labels_in_config = set(self.labels_in_config)
 
+        # init mmdetection model
+        # see docker-compose.yml for environment variables
+        self.config_file = os.environ.get("CONFIG_FILE")
+        self.checkpoint_file = os.environ.get("CHECKPOINT_FILE")
+        self.device = os.environ.get("DEVICE", "cpu")
+        self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.5))
+        print("Load new model from: ", self.config_file, self.checkpoint_file)
+        self.model = init_detector(
+            self.config_file, self.checkpoint_file, device=self.device
+        )
+
         # try to build label map from mmdet labels to LS labels
         schema = list(self.parsed_label_config.values())[0]
         self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
-
-        print("Load new model from: ", config_file, checkpoint_file)
-        self.config_file = config_file
-        self.checkpoint_file = checkpoint_file
-        self.device = device
-        self.score_threshold = score_threshold
-        self.model = init_detector(
-            self.config_file, self.checkpoint_file, device=self.device
-        )
 
     def build_labels_from_labeling_config(self, schema):
         """

@@ -233,6 +233,10 @@ class LabelStudioMLBase(ABC):
         Args:
           url: The URL to find the local path for.
           project_dir: The project directory.
+          ls_host: The Label Studio host,
+            if not provided, it will be taken from LABEL_STUDIO_URL env variable
+          ls_access_token: The access token for the Label Studio backend,
+            if not provided, it will be taken from LABEL_STUDIO_API_KEY env variable
 
         Returns:
           The local path for the given URL.

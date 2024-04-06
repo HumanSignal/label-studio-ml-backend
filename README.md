@@ -241,3 +241,17 @@ Navigate to the appropriate directory within your cloned repository that contain
 - Remember to check your project's `.gitattributes` file, if it exists, as it can also influence how Git handles line endings in your files.
 
 By following these steps, you should be able to resolve issues related to Docker not recognizing the `start.sh` script on Windows due to line ending conversions.
+
+
+## Troubleshooting Pip Cache Reset in Docker Images
+
+Sometimes, you want to reset the pip cache to ensure that the latest versions of the dependencies are installed. 
+For example, Label Studio ML Backend library is used as 
+`label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git` in requirements.txt. Let's assume that it
+is updated, and you want to jump on the latest version in your docker image with the ML model. 
+
+You can rebuild a docker image from scratch with the following command:
+
+```bash
+docker compose build --no-cache
+```

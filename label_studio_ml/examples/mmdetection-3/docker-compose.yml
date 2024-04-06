@@ -1,13 +1,33 @@
 version: "3.8"
 
 services:
-  mmdetection-3:
+  ml-backend:
     container_name: mmdetection-3
-    build: .
+    image: humansignal/ml-backend-mmdetection-3:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
+      # mmdetection model parameters
+      - CHECKPOINT_FILE=yolov3_mobilenetv2_320_300e_coco_20210719_215349-d18dff72.pth
+      - CONFIG_FILE=yolov3_mobilenetv2_8xb24-320-300e_coco.py
+      - DEVICE=cpu
+      - SCORE_THRESHOLD=0.5
+      # Label Studio URL and API key to get access to uploaded files
+      - LABEL_STUDIO_URL=http://192.168.1.81:8000/
+      - LABEL_STUDIO_API_KEY=983b1bc6a28485d83ee7ffc62058cb28fdeac255
     ports:
-      - 9090:9090
+      - "9090:9090"
     volumes:
       - "./data/server:/data"
-      - "./logs:/tmp"
