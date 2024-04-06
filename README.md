@@ -254,4 +254,3 @@ You can rebuild a docker image from scratch with the following command:
 
 ```bash
 docker compose build --no-cache
-```
