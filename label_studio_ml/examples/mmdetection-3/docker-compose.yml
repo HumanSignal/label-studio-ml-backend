@@ -24,7 +24,8 @@ services:
       - CONFIG_FILE=yolov3_mobilenetv2_8xb24-320-300e_coco.py
       - DEVICE=cpu
       - SCORE_THRESHOLD=0.5
-      # Label Studio URL and API key to get access to uploaded files
+      # Label Studio URL and API key to get access to
+      # uploaded, local storage and cloud storage files
       - LABEL_STUDIO_URL=http://192.168.1.81:8000/
       - LABEL_STUDIO_API_KEY=983b1bc6a28485d83ee7ffc62058cb28fdeac255
     ports:

@@ -61,8 +61,8 @@ RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .
 COPY . .
 
 # Use alternative version of label-studio-tools
-RUN pip install git+https://github.com/HumanSignal/label-studio-tools.git@fix-uploads#4
-RUN pip install label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master#1
+# RUN pip install -U git+https://github.com/HumanSignal/label-studio-ml-backend.git@mmdet-removal#2
+RUN pip install git+https://github.com/HumanSignal/label-studio-tools.git@fix-uploads#6
 
 EXPOSE 9090
 
