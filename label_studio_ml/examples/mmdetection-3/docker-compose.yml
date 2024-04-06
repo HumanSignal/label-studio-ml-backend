@@ -34,8 +34,8 @@ services:
 
       # for s3 storage you can specify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY,
       # it will work faster than using intermediate LS API for downloading your files from s3
-      AWS_ACCESS_KEY_ID=
-      AWS_SECRET_ACCESS_KEY=
+      - AWS_ACCESS_KEY_ID=
+      - AWS_SECRET_ACCESS_KEY=
     ports:
       - "9090:9090"
     volumes:
