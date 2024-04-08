@@ -42,7 +42,7 @@ Please check **Required parameters** column to see if you need to set any additi
 | [nemo](/label_studio_ml/examples/nemo)                                     | Speech transcription models by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                     | None                |
 | [mmetection](/label_studio_ml/examples/mmetection)                         | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
 | [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier) | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
-| [substring_matching](/label_studio_ml/examples/substring_matching)         | Select keyword to highlight all occurrences of the keyword in the text                                                                           | None                |
+| [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching)         | Interactively select keywords to highlight all occurrences of the keyword in the text                                                                           | None                |
 
 # (Advanced usage) Develop your model
 
