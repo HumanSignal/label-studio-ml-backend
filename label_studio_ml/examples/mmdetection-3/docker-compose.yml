@@ -33,7 +33,7 @@ services:
       - LABEL_STUDIO_API_KEY=
 
       # for s3 storage you can specify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY,
-      # it will work faster than using intermediate LS API for downloading your files from s3
+      # it will work faster than using intermediate LS API for your file URL resolving from s3
       - AWS_ACCESS_KEY_ID=
       - AWS_SECRET_ACCESS_KEY=
     ports:
