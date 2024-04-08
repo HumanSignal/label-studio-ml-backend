@@ -1,11 +1,18 @@
-Dockerfile
-README.md
-*.pyc
-*.pyo
-*.pyd
-__pycache__
-.pytest_cache
-.idea
-docker-compose.yml
-data
-logs
+# Exclude everything
+**
+
+# Include Dockerfile and docker-compose for reference (optional, decide based on your use case)
+!Dockerfile
+!docker-compose.yml
+
+# Include Python application files
+!*.py
+
+# Include requirements files
+!requirements*.txt
+
+# Include script
+!*.sh
+
+# Exclude specific requirements if necessary
+!example.env
