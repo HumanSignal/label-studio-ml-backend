@@ -6,10 +6,9 @@ import os
 import requests
 import pytesseract
 
-from uuid import uuid4
 from PIL import Image
 from io import BytesIO
-from typing import Union, List, Dict, Optional, Any
+from typing import Union, List, Dict, Optional, Any, Tuple
 from tenacity import retry, stop_after_attempt, wait_random
 from openai import OpenAI, AzureOpenAI
 
@@ -17,6 +16,7 @@ from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_sdk.objects import PredictionValue
 from label_studio_sdk.label_interface.object_tags import ImageTag, ParagraphsTag
+from label_studio_sdk.label_interface.control_tags import ControlTag, ObjectTag
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,8 @@ class OpenAIInteractive(LabelStudioMLBase):
     OPENAI_KEY = os.getenv('OPENAI_API_KEY')
     PROMPT_PREFIX = os.getenv("PROMPT_PREFIX", "prompt")
     USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv("USE_INTERNAL_PROMPT_TEMPLATE", 1)))
+    # if set, this prompt will be used at the beginning of the session
+    DEFAULT_PROMPT = os.getenv('DEFAULT_PROMPT')
     PROMPT_TEMPLATE = os.getenv("PROMPT_TEMPLATE", '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
     PROMPT_TAG = "TextArea"
     SUPPORTED_INPUTS = ("Image", "Text", "HyperText", "Paragraphs")
@@ -101,6 +103,12 @@ class OpenAIInteractive(LabelStudioMLBase):
     AZURE_RESOURCE_ENDPOINT = os.getenv("AZURE_RESOURCE_ENDPOINT", '')
     AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
     AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2023-05-15")
+
+    def setup(self):
+        if self.DEFAULT_PROMPT and os.path.isfile(self.DEFAULT_PROMPT):
+            logger.info(f"Reading default prompt from file: {self.DEFAULT_PROMPT}")
+            with open(self.DEFAULT_PROMPT) as f:
+                self.DEFAULT_PROMPT = f.read()
 
     def _ocr(self, image_url):
         # Open the image containing the text
@@ -138,6 +146,14 @@ class OpenAIInteractive(LabelStudioMLBase):
         # Initializing - get existing prompt from storage
         elif prompt := self.get(prompt_tag.name):
             return [prompt]
+        # Default prompt
+        elif self.DEFAULT_PROMPT:
+            if self.USE_INTERNAL_PROMPT_TEMPLATE:
+                logger.error('Using both `DEFAULT_PROMPT` and `USE_INTERNAL_PROMPT_TEMPLATE` is not supported. '
+                             'Please either specify `USE_INTERNAL_PROMPT_TEMPLATE=0` or remove `DEFAULT_PROMPT`. '
+                             'For now, no prompt will be used.')
+                return []
+            return [self.DEFAULT_PROMPT]
 
         return []
 
@@ -186,7 +202,7 @@ class OpenAIInteractive(LabelStudioMLBase):
         except:
             return None
 
-    def _find_prompt_tags(self):
+    def _find_prompt_tags(self) -> Tuple[ControlTag, ObjectTag]:
         """Find prompting tags in the config
         """
         li = self.label_interface
@@ -204,18 +220,18 @@ class OpenAIInteractive(LabelStudioMLBase):
         if not choices_tag and not textarea_tag:
             raise ValueError('No supported tags found: <Choices> or <TextArea>')
 
-    def _generate_normalized_prompt(self, text: str, prompt: str, task_data: Dict) -> str:
+    def _generate_normalized_prompt(self, text: str, prompt: str, task_data: Dict, labels: Optional[List[str]]) -> str:
         """
         """
         if self.USE_INTERNAL_PROMPT_TEMPLATE:
-            norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
+            norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt, labels=labels)
         else:
-            norm_prompt = prompt.format(**task_data)
+            norm_prompt = prompt.format(labels=labels, **task_data)
 
         return norm_prompt
 
-    def _generate_response_regions(self, response: str, prompt_tag,
-                                   choices_tag: str, textarea_tag: str, prompts: List[str]) -> List:
+    def _generate_response_regions(self, response: List[str], prompt_tag,
+                                   choices_tag: ControlTag, textarea_tag: ControlTag, prompts: List[str]) -> List:
         """
         """
         regions = []
@@ -233,11 +249,13 @@ class OpenAIInteractive(LabelStudioMLBase):
         return regions
 
     def _predict_single_task(self, task_data: Dict, prompt_tag: Any, object_tag: Any, prompt: str,
-                             choices_tag: str, textarea_tag: str, prompts: List[str]) -> Dict:
+                             choices_tag: ControlTag, textarea_tag: ControlTag, prompts: List[str]) -> Dict:
         """
         """
         text = self._get_text(task_data, object_tag)
-        norm_prompt = self._generate_normalized_prompt(text, prompt, task_data)
+        # Add {labels} to the prompt if choices tag is present
+        labels = choices_tag.labels if choices_tag else None
+        norm_prompt = self._generate_normalized_prompt(text, prompt, task_data, labels=labels)
 
         # run inference
         # this are params provided through the web interface
