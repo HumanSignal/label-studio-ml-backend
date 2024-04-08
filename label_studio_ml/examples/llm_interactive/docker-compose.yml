@@ -4,7 +4,10 @@ services:
   llm_interactive:
     container_name: llm_interactive
     image: heartexlabs/label-studio-ml-backend:llm-latest
-    build: .
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       # Specify openai model provider: "openai" or "azure"
@@ -35,6 +38,9 @@ services:
       - AZURE_DEPLOYMENT_NAME=
       # Azure API version (in case OPENAI_PROVIDER=azure)
       - AZURE_API_VERSION=2023-05-15
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
     ports:
       - 9090:9090
     volumes:
