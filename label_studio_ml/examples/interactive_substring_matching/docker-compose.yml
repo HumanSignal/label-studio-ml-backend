@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
+  interactive_substring_matching:
+    container_name: interactive_substring_matching
     image: humansignal/ml-backend:v0
     build:
       context: .
