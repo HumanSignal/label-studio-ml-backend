@@ -52,7 +52,7 @@ jobs:
           echo "image_branch_version=$image_branch_version" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.2.0
+        uses: docker/setup-buildx-action@v3.3.0
 
       - name: Login to DockerHub
         if: ${{ !github.event.pull_request.head.repo.fork }}
