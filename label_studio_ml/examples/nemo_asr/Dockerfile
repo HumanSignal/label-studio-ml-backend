@@ -20,7 +20,8 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        git; \
+        git g++ freeglut3-dev build-essential libx11-dev \
+        ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc; \
     apt-get autoremove -y
 
 # install base requirements
@@ -29,6 +30,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements-base.txt
 
 # install custom requirements
+RUN pip install Cython
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt

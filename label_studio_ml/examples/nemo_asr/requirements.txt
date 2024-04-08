@@ -1,1 +1,1 @@
-nemo-toolkit==1.8.2
+nemo-toolkit[all]
