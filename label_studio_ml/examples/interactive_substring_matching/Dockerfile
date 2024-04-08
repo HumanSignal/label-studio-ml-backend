@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.11
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
 ARG TEST_ENV
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        git tesseract-ocr; \
+        git; \
     apt-get autoremove -y
 
 # install base requirements
