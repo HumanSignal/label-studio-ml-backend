@@ -62,6 +62,9 @@ $ curl http://localhost:9090/health
   variable. For example, `<TextArea name="response" ...>`.
 - If you want to capture generated LLM response as a label, your labeling config should contain a `<Choices>` tag. For
   example, `<Choices name="choices" ...>`.
+- If you want to set the default prompt to be shown before the user input, you can set the `DEFAULT_PROMPT` environmental
+  variable. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"` or `DEFAULT_PROMPT=/path/to/prompt.txt`. Note that default prompt doesn't support `USE_INTERNAL_PROMPT_TEMPLATE=1` mode, please set `USE_INTERNAL_PROMPT_TEMPLATE=0` to use default prompt.
+  You can use the fields from `task['data']` in the prompt template, as well as special `{labels}` field to show the list of available labels.
 
 4. Go to the labeling page, and ensure the `Auto-Annotation` toggle is enabled (it is located below the labeling screen)
    .
