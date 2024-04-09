@@ -60,11 +60,11 @@ To start developing your own ML backend, follow the instructions below.
 
 Download and install `label-studio-ml` from the repository:
 
-    ```bash
-    git clone https://github.com/HumanSignal/label-studio-ml-backend.git
-    cd label-studio-ml-backend/
-    pip install -e .
-    ```
+```bash
+git clone https://github.com/HumanSignal/label-studio-ml-backend.git
+cd label-studio-ml-backend/
+pip install -e .
+```
 
 ### 2. Create empty ML backend:
 
