@@ -1,8 +1,0 @@
-click==7.1.2
-google_api_core==1.21.0
-google_cloud_core==1.7.0
-label-studio-ml==1.0.8
-nemo_toolkit[all]
-rq
-supervisor==4.2.2
-uwsgi==2.0.19.1

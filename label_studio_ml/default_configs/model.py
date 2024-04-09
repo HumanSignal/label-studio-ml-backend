@@ -8,11 +8,10 @@ class NewModel(LabelStudioMLBase):
     """
     
     def setup(self):
-        """Configure any paramaters of your model here
+        """Configure any parameters of your model here
         """
         self.set("model_version", "0.0.1")
 
-        
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
@@ -28,6 +27,10 @@ class NewModel(LabelStudioMLBase):
         Label config: {self.label_config}
         Parsed JSON Label config: {self.parsed_label_config}
         Extra params: {self.extra_params}''')
+
+        # example for resource downloading from Label Studio instance,
+        # you need to set env vars LABEL_STUDIO_URL and LABEL_STUDIO_API_KEY
+        # path = self.get_local_path(tasks[0]['data']['image_url'], task_id=tasks[0]['id'])
 
         # example for simple classification
         # return [{
@@ -45,7 +48,6 @@ class NewModel(LabelStudioMLBase):
         # }]
         
         return ModelResponse(predictions=[])
-
     
     def fit(self, event, data, **kwargs):
         """

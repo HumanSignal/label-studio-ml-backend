@@ -343,7 +343,7 @@ Base example:
     font-family: Arial, sans-serif;
     background-color: #f5f5f5;
     margin: 0;
-    padding: 20px;
+    padding: 40px 5px 5px 5px;
   }
   .container {
     display: flex;
@@ -353,6 +353,7 @@ Base example:
   .column {
     flex: 1;
     padding: 10px;
+  	margin: 5px; 
     background-color: #fff;
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -365,8 +366,12 @@ Base example:
   .column .label {
     margin-top: 10px;
     padding: 10px;
+    padding-bottom: 7px; 
     background-color: #f9f9f9;
     border-radius: 3px;
+  }
+  .lsf-labels {
+    margin: 5px 0 0 0; 
   }
   .image-container {
     width: 100%;
@@ -375,39 +380,55 @@ Base example:
     border-radius: 5px;
   }
 </Style>
+  
 <View className="main">
   <View className="container">
     <View className="column">
-      <View className="title">Choose Label</View>
-      <View className="label">
+      <HyperText value="" name="h1" className="help" inline="true">
+        Brush for manual labeling
+      </HyperText>
+      <View className="label">        
         <BrushLabels name="tag" toName="image">
           <Label value="Foreground" background="#FF0000" />
           <Label value="Background" background="#0d14d3" />
         </BrushLabels>
       </View>
     </View>
+    
     <View className="column">
-      <View className="title">Use Keypoint</View>
+      <HyperText value="" name="h2" className="help" inline="true">
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Keypoints for auto-labeling
+        </span>
+      </HyperText>
       <View className="label">
         <KeyPointLabels name="tag2" toName="image" smart="true">
-          <Label value="Foreground" smart="true" background="#000000" showInline="true" />
-          <Label value="Background" smart="true" background="#000000" showInline="true" />
+          <Label value="Foreground" smart="true" background="#FFaa00" showInline="true" />
+          <Label value="Background" smart="true" background="#00aaFF" showInline="true" />
         </KeyPointLabels>
       </View>
     </View>
+    
     <View className="column">
-      <View className="title">Use Rectangle</View>
+      <HyperText value="" name="h3" className="help" inline="true">
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Rectangles for auto-labeling
+        </span>
+      </HyperText>
       <View className="label">
         <RectangleLabels name="tag3" toName="image" smart="true">
-          <Label value="Foreground" background="#000000" showInline="true" />
-          <Label value="Background" background="#000000" showInline="true" />
+          <Label value="Foreground" background="#FF00FF" showInline="true" />
+          <Label value="Background" background="#00FF00" showInline="true" />
         </RectangleLabels>
       </View>
     </View>
+    
   </View>
+  
   <View className="image-container">
     <Image name="image" value="$image" zoom="true" zoomControl="true" />
   </View>
+  
 </View>
 </View>
 ```

@@ -90,10 +90,12 @@ The following parameters are available for training:
 - `LABEL_STUDIO_HOST` (required): The URL of the Label Studio instance. Default is `http://localhost:8080`.
 - `LABEL_STUDIO_API_KEY` (required): The [API key](https://labelstud.io/guide/user_account#Access-token) for the Label Studio instance.
 - `START_TRAINING_EACH_N_UPDATES`: The number of labeled tasks to download from Label Studio before starting training. Default is 10.
-- `LEARNING_RATE`: The learning rate for the model training. Default is `2e-5`.
-- `NUM_TRAIN_EPOCHS`: The number of epochs for model training. Default is `3`.
-- `WEIGHT_DECAY`: The weight decay for the model training. Default is `0.01`.
-- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned-model`.
+- `LEARNING_RATE`: The learning rate for the model training. Default is 2e-5.
+- `NUM_TRAIN_EPOCHS`: The number of epochs for model training. Default is 3.
+- `WEIGHT_DECAY`: The weight decay for the model training. Default is 0.01.
+- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`. Checkpoints will be saved under this name.
+
+> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in the Label Studio instance in the `Account & Settings -> Access Token` section.
 
 
 # Customization

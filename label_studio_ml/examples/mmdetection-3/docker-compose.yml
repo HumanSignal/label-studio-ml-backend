@@ -1,28 +1,43 @@
 version: "3.8"
 
 services:
-  redis:
-    image: redis:alpine
-    container_name: redis
-    hostname: redis
-    volumes:
-      - "./data/redis:/data"
-    expose:
-      - 6379
   mmdetection-3:
     container_name: mmdetection-3
-    build: .
+    image: humansignal/ml-backend-mmdetection-3:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
-      - RQ_QUEUE_NAME=default
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # mmdetection model parameters
+      - CHECKPOINT_FILE=yolov3_mobilenetv2_320_300e_coco_20210719_215349-d18dff72.pth
+      - CONFIG_FILE=yolov3_mobilenetv2_8xb24-320-300e_coco.py
+      - DEVICE=cpu
+      - SCORE_THRESHOLD=0.5
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
+
+      # for s3 storage you can specify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY,
+      # it will work faster than using intermediate LS API for your file URL resolving from s3
+      - AWS_ACCESS_KEY_ID=
+      - AWS_SECRET_ACCESS_KEY=
     ports:
-      - 9090:9090
-    depends_on:
-      - redis
-    links:
-      - redis
+      - "9090:9090"
     volumes:
       - "./data/server:/data"
-      - "./logs:/tmp"

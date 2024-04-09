@@ -96,20 +96,22 @@ Parameters can be set in `docker-compose.yml` before running the container.
 
 
 The following common parameters are available:
-- `BASIC_AUTH_USER` - Specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
-- `LOG_LEVEL` - Set the log level for the model server
-- `WORKERS` - Specify the number of workers for the model server
-- `THREADS` - Specify the number of threads for the model server
+- `BASIC_AUTH_USER` - specify the basic auth user for the model server
+- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
+- `LOG_LEVEL` - set the log level for the model server
+- `WORKERS` - specify the number of workers for the model server
+- `THREADS` - specify the number of threads for the model server
 - `BASELINE_MODEL_NAME`: The name of the baseline model to use. Default is `dslim/bert-base-NER`.
 - `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`.
-- `LABEL_STUDIO_HOST`: The host of the Label Studio instance. Default is `http://localhost:8080`.
-- `LABEL_STUDIO_API_KEY`: The [API key](https://labelstud.io/guide/user_account#Access-token) for the Label Studio instance.
-- `START_TRAINING_EACH_N_UPDATES`: The number of updates after which to start training. Default is `10`.
-- `LEARNING_RATE`: The learning rate for the model. Default is `1e-3`.
-- `NUM_TRAIN_EPOCHS`: The number of training epochs. Default is `10`.
-- `WEIGHT_DECAY`: The weight decay for the model. Default is `0.01`.
-- `MODEL_DIR`: The directory where the model is stored. Default is `./results`.
+- `LABEL_STUDIO_HOST`: The host of the Label Studio instance. Default is 'http://localhost:8080'.
+- `LABEL_STUDIO_API_KEY`: The API key for the Label Studio instance.
+- `START_TRAINING_EACH_N_UPDATES`: The number of updates after which to start training. Default is 10.
+- `LEARNING_RATE`: The learning rate for the model. Default is 1e-3.
+- `NUM_TRAIN_EPOCHS`: The number of training epochs. Default is 10.
+- `WEIGHT_DECAY`: The weight decay for the model. Default is 0.01.
+- `MODEL_DIR`: The directory where the model is stored. Default is './results'.
+
+> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in the Label Studio instance in the `Account & Settings -> Access Token` section.
 
 # Customization
 

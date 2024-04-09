@@ -14,7 +14,7 @@ from label_studio_ml.utils import (
     get_single_tag_keys,
     DATA_UNDEFINED_NAME,
 )
-from label_studio_tools.core.utils.io import get_data_dir
+from label_studio_tools.core.utils.io import get_data_dir, get_local_path
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -27,12 +27,8 @@ class MMDetection(LabelStudioMLBase):
 
     def __init__(
         self,
-        config_file=None,
-        checkpoint_file=None,
         image_dir=None,
         labels_file=None,
-        score_threshold=0.5,
-        device="cpu",
         **kwargs,
     ):
         """
@@ -49,35 +45,39 @@ class MMDetection(LabelStudioMLBase):
         :param kwargs:
         """
         super(MMDetection, self).__init__(**kwargs)
-        config_file = config_file or os.environ["config_file"]
-        checkpoint_file = checkpoint_file or os.environ["checkpoint_file"]
-        self.config_file = config_file
-        self.checkpoint_file = checkpoint_file
-        self.labels_file = labels_file
 
-        # default Label Studio image upload folder
+        # default image upload folder
         upload_dir = os.path.join(get_data_dir(), "media", "upload")
         self.image_dir = image_dir or upload_dir
         logger.debug(f"{self.__class__.__name__} reads images from {self.image_dir}")
 
+        # try to load label map from json file (optional)
+        self.labels_file = labels_file
         if self.labels_file and os.path.exists(self.labels_file):
             self.label_map = json_load(self.labels_file)
         else:
             self.label_map = {}
 
-        (
-            self.from_name,
-            self.to_name,
-            self.value,
-            self.labels_in_config,
-        ) = get_single_tag_keys(self.parsed_label_config, "RectangleLabels", "Image")
-        schema = list(self.parsed_label_config.values())[0]
+        # try to parse labeling config to get image $value, from_name, to_name, labels
+        params = get_single_tag_keys(
+            self.parsed_label_config, "RectangleLabels", "Image"
+        )
+        self.from_name, self.to_name, self.value, self.labels_in_config = params
         self.labels_in_config = set(self.labels_in_config)
 
-        print("Load new model from: ", config_file, checkpoint_file)
-        self.model = init_detector(config_file, checkpoint_file, device=device)
-        self.score_thresh = score_threshold
+        # init mmdetection model
+        # see docker-compose.yml for environment variables
+        self.config_file = os.environ.get("CONFIG_FILE")
+        self.checkpoint_file = os.environ.get("CHECKPOINT_FILE")
+        self.device = os.environ.get("DEVICE", "cpu")
+        self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.5))
+        print("Load new model from: ", self.config_file, self.checkpoint_file)
+        self.model = init_detector(
+            self.config_file, self.checkpoint_file, device=self.device
+        )
 
+        # try to build label map from mmdet labels to LS labels
+        schema = list(self.parsed_label_config.values())[0]
         self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
 
@@ -124,7 +124,11 @@ class MMDetection(LabelStudioMLBase):
         image_url = task["data"].get(self.value) or task["data"].get(
             DATA_UNDEFINED_NAME
         )
-        if image_url.startswith("s3://"):
+
+        # retrieve image from s3 bucket,
+        # set env vars AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        # and AWS_SESSION_TOKEN to allow boto3 to access the bucket
+        if image_url.startswith("s3://") and os.getenv('AWS_ACCESS_KEY_ID'):
             # pre-sign s3 url
             r = urlparse(image_url, allow_fragments=False)
             bucket_name = r.netloc
@@ -137,8 +141,9 @@ class MMDetection(LabelStudioMLBase):
                 )
             except ClientError as exc:
                 logger.warning(
-                    f"Can't generate presigned URL for {image_url}. Reason: {exc}"
+                    f"Can't generate pre-signed URL for {image_url}. Reason: {exc}"
                 )
+
         return image_url
 
     def predict(self, tasks: List[Dict], **kwargs):
@@ -156,7 +161,7 @@ class MMDetection(LabelStudioMLBase):
 
     def predict_one_task(self, task: Dict):
         image_url = self._get_image_url(task)
-        image_path = self.get_local_path(image_url)
+        image_path = get_local_path(image_url, task_id=task.get('id'))
         model_results = inference_detector(self.model, image_path).pred_instances
         results = []
         all_scores = []
@@ -177,7 +182,7 @@ class MMDetection(LabelStudioMLBase):
             print(f"score > {score}")
 
             # bbox score is too low
-            if score < self.score_thresh:
+            if score < self.score_threshold:
                 continue
 
             # there is no mapping between MMDet label and LS label
