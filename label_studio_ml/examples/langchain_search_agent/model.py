@@ -14,7 +14,12 @@ from label_studio_ml.utils import match_labels
 
 logger = logging.getLogger(__name__)
 
-search = GoogleSearchAPIWrapper()
+try:
+    search = GoogleSearchAPIWrapper()
+except Exception as e:
+    logger.error(f'Error initializing GoogleSearchAPIWrapper: {e}. '
+                 f'You will not be able to use the search tool.')
+    search = None
 
 
 class SearchResults(BaseCallbackHandler):
@@ -65,18 +70,21 @@ class NewModel(LabelStudioMLBase):
             'TextArea', 'Text', name_filter=lambda s: s.startswith(self.SNIPPETS_PREFIX))
 
         search_results = SearchResults()
-        tool = Tool(
-            name="Google Search Snippets",
-            description="Search Google for recent results.",
-            func=search.run,
-            callbacks=[search_results]
-        )
+        if not search:
+            tools = []
+        else:
+            tools = [Tool(
+                name="Google Search Snippets",
+                description="Search Google for recent results.",
+                func=search.run,
+                callbacks=[search_results]
+            )]
         llm = OpenAI(
             temperature=0,
             model_name='gpt-3.5-turbo-instruct'
         )
         agent = initialize_agent(
-            [tool],
+            tools,
             llm,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
@@ -130,14 +138,16 @@ class NewModel(LabelStudioMLBase):
                 'value': {
                     'text': [llm_result]
                 }
-            }, {
-                'from_name': from_name_snippets,
-                'to_name': to_name,
-                'type': 'textarea',
-                'value': {
-                    'text': snippets
-                }
             }]
+            if snippets:
+                result.append({
+                    'from_name': from_name_snippets,
+                    'to_name': to_name,
+                    'type': 'textarea',
+                    'value': {
+                        'text': snippets
+                    }
+                })
             predictions.append({'result': result})
 
         return predictions

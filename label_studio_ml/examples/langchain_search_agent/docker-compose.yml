@@ -1,10 +1,13 @@
 version: "3.8"
 
 services:
-  langchain:
-    container_name: langchain
+  langchain_search_agent:
+    container_name: langchain_search_agent
     image: humansignal/langchain:v0
-    build: .
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=2

@@ -117,6 +117,9 @@ class NewModel(LabelStudioMLBase):
 
     def fit(self, event, data, **additional_params):
         """Download dataset from Label Studio and prepare data for training in BERT"""
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+            logger.info(f"Skip training: event {event} is not supported")
+            return
         project_id = data['annotation']['project']
 
         # dowload annotated tasks from Label Studio

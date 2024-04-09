@@ -15,4 +15,4 @@
 !*.sh
 
 # Exclude specific requirements if necessary
-!example.env
+!default_prompt.txt

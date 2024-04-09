@@ -29,7 +29,7 @@ class SpacyMLBackend(LabelStudioMLBase):
                         'start': ent.start_char,
                         'end': ent.end_char,
                         'text': ent.text,
-                        'labels': [_custom_labels_mapping.get(ent.label_, ent.label_)]
+                        'labels': [self._custom_labels_mapping.get(ent.label_, ent.label_)]
                     }
                 })
             predictions.append(PredictionValue(

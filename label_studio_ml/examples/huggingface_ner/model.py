@@ -21,7 +21,7 @@ class NewModel(LabelStudioMLBase):
     """Custom ML Backend model
     """
     BASELINE_MODEL_NAME = os.getenv('BASELINE_MODEL_NAME', 'dslim/bert-base-NER')
-    FINTUNED_MODEL_NAME = os.getenv('FINTUNED_MODEL_NAME', 'finetuned_model')
+    FINETUNED_MODEL_NAME = os.getenv('FINETUNED_MODEL_NAME', 'finetuned_model')
     LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST', 'http://localhost:8080')
     LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
     START_TRAINING_EACH_N_UPDATES = int(os.getenv('START_TRAINING_EACH_N_UPDATES', 10))
@@ -135,6 +135,10 @@ class NewModel(LabelStudioMLBase):
     def fit(self, event, data, **kwargs):
         """Download dataset from Label Studio and prepare data for training in BERT
         """
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+            logger.info(f"Skip training: event {event} is not supported")
+            return
+
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
 
@@ -214,7 +218,7 @@ class NewModel(LabelStudioMLBase):
         logger.debug(f"Model: {model}")
 
         training_args = TrainingArguments(
-            output_dir=str(pathlib.Path(self.MODEL_DIR) / self.FINTUNED_MODEL_NAME),
+            output_dir=str(pathlib.Path(self.MODEL_DIR) / self.FINETUNED_MODEL_NAME),
             learning_rate=self.LEARNING_RATE,
             per_device_train_batch_size=8,
             num_train_epochs=self.NUM_TRAIN_EPOCHS,
@@ -231,6 +235,6 @@ class NewModel(LabelStudioMLBase):
         )
         trainer.train()
 
-        chk_path = str(pathlib.Path(self.MODEL_DIR) / self.FINTUNED_MODEL_NAME)
+        chk_path = str(pathlib.Path(self.MODEL_DIR) / self.FINETUNED_MODEL_NAME)
         logger.info(f"Model is trained and saved as {chk_path}")
         trainer.save_model(chk_path)
