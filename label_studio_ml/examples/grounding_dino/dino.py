@@ -183,8 +183,9 @@ class DINOBackend(LabelStudioMLBase):
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task.get('id')
             )
-        except:
+        except Exception as e:
             img_path = raw_img_path
+            logger.error(f"Error getting local path: {e}")
 
         src, img = load_image(img_path)
 
@@ -230,8 +231,9 @@ class DINOBackend(LabelStudioMLBase):
                     ls_host=LABEL_STUDIO_HOST,
                     task_id=task.get('id')
                 )
-            except:
+            except Exception as e:
                 img_path = raw_img_path
+                logger.error(f"Error getting local path: {e}")
 
             image_paths.append(img_path)
 
