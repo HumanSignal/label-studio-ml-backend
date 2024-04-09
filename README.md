@@ -40,7 +40,7 @@ Please check **Required parameters** column to see if you need to set any additi
 | [huggingface_llm](/label_studio_ml/examples/huggingface_llm)                               | Text generation models by [Hugging Face](https://huggingface.co/tasks/text-generation)                                                           | None                |
 | [huggingface_ner](/label_studio_ml/examples/huggingface_ner)                               | NER models (TokenClassification) by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                       | None                |
 | [nemo_asr](/label_studio_ml/examples/nemo_asr)                                             | Speech transcription models by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                     | None                |
-| [mmetection](/label_studio_ml/examples/mmetection-3)                                       | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
+| [mmetection](/label_studio_ml/examples/mmdetection-3)                                      | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
 | [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier)               | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
 | [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching) | Interactively select keywords to highlight all occurrences of the keyword in the text                                                                           | None                |
 
@@ -146,6 +146,8 @@ Other methods and parameters are available within the `LabelStudioMLBase` class:
 - `self.parsed_label_config` - returns the [Label Studio labeling config](https://labelstud.io/guide/setup.html) as
   JSON.
 - `self.model_version` - returns the current model version.
+- `self.get_local_path(url, task_id)` - this helper function is used to download and cache an url that is typically stored in `task['data']`, 
+and to return the local path to it. The URL can be: LS uploaded file, LS Local Storage, LS Cloud Storage or any other http(s) URL.      
 
 #### Run without Docker
 
