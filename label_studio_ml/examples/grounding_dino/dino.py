@@ -79,8 +79,12 @@ groundingdino_model = load_model(
 
 BOX_THRESHOLD = os.environ.get("BOX_THRESHOLD", 0.3)
 TEXT_THRESHOLD = os.environ.get("TEXT_THRESHOLD", 0.25)
-LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
-LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
+LABEL_STUDIO_ACCESS_TOKEN = (
+        os.environ.get("LABEL_STUDIO_ACCESS_TOKEN") or os.environ.get("LABEL_STUDIO_API_KEY")
+)
+LABEL_STUDIO_HOST = (
+        os.environ.get("LABEL_STUDIO_HOST") or os.environ.get("LABEL_STUDIO_URL")
+)
 
 USE_SAM = os.environ.get("USE_SAM", False)
 USE_MOBILE_SAM = os.environ.get("USE_MOBILE_SAM", False)
