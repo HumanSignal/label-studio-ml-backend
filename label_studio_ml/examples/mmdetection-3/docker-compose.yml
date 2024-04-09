@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  ml-backend:
+  mmdetection-3:
     container_name: mmdetection-3
     image: humansignal/ml-backend-mmdetection-3:v0
     build:
