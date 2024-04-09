@@ -15,6 +15,4 @@
 !*.sh
 
 # Exclude specific requirements if necessary
-!supervisord.conf
-!uwsgi.ini
-!_base_/
+!default_prompt.txt
