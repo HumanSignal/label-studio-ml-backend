@@ -47,7 +47,7 @@ In this example, you can combine multiple labels into one Label Studio label. Fo
 
 > These steps provided by @raash1d [in this issue](https://github.com/heartexlabs/label-studio-ml-backend/issues/167#issuecomment-1495061050). Note: the patch from the comment is already applied, except hardcoding of label_config into kwargs.
 
-**It's highly recomended to use docker, it allows to avoid lots of dependency problems!**
+**It's highly recomended to use docker, it allows to avoid lots of problems!**
 
 1. Clone the Label Studio ML Backend repository in your directory of choice
 ```
@@ -58,7 +58,7 @@ cd label-studio-ml-backend/label_studio_ml/examples/mmdetection-3
 2. Create a virtual environment using venv and install all dependencies using pip
 ```
 python -m venv ml-backend
-source ml-backend/bin/activate # assuming you're on bash or zsh
+source ml-backend/bin/activate
 pip install -r requirements.txt
 ```
 

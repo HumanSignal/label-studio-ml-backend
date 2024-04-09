@@ -356,7 +356,7 @@ Base example:
   <View className="container">
     <View className="column">
       <HyperText value="" name="h1" className="help" inline="true">
-        Brush for manual labeing
+        Brush for manual labeling
       </HyperText>
       <View className="label">        
         <BrushLabels name="tag" toName="image">
@@ -368,7 +368,9 @@ Base example:
     
     <View className="column">
       <HyperText value="" name="h2" className="help" inline="true">
-        Keypoints for manual and <a href="#" target="_blank">auto-labeling</a>
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Keypoints for auto-labeling
+        </span>
       </HyperText>
       <View className="label">
         <KeyPointLabels name="tag2" toName="image" smart="true">
@@ -380,7 +382,9 @@ Base example:
     
     <View className="column">
       <HyperText value="" name="h3" className="help" inline="true">
-        Rectangles for manual and <a target="_blank" href="#">auto-labeling</a>
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Rectangles for auto-labeling
+        </span>
       </HyperText>
       <View className="label">
         <RectangleLabels name="tag3" toName="image" smart="true">
