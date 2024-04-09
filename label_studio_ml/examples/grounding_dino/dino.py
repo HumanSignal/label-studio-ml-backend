@@ -183,7 +183,8 @@ class DINOBackend(LabelStudioMLBase):
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task.get('id')
             )
-        except:
+        except Exception as e:
+            logger.error(f"Error getting image path: {e}")
             img_path = raw_img_path
 
         src, img = load_image(img_path)
