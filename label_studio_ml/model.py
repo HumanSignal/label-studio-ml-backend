@@ -228,18 +228,31 @@ class LabelStudioMLBase(ABC):
         if _update_fn:
             return _update_fn(event, data, helper=self, **additional_params)
 
-    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None):
+    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None, task_id=None, *args, **kwargs):
         """
         Return the local path for a given URL.
 
         Args:
           url: The URL to find the local path for.
           project_dir: The project directory.
+          ls_host: The Label Studio host,
+            if not provided, it will be taken from LABEL_STUDIO_URL env variable
+          ls_access_token: The access token for the Label Studio backend,
+            if not provided, it will be taken from LABEL_STUDIO_API_KEY env variable
+          task_id: Label Studio Task ID is required param for Cloud Storage URI resolving
 
         Returns:
           The local path for the given URL.
         """
-        return get_local_path(url, project_dir=project_dir, hostname=ls_host, access_token=ls_access_token)
+        return get_local_path(
+            url,
+            project_dir=project_dir,
+            hostname=ls_host,
+            access_token=ls_access_token,
+            task_id=task_id,
+            *args,
+            **kwargs
+        )
 
     ## TODO this should go into SDK
     def get_first_tag_occurence(
