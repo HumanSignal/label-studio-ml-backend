@@ -16,7 +16,6 @@ class NewModel(LabelStudioMLBase):
 
     _model = None
 
-
     def _lazy_init(self):
         if self._model is not None:
             return
@@ -32,7 +31,7 @@ class NewModel(LabelStudioMLBase):
         audio_paths = []
         for task in tasks:
             audio_url = task['data'].get(value) or task['data'].get(DATA_UNDEFINED_NAME)
-            audio_path = get_local_path(audio_url)
+            audio_path = get_local_path(audio_url, task_id=task.get('id'))
             audio_paths.append(audio_path)
 
         # run ASR

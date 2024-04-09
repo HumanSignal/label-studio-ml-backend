@@ -62,15 +62,23 @@ def get_choice(completion):
     return completion['annotations'][0]['result'][0]['value']['choices'][0]
 
 
-def get_image_local_path(url, image_cache_dir=None, project_dir=None, image_dir=None,
-                         label_studio_host=None, label_studio_access_token=None):
+def get_image_local_path(
+        url,
+        image_cache_dir=None,
+        project_dir=None,
+        image_dir=None,
+        label_studio_host=None, 
+        label_studio_access_token=None,
+        task_id=None
+):
     image_local_path = get_local_path(
         url=url,
         cache_dir=image_cache_dir,
         project_dir=project_dir,
         hostname=label_studio_host or get_env('HOSTNAME'),
         image_dir=image_dir,
-        access_token=label_studio_access_token
+        access_token=label_studio_access_token,
+        task_id=task_id
     )
     logger.debug(f'Image stored in the local path: {image_local_path}')
     return image_local_path

@@ -47,7 +47,7 @@ Please check **Required parameters** column to see if you need to set any additi
 | [huggingface_llm](/label_studio_ml/examples/huggingface_llm)                               | LLM inference with [Hugging Face](https://huggingface.co/tasks/text-generation)                                                           | ✅               | ❌                | ❌        | None                                          |
 | [huggingface_ner](/label_studio_ml/examples/huggingface_ner)                               | NER by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                                             | ✅               | ❌                | ✅        | None                                          |
 | [nemo_asr](/label_studio_ml/examples/nemo_asr)                                             | Speech ASR by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                               | ✅               | ❌                | ❌        | None                                          |
-| [mmetection](/label_studio_ml/examples/mmetection)                                         | Object Detection with [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                              | ✅               | ❌                | ❌        | None                                          |
+| [mmdetection](/label_studio_ml/examples/mmdetection-3)                                     | Object Detection with [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                              | ✅               | ❌                | ❌        | None                                          |
 | [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier)               | Text classification with [scikit-learn](https://scikit-learn.org/stable/)                                                                 | ✅               | ❌                | ✅        | None                                          |
 | [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching) | Simple keywords search                                                                                                                    | ❌               | ✅                | ❌        | None                                          |
 | [langchain_search_agent](/label_studio_ml/examples/langchain_search_agent)                 | RAG pipeline with Google Search and [Langchain](https://langchain.com/)                                                                   | ✅               | ✅                | ✅        | OPENAI_API_KEY, GOOGLE_CSE_ID, GOOGLE_API_KEY |
@@ -154,6 +154,8 @@ Other methods and parameters are available within the `LabelStudioMLBase` class:
 - `self.parsed_label_config` - returns the [Label Studio labeling config](https://labelstud.io/guide/setup.html) as
   JSON.
 - `self.model_version` - returns the current model version.
+- `self.get_local_path(url, task_id)` - this helper function is used to download and cache an url that is typically stored in `task['data']`, 
+and to return the local path to it. The URL can be: LS uploaded file, LS Local Storage, LS Cloud Storage or any other http(s) URL.      
 
 #### Run without Docker
 
@@ -257,3 +259,17 @@ and `docker-compose.yml`. Then, proceed with the Docker commands:
 
 By following these steps, you should be able to resolve issues related to Docker not recognizing the `start.sh` script
 on Windows due to line ending conversions.
+
+
+## Troubleshooting Pip Cache Reset in Docker Images
+
+Sometimes, you want to reset the pip cache to ensure that the latest versions of the dependencies are installed. 
+For example, Label Studio ML Backend library is used as 
+`label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git` in requirements.txt. Let's assume that it
+is updated, and you want to jump on the latest version in your docker image with the ML model. 
+
+You can rebuild a docker image from scratch with the following command:
+
+```bash
+docker compose build --no-cache
+```

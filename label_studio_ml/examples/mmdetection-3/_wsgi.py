@@ -1,6 +1,6 @@
-import json
 import os
 import argparse
+import json
 import logging
 import logging.config
 
@@ -14,13 +14,13 @@ logging.config.dictConfig({
   "handlers": {
     "console": {
       "class": "logging.StreamHandler",
-      "level": "DEBUG",
+      "level": os.getenv('LOG_LEVEL'),
       "stream": "ext://sys.stdout",
       "formatter": "standard"
     }
   },
   "root": {
-    "level": "ERROR",
+    "level": os.getenv('LOG_LEVEL'),
     "handlers": [
       "console"
     ],
@@ -67,8 +67,16 @@ if __name__ == "__main__":
     parser.add_argument(
         '--check', dest='check', action='store_true',
         help='Validate model instance before launching server')
-
+    parser.add_argument('--basic-auth-user',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
+                        help='Basic auth user')
+    
+    parser.add_argument('--basic-auth-pass',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
+                        help='Basic auth pass')    
+    
     args = parser.parse_args()
+
     # setup logging level
     if args.log_level:
         logging.root.setLevel(args.log_level)
@@ -87,7 +95,7 @@ if __name__ == "__main__":
                 param[k] = int(v)
             elif v == 'True' or v == 'true':
                 param[k] = True
-            elif v == 'False' or v == 'False':
+            elif v == 'False' or v == 'false':
                 param[k] = False
             elif isfloat(v):
                 param[k] = float(v)
@@ -104,23 +112,10 @@ if __name__ == "__main__":
         print('Check "' + MMDetection.__name__ + '" instance creation..')
         model = MMDetection(**kwargs)
 
-    app = init_app(
-        model_class=MMDetection,
-        model_dir=os.environ.get('MODEL_DIR', args.model_dir),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379),
-        **kwargs
-    )
+    app = init_app(model_class=MMDetection, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(
-        model_class=MMDetection,
-        model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379)
-    )
+    app = init_app(model_class=MMDetection)

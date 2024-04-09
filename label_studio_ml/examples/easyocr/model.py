@@ -29,9 +29,14 @@ class NewModel(LabelStudioMLBase):
     DEVICE = os.getenv('DEVICE', 'cuda')
     # Maximum different in box height. Boxes with very different text size should not be merged.
     HEIGHT_THS = float(os.getenv('HEIGHT_THS', 0.8))
-    # Label Studio image upload folder - should be used only in case you use direct file upload into Label Studio instead of URLs
-    LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
-    LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
+    # Label Studio image upload folder:
+    # should be used only in case you use direct file upload into Label Studio instead of URLs
+    LABEL_STUDIO_ACCESS_TOKEN = (
+        os.environ.get("LABEL_STUDIO_ACCESS_TOKEN") or os.environ.get("LABEL_STUDIO_API_KEY")
+    )
+    LABEL_STUDIO_HOST = (
+            os.environ.get("LABEL_STUDIO_HOST") or os.environ.get("LABEL_STUDIO_URL")
+    )
 
     MODEL_DIR = os.getenv('MODEL_DIR', '.')
 
@@ -98,7 +103,8 @@ class NewModel(LabelStudioMLBase):
             image_url,
             cache_dir=cache_dir,
             hostname=self.LABEL_STUDIO_HOST,
-            access_token=self.LABEL_STUDIO_ACCESS_TOKEN
+            access_token=self.LABEL_STUDIO_ACCESS_TOKEN,
+            task_id=task.get('id')
         )
         model_results = self.model.readtext(image_path, height_ths=self.HEIGHT_THS)
         if not model_results:
