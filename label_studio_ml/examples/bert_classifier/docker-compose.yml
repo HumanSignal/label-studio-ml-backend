@@ -13,12 +13,12 @@ services:
       - LABEL_STUDIO_HOST=http://localhost:8080
       - LABEL_STUDIO_API_KEY=your-api-key
       # Use any model for [AutoModelForSequenceClassification](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification)
-      - BASELINE_MODEL_NAME=bert-base-uncased
+      - BASELINE_MODEL_NAME=bert-base-multilingual-cased
       # - BASELINE_MODEL_NAME=google/electra-small-discriminator
       # The model directory for the fine-tuned checkpoints (relative to $MODEL_DIR)
-      - FINETUNED_MODEL_NAME=finetuned-model-path
+      - FINETUNED_MODEL_NAME=finetuned_model
       # The number of labeled tasks to download from Label Studio before starting training
-      - START_TRAINING_EACH_N_UPDATES=1
+      - START_TRAINING_EACH_N_UPDATES=10
       # Learning rate
       - LEARNING_RATE=2e-5
       # Number of epochs

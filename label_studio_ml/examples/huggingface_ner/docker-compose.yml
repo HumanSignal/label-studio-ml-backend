@@ -17,7 +17,7 @@ services:
       # change it to this model if you want to run training
       # - BASELINE_MODEL_NAME=distilbert/distilbert-base-uncased
       # The model directory for the fine-tuned checkpoints (relative to $MODEL_DIR)
-      - FINETUNED_MODEL_NAME=finetuned-model-path
+      - FINETUNED_MODEL_NAME=finetuned_model
       # The number of labeled tasks to download from Label Studio before starting training
       - START_TRAINING_EACH_N_UPDATES=1
       # Learning rate

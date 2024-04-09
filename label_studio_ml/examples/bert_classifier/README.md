@@ -26,7 +26,7 @@ $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Model -> Connect Model` and specify `http://localhost:9090` as a URL.
 
 > Warning! Please note the current limitation of the ML backend: models are loaded dynamically from huggingface.co. You may need `HF_TOKEN` env variable provided in your environment. Consequently, this may result in a slow response time for the first prediction request. If you are experiencing timeouts on Label Studio side (i.e., no predictions are visible when opening the task), please check the logs of the ML backend for any errors, and refresh the page in a few minutes.
 
@@ -76,7 +76,9 @@ The following parameters are available for training:
 - `LEARNING_RATE`: The learning rate for the model training. Default is 2e-5.
 - `NUM_TRAIN_EPOCHS`: The number of epochs for model training. Default is 3.
 - `WEIGHT_DECAY`: The weight decay for the model training. Default is 0.01.
-- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is finetuned-model.
+- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`. Checkpoints will be saved under this name.
+
+> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in the Label Studio instance in the `Account & Settings -> Access Token` section.
 
 
 # Customization
