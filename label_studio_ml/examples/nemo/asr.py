@@ -26,7 +26,7 @@ class NemoASR(LabelStudioMLBase):
         audio_paths = []
         for task in tasks:
             audio_url = task['data'].get(self.value) or task['data'].get(DATA_UNDEFINED_NAME)
-            audio_path = self.get_local_path(audio_url)
+            audio_path = self.get_local_path(audio_url, task_id=task.get('id'))
             audio_paths.append(audio_path)
 
         # run ASR

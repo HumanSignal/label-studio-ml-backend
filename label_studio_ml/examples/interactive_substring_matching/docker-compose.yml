@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
+  interactive_substring_matching:
+    container_name: interactive_substring_matching
     image: humansignal/ml-backend:v0
     build:
       context: .
@@ -21,13 +21,6 @@ services:
       - THREADS=8
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
-
-      # Specify the Label Studio URL and API key to access
-      # uploaded, local storage and cloud storage files.
-      # Do not use 'localhost' as it does not work within Docker containers.
-      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=
-      - LABEL_STUDIO_API_KEY=
     ports:
       - "9090:9090"
     volumes:

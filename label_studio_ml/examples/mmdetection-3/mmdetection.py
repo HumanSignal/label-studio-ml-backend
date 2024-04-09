@@ -46,7 +46,7 @@ class MMDetection(LabelStudioMLBase):
         """
         super(MMDetection, self).__init__(**kwargs)
 
-        # default Label Studio image upload folder
+        # default image upload folder
         upload_dir = os.path.join(get_data_dir(), "media", "upload")
         self.image_dir = image_dir or upload_dir
         logger.debug(f"{self.__class__.__name__} reads images from {self.image_dir}")

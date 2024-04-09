@@ -25,10 +25,10 @@ services:
       - DEVICE=cpu
       - SCORE_THRESHOLD=0.5
 
-      # Label Studio URL and API key to get access to
-      # uploaded, local storage and cloud storage files
-      # never use localhost here, it won't work for docker containers,
-      # check the actual IP using ifconfig or ipconfig and write it here
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       - LABEL_STUDIO_URL=
       - LABEL_STUDIO_API_KEY=
 

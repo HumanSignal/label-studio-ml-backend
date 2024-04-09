@@ -228,7 +228,7 @@ class LabelStudioMLBase(ABC):
         if _update_fn:
             return _update_fn(event, data, helper=self, **additional_params)
 
-    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None, *args, **kwargs):
+    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None, task_id=None, *args, **kwargs):
         """
         Return the local path for a given URL.
 
@@ -239,12 +239,19 @@ class LabelStudioMLBase(ABC):
             if not provided, it will be taken from LABEL_STUDIO_URL env variable
           ls_access_token: The access token for the Label Studio backend,
             if not provided, it will be taken from LABEL_STUDIO_API_KEY env variable
+          task_id: Label Studio Task ID is required param for Cloud Storage URI resolving
 
         Returns:
           The local path for the given URL.
         """
         return get_local_path(
-            url, project_dir=project_dir, hostname=ls_host, access_token=ls_access_token, *args, **kwargs
+            url,
+            project_dir=project_dir,
+            hostname=ls_host,
+            access_token=ls_access_token,
+            task_id=task_id,
+            *args,
+            **kwargs
         )
 
     ## TODO this should go into SDK

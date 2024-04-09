@@ -62,7 +62,7 @@ COPY . .
 
 # Use alternative version of label-studio-tools
 # RUN pip install -U git+https://github.com/HumanSignal/label-studio-ml-backend.git@mmdet-removal#2
-RUN pip install git+https://github.com/HumanSignal/label-studio-tools.git@fix-uploads#6
+RUN pip install git+https://github.com/HumanSignal/label-studio-tools.git@fix-uploads#7
 
 EXPOSE 9090
 

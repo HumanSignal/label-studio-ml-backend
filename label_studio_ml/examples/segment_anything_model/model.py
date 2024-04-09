@@ -49,7 +49,8 @@ class SamMLBackend(LabelStudioMLBase):
             img_path=img_path,
             point_coords=point_coords or None,
             point_labels=point_labels or None,
-            input_box=input_box
+            input_box=input_box,
+            task=tasks[0]
         )
 
         predictions = self.get_results(

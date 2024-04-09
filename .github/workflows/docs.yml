@@ -1,0 +1,69 @@
+name: "Docs"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'label_studio_ml/examples/**/README.md'
+
+concurrency:
+  group: "Docs"
+  cancel-in-progress: true
+
+env:
+  DOCS_REPO_NAME: "label-studio"
+  DOCS_REPO_PATH: "label-studio"
+  ML_REPO_PATH: "label-studio-ml-backend"
+  COMMIT_MESSAGE: "docs: Update label-studio-ml-backend docs"
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hmarr/debug-action@v3.0.0
+
+      - name: Checkout Actions Hub
+        uses: actions/checkout@v4
+        with:
+          token: "${{ secrets.GIT_PAT }}"
+          repository: "HumanSignal/actions-hub"
+          path: "./.github/actions-hub"
+
+      - name: Git Configure
+        uses: ./.github/actions-hub/actions/git-configure
+        with:
+          username: "${{ github.event.sender.login }}"
+
+      - name: Checkout ML
+        uses: actions/checkout@v4
+        with:
+          token: "${{ secrets.GIT_PAT }}"
+          path: "${{ env.ML_REPO_PATH }}"
+
+      - name: Checkout LSO
+        uses: actions/checkout@v4
+        with:
+          token: "${{ secrets.GIT_PAT }}"
+          repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
+          path: "${{ env.DOCS_REPO_PATH }}"
+
+      - name: Generate Docs
+        env:
+          ML_REPO_PATH: '${{ env.ML_REPO_PATH }}'
+        working-directory: "${{ env.DOCS_REPO_PATH }}"
+        run: python 'scripts/update_ml_tutorials.py'
+
+      - name: Git Commit
+        working-directory: "${{ env.DOCS_REPO_PATH }}"
+        run: |
+          git add 'docs/source/tutorials' || true
+          git add 'docs/source/guide/ml_tutorials.html' || true
+          git status -s
+          git commit -m '${{ env.COMMIT_MESSAGE }}' -m 'Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' || true
+
+      - name: Git Push
+        uses: ./.github/actions-hub/actions/git-push
+        with:
+          working_directory: "${{ env.DOCS_REPO_PATH }}"
