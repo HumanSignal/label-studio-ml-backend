@@ -43,6 +43,7 @@ Please check **Required parameters** column to see if you need to set any additi
 | [mmetection](/label_studio_ml/examples/mmetection)                                         | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
 | [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier)               | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
 | [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching) | Interactively select keywords to highlight all occurrences of the keyword in the text                                                                           | None                |
+| [langchain_search_agent](/label_studio_ml/examples/langchain_search_agent) | [Langchain](https://langchain.com/)-powered LLM agent that uses Google Search for Retrieval-Augmented Generation                                                                           | OPENAI_API_KEY, GOOGLE_CSE_ID, GOOGLE_API_KEY                |
 
 # (Advanced usage) Develop your model
 
