@@ -15,6 +15,7 @@ concurrency:
 env:
   DOCS_REPO_NAME: "label-studio"
   DOCS_REPO_PATH: "label-studio"
+  DOCS_REPO_PR_BRANCH_NAME: "docs-ml-backend-preview"
   ML_REPO_PATH: "label-studio-ml-backend"
   COMMIT_MESSAGE: "docs: Update label-studio-ml-backend docs"
 
@@ -36,6 +37,15 @@ jobs:
         with:
           username: "${{ github.event.sender.login }}"
 
+      - name: Find or Create Branch
+        uses: ./.github/actions-hub/actions/github-find-or-create-branch
+        id: get-branch
+        with:
+          repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
+          base_branch_name: "develop"
+          branch_name: "${{ env.DOCS_REPO_PR_BRANCH_NAME }}"
+          github-token: "${{ secrets.GIT_PAT }}"
+
       - name: Checkout ML
         uses: actions/checkout@v4
         with:
@@ -47,9 +57,8 @@ jobs:
         with:
           token: "${{ secrets.GIT_PAT }}"
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
+          ref: "${{ steps.get-branch.outputs.branch_name }}"
           path: "${{ env.DOCS_REPO_PATH }}"
-          ref: docs-ml-backend-preview
-# TODO: Remove "ref: docs-ml-backend-preview" for prod deployment
 
       - name: Generate Docs
         env:
@@ -69,3 +78,16 @@ jobs:
         uses: ./.github/actions-hub/actions/git-push
         with:
           working_directory: "${{ env.DOCS_REPO_PATH }}"
+
+      - name: Find or Create Pull Request
+        uses: ./.github/actions-hub/actions/github-find-or-create-pull-request
+        id: get-pull-request
+        with:
+          title: "${{ env.COMMIT_MESSAGE }}"
+          repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
+          base_branch_name: "develop"
+          branch_name: "${{ steps.get-branch.outputs.branch_name }}"
+          github-token: "${{ secrets.GIT_PAT }}"
+
+      - name: Set notice
+        run: echo "::notice::Pull Request ${{ fromJSON(steps.get-pull-request.outputs.pull).html_url }}"
