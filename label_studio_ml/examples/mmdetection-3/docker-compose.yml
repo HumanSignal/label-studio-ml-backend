@@ -23,15 +23,15 @@ services:
       - CHECKPOINT_FILE=yolov3_mobilenetv2_320_300e_coco_20210719_215349-d18dff72.pth
       - CONFIG_FILE=yolov3_mobilenetv2_8xb24-320-300e_coco.py
       - DEVICE=cpu
-      - SCORE_THRESHOLD=0.5
+      - SCORE_THRESHOLD=0.3
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=
-      - LABEL_STUDIO_API_KEY=
+      - LABEL_STUDIO_URL=http://192.168.1.81:8000/
+      - LABEL_STUDIO_API_KEY=983b1bc6a28485d83ee7ffc62058cb28fdeac255
 
       # for s3 storage you can specify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY,
       # it will work faster than using intermediate LS API for your file URL resolving from s3
