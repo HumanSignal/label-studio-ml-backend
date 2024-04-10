@@ -1,6 +1,9 @@
 # Interactive Annotation in Label Studio with Segment Anything Model
 
-https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167c-404a-96bd-c2e2382df99a
+<video autoplay muted loop>
+  <source src="https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167c-404a-96bd-c2e2382df99a" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 Use Facebook's Segment Anything Model with Label Studio!
 

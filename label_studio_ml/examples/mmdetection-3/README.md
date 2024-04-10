@@ -5,6 +5,8 @@ https://mmdetection.readthedocs.io/en/latest/
 This example demonstrates how to use the MMDetection model with Label Studio to annotate images with bounding boxes. 
 The model is based on the YOLOv3 architecture with MobileNetV2 backbone and trained on the COCO dataset. 
 
+![screenshot.png](screenshot.png)
+
 # Quick usage
 
 For quick usage run docker-compose in your working directory:
