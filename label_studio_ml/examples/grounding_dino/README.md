@@ -65,9 +65,9 @@ deploy:
 
 Combine the Segment Anything Model with your text input to automatically generate mask predictions! 
 
-To do this, set `USE_SAM=True` before running. 
+To do this, set `USE_SAM=true` before running. 
 
-If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as well.
+If you want to use a [more efficient version of SAM](https://github.com/ChaoningZhang/MobileSAM), set `USE_MOBILE_SAM=true`.
 
 
 ## Batching Inputs
