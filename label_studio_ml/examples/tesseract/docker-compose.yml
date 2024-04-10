@@ -15,6 +15,14 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
 
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
+
   minio:
     container_name: minio
     image: quay.io/minio/minio

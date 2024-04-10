@@ -45,7 +45,7 @@ $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Model -> Connect Model` and specify `http://localhost:9090` as a URL.
 
 
 ## Building from source (Advanced)
@@ -82,8 +82,8 @@ The following common parameters are available:
 - `LOG_LEVEL` - set the log level for the model server
 - `WORKERS` - specify the number of workers for the model server
 - `THREADS` - specify the number of threads for the model server
-- `BASELINE_MODEL_NAME`: The name of the baseline model to use. Default is 'dslim/bert-base-NER'.
-- `FINTUNED_MODEL_NAME`: The name of the fine-tuned model. Default is 'finetuned_model'.
+- `BASELINE_MODEL_NAME`: The name of the baseline model to use. Default is `dslim/bert-base-NER`.
+- `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`.
 - `LABEL_STUDIO_HOST`: The host of the Label Studio instance. Default is 'http://localhost:8080'.
 - `LABEL_STUDIO_API_KEY`: The API key for the Label Studio instance.
 - `START_TRAINING_EACH_N_UPDATES`: The number of updates after which to start training. Default is 10.
@@ -91,6 +91,8 @@ The following common parameters are available:
 - `NUM_TRAIN_EPOCHS`: The number of training epochs. Default is 10.
 - `WEIGHT_DECAY`: The weight decay for the model. Default is 0.01.
 - `MODEL_DIR`: The directory where the model is stored. Default is './results'.
+
+> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in the Label Studio instance in the `Account & Settings -> Access Token` section.
 
 # Customization
 

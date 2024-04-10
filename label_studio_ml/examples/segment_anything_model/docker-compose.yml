@@ -27,9 +27,6 @@ services:
       # Change this to your model name: MobileSAM or SAM
       - SAM_CHOICE=MobileSAM
       - LOG_LEVEL=DEBUG
-      # Add these variables if you want to access the images stored in Label Studio, host should start with http:// or https://
-      - LABEL_STUDIO_HOST=  
-      - LABEL_STUDIO_ACCESS_TOKEN=
       # Enable this to use the GPU
       # - NVIDIA_VISIBLE_DEVICES=all
       # specify the number of workers and threads for the model server
@@ -37,6 +34,15 @@ services:
       - THREADS=8
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
+
     ports:
       - 9090:9090
     volumes:

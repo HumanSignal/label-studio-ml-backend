@@ -27,22 +27,30 @@ The following models are supported in the repository. Some of them working witho
 require additional parameters to be set.
 Please check **Required parameters** column to see if you need to set any additional parameters.
 
-| MODEL_NAME                                                                 | Description                                                                                                                                      | Required parameters |
-|----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
-| [segment_anything_model](/label_studio_ml/examples/segment_anything_model) | General-purpose interactive image segmentation [from Meta](https://segment-anything.com/)                                                        | None                |
-| [llm_interactive](/label_studio_ml/examples/llm_interactive)               | Prompt engineering, data collection and model evaluation workflows for LLM ([OpenAI](https://platform.openai.com/), Azure)                       | OPENAI_API_KEY      |
-| [grounding_dino](/label_studio_ml/examples/grounding_dino)                 | Object detection with text prompts ([details](https://github.com/IDEA-Research/GroundingDINO))                                                   | None                |
-| [tesseract](/label_studio_ml/examples/tesseract)                           | Optical Character Recognition (OCR) by drawing bounding boxes ([details](https://github.com/tesseract-ocr/tesseract))                            | None                |
-| [easyocr](/label_studio_ml/examples/easyocr)                               | Another OCR tool from [EasyOCR](https://github.com/JaidedAI/EasyOCR)                                                                             | None                |
-| [spacy](/label_studio_ml/examples/spacy)                                   | Named entity recognition model from [SpaCy](https://spacy.io/)                                                                                   | None                |
-| [flair](/label_studio_ml/examples/flair)                                   | NLP models by [flair](https://flairnlp.github.io/)                                                                                               | None                |
-| [bert_classifier](/label_studio_ml/examples/bert_classifier)               | Text classification models from [Huggingface](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification) | None                |
-| [huggingface_llm](/label_studio_ml/examples/huggingface_llm)               | Text generation models by [Hugging Face](https://huggingface.co/tasks/text-generation)                                                           | None                |
-| [huggingface_ner](/label_studio_ml/examples/huggingface_ner)               | NER models (TokenClassification) by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                       | None                |
-| [nemo](/label_studio_ml/examples/nemo)                                     | Speech transcription models by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                     | None                |
-| [mmetection](/label_studio_ml/examples/mmetection)                         | Object detection models by [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                                | None                |
-| [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier) | Simple trainable text classification model powered by [scikit-learn](https://scikit-learn.org/stable/)                                           | None                |
-| [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching)         | Interactively select keywords to highlight all occurrences of the keyword in the text                                                                           | None                |
+- **Auto-annotation** column indicates if the model can be used for auto-annotation in Label Studio: pre-annotated data
+  when opening the labeling page, run predictions for the batch of data.
+- **Interactive mode** column indicates if the model can be used for interactive labeling in Label Studio: see
+  interactive predictions when performing actions on labeling page.
+- **Training** column indicates if the model can be used for training in Label Studio: update the model state based the
+  submitted annotations.
+
+| MODEL_NAME                                                                                 | Description                                                                                                                               | Auto-annotation | Interactive mode | Training | Required parameters                           |
+|--------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|-----------------|------------------|----------|-----------------------------------------------|
+| [segment_anything_model](/label_studio_ml/examples/segment_anything_model)                 | Image segmentation by [Meta](https://segment-anything.com/)                                                                               | ❌               | ✅                |   ❌       | None                                          |
+| [llm_interactive](/label_studio_ml/examples/llm_interactive)                               | Prompt engineering with [OpenAI](https://platform.openai.com/), Azure LLMs.                                                               | ✅               | ✅                | ✅        | OPENAI_API_KEY                                |
+| [grounding_dino](/label_studio_ml/examples/grounding_dino)                                 | Object detection with prompts. [Details](https://github.com/IDEA-Research/GroundingDINO)                                                  | ❌               | ✅                | ❌        | None                                          |
+| [tesseract](/label_studio_ml/examples/tesseract)                                           | Interactive OCR. [Details](https://github.com/tesseract-ocr/tesseract)                                                                    | ❌               | ✅                | ❌        | None                                          |
+| [easyocr](/label_studio_ml/examples/easyocr)                                               | Automated OCR. [EasyOCR](https://github.com/JaidedAI/EasyOCR)                                                                             | ✅               | ❌                | ❌        | None                                          |
+| [spacy](/label_studio_ml/examples/spacy)                                                   | NER by [SpaCy](https://spacy.io/)                                                                                                         | ✅               | ❌                | ❌        | None                                          |
+| [flair](/label_studio_ml/examples/flair)                                                   | NER by [flair](https://flairnlp.github.io/)                                                                                               | ✅               | ❌                | ❌        | None                                          |
+| [bert_classifier](/label_studio_ml/examples/bert_classifier)                               | Text classification with [Huggingface](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification) | ✅               | ❌                | ✅        | None                                          |
+| [huggingface_llm](/label_studio_ml/examples/huggingface_llm)                               | LLM inference with [Hugging Face](https://huggingface.co/tasks/text-generation)                                                           | ✅               | ❌                | ❌        | None                                          |
+| [huggingface_ner](/label_studio_ml/examples/huggingface_ner)                               | NER by [Hugging Face](https://huggingface.co/docs/transformers/en/tasks/token_classification)                                             | ✅               | ❌                | ✅        | None                                          |
+| [nemo_asr](/label_studio_ml/examples/nemo_asr)                                             | Speech ASR by [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)                                                                               | ✅               | ❌                | ❌        | None                                          |
+| [mmdetection](/label_studio_ml/examples/mmdetection-3)                                     | Object Detection with [OpenMMLab](https://github.com/open-mmlab/mmdetection)                                                              | ✅               | ❌                | ❌        | None                                          |
+| [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier)               | Text classification with [scikit-learn](https://scikit-learn.org/stable/)                                                                 | ✅               | ❌                | ✅        | None                                          |
+| [interactive_substring_matching](/label_studio_ml/examples/interactive_substring_matching) | Simple keywords search                                                                                                                    | ❌               | ✅                | ❌        | None                                          |
+| [langchain_search_agent](/label_studio_ml/examples/langchain_search_agent)                 | RAG pipeline with Google Search and [Langchain](https://langchain.com/)                                                                   | ✅               | ✅                | ✅        | OPENAI_API_KEY, GOOGLE_CSE_ID, GOOGLE_API_KEY |
 
 # (Advanced usage) Develop your model
 
@@ -52,11 +60,11 @@ To start developing your own ML backend, follow the instructions below.
 
 Download and install `label-studio-ml` from the repository:
 
-    ```bash
-    git clone https://github.com/HumanSignal/label-studio-ml-backend.git
-    cd label-studio-ml-backend/
-    pip install -e .
-    ```
+```bash
+git clone https://github.com/HumanSignal/label-studio-ml-backend.git
+cd label-studio-ml-backend/
+pip install -e .
+```
 
 ### 2. Create empty ML backend:
 
@@ -146,6 +154,8 @@ Other methods and parameters are available within the `LabelStudioMLBase` class:
 - `self.parsed_label_config` - returns the [Label Studio labeling config](https://labelstud.io/guide/setup.html) as
   JSON.
 - `self.model_version` - returns the current model version.
+- `self.get_local_path(url, task_id)` - this helper function is used to download and cache an url that is typically stored in `task['data']`, 
+and to return the local path to it. The URL can be: LS uploaded file, LS Local Storage, LS Cloud Storage or any other http(s) URL.      
 
 #### Run without Docker
 
@@ -198,7 +208,6 @@ label-studio-ml deploy gcp {ml-backend-local-dir} \
 
 3. After label studio deploys the model - you will get model endpoint in console.
 
-
 # Troubleshooting
 
 ## Troubleshooting Docker Build on Windows
@@ -210,11 +219,14 @@ exec /app/start.sh : No such file or directory
 exited with code 1
 ```
 
-This issue is likely caused by Windows' handling of line endings in text files, which can affect scripts like `start.sh`. To resolve this issue, follow the steps below:
+This issue is likely caused by Windows' handling of line endings in text files, which can affect scripts
+like `start.sh`. To resolve this issue, follow the steps below:
 
 ### Step 1: Adjust Git Configuration
 
-Before cloning the repository, ensure your Git is configured to not automatically convert line endings to Windows-style (CRLF) when checking out files. This can be achieved by setting `core.autocrlf` to `false`. Open Git Bash or your preferred terminal and execute the following command:
+Before cloning the repository, ensure your Git is configured to not automatically convert line endings to
+Windows-style (CRLF) when checking out files. This can be achieved by setting `core.autocrlf` to `false`. Open Git Bash
+or your preferred terminal and execute the following command:
 
 ```
 git config --global core.autocrlf false
@@ -222,22 +234,42 @@ git config --global core.autocrlf false
 
 ### Step 2: Clone the Repository Again
 
-If you have already cloned the repository before adjusting your Git configuration, you'll need to clone it again to ensure that the line endings are preserved correctly:
+If you have already cloned the repository before adjusting your Git configuration, you'll need to clone it again to
+ensure that the line endings are preserved correctly:
 
 1. **Delete the existing local repository.** Ensure you have backed up any changes or work in progress.
 2. **Clone the repository again.** Use the standard Git clone command to clone the repository to your local machine.
 
 ### Step 3: Build and Run the Docker Containers
 
-Navigate to the appropriate directory within your cloned repository that contains the Dockerfile and `docker-compose.yml`. Then, proceed with the Docker commands:
+Navigate to the appropriate directory within your cloned repository that contains the Dockerfile
+and `docker-compose.yml`. Then, proceed with the Docker commands:
 
-1. **Build the Docker containers:** Run `docker-compose build` to build the Docker containers based on the configuration specified in `docker-compose.yml`.
+1. **Build the Docker containers:** Run `docker-compose build` to build the Docker containers based on the configuration
+   specified in `docker-compose.yml`.
 
 2. **Start the Docker containers:** Once the build process is complete, start the containers using `docker-compose up`.
 
 ### Additional Notes
 
-- This solution specifically addresses issues encountered on Windows due to the automatic conversion of line endings. If you're using another operating system, this solution may not apply.
-- Remember to check your project's `.gitattributes` file, if it exists, as it can also influence how Git handles line endings in your files.
+- This solution specifically addresses issues encountered on Windows due to the automatic conversion of line endings. If
+  you're using another operating system, this solution may not apply.
+- Remember to check your project's `.gitattributes` file, if it exists, as it can also influence how Git handles line
+  endings in your files.
 
-By following these steps, you should be able to resolve issues related to Docker not recognizing the `start.sh` script on Windows due to line ending conversions.
+By following these steps, you should be able to resolve issues related to Docker not recognizing the `start.sh` script
+on Windows due to line ending conversions.
+
+
+## Troubleshooting Pip Cache Reset in Docker Images
+
+Sometimes, you want to reset the pip cache to ensure that the latest versions of the dependencies are installed. 
+For example, Label Studio ML Backend library is used as 
+`label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git` in requirements.txt. Let's assume that it
+is updated, and you want to jump on the latest version in your docker image with the ML model. 
+
+You can rebuild a docker image from scratch with the following command:
+
+```bash
+docker compose build --no-cache
+```

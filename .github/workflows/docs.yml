@@ -48,6 +48,8 @@ jobs:
           token: "${{ secrets.GIT_PAT }}"
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
           path: "${{ env.DOCS_REPO_PATH }}"
+          ref: docs-ml-backend-preview
+# TODO: Remove "ref: docs-ml-backend-preview" for prod deployment
 
       - name: Generate Docs
         env:

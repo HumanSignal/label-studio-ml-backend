@@ -29,7 +29,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from mmdetection import MMDetection
+from model import NewModel
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -109,13 +109,13 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + MMDetection.__name__ + '" instance creation..')
-        model = MMDetection(**kwargs)
+        print('Check "' + NewModel.__name__ + '" instance creation..')
+        model = NewModel(**kwargs)
 
-    app = init_app(model_class=MMDetection, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
+    app = init_app(model_class=NewModel, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(model_class=MMDetection)
+    app = init_app(model_class=NewModel)
