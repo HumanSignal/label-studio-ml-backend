@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
 
-  tesseract-backend:
-    container_name: tesseract-backend
+  tesseract:
+    container_name: tesseract
     build: .
     env_file:
       - example.env
@@ -12,7 +12,17 @@ services:
     volumes:
       - "./data/server:/data"
       - "./logs:/tmp"
-  
+    environment:
+      - LOG_LEVEL=DEBUG
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
+
   minio:
     container_name: minio
     image: bitnami/minio:latest

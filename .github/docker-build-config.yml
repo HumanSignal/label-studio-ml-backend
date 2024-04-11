@@ -1,0 +1,6 @@
+- backend_dir_name: segment_anything_model
+  backend_tag_prefix: sam-
+- backend_dir_name: llm_interactive
+  backend_tag_prefix: llm-
+- backend_dir_name: the_simplest_backend
+  backend_tag_prefix: simplebackend-

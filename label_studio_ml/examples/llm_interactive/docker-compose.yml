@@ -1,22 +1,29 @@
 version: "3.8"
 
 services:
-  server:
-    container_name: server
-    image: humansignal/llm-interactive:v0
-    build: .
+  llm_interactive:
+    container_name: llm_interactive
+    image: heartexlabs/label-studio-ml-backend:llm-latest
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       # Specify openai model provider: "openai" or "azure"
       - OPENAI_PROVIDER=openai
       # Specify API key for openai or azure
       - OPENAI_API_KEY=
-      # Specify model name for openai or azure (by default it uses "gpt-3.5-turbo-instruct")
-      - OPENAI_MODEL=
+      # Specify model name for openai or azure (by default it uses "gpt-3.5-turbo")
+      - OPENAI_MODEL=gpt-3.5-turbo
       # Internal prompt template for the model is:
       # **Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"
       # if you want to specify task data keys in the prompt (i.e. input <TextArea name="$PROMPT_PREFIX..."/>, set this to 0
       - USE_INTERNAL_PROMPT_TEMPLATE=1
+      # You can define the default prompt to be used before the user input
+      # Can be the path to the file with the prompt or the prompt itself
+      # ! Note that USE_INTERNAL_PROMPT_TEMPLATE should be set to 0 in this case
+      - DEFAULT_PROMPT=
       # Prompt prefix for the TextArea component in the frontend to be used for the user input
       - PROMPT_PREFIX=prompt
       # Log level for the server
@@ -31,6 +38,9 @@ services:
       - AZURE_DEPLOYMENT_NAME=
       # Azure API version (in case OPENAI_PROVIDER=azure)
       - AZURE_API_VERSION=2023-05-15
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
     ports:
       - 9090:9090
     volumes:

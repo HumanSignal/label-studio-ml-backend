@@ -5,10 +5,21 @@ import json
 import importlib
 import importlib.util
 import inspect
+
+try:
+    import torch.multiprocessing as mp
+    try:
+        # avoid "cannot reinit CUDA in forked process" error in loading cuda?
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass
+except ImportError:
+    import multiprocessing as mp
+
 from semver import Version
 
 from typing import Tuple, Callable, Union, List, Dict, Optional
-from abc import ABC, abstractmethod
+from abc import ABC
 from colorama import Fore
 
 from label_studio_sdk.label_interface import LabelInterface
@@ -162,8 +173,10 @@ class LabelStudioMLBase(ABC):
         """
         """
         mv = self.model_version
-        
+
+        # TODO: check if this is correct - seems like it doesn't work, check RND-7 and make sure it's test covered
         mv.bump_minor()
+        logger.debug(f'Bumping model version from {self.model_version} to {mv}')
         self.set('model_version', str(mv))
         
         return mv
@@ -215,18 +228,31 @@ class LabelStudioMLBase(ABC):
         if _update_fn:
             return _update_fn(event, data, helper=self, **additional_params)
 
-    def get_local_path(self, url, project_dir=None):
+    def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None, task_id=None, *args, **kwargs):
         """
         Return the local path for a given URL.
 
         Args:
           url: The URL to find the local path for.
           project_dir: The project directory.
+          ls_host: The Label Studio host,
+            if not provided, it will be taken from LABEL_STUDIO_URL env variable
+          ls_access_token: The access token for the Label Studio backend,
+            if not provided, it will be taken from LABEL_STUDIO_API_KEY env variable
+          task_id: Label Studio Task ID is required param for Cloud Storage URI resolving
 
         Returns:
           The local path for the given URL.
         """
-        return get_local_path(url, project_dir=project_dir, hostname=self.hostname, access_token=self.access_token)
+        return get_local_path(
+            url,
+            project_dir=project_dir,
+            hostname=ls_host,
+            access_token=ls_access_token,
+            task_id=task_id,
+            *args,
+            **kwargs
+        )
 
     ## TODO this should go into SDK
     def get_first_tag_occurence(

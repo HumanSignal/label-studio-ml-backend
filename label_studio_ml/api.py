@@ -1,5 +1,6 @@
 import hmac
 import logging
+import os
 
 from flask import Flask, request, jsonify, Response
 
@@ -22,6 +23,8 @@ def init_app(model_class, basic_auth_user=None, basic_auth_pass=None):
         raise ValueError('Inference class should be the subclass of ' + LabelStudioMLBase.__class__.__name__)
 
     MODEL_CLASS = model_class
+    basic_auth_user = basic_auth_user or os.environ.get('BASIC_AUTH_USER')
+    basic_auth_pass = basic_auth_pass or os.environ.get('BASIC_AUTH_PASS')
     if basic_auth_user and basic_auth_pass:
         BASIC_AUTH = (basic_auth_user, basic_auth_pass)
 
@@ -67,10 +70,10 @@ def _predict():
 
     # if there is no model version we will take the default
     if isinstance(response, ModelResponse):
-        if not response.has_model_version:
+        if not response.has_model_version():
             mv = model.model_version
             if mv:
-                response.set_version(mv)
+                response.set_version(str(mv))
         else:
             response.update_predictions_version()
 

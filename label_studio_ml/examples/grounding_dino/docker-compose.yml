@@ -1,9 +1,12 @@
 version: "3.11"
 
 services:
-  ml-backend:
-    container_name: ml-backend
-    build: .
+  grounding_dino:
+    container_name: grounding_dino
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=2
@@ -15,14 +18,20 @@ services:
       - LABEL_STUDIO_ACCESS_TOKEN=
 
       # use these if you want to use segment anything instead of bounding box predictions from input text prompts
-      - USE_SAM=False  # if you want to automatically generate segment anything model predictions
-      - USE_MOBILE_SAM=False # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
-
-      - MOBILE_SAM_CHECKPOINT= # in case you want to point to another directory than where Docker automatically places the model
-      - SAM_CHECKPOINT= # if you want to use regular SAM and point to another directory than where Docker automatically places the model
+      - USE_SAM=false  # if you want to automatically generate segment anything model predictions
+      - USE_MOBILE_SAM=false # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
 
       - BOX_THRESHOLD=0.30
       - TEXT_THRESHOLD=0.25
+# # Uncomment the following lines if you want to use GPU
+#      - NVIDIA_VISIBLE_DEVICES=all
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [gpu]
     ports:
       - "9090:9090"
     volumes:

@@ -1,0 +1,2 @@
+transformers==4.30.2
+accelerate==0.28.0
