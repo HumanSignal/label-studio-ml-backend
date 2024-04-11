@@ -25,7 +25,7 @@ services:
 
   minio:
     container_name: minio
-    image: quay.io/minio/minio
+    image: bitnami/minio:latest
     env_file:
       - example.env
     ports:

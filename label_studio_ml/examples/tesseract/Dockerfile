@@ -17,7 +17,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        tesseract-ocr git; \
+        tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-chi-tra tesseract-ocr-deu git; \
     apt-get autoremove -y
 
 COPY requirements.txt .
