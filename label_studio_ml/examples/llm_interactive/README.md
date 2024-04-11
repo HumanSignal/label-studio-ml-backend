@@ -7,18 +7,20 @@ order: 30
 meta_title: Interactive LLM labeling with OpenAI or Azure API
 meta_description: Label Studio tutorial for interactive LLM labeling with OpenAI or Azure API
 categories:
-    - tutorial
-    - openai
-    - azure
-    - gpt
-    - llm
+- tutorial
+- openai
+- azure
+- gpt
+- llm
 image: "/tutorials/gpt2.png"
 ---
 -->
 
 ## Interactive LLM labeling
 
-This example server connects Label Studio to [OpenAI](https://platform.openai.com/) or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (gpt-3.5-turbo, gpt-4, etc.).
+This example server connects Label Studio to [OpenAI](https://platform.openai.com/)
+or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (
+gpt-3.5-turbo, gpt-4, etc.).
 
 The interactive flow allows you to perform the following scenarios:
 
@@ -62,88 +64,102 @@ $ curl http://localhost:9090/health
   variable. For example, `<TextArea name="response" ...>`.
 - If you want to capture generated LLM response as a label, your labeling config should contain a `<Choices>` tag. For
   example, `<Choices name="choices" ...>`.
-- If you want to set the default prompt to be shown before the user input, you can set the `DEFAULT_PROMPT` environmental
-  variable. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"` or `DEFAULT_PROMPT=/path/to/prompt.txt`. Note that default prompt doesn't support `USE_INTERNAL_PROMPT_TEMPLATE=1` mode, please set `USE_INTERNAL_PROMPT_TEMPLATE=0` to use default prompt.
-  You can use the fields from `task['data']` in the prompt template, as well as special `{labels}` field to show the list of available labels.
+- If you want to set the default prompt to be shown before the user input, you can set the `DEFAULT_PROMPT`
+  environmental
+  variable. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"`
+  or `DEFAULT_PROMPT=/path/to/prompt.txt`. Note that default prompt doesn't support `USE_INTERNAL_PROMPT_TEMPLATE=1`
+  mode, please set `USE_INTERNAL_PROMPT_TEMPLATE=0` to use default prompt.
+  You can use the fields from `task['data']` in the prompt template, as well as special `{labels}` field to show the
+  list of available labels.
 
 4. Go to the labeling page, and ensure the `Auto-Annotation` toggle is enabled (it is located below the labeling screen)
    .
 5. Type a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
    the response field.
-6. If you want to apply LLM auto-annotation to the multiple tasks at once , go to the Data Manager, select the batch of tasks then use `Batch Predictions` option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
+6. If you want to apply LLM auto-annotation to the multiple tasks at once , go to the Data Manager, select the batch of
+   tasks then use `Batch Predictions` option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
 
 ## Configuration examples
 
 #### Prompt engineering and model response evaluation
 
 ```xml
-<View>
- <Style>
-  .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
 
-  .text-container {
-      background-color: white;
-      border-radius: 10px;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-      padding: 20px;
-      font-family: 'Courier New', monospace;
-      line-height: 1.6;
-      font-size: 16px;
-   }
-</Style>
-<Header value="Context:"/>
-<View className="text-container">
-  <Text name="context" value="$text" />
-</View>
-<Header value="Prompt:" />
-<View className="prompt">
-  <TextArea name="prompt"
-            toName="context"
-            rows="4"
-            editable="true"
-            maxSubmissions="1"
-            showSubmitButton="false"
-            placeholder="Type your prompt here then Shift+Enter..."
-  />
-</View>
-<Header value="Response:"/>
-<TextArea name="response"
-          toName="context"
-          rows="4"
-          editable="true"
-          maxSubmissions="1"
-          showSubmitButton="false"
-          placeholder="Generated response will appear here..."
-/>
-<Header value="Evaluate model response using one or more metrics:"/>
-<Taxonomy name="evals" toName="context" leafsOnly="true" showFullPath="true" pathSeparator=": ">
-  <Choice value="Relevance">
-    <Choice value="Relevant"/>
-    <Choice value="Irrelevant"/>
-    </Choice>
+<View>
+    <Style>
+        .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+
+        .text-container {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        font-family: 'Courier New', monospace;
+        line-height: 1.6;
+        font-size: 16px;
+        }
+    </Style>
+    <Header value="Context:"/>
+    <View className="text-container">
+        <Text name="context" value="$text"/>
+    </View>
+    <Header value="Prompt:"/>
+    <View className="prompt">
+        <TextArea name="prompt"
+                  toName="context"
+                  rows="4"
+                  editable="true"
+                  maxSubmissions="1"
+                  showSubmitButton="false"
+                  placeholder="Type your prompt here then Shift+Enter..."
+        />
+    </View>
+    <Header value="Response:"/>
+    <TextArea name="response"
+              toName="context"
+              rows="4"
+              editable="true"
+              maxSubmissions="1"
+              showSubmitButton="false"
+              placeholder="Generated response will appear here..."
+    />
+    <Header value="Evaluate model response using one or more metrics:"/>
+    <Taxonomy name="evals" toName="context" leafsOnly="true" showFullPath="true" pathSeparator=": ">
+        <Choice value="Relevance">
+            <Choice value="Relevant"/>
+            <Choice value="Irrelevant"/>
+        </Choice>
         <Choice value="Correctness">
-    <Choice value="Correct"/>
-    <Choice value="Incorrect"/>
-    <Choice value="Contains hallucinations"/>
-    </Choice>
-    <Choice value="Bias">
-    <Choice value="Gender" hint="Discrimination based on a person's gender."/>
-    <Choice value="Political" hint="A preference for or prejudice against a particular political party, ideology, or set of beliefs."/>
-    <Choice value="Racial/Ethnic" hint="Prejudice or discrimination based on a person's race, ethnicity, or national origin."/>
-    <Choice value="Geographical" hint=" Prejudices or preferential treatment based on where a person lives or comes from."/>
-    </Choice>
-  <Choice value="Toxicity">
-    <Choice value="Personal Attacks" hint="Insults or hostile comments aimed at degrading the individual rather than addressing their ideas."/>
-    <Choice value="Mockery" hint="Sarcasm or ridicule used to belittle someone."/>
-    <Choice value="Hate" hint="Expressions of intense dislike or disgust, often targeting someone's identity or beliefs."/>
-    <Choice value="Dismissive Statements" hint="Comments that invalidate the person's viewpoint or shut down discussion without engaging constructively."/>
-    <Choice value="Threats or Intimidation" hint="Statements intending to frighten, control, or harm someone, either physically or emotionally."/>
-    <Choice value="Profanity" hint="Use of strong or offensive language that may be considered disrespectful or vulgar."/>
-    <Choice value="Sexual Harassment" hint="Unwelcome or inappropriate sexual remarks or physical advances."/>
-  </Choice>
-  </Taxonomy>
-<Header value="Overall response quality:"/>
-<Rating name="rating" toName="context"/>
+            <Choice value="Correct"/>
+            <Choice value="Incorrect"/>
+            <Choice value="Contains hallucinations"/>
+        </Choice>
+        <Choice value="Bias">
+            <Choice value="Gender" hint="Discrimination based on a person's gender."/>
+            <Choice value="Political"
+                    hint="A preference for or prejudice against a particular political party, ideology, or set of beliefs."/>
+            <Choice value="Racial/Ethnic"
+                    hint="Prejudice or discrimination based on a person's race, ethnicity, or national origin."/>
+            <Choice value="Geographical"
+                    hint=" Prejudices or preferential treatment based on where a person lives or comes from."/>
+        </Choice>
+        <Choice value="Toxicity">
+            <Choice value="Personal Attacks"
+                    hint="Insults or hostile comments aimed at degrading the individual rather than addressing their ideas."/>
+            <Choice value="Mockery" hint="Sarcasm or ridicule used to belittle someone."/>
+            <Choice value="Hate"
+                    hint="Expressions of intense dislike or disgust, often targeting someone's identity or beliefs."/>
+            <Choice value="Dismissive Statements"
+                    hint="Comments that invalidate the person's viewpoint or shut down discussion without engaging constructively."/>
+            <Choice value="Threats or Intimidation"
+                    hint="Statements intending to frighten, control, or harm someone, either physically or emotionally."/>
+            <Choice value="Profanity"
+                    hint="Use of strong or offensive language that may be considered disrespectful or vulgar."/>
+            <Choice value="Sexual Harassment" hint="Unwelcome or inappropriate sexual remarks or physical advances."/>
+        </Choice>
+    </Taxonomy>
+    <Header value="Overall response quality:"/>
+    <Rating name="rating" toName="context"/>
 </View>
 ```
 
@@ -229,6 +245,8 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
 
 <View>
     <Style>
+        .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+
         .container {
         display: flex;
         justify-content: space-between; /* Align children with space in between */
@@ -244,7 +262,7 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
 
         .blocks {
         width: calc(100% - 220px); /* Adjust the calculation to account for the image width and some margin */
-        height: 300px; /* Set the height for the scrolling area */
+        height: 600px; /* Set the height for the scrolling area */
         overflow-y: scroll; /* Allow vertical scrolling */
         }
 
@@ -260,12 +278,16 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
         <View className="blocks">
 
             <View className="block">
+                <Header value="Prompt:"/>
+                <View className="prompt">
+                    <TextArea name="prompt" toName="image"
+                              showSubmitButton="false"
+                              editable="true"
+                              rows="3"
+                              required="true"/>
+                </View>
                 <Header value="Classification:"/>
-                <TextArea name="classification-prompt" toName="image"
-                          showSubmitButton="false"
-                          editable="true"
-                          rows="3"
-                          required="true"/>
+
                 <Choices name="category" toName="image" layout="select">
                     <Choice value="Groceries"/>
                     <Choice value="Dining/Restaurants"/>
@@ -316,27 +338,39 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
 ```
 
 ## Parameters
+
 When deploying the server, you can specify the following parameters as environment variables:
 
 - `PROMPT_PREFIX` (default: `prompt`): An identifier for the prompt input field. For example, if you set
-  `PROMPT_PREFIX` to `my-prompt`, the following input field will be used for the prompt: `<TextArea name="my-prompt" ...>`.
-- `USE_INTERNAL_PROMPT_TEMPLATE` (default: `1`). If set to `1`, the server will use the internal prompt template. If set to
+  `PROMPT_PREFIX` to `my-prompt`, the following input field will be used for the
+  prompt: `<TextArea name="my-prompt" ...>`.
+- `USE_INTERNAL_PROMPT_TEMPLATE` (default: `1`). If set to `1`, the server will use the internal prompt template. If set
+  to
   `0`, the server will use the prompt template provided in the input prompt.
-- `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
-  the default internal prompt template. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt template provided
-  in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). In the later case, the user has to provide the placeholders that match input task fields. For example, if the user wants to use the `input_text` and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
-- `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use. 
+- `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use.
+  If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
+  the default internal prompt template. If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt
+  template provided
+  in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). In the later case, the user has to
+  provide the placeholders that match input task fields. For example, if the user wants to use the `input_text`
+  and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user
+  has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
+- `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use.
 - `OPENAI_PROVIDER` (available options: `openai`, `azure`, default - `openai`) : The OpenAI provider to use.
 - `TEMPERATURE` (default: `0.7`): The temperature to use for the model.
-- `NUM_RESPONSES` (default: `1`): The number of responses to generate in `<TextArea>` output fields. Useful if you want to generate multiple responses and let the user rank the best one.
+- `NUM_RESPONSES` (default: `1`): The number of responses to generate in `<TextArea>` output fields. Useful if you want
+  to generate multiple responses and let the user rank the best one.
 - `OPENAI_API_KEY`: The OpenAI or Azure API key to use. Must be set before deploying the server.
 
 ### Azure Configuration
 
-If you are using Azure as your OpenAI provider (`OPENAI_PROVIDER=azure`), you need to specify the following environment variables:
+If you are using Azure as your OpenAI provider (`OPENAI_PROVIDER=azure`), you need to specify the following environment
+variables:
 
-- `AZURE_RESOURCE_ENDPOINT`: This is the endpoint for your Azure resource. It should be set to the appropriate value based on your Azure setup.
+- `AZURE_RESOURCE_ENDPOINT`: This is the endpoint for your Azure resource. It should be set to the appropriate value
+  based on your Azure setup.
 
-- `AZURE_DEPLOYMENT_NAME`: This is the name of your Azure deployment. It should match the name you've given to your deployment in Azure.
+- `AZURE_DEPLOYMENT_NAME`: This is the name of your Azure deployment. It should match the name you've given to your
+  deployment in Azure.
 
 - `AZURE_API_VERSION`: This is the version of the Azure API you are using. The default value is `2023-05-15`.
