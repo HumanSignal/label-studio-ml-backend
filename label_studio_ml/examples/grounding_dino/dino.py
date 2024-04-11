@@ -117,22 +117,23 @@ logger.info(f"Using device {DEVICE}")
 
 class DINOBackend(LabelStudioMLBase):
 
-    def __init__(self, **kwargs):
-        super(DINOBackend, self).__init__(**kwargs)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    predictor = None
+    sam = None
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Using device {self.device}")
-
-        if USE_MOBILE_SAM or USE_SAM:
-            sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
-            sam.to(device=self.device)
-            self.predictor = SamPredictor(sam)
-            self.sam = sam    
-
-        self.use_sam = USE_SAM
-        self.use_ms = USE_MOBILE_SAM
+    def _lazy_init(self):
+        if self.predictor is None or self.sam is None:
+            if USE_MOBILE_SAM or USE_SAM:
+                logger.info(f"Loading SAM model with checkpoint {model_checkpoint}")
+                sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
+                sam.to(device=self.device)
+                self.predictor = SamPredictor(sam)
+                self.sam = sam
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
+
+        self._lazy_init()
+
         if not context or not context.get('result'):
             # if there is no context, no interaction has happened yet
             return []
@@ -194,7 +195,7 @@ class DINOBackend(LabelStudioMLBase):
             all_scores.append(logit)
             all_lengths.append((H, W))
 
-        if self.use_ms or self.use_sam:
+        if USE_MOBILE_SAM or USE_SAM:
             # get <BrushLabels> results
             predictions.append(self.get_sam_results(img_path, all_points, all_lengths, from_name_b, to_name_b))
         else:
@@ -233,7 +234,7 @@ class DINOBackend(LabelStudioMLBase):
 
             box_by_task.append(boxes_xyxy)
 
-        if self.use_ms or self.use_sam:
+        if USE_MOBILE_SAM or USE_SAM:
             batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths)
             predictions = self.get_batched_sam_results(batched_output, from_name_b, to_name_b)
 
