@@ -7,6 +7,11 @@ services:
       context: .
       args:
         TEST_ENV: ${TEST_ENV}
+# Increase the memory limit if you USE_SAM=true on CPU machine
+#    deploy:
+#      resources:
+#        reservations:
+#          memory: 16G
     environment:
       - MODEL_DIR=/data/models
       - WORKERS=2

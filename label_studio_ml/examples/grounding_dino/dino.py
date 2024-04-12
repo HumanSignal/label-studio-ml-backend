@@ -95,6 +95,10 @@ MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
 SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
 
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+logger.info(f"Using device {device}")
+
+
 if USE_MOBILE_SAM:
     logger.info(f"Using Mobile-SAM with checkpoint {MOBILESAM_CHECKPOINT}")
     from mobile_sam import SamPredictor, sam_model_registry
@@ -108,31 +112,20 @@ elif USE_SAM:
     model_checkpoint = SAM_CHECKPOINT
     reg_key = 'vit_h'
 else:
+    reg_key = None
+    model_checkpoint = None
     logger.info("Using GroundingDINO without SAM")
 
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-logger.info(f"Using device {DEVICE}")
+if USE_MOBILE_SAM or USE_SAM:
+    logger.info(f"Loading SAM model with checkpoint {model_checkpoint}")
+    sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
+    sam.to(device=device)
+    predictor = SamPredictor(sam)
 
 
 class DINOBackend(LabelStudioMLBase):
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    predictor = None
-    sam = None
-
-    def _lazy_init(self):
-        if self.predictor is None or self.sam is None:
-            if USE_MOBILE_SAM or USE_SAM:
-                logger.info(f"Loading SAM model with checkpoint {model_checkpoint}")
-                sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
-                sam.to(device=self.device)
-                self.predictor = SamPredictor(sam)
-                self.sam = sam
-
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
-
-        self._lazy_init()
 
         if not context or not context.get('result'):
             # if there is no context, no interaction has happened yet
@@ -142,17 +135,19 @@ class DINOBackend(LabelStudioMLBase):
         from_name_b, to_name_b, _ = self.get_first_tag_occurence('BrushLabels', 'Image')
 
         text_prompt = context['result'][0]['value']['text'][0]
+        logger.debug(f"Prompt: {text_prompt}")
         
         logger.info(f"the prompt is {text_prompt} and {from_name_r} and {from_name_b}")
 
         final_predictions = []
         if len(tasks) > 1:
+            logger.info(f"Running multiple tasks with {len(tasks)} images")
             final_predictions = self.multiple_tasks(
                 tasks, text_prompt, from_name_r, to_name_r, from_name_b, to_name_b, value)
         elif len(tasks) == 1:
+            logger.info(f"Running single task {tasks[0]}")
             final_predictions = self.one_task(
                 tasks[0], text_prompt, from_name_r, to_name_r, from_name_b, to_name_b, value)
-
         return final_predictions
         
     def one_task(self, task, prompt, from_name_r, to_name_r, from_name_b, to_name_b, value):
@@ -181,7 +176,7 @@ class DINOBackend(LabelStudioMLBase):
             caption=prompt,
             box_threshold=float(BOX_THRESHOLD),
             text_threshold=float(TEXT_THRESHOLD),
-            device=DEVICE
+            device=device
         )
 
         H, W, _ = src.shape
@@ -279,7 +274,7 @@ class DINOBackend(LabelStudioMLBase):
                 caption=prompt, # text prompt is same as self.label
                 box_threshold=float(BOX_THRESHOLD),
                 text_threshold=float(TEXT_THRESHOLD),
-                device=self.device
+                device=device
             )
 
         else:
@@ -292,7 +287,7 @@ class DINOBackend(LabelStudioMLBase):
                     caption=prompt,
                     box_threshold=float(BOX_THRESHOLD),
                     text_threshold=float(TEXT_THRESHOLD),
-                    device=DEVICE
+                    device=device
                 )
                 all_boxes.append(boxes)
                 all_logits.append(logits)
@@ -304,7 +299,7 @@ class DINOBackend(LabelStudioMLBase):
 
     def batch_sam(self, input_boxes_list, image_paths):
 
-        resize_transform = ResizeLongestSide(self.sam.image_encoder.img_size)
+        resize_transform = ResizeLongestSide(sam.image_encoder.img_size)
 
         # from SAM code base
         def prepare_image(image, transform, device):
@@ -317,12 +312,12 @@ class DINOBackend(LabelStudioMLBase):
             image = cv2.imread(path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             batched_input.append({
-                'image': prepare_image(image, resize_transform, self.sam),
+                'image': prepare_image(image, resize_transform, sam),
                 'boxes': resize_transform.apply_boxes_torch(input_box, image.shape[:2]),
                 'original_size': image.shape[:2]
             })
         
-        batched_output = self.sam(batched_input, multimask_output=False)
+        batched_output = sam(batched_input, multimask_output=False)
 
         return batched_output
     
@@ -390,12 +385,12 @@ class DINOBackend(LabelStudioMLBase):
     ):
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        self.predictor.set_image(image)
+        predictor.set_image(image)
 
         input_boxes = torch.from_numpy(np.array(input_boxes))
 
-        transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2]).to(self.device)
-        masks, probs, _ = self.predictor.predict_torch(
+        transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2]).to(device)
+        masks, probs, _ = predictor.predict_torch(
             point_coords=None,
             point_labels=None,
             boxes=transformed_boxes,
