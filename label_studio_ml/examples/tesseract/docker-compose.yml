@@ -11,7 +11,6 @@ services:
       - 9090:9090
     volumes:
       - "./data/server:/data"
-      - "./logs:/tmp"
     environment:
       - LOG_LEVEL=DEBUG
 
