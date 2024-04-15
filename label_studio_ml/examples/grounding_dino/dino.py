@@ -121,6 +121,7 @@ if USE_MOBILE_SAM or USE_SAM:
     sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
     sam.to(device=device)
     predictor = SamPredictor(sam)
+    logger.info("SAM model successfully loaded!")
 
 
 class DINOBackend(LabelStudioMLBase):
