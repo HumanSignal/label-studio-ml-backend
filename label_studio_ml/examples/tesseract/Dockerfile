@@ -2,6 +2,7 @@
 ARG PYTHON_VERSION=3.12
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
+ARG TEST_ENV
 
 WORKDIR /app
 
