@@ -4,9 +4,10 @@ services:
 
   tesseract:
     container_name: tesseract
-    build: .
-    env_file:
-      - example.env
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
     ports:
       - 9090:9090
     volumes:
@@ -19,14 +20,21 @@ services:
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=
-      - LABEL_STUDIO_API_KEY=
+      - LABEL_STUDIO_HOST=
+      # specify the access token for the label studio if you use file upload
+      - LABEL_STUDIO_ACCESS_TOKEN=
+      # set these variables to use Minio as a storage backend
+      - AWS_ACCESS_KEY_ID=your-MINIO_ROOT_USER
+      - AWS_SECRET_ACCESS_KEY=your-MINIO_ROOT_PASSWORD
+      - AWS_ENDPOINT=http://host.docker.internal:9000
 
   minio:
     container_name: minio
     image: bitnami/minio:latest
-    env_file:
-      - example.env
+    environment:
+      - MINIO_ROOT_USER=<admin username>
+      - MINIO_ROOT_PASSWORD=<admin password>
+      - MINIO_API_CORS_ALLOW_ORIGIN=*
     ports:
       - 9000:9000
       - 9001:9001

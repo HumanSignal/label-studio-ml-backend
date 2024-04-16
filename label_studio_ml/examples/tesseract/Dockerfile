@@ -20,9 +20,23 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
         tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-chi-tra tesseract-ocr-deu git; \
     apt-get autoremove -y
 
+# Install base requirements
+COPY requirements-base.txt .
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install -r requirements-base.txt
+
+# Install custom requirements
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt
+
+# Install test requirements if needed
+COPY requirements-test.txt .
+# build only when TEST_ENV="true"
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    if [ "$TEST_ENV" = "true" ]; then \
+      pip install -r requirements-test.txt; \
+    fi
 
 COPY . .
 
