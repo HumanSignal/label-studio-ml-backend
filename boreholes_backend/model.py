@@ -1,22 +1,25 @@
-from typing import List, Dict, Optional
+"""Custom ML Model for the boreholes backend."""
+
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from stratigraphy.main import start_pipeline
+
+from boreholes_backend.src.utils import build_model_predictions
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from stratigraphy.main import start_pipeline
-from pathlib import Path
-from boreholes_backend.src.utils import build_model_predictions
 
 
 class NewModel(LabelStudioMLBase):
-    """Custom ML Backend model"""
+    """Custom ML Backend model."""
 
     def setup(self):
-        """Configure any parameters of your model here"""
+        """Configuration of model parameters."""
         self.set("model_version", "0.0.1")
 
-    def predict(
-        self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs
-    ) -> ModelResponse:
-        """Write your inference logic here
+    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
+        """Prediction inference logic.
+
         :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
         :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
         :return model_response
@@ -31,18 +34,14 @@ class NewModel(LabelStudioMLBase):
         page_number = int(page_number.split(".")[0])
         file_name = file_name + ".pdf"
         input_directory = (
-            Path(
-                "/Users/renato.durrer/repos/swisstopo/swissgeol-boreholes-dataextraction/data/data_v2/validation/"
-            )
+            Path("/Users/renato.durrer/repos/swisstopo/swissgeol-boreholes-dataextraction/data/data_v2/validation/")
             / file_name
         )
         ground_truth_path = Path(
             "/Users/renato.durrer/repos/swisstopo/swissgeol-boreholes-dataextraction/data/data_v2/validation/ground_truth.json"
         )
         out_directory = Path("/Users/renato.durrer/repos/swisstopo/_temp/")
-        predictions_path = Path(
-            "/Users/renato.durrer/repos/swisstopo/_temp/predictions.json"
-        )
+        predictions_path = Path("/Users/renato.durrer/repos/swisstopo/_temp/predictions.json")
         skip_draw_predictions = True
 
         prediction = start_pipeline(
@@ -56,12 +55,12 @@ class NewModel(LabelStudioMLBase):
         prediction = prediction[pdf_file_name]
         page_prediction = prediction.pages[page_number]
 
-        model_predictions = build_model_predictions(page_prediction, tasks[0])
+        model_predictions = build_model_predictions(page_prediction)
         return ModelResponse(predictions=model_predictions)
 
     def fit(self, event, data, **kwargs):
-        """
-        This method is called each time an annotation is created or updated
+        """This method is called each time an annotation is created or updated.
+
         You can run your logic here to update the model and persist it to the cache
         It is not recommended to perform long-running operations here, as it will block the main thread
         Instead, consider running a separate process or a thread (like RQ worker) to perform the training
