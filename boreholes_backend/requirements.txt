@@ -1,0 +1,2 @@
+# Note: without -e the package does not work. There are issues with the path assignment in the package.
+-e git+https://github.com/swisstopo/swissgeol-boreholes-dataextraction.git@feat/prepare_for_label_studio#egg=swisstopo-boreholes  # remove -e for future production server
