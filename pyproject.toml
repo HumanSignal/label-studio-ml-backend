@@ -1,0 +1,28 @@
+[tool.ruff.lint]
+select = [
+    # pydocstyle
+    "D",
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = [
+    "D102",  # Missing docstring in a public method
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in `__init__`
+    ]
+
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
