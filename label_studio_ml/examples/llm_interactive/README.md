@@ -77,7 +77,7 @@ $ curl http://localhost:9090/health
 5. Type a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
    the response field.
 6. If you want to apply LLM auto-annotation to the multiple tasks at once , go to the Data Manager, select the batch of
-   tasks then use `Batch Predictions` option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
+   tasks then use `Retrieve Prediction` (`Batch Predictions` in Label Studio Enterprise version) option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
 
 ## Configuration examples
 
@@ -121,6 +121,7 @@ $ curl http://localhost:9090/health
               editable="true"
               maxSubmissions="1"
               showSubmitButton="false"
+              smart="false"
               placeholder="Generated response will appear here..."
     />
     <Header value="Evaluate model response using one or more metrics:"/>
@@ -176,7 +177,7 @@ $ curl http://localhost:9090/health
     <!-- Prompt input -->
     <TextArea name="prompt" toName="text" editable="true" rows="2" maxSubmissions="1" showSubmitButton="false"/>
     <!-- LLM response output -->
-    <TextArea name="response" toName="text" editable="true"/>
+    <TextArea name="response" toName="text" smart="false" editable="true"/>
     <View style="box-shadow: 2px 2px 5px #999;
                padding: 20px; margin-top: 2em;
                border-radius: 5px;">
@@ -213,7 +214,7 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
         <TextArea name="prompt" toName="chat" rows="4" editable="true" maxSubmissions="1" showSubmitButton="false"/>
     </View>
     <Header value="Bot answer:"/>
-    <TextArea name="response" toName="chat" rows="4" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+    <TextArea name="response" toName="chat" rows="4" editable="true" smart="false" maxSubmissions="1" showSubmitButton="false"/>
 
 </View>
 ```
@@ -288,7 +289,7 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
                 </View>
                 <Header value="Classification:"/>
 
-                <Choices name="category" toName="image" layout="select">
+                <Choices name="category" toName="image" smart="false" layout="select">
                     <Choice value="Groceries"/>
                     <Choice value="Dining/Restaurants"/>
                     <Choice value="Clothing/Apparel"/>
@@ -318,6 +319,7 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
                           showSubmitButton="false"
                           maxSubmissions="0"
                           editable="true"
+                          smart="false"
                           rows="3"
                 />
             </View>
