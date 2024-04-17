@@ -57,17 +57,19 @@ class BBOXOCR(LabelStudioMLBase):
             'TextArea',
             'Image'
         )
-        task = tasks[0]
-        img_path_url = task["data"][value]
-
         context = kwargs.get('context')
         if context:
             if not context["result"]:
                 return []
 
+            idx = context.get('result')[-1]['to_name'].split("_")[-1]
+            from_name = from_name.replace('{{idx}}', idx)
+            task = tasks[0]
+            img_path_url = task['data']['document'][int(idx)]['url']  # task["data"][value]
             image = self.load_image(img_path_url, task.get('id'))
 
             result = context.get('result')[-1]
+
             meta = self._extract_meta({**task, **result})
             x = meta["x"] * meta["original_width"] / 100
             y = meta["y"] * meta["original_height"] / 100
@@ -78,6 +80,7 @@ class BBOXOCR(LabelStudioMLBase):
                 image.crop((x, y, x + w, y + h)),
                 config=OCR_config
             ).strip()
+
             meta["text"] = result_text
             temp = {
                 "original_width": meta["original_width"],
