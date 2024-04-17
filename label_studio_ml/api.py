@@ -70,10 +70,10 @@ def _predict():
 
     # if there is no model version we will take the default
     if isinstance(response, ModelResponse):
-        if not response.has_model_version:
+        if not response.has_model_version():
             mv = model.model_version
             if mv:
-                response.set_version(mv)
+                response.set_version(str(mv))
         else:
             response.update_predictions_version()
 

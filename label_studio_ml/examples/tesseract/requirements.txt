@@ -1,13 +1,2 @@
-Jinja2
 boto3
-click
-itsdangerous
 pytesseract
-rq
-supervisor
-werkzeug
-gunicorn
-pytest
-pytest-cov
-
-label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git

@@ -89,9 +89,14 @@ deploy:
 
 Combine the Segment Anything Model with your text input to automatically generate mask predictions! 
 
-To do this, set `USE_SAM=True` before running. 
+To do this, set `USE_SAM=true` before running. 
 
-If you want to use a more efficient version of SAM, set `USE_MOBILE_SAM=True` as well.
+> Warning: Using GroundingSAM without a GPU may result in slow performance and is not recommended approach. If you have to use CPU only machine, and experience slow performance or don't see any predictions on the labeling screen, consider one of the following:
+> - Increase memory allocated to the docker container (e.g. `memory: 16G` in `docker-compose.yml`)
+> - Increase the prediction timeout on Label Studio instance with `ML_TIMEOUT_PREDICT=100` environment variable.
+> - Use "MobileSAM" as a lightweight alternative to "SAM".
+
+If you want to use a [more efficient version of SAM](https://github.com/ChaoningZhang/MobileSAM), set `USE_MOBILE_SAM=true`.
 
 
 ## Batching inputs
