@@ -1,11 +1,3 @@
-torch
-torchvision
-opencv-contrib-python-headless
-rq==1.10.1
-redis
-boto3
-label-studio-ml==1.0.7
-easyocr
-gunicorn==20.1.0
-opencv-python==4.7.0.72
-
+easyocr==1.7.1
+boto3==1.28.58
+opencv-python-headless==4.9.0.80

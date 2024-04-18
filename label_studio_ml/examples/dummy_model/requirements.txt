@@ -1,8 +1,0 @@
-Jinja2==3.0.3
-click==7.1.2
-itsdangerous==2.0.1
-label-studio-ml==1.0.8
-rq==1.10.1
-supervisor==4.2.2
-uwsgi==2.0.19.1
-werkzeug==2.0.2

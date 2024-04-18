@@ -111,7 +111,7 @@ docker run -it -p 8080:8080 \
 ```
 
 Note the IP address that you are running your Label Studio instance as the
-`LABEL_STUDIO_HOST`. This will be nessary for setting up the connection to your
+`LABEL_STUDIO_HOST`. This will be necessary for setting up the connection to your
 SAM model. _Because you are hosting both Label Studio and the ML Backend in
 Docker containers, the hostname `localhost` will not resolve to the correct
 address._ There are a number of ways to determine your host ip address.  These
@@ -307,21 +307,100 @@ Use `Alt` hotkey to alter keypoint positive and negative labels.
   confused after reading this
 
 Base example:
-```
+```xml
 <View>
-  <Image name="image" value="$image" zoom="true"/>
-  <BrushLabels name="tag" toName="image">
-  	<Label value="Banana" background="#FF0000"/>
-  	<Label value="Orange" background="#0d14d3"/>
-  </BrushLabels>
-  <KeyPointLabels name="tag2" toName="image" smart="true">
-    <Label value="Banana" smart="true" background="#000000" showInline="true"/>
-    <Label value="Orange" smart="true" background="#000000" showInline="true"/>
-  </KeyPointLabels>
-  <RectangleLabels name="tag3" toName="image" smart="true">
-    <Label value="Banana" background="#000000" showInline="true"/>
-    <Label value="Orange" background="#000000" showInline="true"/>
-  </RectangleLabels>
+<Style>
+  .main {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 40px 5px 5px 5px;
+  }
+  .container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .column {
+    flex: 1;
+    padding: 10px;
+  	margin: 5px; 
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    text-align: center;
+  }
+  .column .title {
+    margin: 0;
+    color: #333;
+  }
+  .column .label {
+    margin-top: 10px;
+    padding: 10px;
+    padding-bottom: 7px; 
+    background-color: #f9f9f9;
+    border-radius: 3px;
+  }
+  .lsf-labels {
+    margin: 5px 0 0 0; 
+  }
+  .image-container {
+    width: 100%;
+    height: 300px;
+    background-color: #ddd;
+    border-radius: 5px;
+  }
+</Style>
+  
+<View className="main">
+  <View className="container">
+    <View className="column">
+      <HyperText value="" name="h1" className="help" inline="true">
+        Brush for manual labeling
+      </HyperText>
+      <View className="label">        
+        <BrushLabels name="tag" toName="image">
+          <Label value="Foreground" background="#FF0000" />
+          <Label value="Background" background="#0d14d3" />
+        </BrushLabels>
+      </View>
+    </View>
+    
+    <View className="column">
+      <HyperText value="" name="h2" className="help" inline="true">
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Keypoints for auto-labeling
+        </span>
+      </HyperText>
+      <View className="label">
+        <KeyPointLabels name="tag2" toName="image" smart="true">
+          <Label value="Foreground" smart="true" background="#FFaa00" showInline="true" />
+          <Label value="Background" smart="true" background="#00aaFF" showInline="true" />
+        </KeyPointLabels>
+      </View>
+    </View>
+    
+    <View className="column">
+      <HyperText value="" name="h3" className="help" inline="true">
+        <span title="1. Click purple auto Keypoints/Rectangle icon on toolbar. 2. Click Foreground/Background label here">
+          Rectangles for auto-labeling
+        </span>
+      </HyperText>
+      <View className="label">
+        <RectangleLabels name="tag3" toName="image" smart="true">
+          <Label value="Foreground" background="#FF00FF" showInline="true" />
+          <Label value="Background" background="#00FF00" showInline="true" />
+        </RectangleLabels>
+      </View>
+    </View>
+    
+  </View>
+  
+  <View className="image-container">
+    <Image name="image" value="$image" zoom="true" zoomControl="true" />
+  </View>
+  
+</View>
 </View>
 ```
 
