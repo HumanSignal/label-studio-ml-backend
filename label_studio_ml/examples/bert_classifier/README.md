@@ -1,9 +1,9 @@
 <!--
 ---
-title: BERT-based text classification
+title: Classify text with a BERT model
 type: blog
 tier: all
-order: 30
+order: 29
 meta_title: BERT-based text classification
 meta_description: Tutorial on how to use BERT-based text classification with your Label Studio project
 categories:
@@ -16,7 +16,7 @@ image: "/tutorials/bert.png"
 ---
 -->
 
-# BERT-based Text Classification
+# BERT-based text classification
 
 The NewModel is a BERT-based text classification model that is designed to work with Label Studio. This model uses the Hugging Face Transformers library to fine-tune a BERT model for text classification. The model is trained on the labeled data from Label Studio and then used to make predictions on new data.  With this model connected to Label Studio, you can: 
 
@@ -29,20 +29,20 @@ The NewModel is a BERT-based text classification model that is designed to work 
 
 ## Running with Docker (recommended)
 
-1. Start the Machine Learning backend on `http://localhost:9090` with prebuilt image:
+1. Start the Machine Learning backend on `http://localhost:9090` with the prebuilt image:
 
 ```bash
 docker-compose up
 ```
 
-2. Validate that backend is running
+2. Validate that backend is running:
 
 ```bash
 $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). Specify `http://localhost:9090` as the URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 > Warning! Note the current limitation of the ML backend: models are loaded dynamically from huggingface.co. You may need the `HF_TOKEN` env variable provided in your environment. Consequently, this may result in a slow response time for the first prediction request. If you are experiencing timeouts on Label Studio side (i.e., no predictions are visible when opening the task), check the logs of the ML backend for any errors, and refresh the page in a few minutes.
 
@@ -95,7 +95,7 @@ The following parameters are available for training:
 - `WEIGHT_DECAY`: The weight decay for the model training. Default is 0.01.
 - `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`. Checkpoints will be saved under this name.
 
-> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in the Label Studio instance in the `Account & Settings -> Access Token` section.
+> Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in Label Studio under the [**Account & Settings** page](https://labelstud.io/guide/user_account#Access-token).
 
 
 # Customization

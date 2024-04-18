@@ -47,36 +47,32 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-1. Open a [Label Studio project](http://localhost:8080) and go to **Settings > Model**. [Connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio), specifying `http://localhost:9090` as the URL. 
+1. Open a Label Studio project and go to **Settings > Model**. [Connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio), specifying `http://localhost:9090` as the URL. 
    
    Ensure the **Interactive preannotations** toggle is enabled and click **Validate and Save**.
 2. The project config should be compatible with the ML backend. This ML backend can support various input data formats
-   like plain text, hypertext, image, structured dialogs. To ensure the project config is compatible, follow these
+   like plain text, hypertext, images, and structured dialogs. To ensure the project config is compatible, follow these
    rules:
 
    - The project should contain at least one `<TextArea>` tag to be used as a prompt input. To specify which `<TextArea>`
-  tag to use, set the `PROMPT_PREFIX` environmental variable. For example, the `<TextArea name="prompt" ...>` tag should be used
-  with `PROMPT_PREFIX=prompt`.
+  tag to use, set the `PROMPT_PREFIX` environment variable. For example, if your labeling config includes `<TextArea name="prompt" ...>`, then you would specify `PROMPT_PREFIX=prompt`.
    - The project should contain at least one input data tag from the following list of supported tags: `<Text>`, `<Image>`
   , `<HyperText>`, `<Paragraphs>`.
-   - If you want to directly capture generated LLM responses, your labeling config should contain a `<TextArea>` tag
-  different from the prompt input. To specify which `<TextArea>` tag to use, set the `RESPONSE_PREFIX` environmental
-  variable. For example, `<TextArea name="response" ...>`.
    - If you want to capture the generated LLM response as a label, your labeling config should contain a `<Choices>` tag. For
   example, `<Choices name="choices" ...>`.
-- If you want to set the default prompt to be shown before the user input, you can set the `DEFAULT_PROMPT`
-  environmental
-  variable. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"`
-  or `DEFAULT_PROMPT=/path/to/prompt.txt`. Note that default prompt doesn't support `USE_INTERNAL_PROMPT_TEMPLATE=1`
-  mode, please set `USE_INTERNAL_PROMPT_TEMPLATE=0` to use default prompt.
+   - If you want to set the default prompt to be shown before the user input, you can set the `DEFAULT_PROMPT`
+  environment variable. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"`
+  or `DEFAULT_PROMPT=/path/to/prompt.txt`. 
+  
+    Note that the default prompt isn't supported with `USE_INTERNAL_PROMPT_TEMPLATE=1`
+  mode, so you will need to set `USE_INTERNAL_PROMPT_TEMPLATE=0` to use default prompt.
   You can use the fields from `task['data']` in the prompt template, as well as special `{labels}` field to show the
   list of available labels.
 
 1. Open a task and ensure the **Auto-Annotation** toggle is enabled (it is located at the bottom of the labeling interface).
 2. Enter a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
    the response field.
-6. If you want to apply LLM auto-annotation to the multiple tasks at once , go to the Data Manager, select the batch of
-   tasks then use `Retrieve Prediction` (`Batch Predictions` in Label Studio Enterprise version) option from [the `Actions` dropdown](https://labelstud.io/guide/manage_data)
+3. If you want to apply LLM auto-annotation to multiple tasks at once, go to the [Data Manager](https://labelstud.io/guide/manage_data), select a group of tasks and then select **Actions > Retrieve Predictions** (or **Batch Predictions** in Label Studio Enterprise).
 
 ## Configuration examples
 
@@ -342,25 +338,37 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
 
 When deploying the server, you can specify the following parameters as environment variables:
 
+- `DEFAULT_PROMPT`: Define a default prompt to be shown before the user input. For example, `DEFAULT_PROMPT="Classify this text as sarcastic or not. Text: {text}, Labels: {labels}"` or `DEFAULT_PROMPT=/path/to/prompt.txt`. 
+
+    Note that `USE_INTERNAL_PROMPT_TEMPLATE` should be set to `0` if you are setting a default prompt.
+
 - `PROMPT_PREFIX` (default: `prompt`): An identifier for the prompt input field. For example, if you set
   `PROMPT_PREFIX` to `my-prompt`, the following input field will be used for the
   prompt: `<TextArea name="my-prompt" ...>`.
+
 - `USE_INTERNAL_PROMPT_TEMPLATE` (default: `1`). If set to `1`, the server will use the internal prompt template. If set
   to
   `0`, the server will use the prompt template provided in the input prompt.
+
 - `PROMPT_TEMPLATE` (default: `"Source Text: {text}\n\nTask Directive: {prompt}"`): The prompt template to use:
 
   - If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `1`, the server will use
   the default internal prompt template. 
+  
   - If `USE_INTERNAL_PROMPT_TEMPLATE` is set to `0`, the server will use the prompt template provided
   in the input prompt (i.e. the user input from `<TextArea name="my-prompt" ...>`). 
   
   In the later case, the user has to provide the placeholders that match input task fields. For example, if the user wants to use the `input_text` and `instruction` field from the input task `{"input_text": "user text", "instruction": "user instruction"}`, the user has to provide the prompt template like this: `"Source Text: {input_text}, Custom instruction : {instruction}"`.
+
 - `OPENAI_MODEL` (default: `gpt-3.5-turbo`) : The OpenAI model to use. 
+
 - `OPENAI_PROVIDER` (available options: `openai`, `azure`, default - `openai`) : The OpenAI provider to use.
+
 - `TEMPERATURE` (default: `0.7`): The temperature to use for the model.
+
 - `NUM_RESPONSES` (default: `1`): The number of responses to generate in `<TextArea>` output fields. Useful if you want
   to generate multiple responses and let the user rank the best one.
+
 - `OPENAI_API_KEY`: The OpenAI or Azure API key to use. Must be set before deploying the server.
 
 ### Azure Configuration

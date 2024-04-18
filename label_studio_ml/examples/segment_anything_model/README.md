@@ -62,11 +62,12 @@ multitude of different prompts to achieve a prediction, and the ability to use
 MobileSAM.
 
 - Mix one rectangle label with multiple positive keypoints to refine your
-  predictions! Use negative keypoints to remove areas from predictions for
+  predictions. 
+- Use negative keypoints to remove areas from predictions for
   increased control.
 - Use MobileSAM, an extremely lightweight alternative to the heavy Segment
   Anything Model from Facebook, to retrieve predictions. This can run inference
-  within a second using a laptop GPU!
+  within a second using a laptop GPU.
 
 ## ONNX Segment Anything Model
 
@@ -201,7 +202,7 @@ You can download all weights and models using the following command:
 
 #### Installation requirements
 
-Change your directory into this folder and then install all of the python requirements.
+Change your directory to this folder and then install all of the python requirements.
 
 ```
 pip install -r requirements.txt
