@@ -47,6 +47,9 @@ class LangchainSearchAgent(LabelStudioMLBase):
     SNIPPETS_PREFIX = os.getenv('SNIPPETS_PREFIX', 'snippets')
     PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '{prompt}{text}')
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def get_prompt(self, annotation, prompt_from_name) -> str:
         result = annotation['result']
         for item in result:
@@ -148,7 +151,10 @@ class LangchainSearchAgent(LabelStudioMLBase):
                         'text': snippets
                     }
                 })
-            predictions.append({'result': result})
+            predictions.append({
+                'result': result,
+                'model_version': self.get('model_version'),
+            })
 
         return predictions
 

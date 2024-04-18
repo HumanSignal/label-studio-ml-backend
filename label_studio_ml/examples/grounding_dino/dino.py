@@ -126,6 +126,9 @@ if USE_MOBILE_SAM or USE_SAM:
 
 class DINOBackend(LabelStudioMLBase):
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
 
         if not context or not context.get('result'):
@@ -345,14 +348,15 @@ class DINOBackend(LabelStudioMLBase):
     def get_results(self, all_points, all_scores, all_lengths, from_name_r, to_name_r):
         
         results = []
-        
+        total_score = 0
         for points, scores, lengths in zip(all_points, all_scores, all_lengths):
             # random ID
             label_id = str(uuid4())[:9]
 
             height, width = lengths
-            
-            #TODO: add model version
+            score = scores.item()
+            total_score += score
+
             results.append({
                 'id': label_id,
                 'from_name': from_name_r,
@@ -367,13 +371,17 @@ class DINOBackend(LabelStudioMLBase):
                     'x': points[0] / width * 100,
                     'y': points[1] / height * 100
                 },
-                'score': scores.item(),
+                'score': score,
                 'type': 'rectanglelabels',
                 'readonly': False
             })
 
+        total_score /= max(len(results), 1)
+
         return {
-            'result': results
+            'result': results,
+            'score': total_score,
+            'model_version': self.get('model_version')
         }
 
     def get_sam_results(
@@ -407,7 +415,7 @@ class DINOBackend(LabelStudioMLBase):
     def sam_predictions(self, masks, probs, lengths, from_name_b, to_name_b):
         
         results = []
-
+        total_score = 0
         for mask, prob, length in zip(masks, probs, lengths):
             height, width = length
             # creates a random ID for your label everytime so no chance for errors
@@ -416,6 +424,7 @@ class DINOBackend(LabelStudioMLBase):
             # converting the mask from the model to RLE format which is usable in Label Studio
             mask = mask * 255
             rle = brush.mask2rle(mask)
+            score = float(prob[0])
 
             results.append({
                 'id': label_id,
@@ -428,11 +437,13 @@ class DINOBackend(LabelStudioMLBase):
                     'format': 'rle',
                     'rle': rle
                 },
-                'score': float(prob[0]),
+                'score': score,
                 'type': 'brushlabels',
                 'readonly': False
             })
+            total_score += score
         return {
-            'result': results
-
+            'result': results,
+            'score': total_score / max(len(results), 1),
+            'model_version': self.get('model_version')
         }

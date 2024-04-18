@@ -32,6 +32,9 @@ class SklearnTextClassifier(LabelStudioMLBase):
 
     _model = None
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def get_model(self, blank=False):
         model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
         if not os.path.exists(model_path) or blank:
@@ -112,7 +115,11 @@ class SklearnTextClassifier(LabelStudioMLBase):
             }]
 
             # Expand predictions with their scores for all tasks
-            predictions.append({'result': result, 'score': score})
+            predictions.append({
+                'result': result,
+                'score': score,
+                'model_version': self.get('model_version')
+            })
 
         # Return predictions
         # The predictions are returned as a ModelResponse object
@@ -179,6 +186,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
         model_path = os.path.join(self.MODEL_DIR, f'model.pkl')
         with open(model_path, 'wb') as f:
             pickle.dump(model, f)
+        # TODO: not thread safe
+        self._model = None
 
         # bump the model version
-        self.bump_model_version()
+        # self.bump_model_version()

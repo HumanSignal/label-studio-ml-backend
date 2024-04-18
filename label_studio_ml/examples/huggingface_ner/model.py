@@ -50,9 +50,8 @@ class HuggingFaceNER(LabelStudioMLBase):
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
-        
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
@@ -99,7 +98,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     'model_version': self.get('model_version')
                 })
         
-        return ModelResponse(predictions=predictions)
+        return ModelResponse(predictions=predictions, model_version=self.get('model_version'))
 
     def _get_tasks(self, project_id):
         # download annotated tasks from Label Studio

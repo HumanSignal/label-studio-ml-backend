@@ -15,7 +15,7 @@ class Flair(LabelStudioMLBase):
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
         if self._model is None:
             self._model = Classifier.load(self.FLAIR_MODEL_NAME)
 
@@ -46,7 +46,8 @@ class Flair(LabelStudioMLBase):
             score = min([p['score'] for p in sent_preds]) if sent_preds else 2.0
             results.append(PredictionValue(
                 result=sent_preds,
-                score=score
+                score=score,
+                model_version=self.get('model_version')
             ))
 
         return results

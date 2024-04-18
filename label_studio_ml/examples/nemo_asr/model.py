@@ -16,6 +16,9 @@ class NemoASR(LabelStudioMLBase):
 
     _model = None
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def _lazy_init(self):
         if self._model is not None:
             return
@@ -49,7 +52,7 @@ class NemoASR(LabelStudioMLBase):
                     }
                 }],
                 'score': 1.0,
-                'model_version': self.MODEL_NAME
+                'model_version': self.get('model_version')
             })
         
         return ModelResponse(predictions=predictions)

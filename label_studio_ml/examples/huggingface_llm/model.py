@@ -15,8 +15,7 @@ class HuggingFaceLLM(LabelStudioMLBase):
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
-
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def _lazy_init(self):
         if self._model is not None:
@@ -49,7 +48,8 @@ class HuggingFaceLLM(LabelStudioMLBase):
                     'value': {
                         'text': [generated_text]
                     }
-                }]
+                }],
+                'model_version': self.get('model_version')
             })
         
         return ModelResponse(predictions=predictions, model_version=self.get("model_version"))

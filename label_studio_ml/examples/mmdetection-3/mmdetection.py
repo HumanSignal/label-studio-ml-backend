@@ -81,6 +81,9 @@ class MMDetection(LabelStudioMLBase):
         self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def build_labels_from_labeling_config(self, schema):
         """
         Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tags,
@@ -221,7 +224,7 @@ class MMDetection(LabelStudioMLBase):
                 all_scores.append(score)
         avg_score = sum(all_scores) / max(len(all_scores), 1)
         print(f">>> RESULTS: {results}")
-        return {"result": results, "score": avg_score, "model_version": "mmdet"}
+        return {"result": results, "score": avg_score, "model_version": self.get("model_version")}
 
 
 def json_load(file, int_keys=False):
