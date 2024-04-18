@@ -15,7 +15,7 @@ from sklearn.pipeline import make_pipeline
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class SklearnTextClassifier(LabelStudioMLBase):
     """Custom ML Backend model
     """
 

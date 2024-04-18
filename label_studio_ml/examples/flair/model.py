@@ -6,7 +6,7 @@ from flair.nn import Classifier
 from flair.data import Sentence
 
 
-class NewModel(LabelStudioMLBase):
+class Flair(LabelStudioMLBase):
     """Custom ML Backend model
     """
     _model = None

@@ -41,7 +41,7 @@ class SearchResults(BaseCallbackHandler):
                 self.snippets.append(snippet)
 
 
-class NewModel(LabelStudioMLBase):
+class LangchainSearchAgent(LabelStudioMLBase):
     PROMPT_PREFIX = os.getenv('PROMPT_PREFIX', 'prompt')
     RESPONSE_PREFIX = os.getenv('RESPONSE_PREFIX', 'response')
     SNIPPETS_PREFIX = os.getenv('SNIPPETS_PREFIX', 'snippets')
