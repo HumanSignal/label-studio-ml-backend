@@ -28,14 +28,14 @@ require additional parameters to be set.
 
 Check the **Required parameters** column to see if you need to set any additional parameters.
 
-- **Auto-annotation** column indicates if the model can be used for auto-annotation in Label Studio: pre-annotated data
-  when opening the labeling page, run predictions for the batch of data.
+- **Pre-annotation** column indicates if the model can be used for pre-annotation in Label Studio:  
+  you can see pre-annotated data when opening the labeling page or after running predictions for a batch of data.
 - **Interactive mode** column indicates if the model can be used for interactive labeling in Label Studio: see
   interactive predictions when performing actions on labeling page.
 - **Training** column indicates if the model can be used for training in Label Studio: update the model state based the
   submitted annotations.
 
-| MODEL_NAME                                                                                 | Description                                                                                                                               | Auto-annotation | Interactive mode | Training | Required parameters                           |
+| MODEL_NAME                                                                                 | Description                                                                                                                               | Pre-annotation | Interactive mode | Training | Required parameters                           |
 |--------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|-----------------|------------------|----------|-----------------------------------------------|
 | [segment_anything_model](/label_studio_ml/examples/segment_anything_model)                 | Image segmentation by [Meta](https://segment-anything.com/)                                                                               | ❌               | ✅                |   ❌       | None                                          |
 | [llm_interactive](/label_studio_ml/examples/llm_interactive)                               | Prompt engineering with [OpenAI](https://platform.openai.com/), Azure LLMs.                                                               | ✅               | ✅                | ✅        | OPENAI_API_KEY                                |

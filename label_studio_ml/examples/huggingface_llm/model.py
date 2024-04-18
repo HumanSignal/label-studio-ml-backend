@@ -5,7 +5,7 @@ from label_studio_ml.response import ModelResponse
 from transformers import pipeline
 
 
-class NewModel(LabelStudioMLBase):
+class HuggingFaceLLM(LabelStudioMLBase):
     """Custom ML Backend model
     """
     MODEL_NAME = os.getenv('MODEL_NAME', 'facebook/opt-125m')

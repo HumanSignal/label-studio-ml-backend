@@ -24,7 +24,7 @@ else:
     device = torch.device("cpu")
 
 
-class NewModel(LabelStudioMLBase):
+class BertClassifier(LabelStudioMLBase):
     """
     BERT-based text classification model for Label Studio
 
@@ -85,11 +85,6 @@ class NewModel(LabelStudioMLBase):
                 labels = self.get_labels()
                 self._model.model.config.id2label = {i: label for i, label in enumerate(labels)}
                 self._model.model.config.label2id = {label: i for i, label in enumerate(labels)}
-    
-    def setup(self):
-        """Configure any paramaters of your model here
-        """
-        self.set("model_version", "0.0.1")
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
