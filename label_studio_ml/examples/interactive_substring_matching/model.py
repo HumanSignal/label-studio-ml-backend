@@ -11,7 +11,7 @@ from label_studio_sdk.objects import PredictionValue
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class InteractiveSubstringMatching(LabelStudioMLBase):
     """Custom ML Backend model
     """
 

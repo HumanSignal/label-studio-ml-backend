@@ -9,7 +9,7 @@ from label_studio_ml.utils import DATA_UNDEFINED_NAME
 from label_studio_tools.core.utils.io import get_local_path
 
 
-class NewModel(LabelStudioMLBase):
+class NemoASR(LabelStudioMLBase):
     """Custom ML Backend model
     """
     MODEL_NAME = os.getenv('MODEL_NAME', 'QuartzNet15x5Base-En')

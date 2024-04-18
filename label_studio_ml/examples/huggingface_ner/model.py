@@ -17,7 +17,7 @@ from functools import partial
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class HuggingFaceNER(LabelStudioMLBase):
     """Custom ML Backend model
     """
     BASELINE_MODEL_NAME = os.getenv('BASELINE_MODEL_NAME', 'dslim/bert-base-NER')

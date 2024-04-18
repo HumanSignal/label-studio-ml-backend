@@ -1,12 +1,12 @@
 import pytest
 import json
-from model import NewModel
+from model import Flair
 
 
 @pytest.fixture
 def client():
     from _wsgi import init_app
-    app = init_app(model_class=NewModel)
+    app = init_app(model_class=Flair)
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client

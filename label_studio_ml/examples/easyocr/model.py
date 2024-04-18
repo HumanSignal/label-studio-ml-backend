@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class EasyOCR(LabelStudioMLBase):
     """Custom ML Backend model
     """
     LANG_LIST = list(os.getenv('LANG_LIST', 'mn,en').split(',') or ['mn', 'en'])
