@@ -70,6 +70,9 @@ class BertClassifier(LabelStudioMLBase):
         tag = li.get_tag(from_name)
         return tag.labels
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def _lazy_init(self):
         if not self._model:
             try:
@@ -105,7 +108,11 @@ class BertClassifier(LabelStudioMLBase):
         for prediction in model_predictions:
             logger.debug(f"Prediction: {prediction}")
             region = li.get_tag(from_name).label(prediction['label'])
-            pv = PredictionValue(score=prediction['score'], result=[region], model_version=self.get('model_version'))
+            pv = PredictionValue(
+                score=prediction['score'],
+                result=[region],
+                model_version=self.get('model_version')
+            )
             predictions.append(pv)
 
         return ModelResponse(predictions=predictions)

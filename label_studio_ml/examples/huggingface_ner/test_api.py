@@ -47,7 +47,7 @@ def test_predict(client):
 
     expected_response = {
         'results': [{
-            'model_version': '0.0.1',
+            'model_version': 'HuggingFaceNER-v0.0.1',
             'result': [{
                 'from_name': 'ner',
                 'score': 0.9974774718284607,
@@ -136,7 +136,7 @@ def mock_get_labeled_tasks():
 
 @pytest.fixture
 def mock_baseline_model_name_for_train():
-    with mock.patch.object(HuggingFaceNER, 'BASELINE_MODEL_NAME', new='distilbert/distilbert-base-uncased'):
+    with mock.patch('model.BASELINE_MODEL_NAME', new='distilbert/distilbert-base-uncased'):
         yield
 
 
@@ -166,7 +166,8 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
 
     # assert new model is created in ./results/finetuned_model directory
     import os
-    results_dir = os.path.join(HuggingFaceNER.MODEL_DIR, 'finetuned_model')
+    from model import MODEL_DIR
+    results_dir = os.path.join(MODEL_DIR, 'finetuned_model')
     assert os.path.exists(os.path.join(results_dir, 'pytorch_model.bin'))
 
     # now let's test whether the model is trained by running predict

@@ -1,8 +1,10 @@
 ARG PYTORCH="1.13.0"
 ARG CUDA="11.6"
 ARG CUDNN="8"
-ARG TEST_ENV
 FROM pytorch/pytorch:${PYTORCH}-cuda${CUDA}-cudnn${CUDNN}-devel
+
+ARG TEST_ENV
+
 WORKDIR /app
 
 # To fix GPG key error when running apt-get update

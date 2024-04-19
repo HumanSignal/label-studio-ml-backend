@@ -1,23 +1,27 @@
 import os
+import logging
+
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase, ModelResponse
 from label_studio_sdk.objects import PredictionValue
 from flair.nn import Classifier
 from flair.data import Sentence
 
+logger = logging.getLogger(__name__)
+
+FLAIR_MODEL_NAME = os.getenv("FLAIR_MODEL_NAME", "ner")
+logger.info(f"Loading Flair model {FLAIR_MODEL_NAME}")
+_model = Classifier.load(FLAIR_MODEL_NAME)
+
 
 class Flair(LabelStudioMLBase):
     """Custom ML Backend model
     """
-    _model = None
-    FLAIR_MODEL_NAME = os.getenv("FLAIR_MODEL_NAME", "ner")
 
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
-        if self._model is None:
-            self._model = Classifier.load(self.FLAIR_MODEL_NAME)
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def convert_to_ls_annotation(self, flair_sentences, from_name, to_name):
         # convert annotations in flair sentences object to labelstudio annotations
@@ -46,7 +50,8 @@ class Flair(LabelStudioMLBase):
             score = min([p['score'] for p in sent_preds]) if sent_preds else 2.0
             results.append(PredictionValue(
                 result=sent_preds,
-                score=score
+                score=score,
+                model_version=self.get('model_version')
             ))
 
         return results
@@ -59,7 +64,7 @@ class Flair(LabelStudioMLBase):
                        tasks]  # collect text data for each task in a list and make flair sent
         # predict with ner model for each flair sentence
         for sent in flair_sents:
-            self._model.predict(sent)
+            _model.predict(sent)
 
         predictions = self.convert_to_ls_annotation(flair_sents, from_name, to_name)
         return ModelResponse(predictions=predictions, model_version=self.get('model_version'))

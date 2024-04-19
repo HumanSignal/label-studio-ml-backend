@@ -13,6 +13,9 @@ class SpacyMLBackend(LabelStudioMLBase):
     # define your custom labels mapping here
     _custom_labels_mapping = {}
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> Union[List[Dict], ModelResponse]:
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
         predictions = []
@@ -34,6 +37,6 @@ class SpacyMLBackend(LabelStudioMLBase):
                 })
             predictions.append(PredictionValue(
                 result=entities,
-                model_version=SPACY_MODEL
+                model_version=self.get('model_version')
             ))
-        return ModelResponse(predictions=predictions, model_version=SPACY_MODEL)
+        return ModelResponse(predictions=predictions, model_version=self.get("model_version"))

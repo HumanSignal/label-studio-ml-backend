@@ -7,7 +7,7 @@ import logging
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from transformers import pipeline
+from transformers import pipeline, Pipeline
 from itertools import groupby
 from transformers import AutoModelForTokenClassification, TrainingArguments, Trainer, AutoTokenizer
 from transformers import DataCollatorForTokenClassification
@@ -15,44 +15,49 @@ from datasets import Dataset, ClassLabel, Value, Sequence, Features
 from functools import partial
 
 logger = logging.getLogger(__name__)
+_model: Optional[Pipeline] = None
+MODEL_DIR = os.getenv('MODEL_DIR', './results')
+BASELINE_MODEL_NAME = os.getenv('BASELINE_MODEL_NAME', 'dslim/bert-base-NER')
+FINETUNED_MODEL_NAME = os.getenv('FINETUNED_MODEL_NAME', 'finetuned_model')
+
+
+def reload_model():
+    global _model
+    _model = None
+    try:
+        chk_path = str(pathlib.Path(MODEL_DIR) / FINETUNED_MODEL_NAME)
+        logger.info(f"Loading finetuned model from {chk_path}")
+        _model = pipeline("ner", model=chk_path, tokenizer=chk_path)
+    except:
+        # if finetuned model is not available, use the baseline model with the original labels
+        logger.info(f"Loading baseline model {BASELINE_MODEL_NAME}")
+        _model = pipeline("ner", model=BASELINE_MODEL_NAME, tokenizer=BASELINE_MODEL_NAME)
+
+
+reload_model()
 
 
 class HuggingFaceNER(LabelStudioMLBase):
     """Custom ML Backend model
     """
-    BASELINE_MODEL_NAME = os.getenv('BASELINE_MODEL_NAME', 'dslim/bert-base-NER')
-    FINETUNED_MODEL_NAME = os.getenv('FINETUNED_MODEL_NAME', 'finetuned_model')
     LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST', 'http://localhost:8080')
     LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
     START_TRAINING_EACH_N_UPDATES = int(os.getenv('START_TRAINING_EACH_N_UPDATES', 10))
     LEARNING_RATE = float(os.getenv('LEARNING_RATE', 1e-3))
     NUM_TRAIN_EPOCHS = int(os.getenv('NUM_TRAIN_EPOCHS', 10))
     WEIGHT_DECAY = float(os.getenv('WEIGHT_DECAY', 0.01))
-    MODEL_DIR = os.getenv('MODEL_DIR', './results')
-
-    _model = None
 
     def get_labels(self):
         li = self.label_interface
         from_name, _, _ = li.get_first_tag_occurence('Labels', 'Text')
         tag = li.get_tag(from_name)
         return tag.labels
-
-    def _lazy_init(self):
-        if not self._model:
-            try:
-                chk_path = str(pathlib.Path(self.MODEL_DIR) / self.FINTUNED_MODEL_NAME)
-                self._model = pipeline("ner", model=chk_path, tokenizer=chk_path)
-            except:
-                # if finetuned model is not available, use the baseline model with the original labels
-                self._model = pipeline("ner", model=self.BASELINE_MODEL_NAME, tokenizer=self.BASELINE_MODEL_NAME)
     
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
-        
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
@@ -61,13 +66,12 @@ class HuggingFaceNER(LabelStudioMLBase):
                 ModelResponse(predictions=predictions) with
                 predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
-        self._lazy_init()
-
         li = self.label_interface
         from_name, to_name, value = li.get_first_tag_occurence('Labels', 'Text')
         texts = [task['data'][value] for task in tasks]
 
-        model_predictions = self._model(texts)
+        # run predictions
+        model_predictions = _model(texts)
 
         predictions = []
         for prediction in model_predictions:
@@ -99,7 +103,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     'model_version': self.get('model_version')
                 })
         
-        return ModelResponse(predictions=predictions)
+        return ModelResponse(predictions=predictions, model_version=self.get('model_version'))
 
     def _get_tasks(self, project_id):
         # download annotated tasks from Label Studio
@@ -143,6 +147,7 @@ class HuggingFaceNER(LabelStudioMLBase):
         tasks = self._get_tasks(project_id)
 
         if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+            logger.info(f"Skip training: {len(tasks)} tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}")
             return
 
         # we need to convert Label Studio NER annotations to hugingface NER format in datasets
@@ -153,7 +158,7 @@ class HuggingFaceNER(LabelStudioMLBase):
         # }
         ds_raw = []
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
-        tokenizer = AutoTokenizer.from_pretrained(self.BASELINE_MODEL_NAME)
+        tokenizer = AutoTokenizer.from_pretrained(BASELINE_MODEL_NAME)
 
         no_label = 'O'
         label_to_id = {no_label: 0}
@@ -213,12 +218,12 @@ class HuggingFaceNER(LabelStudioMLBase):
         logger.debug(f"Labels: {id_to_label}")
 
         model = AutoModelForTokenClassification.from_pretrained(
-            self.BASELINE_MODEL_NAME, num_labels=len(id_to_label),
+            BASELINE_MODEL_NAME, num_labels=len(id_to_label),
             id2label=id_to_label, label2id=label_to_id)
         logger.debug(f"Model: {model}")
 
         training_args = TrainingArguments(
-            output_dir=str(pathlib.Path(self.MODEL_DIR) / self.FINETUNED_MODEL_NAME),
+            output_dir=str(pathlib.Path(MODEL_DIR) / FINETUNED_MODEL_NAME),
             learning_rate=self.LEARNING_RATE,
             per_device_train_batch_size=8,
             num_train_epochs=self.NUM_TRAIN_EPOCHS,
@@ -235,6 +240,10 @@ class HuggingFaceNER(LabelStudioMLBase):
         )
         trainer.train()
 
-        chk_path = str(pathlib.Path(self.MODEL_DIR) / self.FINETUNED_MODEL_NAME)
+        chk_path = str(pathlib.Path(MODEL_DIR) / FINETUNED_MODEL_NAME)
         logger.info(f"Model is trained and saved as {chk_path}")
         trainer.save_model(chk_path)
+
+        # reload model
+        # TODO: this is not thread-safe, should be done with critical section
+        reload_model()
