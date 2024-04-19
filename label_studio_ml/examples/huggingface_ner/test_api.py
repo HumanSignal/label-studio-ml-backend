@@ -47,7 +47,7 @@ def test_predict(client):
 
     expected_response = {
         'results': [{
-            'model_version': '0.0.1',
+            'model_version': 'HuggingFaceNER-v0.0.1',
             'result': [{
                 'from_name': 'ner',
                 'score': 0.9974774718284607,
