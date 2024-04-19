@@ -17,7 +17,7 @@ image: "/tutorials/hf-llm.png"
 
 # Hugging Face Large Language Model backend
 
-This machine learning backend is designed to work with Label Studio, providing a custom model for text generation. The model is based on the Hugging Face's transformers library and uses a pre-trained.
+This machine learning backend is designed to work with Label Studio, providing a custom model for text generation. The model is based on the Hugging Face's transformers library and uses a pre-trained model.
 
 Check [text generation pipelines on Hugging Face](https://huggingface.co/tasks/text-generation) for more details.
 
@@ -34,22 +34,22 @@ This ML backend is compatible with a Label Studio labeling configuration that us
 
 When you open the task in Label Studio, the text box will show the generated text based on the prompt defined in `<Text>`. Be sure you include some instructions in prompt (for example, _"Summarize the following text: ..."_) to see the meaningful results.
 
-## Running with Docker (Recommended)
+## Running with Docker (recommended)
 
-1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
+1. Start the Machine Learning backend on `http://localhost:9090` with the prebuilt image:
 
 ```bash
 docker-compose up
 ```
 
-2. Validate that backend is running
+2. Validate that the backend is running:
 
 ```bash
 $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 
 ## Building from source (advanced)
@@ -73,7 +73,7 @@ pip install -r requirements.txt
 Then you can start the ML backend:
 
 ```bash
-label-studio-ml start ./dir_with_your_model
+label-studio-ml start ./huggingface_llm
 ```
 
 # Configuration

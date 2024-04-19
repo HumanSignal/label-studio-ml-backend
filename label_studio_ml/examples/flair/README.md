@@ -1,14 +1,15 @@
 <!--
 ---
-title: NLP labeling with Flair 
+title: NER labeling with Flair 
 type: blog
 tier: all
 order: 65
 meta_title: Use Flair with Label Studio
-meta_description: Tutorial on how to use Label Studio and Flair for faster NLP labeling 
+meta_description: Tutorial on how to use Label Studio and Flair for faster NER labeling 
 categories:
     - tutorial
     - named language processing
+    - named entity recognition
     - flair
 image: "/tutorials/flair.png"
 ---
@@ -29,7 +30,7 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). SThe default URL is `http://localhost:9090`.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 
 # Parameters

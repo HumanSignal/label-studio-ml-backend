@@ -1,10 +1,26 @@
-# Interactive Substring Matching
+<!--
+---
+title: Interactive substring matching for NER tasks
+type: blog
+tier: all
+order: 23
+meta_title: Interactive substring matching for NER tasks
+meta_description: Use the interactive substring matching model for labeling NER tasks in Label Studio
+categories:
+    - tutorial
+    - substring matching
+    - ner
+image: "/tutorials/to-be-added.png"
+---
+-->
 
-The Machine Learning (ML) backend is designed to enhance the efficiency of auto-labeling in Named Entity Recognition (NER) tasks. It achieves this by selecting a keyword and automatically matching the same keyword in the texts. 
+# Interactive substring matching
 
-# Recommended Labeling Config
+The Machine Learning (ML) backend is designed to enhance the efficiency of auto-labeling in Named Entity Recognition (NER) tasks. It achieves this by selecting a keyword and automatically matching the same keyword in the provided text. 
 
-For the ML backend to work correctly, it is recommended to use the Named Entity Recognition (NER) template in Label Studio in project `Settings -> Labeling Interface -> Browse Templates -> Natural Language Processing -> Named Entity Recognition`.
+# Recommended labeling config
+
+This ML backend works with the default NER template from Label Studio. You can find this by selecting Label Studio's pre-built NER template when configuring the labeling interface. It is available under **Natural Language Processing > Named Entity Recognition**:
 
 Here is an example of a labeling configuration that can be used with this ML backend:
 
@@ -20,7 +36,7 @@ Here is an example of a labeling configuration that can be used with this ML bac
 </View>
 ```
 
-## Running with Docker (Recommended)
+## Running with Docker (recommended)
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
 
@@ -38,7 +54,7 @@ $ curl http://localhost:9090/
 3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
 
 
-## Building from source (Advanced)
+## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
 
@@ -46,7 +62,7 @@ To build the ML backend from source, you have to clone the repository and build 
 docker-compose build
 ```
 
-## Running without Docker (Advanced)
+## Running without Docker (advanced)
 
 To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
@@ -63,15 +79,15 @@ label-studio-ml start ./interactive_substring_matching
 ```
 
 # Configuration
+
 Parameters can be set in `docker-compose.yml` before running the container.
 
-
 The following common parameters are available:
-- `BASIC_AUTH_USER` - specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
-- `LOG_LEVEL` - set the log level for the model server
-- `WORKERS` - specify the number of workers for the model server
-- `THREADS` - specify the number of threads for the model server
+- `BASIC_AUTH_USER` - Specify the basic auth user for the model server
+- `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
+- `LOG_LEVEL` - Set the log level for the model server
+- `WORKERS` - Specify the number of workers for the model server
+- `THREADS` - Specify the number of threads for the model server
 
 # Customization
 

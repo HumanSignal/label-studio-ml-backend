@@ -3,7 +3,7 @@
 title: Interactive segmentation with Grounding DINO 
 type: blog
 tier: all
-order: 25
+order: 13
 meta_title: Image segmentation in Label Studio using a Grounding DINO backend
 meta_description: Label Studio tutorial for using Grounding DINO for zero-shot object detection in images
 categories:
@@ -17,7 +17,7 @@ image: "/tutorials/grounding-dino.png"
 https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/d1d2f233-d7c0-40ac-ba6f-368c3c01fd36
 
 
-## GroundingDINO backend integration
+## Grounding DINO backend integration
 
 This integration will allow you to:
 
@@ -91,9 +91,9 @@ Combine the Segment Anything Model with your text input to automatically generat
 
 To do this, set `USE_SAM=true` before running. 
 
-> Warning: Using GroundingSAM without a GPU may result in slow performance and is not recommended approach. If you have to use CPU only machine, and experience slow performance or don't see any predictions on the labeling screen, consider one of the following:
-> - Increase memory allocated to the docker container (e.g. `memory: 16G` in `docker-compose.yml`)
-> - Increase the prediction timeout on Label Studio instance with `ML_TIMEOUT_PREDICT=100` environment variable.
+> Warning: Using GroundingSAM without a GPU may result in slow performance and is not recommended. If you must use a CPU-only machine, and experience slow performance or don't see any predictions on the labeling screen, consider one of the following:
+> - Increase memory allocated to the Docker container (e.g. `memory: 16G` in `docker-compose.yml`)
+> - Increase the prediction timeout on Label Studio instance with the `ML_TIMEOUT_PREDICT=100` environment variable.
 > - Use "MobileSAM" as a lightweight alternative to "SAM".
 
 If you want to use a [more efficient version of SAM](https://github.com/ChaoningZhang/MobileSAM), set `USE_MOBILE_SAM=true`.
@@ -103,22 +103,23 @@ If you want to use a [more efficient version of SAM](https://github.com/Chaoning
 
 https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/79b788e3-9147-47c0-90db-0404066ee43f
 
-> Note: this is an experimental feature.
+> Note: This is an experimental feature.
 
-1. Clone the Label Studio branch with the added batching features.
+1. Clone the Label Studio feature branch that includes the experimental batching functionality.
 
-`git clone -b feature/dino-support https://github.com/HumanSignal/label-studio.git`
+    `git clone -b feature/dino-support https://github.com/HumanSignal/label-studio.git`
 
 2. Run this branch with `docker compose up`
-3. Do steps 2-5 from the [quickstart section](#quickstart), now using access code and host IP info of the newly clones Label Studio branch. GroundingSAM is supported.
-4. Go to the task menu inside your project and select the tasks you would like to annotate.
-5. Click the dropdown in the upper left hand side and select **Add Text Prompt for GroundingDINO**.
-6. Enter in the prompt you would like to retrieve predictions for and click **Submit**.
-- If your prompt is different from the label values you have assigned, you can use the underscore to give the correct label values to your prompt outputs. For example, if I wanted to select all brown cats but still give them the label value "cats" from my labeling config, my prompt would be "brown cat_cats".
+3. Do steps 2-5 from the [quickstart section](#quickstart), now using access code and host IP info of the newly cloned Label Studio branch. GroundingSAM is supported.
+4. Go to the Data Manager in your project and select the tasks you would like to annotate.
+5. Select **Actions > Add Text Prompt for GroundingDINO**.
+6. Enter the prompt you would like to retrieve predictions for and click **Submit**.
+
+> Note: If your prompt is different from the label values you have assigned, you can use the underscore to give the correct label values to your prompt outputs. For example, if you wanted to select all brown cats but still give them the label value "cats" from your labeling config, your prompt would be "brown cat_cats".
 
 
 ## Other environment variables
 
-Adjust `BOX_THRESHOLD` and `TEXT_THRESHOLD` values in the Dockerfile to a number between 0 to 1 if experimenting. Defaults are set in `dino.py`. See explanation of these values in this [section](https://github.com/IDEA-Research/GroundingDINO#star-explanationstips-for-grounding-dino-inputs-and-outputs).
+Adjust `BOX_THRESHOLD` and `TEXT_THRESHOLD` values in the Dockerfile to a number between 0 to 1 if experimenting. Defaults are set in `dino.py`. For more information about these values, [click here](https://github.com/IDEA-Research/GroundingDINO#star-explanationstips-for-grounding-dino-inputs-and-outputs).
 
 If you want to use SAM models saved from either directories, you can use the `MOBILESAM_CHECKPOINT` and `SAM_CHECKPOINT` as shown in the Dockerfile.
