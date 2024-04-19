@@ -9,22 +9,18 @@ from label_studio_ml.utils import DATA_UNDEFINED_NAME
 from label_studio_tools.core.utils.io import get_local_path
 
 
+MODEL_NAME = os.getenv('MODEL_NAME', 'QuartzNet15x5Base-En')
+_model = nemo_asr.models.EncDecCTCModel.from_pretrained(model_name=MODEL_NAME)
+
+
 class NemoASR(LabelStudioMLBase):
     """Custom ML Backend model
     """
-    MODEL_NAME = os.getenv('MODEL_NAME', 'QuartzNet15x5Base-En')
 
-    _model = None
-
-    def _lazy_init(self):
-        if self._model is not None:
-            return
-
-        # This line will download pre-trained QuartzNet15x5 model from NVIDIA's NGC cloud and instantiate it for you
-        self._model = nemo_asr.models.EncDecCTCModel.from_pretrained(model_name=self.MODEL_NAME)
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
-        self._lazy_init()
 
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('TextArea', 'Audio')
 
@@ -35,7 +31,7 @@ class NemoASR(LabelStudioMLBase):
             audio_paths.append(audio_path)
 
         # run ASR
-        transcriptions = self._model.transcribe(paths2audio_files=audio_paths)
+        transcriptions = _model.transcribe(paths2audio_files=audio_paths)
 
         predictions = []
         for transcription in transcriptions:
@@ -49,7 +45,7 @@ class NemoASR(LabelStudioMLBase):
                     }
                 }],
                 'score': 1.0,
-                'model_version': self.MODEL_NAME
+                'model_version': self.get('model_version')
             })
         
         return ModelResponse(predictions=predictions)

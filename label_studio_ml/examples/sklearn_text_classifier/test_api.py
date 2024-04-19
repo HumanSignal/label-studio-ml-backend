@@ -53,5 +53,5 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
-    assert response['results'][0]['model_version'] == '0.0.1'
+    assert response['results'][0]['model_version'] == 'SklearnTextClassifier-v0.0.1'
     assert response['results'][0]['result'][0]['value']['choices'][0] == 'Positive'

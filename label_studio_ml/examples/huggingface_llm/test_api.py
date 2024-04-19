@@ -40,7 +40,7 @@ def test_predict(client):
 
     expected_response = {
         'results': [{
-            'model_version': '0.0.1',
+            'model_version': 'HuggingFaceLLM-v0.0.1',
             'score': 0.0,
             'result': [{
                 'from_name': 'generated_text',

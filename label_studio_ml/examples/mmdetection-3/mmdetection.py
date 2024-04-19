@@ -21,6 +21,14 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 register_all_modules()
 
+# init mmdetection model
+# see docker-compose.yml for environment variables
+config_file = os.environ.get("CONFIG_FILE")
+checkpoint_file = os.environ.get("CHECKPOINT_FILE")
+device = os.environ.get("DEVICE", "cpu")
+logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+model = init_detector(config_file, checkpoint_file, device=device)
+
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection"""
@@ -64,33 +72,26 @@ class MMDetection(LabelStudioMLBase):
         )
         self.from_name, self.to_name, self.value, self.labels_in_config = params
         self.labels_in_config = set(self.labels_in_config)
-
-        # init mmdetection model
-        # see docker-compose.yml for environment variables
-        self.config_file = os.environ.get("CONFIG_FILE")
-        self.checkpoint_file = os.environ.get("CHECKPOINT_FILE")
-        self.device = os.environ.get("DEVICE", "cpu")
         self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.5))
-        print("Load new model from: ", self.config_file, self.checkpoint_file)
-        self.model = init_detector(
-            self.config_file, self.checkpoint_file, device=self.device
-        )
 
         # try to build label map from mmdet labels to LS labels
         schema = list(self.parsed_label_config.values())[0]
         self.labels_attrs = schema.get("labels_attrs")
         self.build_labels_from_labeling_config(schema)
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def build_labels_from_labeling_config(self, schema):
         """
         Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tags,
         e.g. "airplane", "car" are label names from COCO dataset
         """
-        mmdet_labels = self.model.dataset_meta.get("classes", [])
+        mmdet_labels = model.dataset_meta.get("classes", [])
         mmdet_labels_lower = [label.lower() for label in mmdet_labels]
         print(
             "COCO dataset labels supported by this mmdet model:",
-            self.model.dataset_meta,
+            model.dataset_meta,
         )
 
         # if labeling config has Label tags
@@ -162,11 +163,11 @@ class MMDetection(LabelStudioMLBase):
     def predict_one_task(self, task: Dict):
         image_url = self._get_image_url(task)
         image_path = get_local_path(image_url, task_id=task.get('id'))
-        model_results = inference_detector(self.model, image_path).pred_instances
+        model_results = inference_detector(model, image_path).pred_instances
         results = []
         all_scores = []
         img_width, img_height = get_image_size(image_path)
-        classes = self.model.dataset_meta.get("classes")
+        classes = model.dataset_meta.get("classes")
         # print(f">>> model_results: {model_results}")
         # print(f">>> label_map {self.label_map}")
         # print(f">>> self.model.dataset_meta: {self.model.dataset_meta}")
@@ -221,7 +222,7 @@ class MMDetection(LabelStudioMLBase):
                 all_scores.append(score)
         avg_score = sum(all_scores) / max(len(all_scores), 1)
         print(f">>> RESULTS: {results}")
-        return {"result": results, "score": avg_score, "model_version": "mmdet"}
+        return {"result": results, "score": avg_score, "model_version": self.get("model_version")}
 
 
 def json_load(file, int_keys=False):

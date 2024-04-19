@@ -33,7 +33,7 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert data['results'][0]['model_version'] == '0.0.1'
+    assert data['results'][0]['model_version'] == 'Flair-v0.0.1'
     assert data['results'][0]['result'][0]['value']['text'] == 'Apple'
     assert data['results'][0]['result'][0]['value']['labels'] == ['ORG']
     assert data['results'][0]['result'][1]['value']['text'] == 'MacBook'
