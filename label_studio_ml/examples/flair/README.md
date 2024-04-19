@@ -3,7 +3,7 @@
 title: NER labeling with Flair 
 type: blog
 tier: all
-order: 65
+order: 75
 meta_title: Use Flair with Label Studio
 meta_description: Tutorial on how to use Label Studio and Flair for faster NER labeling 
 categories:
@@ -19,7 +19,7 @@ image: "/tutorials/flair.png"
 
 This example demonstrates how to use Flair NER model with Label Studio.
 
-# Quickstart
+## Quickstart
 
 1. Build and start the Machine Learning backend on `http://localhost:9090`
 
@@ -34,7 +34,7 @@ $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio: go to your project `Settings -> Model -> Connect Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 ## Labeling Configuration
 
@@ -52,6 +52,6 @@ $ curl http://localhost:9090/health
 ```
 
 
-# Parameters
+## Parameters
 
 - `FLAIR_MODEL_NAME`: The name of the Flair model to use. Default is `ner`. See all options [here](https://flairnlp.github.io/docs/tutorial-basics/tagging-entities#list-of-ner-models)

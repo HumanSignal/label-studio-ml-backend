@@ -3,7 +3,7 @@
 title: Interactive segmentation with Grounding DINO 
 type: blog
 tier: all
-order: 13
+order: 15
 meta_title: Image segmentation in Label Studio using a Grounding DINO backend
 meta_description: Label Studio tutorial for using Grounding DINO for zero-shot object detection in images
 categories:
@@ -17,7 +17,7 @@ image: "/tutorials/grounding-dino.png"
 https://github.com/HumanSignal/label-studio-ml-backend/assets/106922533/d1d2f233-d7c0-40ac-ba6f-368c3c01fd36
 
 
-## Grounding DINO backend integration
+# Grounding DINO backend integration
 
 This integration will allow you to:
 

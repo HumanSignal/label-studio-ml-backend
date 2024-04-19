@@ -16,7 +16,7 @@ image: "/tutorials/llm-interactive.png"
 ---
 -->
 
-## Interactive LLM labeling
+# Interactive LLM labeling
 
 This example server connects Label Studio to [OpenAI](https://platform.openai.com/)
 or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (
@@ -76,7 +76,7 @@ $ curl http://localhost:9090/health
 
 ## Configuration examples
 
-#### Prompt engineering and model response evaluation
+### Prompt engineering and model response evaluation
 
 ```xml
 
@@ -159,7 +159,7 @@ $ curl http://localhost:9090/health
 </View>
 ```
 
-#### Automatic text classification
+### Automatic text classification
 
 ```xml
 
@@ -193,7 +193,7 @@ $ curl http://localhost:9090/health
 }
 ```
 
-#### Collecting data for LLM supervised fine-tuning
+### Collecting data for LLM supervised fine-tuning
 
 Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/tags/paragraphs) tag:
 
@@ -235,7 +235,7 @@ Representing ChatGPT-style interface with [`<Paragraphs>`](https://labelstud.io/
 }
 ```
 
-#### Automating data collection and summarization over image documents
+### Automating data collection and summarization over image documents
 
 ```xml
 

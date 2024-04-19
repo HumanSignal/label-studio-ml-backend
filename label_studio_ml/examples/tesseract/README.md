@@ -3,7 +3,7 @@
 title: Interactive bounding boxes OCR with Tesseract 
 type: blog
 tier: all
-order: 35
+order: 55
 meta_title: Interactive bounding boxes OCR in Label Studio with a Tesseract backend
 meta_description: Tutorial for how to use Label Studio and Tesseract to assist with your OCR projects
 categories:
@@ -162,14 +162,14 @@ From the project settings, select the **Model** page and click [**Connect Model*
 
    Add the URL `http://host.docker.internal:9090` and save the model as an ML backend.
 
-#### 7. Label in interactive mode
+### 7. Label in interactive mode
 
 To use this functionality, activate **Auto-Annotation** and use the `Autodetect` rectangle for drawing boxes
 
-Example below :
+Example below:
 
 ![ls_demo_ocr](https://user-images.githubusercontent.com/17755198/165186574-05f0236f-a5f2-4179-ac90-ef11123927bc.gif)
 
-Reference links : 
+Reference links: 
 - https://labelstud.io/blog/Improve-OCR-quality-with-Tesseract-and-Label-Studio.html
 - https://labelstud.io/blog/release-130.html

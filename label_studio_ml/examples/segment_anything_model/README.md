@@ -22,9 +22,9 @@ https://github.com/shondle/label-studio-ml-backend/assets/106922533/42a8a535-167
 
 Use Facebook's Segment Anything Model with Label Studio!
 
-# Quickstart
+## Quickstart
 
-## Using Docker Compose (recommended)
+### Using Docker Compose (recommended)
 
 To start the server with the lightweight mobile version of SAM, run the following command:
 
@@ -47,15 +47,13 @@ By default, the docker-compose file runs the model on the CPU. If you have a GPU
             capabilities: [gpu]
 ```
 
-# Intro
+## About the models
 
 There are two models in this repo that you can use:
 1. Advanced Segment Anything Model
 2. ONNX Segment Anything Model
 
-# About the models
-
-## Advanced Segment Anything Model
+### Advanced Segment Anything Model
 
 The Advanced Segment Anything Model introduces the ability to combine a
 multitude of different prompts to achieve a prediction, and the ability to use
@@ -69,7 +67,7 @@ MobileSAM.
   Anything Model from Facebook, to retrieve predictions. This can run inference
   within a second using a laptop GPU.
 
-## ONNX Segment Anything Model
+### ONNX Segment Anything Model
 
 The ONNX Segment Anything Model gives you the ability to use either a single
 keypoint or a single rectangle label to prompt the original SAM.
@@ -79,7 +77,7 @@ keypoint or a single rectangle label to prompt the original SAM.
   cannot be generalized to other image sizes while labeling. Also, this does not yet
   offer the mixed labeling and refinement that AdvancedSAM does.
 
-## Model configuration options
+### Model configuration options
 
 Each model has different pros and cons. Consider which is best for your project:
 
@@ -94,14 +92,14 @@ Each model has different pros and cons. Consider which is best for your project:
     - Cons: Takes long to gather predictions (~2s to create embedding of an
       image), requires access to good GPUs.
 
-* Using ONNXSAM
+* ONNXSAM
   * Original SAM Architecture
     - Pros: Much faster than when you use it in Advanced SAM.
     - Cons: Can only use one smart label per prediction. Image size must be
       defined before generating the ONNX model. Cannot label images with
       different sizes without running into issues.
 
-# Setup
+## Setup
 
 The Label Studio SAM backend works best if you have [Local
 Storage](https://labelstud.io/guide/storage.html#Local-storage) enabled for
@@ -109,9 +107,9 @@ your project. It is also possible to set up shared local storage, but is not
 recommended. Currently, the backend does not work with cloud storage (S3,
 Azure, GCP).
 
-## Setting up the Label Studio server
+### Setting up the Label Studio server
 
-### Enabling local storage file serving
+#### Enabling local storage file serving
 
 You can enable local storage file serving by setting the following variables:
 
@@ -141,7 +139,7 @@ can include calling either `ip a` or `ifconfig` from the command line and
 inspecting the output, or finding the address that has been assigned to your
 computer through the system network configuration settings.
 
-### Obtain your API token
+#### Obtain your API token
 
 Log into the Label Studio interface (in the example above, at
 `http://<LABEL_STUDIO_HOST>:8080`). 
@@ -150,9 +148,9 @@ Go to the [**Account & Settings**
 page](https://labelstud.io/guide/user_account#Access-token), and make a note of the Access Token, which we will use later as
 the `LABEL_STUDIO_ACCESS_TOKEN`.
 
-## Setting up the SAM backend
+### Setting up the SAM backend
 
-### Clone the repository
+#### Clone the repository
 
 Make a clone of this repository on your host system and move it into the working
 directory.
@@ -162,7 +160,7 @@ git clone https://github.com/humansignal/label-studio-ml-backend
 cd label-studio-ml-backend/label_studio_ml/examples/segment_anything_model
 ```
 
-### Using Docker Compose (recommended)
+#### Using Docker Compose (recommended)
 
 We suggest using [Docker Compose](https://docs.docker.com/compose/) to host and
 run the backend. For GPU support, please consult the [Docker Compose GPU Access
@@ -266,16 +264,16 @@ You can now upload images into your project and begin annotating.
 [The video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) also goes over this process, but does part of it while in the newly created project menu.
 
 
-# Creating annotations
+## Creating annotations
 
 See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing)
 to get a better understanding of the workflow when annotating with SAM.
 
 Use the `Alt` hotkey to alter keypoint positive and negative labels.
 
-## Notes for AdvancedSAM
+### Notes for AdvancedSAM
 
-* _**Please watch the [video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) first**_
+* _**Please watch [this video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) first**_
 * For the best experience, follow the video tutorial above and _**uncheck 'Auto
   accept annotation suggestions'**_ when running predictions.
 * After generating the prediction from an assortment of inputs, make sure you _**click the
@@ -284,7 +282,7 @@ Use the `Alt` hotkey to alter keypoint positive and negative labels.
 * There may be a checkmark inside the image next to a generated prediction,
   but _do not use that one_. 
   
-  For some reason, the checkmark that is not on the
+    For some reason, the checkmark that is not on the
   image itself cleans the other input prompts used for generating
   the region, and only leaves the predicted region after being clicked (this is
   the most compatible way to use the backend).
@@ -306,7 +304,7 @@ Use the `Alt` hotkey to alter keypoint positive and negative labels.
   rectangle label along with all other keypoints when aiding the model
   prediction. 
 
-## Notes for ONNX
+### Notes for ONNX
 
 * The ONNX model uses the `orig_img_size` in `onnx_converter.py` that defines
   an image ratio for the ONNX model. Change this to the ratio of the images
@@ -321,14 +319,14 @@ Use the `Alt` hotkey to alter keypoint positive and negative labels.
   using `onnx_converter.py`
 * Guide on changing the code - `"orig_im_size": torch.tensor([#heightofimages, #widthofimages], dtype=torch.float),`
 
-## Notes for exporting
+### Notes for exporting
 
 * COCO and YOLO format is not supported (this project exports using brush
   labels, so try NumPy or PNG export instead)
 
-# Labeling configs
+## Labeling configs
 
-## When using the AdvancedSAM
+### When using the AdvancedSAM
 
 - Give one brush label per class you want to annotate.
 - Hold the `Alt` hotkey to create negative keypoints.
@@ -434,7 +432,7 @@ Base example:
 </View>
 ```
 
-## When using the ONNX model
+### When using the ONNX model
 
 Label values for the keypoints, rectangle, and brush labels must correspond.
 Other than that, make sure that `smart="True"` for each keypoint label and

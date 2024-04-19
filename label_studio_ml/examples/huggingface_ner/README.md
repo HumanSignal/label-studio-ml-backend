@@ -3,7 +3,7 @@
 title: Hugging Face NER backend
 type: blog
 tier: all
-order: 20
+order: 25
 meta_title: Label Studio tutorial to run Hugging Face NER backend
 meta_description: This tutorial explains how to run a Hugging Face NER backend in Label Studio. 
 categories:

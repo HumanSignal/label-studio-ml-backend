@@ -3,7 +3,7 @@
 title: Transcribe text from images with EasyOCR
 type: blog
 tier: all
-order: 30
+order: 40
 meta_title: EasyOCR model connection for transcribing text in images
 meta_description: The EasyOCR model connection integrates the capabilities of EasyOCR with Label Studio to assist in machine learning labeling tasks involving Optical Character Recognition (OCR).
 categories:

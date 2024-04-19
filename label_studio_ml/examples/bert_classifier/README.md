@@ -3,7 +3,7 @@
 title: Classify text with a BERT model
 type: blog
 tier: all
-order: 29
+order: 35
 meta_title: BERT-based text classification
 meta_description: Tutorial on how to use BERT-based text classification with your Label Studio project
 categories:
@@ -70,12 +70,12 @@ Then you can start the ML backend:
 label-studio-ml start ./dir_with_your_model
 ```
 
-# Configuration
+## Configuration
 
 Parameters can be set in `docker-compose.yml` before running the container.
 
-
 The following common parameters are available:
+
 - `BASIC_AUTH_USER` - Specify the basic auth user for the model server
 - `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
 - `LOG_LEVEL` - Set the log level for the model server
