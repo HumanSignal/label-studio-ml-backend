@@ -1,9 +1,9 @@
+import json
 import os
 import time
 
 import cohere
 import logging
-import label_studio_sdk
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Optional
@@ -12,6 +12,9 @@ from label_studio_ml.model import LabelStudioMLBase
 
 POSITIVES = "positives"
 HARD_NEGATIVES = "hard_negatives"
+MODEL_VERSION = "reranker-cohere-english-v2.0"
+
+TRAIN_DIR = "data/train"
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ class CohereReranker(LabelStudioMLBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set("model_version", "rerank-english-v2.0")
+        self.set("model_version", MODEL_VERSION)
 
         # it's a standard name for API key in Cohere
         self.co_api_key = os.getenv("CO_API_KEY")
@@ -31,17 +34,6 @@ class CohereReranker(LabelStudioMLBase):
 
         self.ls_api_key = os.environ.get("LABEL_STUDIO_API_KEY")
         self.ls_url = os.environ.get("LABEL_STUDIO_URL")
-        if self.ls_api_key and self.ls_url:
-            self.ls_client = label_studio_sdk.Client(
-                url=self.ls_url, api_key=self.ls_api_key
-            )
-            self.ls_client.check_connection()
-            logger.info("Label Studio initialized")
-        else:
-            raise Exception(
-                "Please set LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL environment variables. "
-                "They are required to get batch predictions and annotations asynchronously. "
-            )
 
     def setup(self):
         """Configure any parameters of your model here"""
@@ -65,7 +57,6 @@ class CohereReranker(LabelStudioMLBase):
             (https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
         logger.info(f"Reranker is going to predict {len(tasks)} tasks")
-        project = self.ls_client.get_project(id=tasks[0]["project"])
 
         # Cohere: run for 1 task for labeling stream
         # because it requires showing the results immediately
@@ -78,9 +69,9 @@ class CohereReranker(LabelStudioMLBase):
             return [prediction]
 
         # Cohere: run for all tasks in threads
-        for task in tasks:
-            logger.debug(f"Cohere request starts in a thread for task {task['id']}")
-            self.executor_cohere.submit(self.threaded_cohere_rerank, project, task)
+        # for task in tasks:
+        #     logger.debug(f"Cohere request starts in a thread for task {task['id']}")
+        #     self.executor_cohere.submit(self.threaded_cohere_rerank, project, task)
 
         # return nothing because we process and save predictions
         # asynchronously in a separate thread using Label Studio SDK
@@ -125,7 +116,7 @@ class CohereReranker(LabelStudioMLBase):
 
         score /= float(len(similar_docs))
         return self.create_prediction(
-            "rerank-english-v2.0", score, positives, hard_negatives
+            MODEL_VERSION, score, positives, hard_negatives
         )
 
     def threaded_cohere_rerank(self, project, task):
@@ -186,15 +177,43 @@ class CohereReranker(LabelStudioMLBase):
         """
 
         # use cache to retrieve the data from the previous fit() runs
-        old_data = self.get("my_data")
-        old_model_version = self.get("model_version")
-        print(f"Old data: {old_data}")
-        print(f"Old model version: {old_model_version}")
+        if event in ["ANNOTATION_CREATED", "ANNOTATION_UPDATED"]:
+            task = self.save_task(data)
+            logger.info(f"Task {task['id']} with {len(task['annotations'])} was added successfully")
 
-        # store new data to the cache
-        # self.set("my_data", "my_new_data_value")
-        # self.set("model_version", "my_new_model_version")
-        # print(f'New data: {self.get("my_data")}')
-        # print(f'New model version: {self.get("model_version")}')
+        if event == 'UPDATE_PROJECT':  # todo: replace to START_TRAINING
+            self.executor_cohere.submit(self.start_training, data)
+            logger.info(f"Training event was recieved, starting training in background thread ...")
+            
+    def save_task(self, data):
+        project_id = data["task"].get('project', 0)
+        project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        os.makedirs(project_dir, exist_ok=True)
 
-        print("fit() completed successfully.")
+        # load task with annotations
+        task_path = os.path.join(project_dir, str(data['task']['id']) + '.json')
+        if os.path.exists(task_path):
+            with open(task_path, 'r') as f:
+                task = json.load(f)
+        # or use a new task
+        else:
+            task = data["task"]
+            task['annotations'] = []
+
+        # update annotation if it already exists in the task
+        for i, existing_annotation in enumerate(task["annotations"]):
+            if existing_annotation["id"] == data["annotation"]["id"]:
+                task['annotations'][i] = data["annotation"]
+                break
+        # or add a new annotation
+        else:
+            task['annotations'].append(data.get("annotation"))
+
+        # save task with annotations
+        with open(task_path, 'w') as f:
+            json.dump(task, f)
+
+        return task
+
+    def start_training(self, project):
+        pass

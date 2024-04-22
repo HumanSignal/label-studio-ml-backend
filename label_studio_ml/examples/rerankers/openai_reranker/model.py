@@ -13,6 +13,7 @@ from label_studio_ml.model import LabelStudioMLBase
 
 POSITIVES = "positives"
 HARD_NEGATIVES = "hard_negatives"
+MODEL_VERSION = "reranker-openai-gpt4-ls"
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class OpenAIReranker(LabelStudioMLBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set("model_version", "reranker-openai-gpt4")
+        self.set("model_version", MODEL_VERSION)
 
         # it's a standard name for API key in OpenAI
         self.openai_api_key = os.environ.get("OPENAI_API_KEY")
@@ -62,16 +63,6 @@ class OpenAIReranker(LabelStudioMLBase):
         """
         logger.info(f"Reranker is going to predict {len(tasks)} tasks")
         project = self.ls_client.get_project(id=tasks[0]["project"])
-
-        # OpenAI: run for 1 task for labeling stream
-        # because it requires showing the results immediately
-        if len(tasks) == 1:
-            task = tasks[0]
-            prediction = self.openai_rerank(
-                task["data"]["query"], task["data"]["similar_docs"]
-            )
-            logger.info(f"OpenAI prediction was created for task {task['id']}")
-            return [prediction]
 
         # run openai request in a separate thread to avoid timeouts for ml backend
         for task in tasks:
@@ -127,7 +118,7 @@ class OpenAIReranker(LabelStudioMLBase):
                 positives.append(doc["id"])
 
         score /= float(len(similar_docs))
-        return self.create_prediction("openai-gpt4", score, positives, hard_negatives)
+        return self.create_prediction(MODEL_VERSION, score, positives, hard_negatives)
 
     def threaded_openai_rerank(self, project, task):
         prediction = self.openai_rerank(

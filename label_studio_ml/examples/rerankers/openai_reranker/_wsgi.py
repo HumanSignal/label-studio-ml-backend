@@ -29,7 +29,7 @@ logging.config.dictConfig(
 )
 
 from label_studio_ml.api import init_app
-from model import CohereReranker
+from model import OpenAIReranker
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
@@ -129,11 +129,11 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + CohereReranker.__name__ + '" instance creation..')
-        model = CohereReranker(**kwargs)
+        print('Check "' + OpenAIReranker.__name__ + '" instance creation..')
+        model = OpenAIReranker(**kwargs)
 
     app = init_app(
-        model_class=CohereReranker,
+        model_class=OpenAIReranker,
         basic_auth_user=args.basic_auth_user,
         basic_auth_pass=args.basic_auth_pass,
     )
@@ -142,4 +142,4 @@ if __name__ == "__main__":
 
 else:
     # for uWSGI use
-    app = init_app(model_class=CohereReranker)
+    app = init_app(model_class=OpenAIReranker)
