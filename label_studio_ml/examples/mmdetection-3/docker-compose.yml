@@ -3,7 +3,7 @@ version: "3.8"
 services:
   mmdetection-3:
     container_name: mmdetection-3
-    image: humansignal/ml-backend-mmdetection-3:v0
+    image: heartexlabs/label-studio-ml-backend:mmdetection3-master
     build:
       context: .
       args:

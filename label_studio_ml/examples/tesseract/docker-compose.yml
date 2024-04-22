@@ -4,6 +4,7 @@ services:
 
   tesseract:
     container_name: tesseract
+    image: heartexlabs/label-studio-ml-backend:tesseract-master
     build:
       context: .
       args:
