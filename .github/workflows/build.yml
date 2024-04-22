@@ -20,6 +20,23 @@ jobs:
       backend_dir_name: ${{ matrix.ml_backend.backend_dir_name }}
       backend_tag_prefix: ${{ matrix.ml_backend.backend_tag_prefix }}
     steps:
+      - uses: hmarr/debug-action@v3.0.0
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GITHUB_SHA }}"
