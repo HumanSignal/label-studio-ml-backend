@@ -3,7 +3,7 @@ version: "3.8"
 services:
   sklearn_text_classifier:
     container_name: sklearn_text_classifier
-    image: heartexlabs/label-studio-ml-backend:sklearntxtclass-latest
+    image: heartexlabs/label-studio-ml-backend:sklearntxtclass-master
     build:
       context: .
       args:

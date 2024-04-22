@@ -3,7 +3,7 @@ version: "3.8"
 services:
   huggingface_llm:
     container_name: huggingface_llm
-    image: heartexlabs/label-studio-ml-backend:huggingfacellm-latest
+    image: heartexlabs/label-studio-ml-backend:huggingfacellm-master
     build:
       context: .
       args:

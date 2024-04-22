@@ -3,7 +3,7 @@ version: "3.8"
 services:
   flair:
     container_name: flair
-    image: heartexlabs/label-studio-ml-backend:flair-latest
+    image: heartexlabs/label-studio-ml-backend:flair-master
     build:
       context: .
       args:
