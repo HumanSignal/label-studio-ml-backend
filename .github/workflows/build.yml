@@ -116,16 +116,6 @@ jobs:
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - name: Extract branch name on direct push to a branch
-        if: github.event_name == 'push'
-        run: |
-          echo "BASE_SHA=${{ github.event.before }}" >> $GITHUB_ENV
-
-      - name: Extract branch name on 'pull_request'
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "BASE_SHA=${{ github.event.pull_request.base.sha }}"  >> $GITHUB_ENV
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -136,7 +126,7 @@ jobs:
         id: set-matrix
         shell: bash
         env:
-          BASE_SHA: ${{ env.BASE_SHA }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CONFIG: .github/docker-build-config.yml
         run: |
           set -xuo pipefail
