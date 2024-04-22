@@ -1,6 +1,6 @@
 <!--
 ---
-title: Hugging Face NER backend
+title: Hugging Face NER
 type: blog
 tier: all
 order: 25

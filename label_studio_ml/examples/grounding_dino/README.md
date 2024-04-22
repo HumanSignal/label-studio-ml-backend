@@ -1,6 +1,6 @@
 <!--
 ---
-title: Interactive segmentation with Grounding DINO 
+title: Zero-shot object detection and image segmentation with Grounding DINO
 type: blog
 tier: all
 order: 15
@@ -10,6 +10,8 @@ categories:
     - tutorial
     - grounding dino
     - image annotation
+    - object detection
+    - zero-shot image segmentation
 image: "/tutorials/grounding-dino.png"
 ---
 -->

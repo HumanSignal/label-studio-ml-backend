@@ -8,7 +8,7 @@ meta_title: Use Flair with Label Studio
 meta_description: Tutorial on how to use Label Studio and Flair for faster NER labeling 
 categories:
     - tutorial
-    - named language processing
+    - natural language processing
     - named entity recognition
     - flair
 image: "/tutorials/flair.png"

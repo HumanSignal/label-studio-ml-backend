@@ -11,7 +11,7 @@ categories:
     - pytorch
     - openmmlab
     - mmdetection
-    - image segmentation
+    - object detection
 image: "/tutorials/openmmlab.png"
 ---
 -->

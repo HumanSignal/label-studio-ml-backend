@@ -1,6 +1,6 @@
 <!--
 ---
-title: Hugging Face Large Language Model backend
+title: Hugging Face Large Language Model (LLM)
 type: blog
 tier: all
 order: 20

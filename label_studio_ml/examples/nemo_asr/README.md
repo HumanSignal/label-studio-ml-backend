@@ -1,6 +1,6 @@
 <!--
 ---
-title: Automatic Speech Recognition with NeMo
+title: Automatic Speech Recognition with NVidia NeMo
 type: blog
 tier: all
 order: 60
