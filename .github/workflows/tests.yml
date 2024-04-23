@@ -94,7 +94,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           TEST_ENV: "true"
-        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d
+        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d --build
 
       - name: Wait for stack
         timeout-minutes: 10
