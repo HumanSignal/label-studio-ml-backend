@@ -1,32 +1,48 @@
-Spacy ML backend provides a simple way to use [spaCy](https://spacy.io/) models for Named Entity Recognition (NER) and Part-of-Speech (POS) tagging.
+<!--
+---
+title: spaCy models for NER 
+type: blog
+tier: all
+order: 70
+meta_title: Use spaCy models with Label Studio
+meta_description: Tutorial on how to use Label Studio and spaCy for faster NER and POS labeling 
+categories:
+    - Natural Language Processing
+    - Named Entity Recognition
+    - SpaCy
+image: "/tutorials/spacy.png"
+---
+-->
+
+This ML backend provides a simple way to use [spaCy](https://spacy.io/) models for Named Entity Recognition (NER) and Part-of-Speech (POS) tagging.
 
 Current implementation includes the following models:
 - Named Entity Recognition (NER)
 - [coming soon...] Part-of-Speech (POS) tagging
 
 
-# Quickstart
+## Quickstart
 
-1. Build and start Machine Learning backend on `http://localhost:9090`
+1. Build and start the ML backend on `http://localhost:9090`
 
 ```bash
 docker-compose up
 ```
 
-2. Validate that backend is running
+2. Validate that the backend is running
 
 ```bash
 $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
-# Usage
+## Usage
 
-## Labeling configuration
+### Labeling configuration
 
-The model is compatible with the following labeling configurations:
+This model is compatible with the following labeling configurations:
 ```xml
 <View>
     <Labels name="label" toName="text">
@@ -46,9 +62,9 @@ The model is compatible with the following labeling configurations:
 </View>
 ```
 
-You can also use the default configuration from project `Settings > Labeling Interface > Natural Language Processing > Named Entity Recognition`.
+You can also use the default configuration from the [Named Entity Recognition template](https://labelstud.io/templates/named_entity) provided with Label Studio.
 
-> Note: if your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model. Go to `model.py` and change `_custom_labels_mapping` to map from SpaCy entities to your labels. Check for predefined labels in the official SpaCy documentation, for example for [en_core_web_sm](https://spacy.io/models/en#en_core_web_sm).
+> Note: If your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model. Go to `model.py` and change `_custom_labels_mapping` to map from SpaCy entities to your labels. Check for predefined labels in the official SpaCy documentation, for example for [en_core_web_sm](https://spacy.io/models/en#en_core_web_sm).
 
 ## Parameters
 To change default parameters, specify the following environment variables:

@@ -1,10 +1,10 @@
 <!--
 ---
-title: EasyOCR Model Connection
+title: Transcribe text from images with EasyOCR
 type: blog
 tier: all
-order: 30
-meta_title: EasyOCR Model Connection for Transcribing Text in Images
+order: 40
+meta_title: EasyOCR model connection for transcribing text in images
 meta_description: The EasyOCR model connection integrates the capabilities of EasyOCR with Label Studio to assist in machine learning labeling tasks involving Optical Character Recognition (OCR).
 categories:
     - Computer Vision
@@ -14,7 +14,7 @@ image: "/tutorials/easyocr.png"
 ---
 -->
 
-# EasyOCR Model Connection
+# EasyOCR model connection
 
 The [EasyOCR](https://github.com/JaidedAI/EasyOCR) model connection is a powerful tool that integrates the capabilities of EasyOCR with Label Studio. It is designed to assist in machine learning labeling tasks, specifically those involving Optical Character Recognition (OCR). 
 
@@ -22,11 +22,11 @@ The primary function of this connection is to recognize and extract text from im
 
 In the context of Label Studio, this connection enhances the platform's labeling capabilities, allowing users to automatically generate labels for text in images. This can be particularly useful in tasks such as data annotation, document digitization, and more.
 
-## Labeling Configuration
+## Labeling configuration
 
 The EasyOCR model connection can be used with the default labeling configuration for OCR in Label Studio. This configuration typically involves defining the types of labels to be used (e.g., text, handwriting, etc.) and the regions of the image where these labels should be applied.
 
-Go to project `Settings -> Labeling Interface -> Browse Templates -> Computer Vision` and select the `Optical Character Recognition` template. This template is pre-configured for OCR tasks and includes the necessary elements for labeling text in images:
+When setting the labeling configuration, select the **Computer Vision > Optical Character Recognition**. This template is pre-configured for OCR tasks and includes the necessary elements for labeling text in images:
 
 ```xml
 <View>
@@ -56,9 +56,9 @@ Go to project `Settings -> Labeling Interface -> Browse Templates -> Computer Vi
 > Warning! Please note that the current implementation of the EasyOCR model connection does not support images that are directly uploaded to Label Studio. It is designed to work with images that are hosted publicly on the internet. Therefore, to use this connection, you should ensure that your images are publicly accessible via a URL.
 
 
-## Running with Docker (Recommended)
+## Running with Docker (recommended)
 
-1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
+1. Start the Machine Learning backend on `http://localhost:9090` with the prebuilt image:
 
 ```bash
 docker-compose up
@@ -71,10 +71,10 @@ $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 
-## Building from source (Advanced)
+## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
 
@@ -82,7 +82,7 @@ To build the ML backend from source, you have to clone the repository and build 
 docker-compose build
 ```
 
-## Running without Docker (Advanced)
+## Running without Docker (advanced)
 
 To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
