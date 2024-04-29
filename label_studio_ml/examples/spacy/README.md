@@ -7,10 +7,9 @@ order: 70
 meta_title: Use spaCy models with Label Studio
 meta_description: Tutorial on how to use Label Studio and spaCy for faster NER and POS labeling 
 categories:
-    - tutorial
-    - named entity recognition
-    - spacy
-    - parts of speech
+    - Natural Language Processing
+    - Named Entity Recognition
+    - spaCy
 image: "/tutorials/spacy.png"
 ---
 -->

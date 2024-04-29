@@ -7,11 +7,12 @@ order: 10
 meta_title: Interactive annotation in Label Studio with Segment Anything Model (SAM)
 meta_description: Label Studio tutorial for labeling images with MobileSAM or ONNX SAM. 
 categories:
-    - tutorial
-    - segment anything model
+    - Computer Vision
+    - Object Detection
+    - Image Annotation
+    - Segment Anything Model
     - Facebook
     - ONNX
-    - image annotation
 image: "/tutorials/segment-anything.png"
 ---
 -->

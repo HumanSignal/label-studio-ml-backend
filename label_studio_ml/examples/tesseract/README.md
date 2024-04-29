@@ -7,10 +7,9 @@ order: 55
 meta_title: Interactive bounding boxes OCR in Label Studio with a Tesseract backend
 meta_description: Tutorial for how to use Label Studio and Tesseract to assist with your OCR projects
 categories:
-    - tutorial
-    - tesseract
-    - optical character recognition
-    - bboxes
+    - Computer Vision
+    - Optical Character Recognition
+    - Tesseract
 image: "/tutorials/tesseract.png"
 ---
 -->

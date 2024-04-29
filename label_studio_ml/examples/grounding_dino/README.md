@@ -7,11 +7,12 @@ order: 15
 meta_title: Image segmentation in Label Studio using a Grounding DINO backend
 meta_description: Label Studio tutorial for using Grounding DINO for zero-shot object detection in images
 categories:
-    - tutorial
-    - grounding dino
-    - image annotation
-    - object detection
-    - zero-shot image segmentation
+    - Computer Vision
+    - Image Annotation
+    - Object Detection
+    - Zero-shot Image Segmentation
+    - Grounding DINA
+    - Segment Anything Model
 image: "/tutorials/grounding-dino.png"
 ---
 -->

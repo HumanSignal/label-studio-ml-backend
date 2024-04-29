@@ -7,10 +7,9 @@ order: 25
 meta_title: Label Studio tutorial to run Hugging Face NER backend
 meta_description: This tutorial explains how to run a Hugging Face NER backend in Label Studio. 
 categories:
-    - tutorial
-    - hugging face
-    - ner
-    - text-generation
+    - Natural Language Processing
+    - Named Entity Recognition
+    - Hugging Face
 image: "/tutorials/hf-ner.png"
 ---
 -->

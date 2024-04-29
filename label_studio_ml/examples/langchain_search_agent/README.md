@@ -7,7 +7,7 @@ order: 45
 meta_title: RAG with a Langchain search agent
 meta_description: Use Langchain, OpenAI, and Google to generate responses based on Google search results. 
 categories:
-    - tutorial
+    - Generative AI
     - Retrieval Augmented Generation
     - Google
     - OpenAI

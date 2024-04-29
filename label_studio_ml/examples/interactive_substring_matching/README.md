@@ -7,9 +7,9 @@ order: 30
 meta_title: Interactive substring matching for NER tasks
 meta_description: Use the interactive substring matching model for labeling NER tasks in Label Studio
 categories:
-    - tutorial
-    - substring matching
-    - ner
+    - Natural Language Processing
+    - Named Entity Recognition
+    - Interactive matching
 image: "/tutorials/to-be-added.png"
 ---
 -->

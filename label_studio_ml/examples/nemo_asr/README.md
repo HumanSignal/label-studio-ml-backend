@@ -7,10 +7,10 @@ order: 60
 meta_title: Automatic Speech Recognition with NeMo
 meta_description: Tutorial on how to use set up Nvidia NeMo to use for ASR tasks in Label Studio
 categories:
-    - tutorial
+    - Audio/Speech Processing
     - Automatic Speech Recognition
-    - nemo
-    - nvidia
+    - NeMo
+    - NVidia
 image: "/tutorials/nvidia.png"
 ---
 -->

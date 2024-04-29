@@ -7,11 +7,10 @@ order: 35
 meta_title: BERT-based text classification
 meta_description: Tutorial on how to use BERT-based text classification with your Label Studio project
 categories:
-    - tutorial
-    - text classification
-    - bert
-    - hugging face
-    - natural language processing
+    - Natural Language Processing
+    - Text Classification
+    - BERT
+    - Hugging Face
 image: "/tutorials/bert.png"
 ---
 -->

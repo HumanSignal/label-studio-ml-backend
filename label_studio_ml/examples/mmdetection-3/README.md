@@ -7,11 +7,11 @@ order: 65
 meta_title: Object detection in images with Label Studio and MMDetection
 meta_description: This is a tutorial on how to use the example MMDetection model backend with Label Studio for image segmentation tasks.
 categories:
-    - tutorial
-    - pytorch
-    - openmmlab
-    - mmdetection
-    - object detection
+    - Computer Vision
+    - Object Detection
+    - Image Annotation
+    - OpenMMLab
+    - MMDetection
 image: "/tutorials/openmmlab.png"
 ---
 -->

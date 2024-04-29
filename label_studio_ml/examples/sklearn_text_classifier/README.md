@@ -7,9 +7,9 @@ order: 50
 meta_title: Sklearn Text Classifier model for Label Studio
 meta_description: Tutorial on how to use an example ML backend for Label Studio with Scikit-learn logistic regression
 categories:
-    - tutorial
-    - text classification
-    - scikit-learn
+    - Natural Language Processing
+    - Text Classification
+    - Scikit-learn
 image: "/tutorials/scikit-learn.png"
 ---
 -->
