@@ -10,7 +10,7 @@ categories:
     - Natural Language Processing
     - Named Entity Recognition
     - Interactive matching
-image: "/tutorials/to-be-added.png"
+image: "/tutorials/interactive-substring-matching.png"
 ---
 -->
 
