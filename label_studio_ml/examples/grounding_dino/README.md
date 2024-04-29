@@ -11,7 +11,7 @@ categories:
     - Image Annotation
     - Object Detection
     - Zero-shot Image Segmentation
-    - Grounding DINA
+    - Grounding DINO
     - Segment Anything Model
 image: "/tutorials/grounding-dino.png"
 ---

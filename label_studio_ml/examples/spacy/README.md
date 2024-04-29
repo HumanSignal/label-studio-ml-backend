@@ -9,7 +9,7 @@ meta_description: Tutorial on how to use Label Studio and spaCy for faster NER a
 categories:
     - Natural Language Processing
     - Named Entity Recognition
-    - spaCy
+    - SpaCy
 image: "/tutorials/spacy.png"
 ---
 -->
