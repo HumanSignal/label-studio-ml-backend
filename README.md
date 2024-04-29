@@ -274,3 +274,9 @@ You can rebuild a docker image from scratch with the following command:
 ```bash
 docker compose build --no-cache
 ```
+
+## Troubleshooting `Bad Gateway` and `Service Unavailable` errors
+
+You might see these errors if you send multiple concurrent requests. 
+
+Note that the provided ML backend examples are offered in development mode, and do not support production-level inference serving. 
