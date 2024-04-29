@@ -3,7 +3,7 @@ version: "3.8"
 services:
   huggingface_ner:
     container_name: huggingface_ner
-    image: humansignal/ml-backend:v0
+    image: heartexlabs/label-studio-ml-backend:huggingfacener-master
     build:
       context: .
       args:

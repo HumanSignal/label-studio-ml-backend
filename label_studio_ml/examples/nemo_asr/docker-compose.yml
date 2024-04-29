@@ -3,7 +3,7 @@ version: "3.8"
 services:
   nemo_asr:
     container_name: nemo_asr
-    image: humansignal/ml-backend:v0
+    image: heartexlabs/label-studio-ml-backend:nemoasr-master
     build:
       context: .
       args:
