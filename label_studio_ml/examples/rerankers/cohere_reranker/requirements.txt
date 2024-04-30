@@ -1,1 +1,2 @@
 cohere==5.1.1
+label_studio_sdk

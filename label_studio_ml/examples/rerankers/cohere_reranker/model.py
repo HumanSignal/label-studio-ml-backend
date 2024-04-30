@@ -1,10 +1,18 @@
 import json
 import os
 import time
+import traceback
 
 import cohere
 import logging
+import label_studio_sdk
 
+from cohere.finetuning import (
+    BaseModel,
+    BaseType,
+    FinetunedModel,
+    Settings,
+)
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
@@ -12,7 +20,8 @@ from label_studio_ml.model import LabelStudioMLBase
 
 POSITIVES = "positives"
 HARD_NEGATIVES = "hard_negatives"
-MODEL_VERSION = "reranker-cohere-english-v2.0"
+MODEL_VERSION = "reranker-cohere-english-v3.0"
+CUSTOM_MODEL_VERSION = "reranker-cohere-custom"
 
 TRAIN_DIR = "data/train"
 
@@ -29,11 +38,23 @@ class CohereReranker(LabelStudioMLBase):
         # it's a standard name for API key in Cohere
         self.co_api_key = os.getenv("CO_API_KEY")
         self.co = cohere.Client(api_key=self.co_api_key)
-        self.executor_cohere = ThreadPoolExecutor(max_workers=1)
+        self.executor_cohere = ThreadPoolExecutor(max_workers=2)
         logger.info("CohereReranker initialized")
 
+        # label studio sdk
         self.ls_api_key = os.environ.get("LABEL_STUDIO_API_KEY")
         self.ls_url = os.environ.get("LABEL_STUDIO_URL")
+        if self.ls_api_key and self.ls_url:
+            self.ls_client = label_studio_sdk.Client(
+                url=self.ls_url, api_key=self.ls_api_key
+            )
+            self.ls_client.check_connection()
+            logger.info("Label Studio initialized")
+        else:
+            raise Exception(
+                "Please set LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL environment variables. "
+                "They are required to get batch predictions and annotations asynchronously. "
+            )
 
     def setup(self):
         """Configure any parameters of your model here"""
@@ -83,11 +104,15 @@ class CohereReranker(LabelStudioMLBase):
         error, response, try_count = True, None, 0
         while error:
             try:
+                co_model_version = self.model_version
+                if co_model_version == "reranker-cohere-english-v3.0":
+                    co_model_version = "rerank-english-v3.0"
+
                 response = self.co.rerank(
                     query=query,
                     documents=texts,
                     top_n=len(texts),
-                    model=self.model_version,
+                    model=co_model_version,
                 )
                 error = False
             except cohere.errors.too_many_requests_error.TooManyRequestsError:
@@ -153,6 +178,9 @@ class CohereReranker(LabelStudioMLBase):
 
     @staticmethod
     def compare_predictions(a: dict, b: dict) -> float:
+        """ You can use it as the Custor Agreement Metric in
+        Label Studio Enterprise to compare the annotations
+        """
         # compare two lists - how many elements are the same
         positives_a = a["result"][0]["value"]["ranker"][POSITIVES]
         positives_b = b["result"][0]["value"]["ranker"][POSITIVES]
@@ -173,7 +201,8 @@ class CohereReranker(LabelStudioMLBase):
         It is not recommended to perform long-running operations here, as it will block the main thread
         Instead, consider running a separate process or a thread (like RQ worker) to perform the training
         :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
-        :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
+        :param data: the payload received from the event
+        (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
 
         # use cache to retrieve the data from the previous fit() runs
@@ -181,11 +210,12 @@ class CohereReranker(LabelStudioMLBase):
             task = self.save_task(data)
             logger.info(f"Task {task['id']} with {len(task['annotations'])} was added successfully")
 
-        if event == 'UPDATE_PROJECT':  # todo: replace to START_TRAINING
+        if event == 'PROJECT_UPDATED':  # todo: replace to START_TRAINING
             self.executor_cohere.submit(self.start_training, data)
-            logger.info(f"Training event was recieved, starting training in background thread ...")
-            
-    def save_task(self, data):
+            logger.info(f"Training event was received, starting training in background thread ...")
+
+    @staticmethod
+    def save_task(data):
         project_id = data["task"].get('project', 0)
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
         os.makedirs(project_dir, exist_ok=True)
@@ -215,5 +245,147 @@ class CohereReranker(LabelStudioMLBase):
 
         return task
 
-    def start_training(self, project):
-        pass
+    @staticmethod
+    def annotation2cohere(task):
+        """Convert the last updated annotation from a task
+        to relevant passages and hard negatives in cohere format.
+        """
+        # get docs from task data and make mapping by ids
+        docs = task['data']['similar_docs']
+        docs = {doc['id']: doc for doc in docs}
+
+        annotations = sorted(task['annotations'], key=lambda x: x['updated_at'])
+        annotation = annotations[-1]
+
+        positives, negatives = [], []
+        for doc_id in annotation['result'][0]['value']['ranker'][POSITIVES]:
+            positives.append(docs[doc_id]['page_content'])
+        for doc_id in annotation['result'][0]['value']['ranker'][HARD_NEGATIVES]:
+            negatives.append(docs[doc_id]['page_content'])
+
+        if not positives:
+            return None
+
+        # if the same item in positives and negatives, remove it from both
+        intersection = set(positives) & set(negatives)
+        for item in intersection:
+            positives.remove(item)
+            negatives.remove(item)
+
+        # return relevant passages and hard negatives in cohere format
+        return {
+            "query": task['data']['query'],
+            "relevant_passages": positives,
+            "hard_negatives": negatives
+        }
+
+    def convert_dataset(self, project_id):
+        count = 0
+        project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        out_path = os.path.join(project_dir, 'train.jsonl')
+
+        with open(out_path, 'w') as fout:
+            # read each task, get the last updated annotation and save it in jsonl
+            for task_file in os.listdir(project_dir):
+                if not task_file.endswith('.json'):
+                    continue
+
+                with open(os.path.join(project_dir, task_file), 'r') as f:
+                    task = json.load(f)
+                    annotations = task.get('annotations', [])
+                    if not annotations:
+                        continue
+
+                    # save only the last annotation
+                    record = self.annotation2cohere(task)
+                    if record:
+                        fout.write(json.dumps(record) + '\n')
+                        count += 1
+
+        logger.info(f"Dataset for project {project_id} with {count} anotations was saved to {out_path}")
+        return out_path
+
+    def download_snapshot(self, project_id):
+        # download all tasks for the project
+        project = self.ls_client.get_project(project_id)
+
+        # create new export snapshot
+        export_result = project.export_snapshot_create(
+            title="Export SDK Snapshot",
+        )
+        assert "id" in export_result
+        export_id = export_result["id"]
+
+        # wait until snapshot is ready
+        while project.export_snapshot_status(export_id).is_in_progress():
+            time.sleep(1.0)
+
+        # download snapshot file
+        status, filename = project.export_snapshot_download(export_id, export_type="JSON")
+        assert status == 200
+        assert filename is not None
+
+        print(f"Status of the task export is {status}.\nFile name is {filename}")
+        return filename
+
+    def download_all_tasks(self, project_id):
+        filename = CohereReranker.download_snapshot(self, project_id)
+
+        # convert all tasks to separate files
+        with open(filename, 'r') as f:
+            tasks = json.load(f)
+
+        # save each task in a separate file
+        project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        for task in tasks:
+            task_path = os.path.join(project_dir, str(task['id']) + '.json')
+            with open(task_path, 'w') as f:
+                json.dump(task, f)
+
+        logger.info(f"All {len(tasks)} tasks for project {project_id} were saved to {project_dir}")
+
+    def cohere_train(self, project_id):
+        project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        train_path = os.path.join(project_dir, 'train.jsonl')
+        dataset_name = CUSTOM_MODEL_VERSION + '-dataset'
+
+        rerank_dataset = self.co.datasets.create(
+            name=dataset_name,
+            data=open(train_path, "rb"),
+            type="reranker-finetune-input"
+        )
+        dataset_response = self.co.wait(rerank_dataset)
+        logger.info(f"Cohere dataset await validation: {dataset_response}")
+
+        # start the fine-tune job using this dataset
+        finetuned_model = self.co.finetuning.create_finetuned_model(
+            request=FinetunedModel(
+                name=CUSTOM_MODEL_VERSION,
+                settings=Settings(
+                    base_model=BaseModel(
+                        name="english",
+                        version="3.0.0",
+                        base_type="BASE_TYPE_RERANK",
+                        strategy="STRATEGY_VANILLA"
+                    ),
+                    dataset_id=rerank_dataset.id,
+                ),
+            )
+        )
+
+        logger.info(
+            "------------------------------------------------------------------------\n"
+            f"Cohere Fine-tune created: {finetuned_model}\n"
+            "------------------------------------------------------------------------\n"
+        )
+
+    def start_training(self, data):
+        try:
+            project_id = data['project']['id']
+            # self.download_all_tasks(project_id)
+            self.convert_dataset(project_id)
+            self.cohere_train(project_id)
+        except Exception as exc:
+            logger.error(f"Training failed with error: {exc}\n")
+            logger.error(f"{traceback.format_exc()}")
+            raise exc
