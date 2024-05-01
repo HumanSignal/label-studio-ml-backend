@@ -139,14 +139,14 @@ class HuggingFaceNER(LabelStudioMLBase):
     def fit(self, event, data, **kwargs):
         """Download dataset from Label Studio and prepare data for training in BERT
         """
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
 
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
 
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             logger.info(f"Skip training: {len(tasks)} tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}")
             return
 

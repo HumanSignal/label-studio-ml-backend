@@ -119,7 +119,7 @@ class BertClassifier(LabelStudioMLBase):
 
     def fit(self, event, data, **additional_params):
         """Download dataset from Label Studio and prepare data for training in BERT"""
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
         project_id = data['annotation']['project']
@@ -131,7 +131,7 @@ class BertClassifier(LabelStudioMLBase):
 
         logger.info(f"Downloaded {len(tasks)} labeled tasks from Label Studio")
         logger.debug(f"Tasks: {tasks}")
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             # skip training if the number of tasks is not divisible by START_TRAINING_EACH_N_UPDATES
             logger.info(f"Skip training: the number of tasks is not divisible by {self.START_TRAINING_EACH_N_UPDATES}")
             return
