@@ -4,7 +4,7 @@ import os
 
 import boto3
 import pytesseract as pt
-from PIL import Image
+from PIL import Image, ImageOps
 
 from label_studio_ml.model import LabelStudioMLBase
 
@@ -44,6 +44,7 @@ class BBOXOCR(LabelStudioMLBase):
             obj = S3_TARGET.Object(bucket_name, key).get()
             data = obj['Body'].read()
             image = Image.open(io.BytesIO(data))
+            image = ImageOps.exif_transpose(image)
             return image
         else:
             filepath = self.get_local_path(
@@ -52,7 +53,9 @@ class BBOXOCR(LabelStudioMLBase):
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task_id
             )
-            return Image.open(filepath)
+            image = Image.open(filepath)
+            image = ImageOps.exif_transpose(image)
+            return image
 
     def predict(self, tasks, **kwargs):
         # extract task metadata: labels, from_name, to_name and other
