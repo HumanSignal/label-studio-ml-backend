@@ -114,6 +114,9 @@ class GLiNER(LabelStudioMLBase):
 
         # make predictions with currently set model
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
+        
+        # get labels from the labeling configuration
+        labels = sorted(self.label_interface.get_tag(from_name).labels)
 
         texts = [task['data']['text'] for task in tasks]
         predictions = []
