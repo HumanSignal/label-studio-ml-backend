@@ -31,7 +31,7 @@ class GLiNERModel(LabelStudioMLBase):
         self.LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_URL', 'http://localhost:8080')
         self.LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1'))
         labels = os.getenv('LABELS')
         if not labels:
             labels = '["Medication/Vaccine", "MedicalProcedure", "AnatomicalStructure", "Symptom", "Disease"]'
@@ -114,11 +114,14 @@ class GLiNERModel(LabelStudioMLBase):
 
         # make predictions with currently set model
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
+        
+        # get labels from the labeling configuration
+        labels = sorted(self.label_interface.get_tag(from_name).labels)
 
-        texts = [task['data']['text'] for task in tasks]
+        texts = [task['data'][value] for task in tasks]
         predictions = []
         for text in texts:
-            entities = self.model.predict_entities(text, self.labels, threshold=0.5)
+            entities = self.model.predict_entities(text, labels, threshold=self.threshold)
             pred = self.convert_to_ls_annotation(entities, from_name, to_name)
             predictions.extend(pred)
 
