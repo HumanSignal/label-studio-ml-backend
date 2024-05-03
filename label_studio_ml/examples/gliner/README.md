@@ -1,4 +1,7 @@
-This guide describes the simplest way to start using ML backend with Label Studio.
+The GLiNER model is a BERT family model for generalist NER. We download the model from HuggingFace, but the original
+model is
+available on [GitHub](https://github.com/urchade/GLiNER).
+
 
 ## Running with Docker (Recommended)
 
@@ -52,7 +55,6 @@ The following common parameters are available:
 - `LOG_LEVEL` - set the log level for the model server
 - `WORKERS` - specify the number of workers for the model server
 - `THREADS` - specify the number of threads for the model server
-
-# Customization
-
-The ML backend can be customized by adding your own models and logic inside the `./dir_with_your_model` directory. 
+- `LABEL_STUDIO_URL` - specify the URL of your label studio instance. Note that this might need to be `http://host.docker.internal:8080` if running Label Studio on another Docker container 
+- `LABEL_STUDIO_API_KEY`- specify the API key for authenticating your label studio instance 
+- `LABELS` - specify the labels that you want to use for NER. Defaults to the medical labels ["Medication/Vaccine", "MedicalProcedure", "AnatomicalStructure", "Symptom", "Disease"]

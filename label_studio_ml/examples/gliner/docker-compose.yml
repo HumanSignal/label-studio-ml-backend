@@ -28,9 +28,10 @@ services:
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       - LABEL_STUDIO_URL=http://host.docker.internal:8080
-      - LABEL_STUDIO_API_KEY=76ffc7dfdefdf9e90a3ba57fe6b1f9883ba69935
+      - LABEL_STUDIO_API_KEY=
 
       # Specify the labels you want to use for NER with GLiNER
+      # MUST BE A STRING CONTAINING A LIST, e.g. LABELS='[Label1, Label2...]'
       - LABELS=
 
     ports:
