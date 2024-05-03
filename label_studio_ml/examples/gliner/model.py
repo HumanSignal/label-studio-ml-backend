@@ -225,7 +225,7 @@ class GLiNERModel(LabelStudioMLBase):
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
         # we only train the model if the "start training" button is pressed from settings.
-        if event == "PROJECT_UPDATED":
+        if event == "START_TRAINING":
             logger.info("Fitting model")
 
             # download annotated tasks from Label Studio
