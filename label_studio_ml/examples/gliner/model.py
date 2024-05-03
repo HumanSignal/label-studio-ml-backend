@@ -31,7 +31,7 @@ class GLiNER(LabelStudioMLBase):
         self.LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_URL', 'http://localhost:8080')
         self.LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1'))
         labels = os.getenv('LABELS')
         if not labels:
             labels = '["Medication/Vaccine", "MedicalProcedure", "AnatomicalStructure", "Symptom", "Disease"]'
