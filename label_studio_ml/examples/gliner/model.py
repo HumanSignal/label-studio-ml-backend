@@ -121,7 +121,7 @@ class GLiNER(LabelStudioMLBase):
         texts = [task['data'][value] for task in tasks]
         predictions = []
         for text in texts:
-            entities = self.model.predict_entities(text, self.labels, threshold=0.5)
+            entities = self.model.predict_entities(text, labels, threshold=self.threshold)
             pred = self.convert_to_ls_annotation(entities, from_name, to_name)
             predictions.extend(pred)
 
