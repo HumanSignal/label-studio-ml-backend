@@ -118,7 +118,7 @@ class GLiNER(LabelStudioMLBase):
         # get labels from the labeling configuration
         labels = sorted(self.label_interface.get_tag(from_name).labels)
 
-        texts = [task['data']['text'] for task in tasks]
+        texts = [task['data'][value] for task in tasks]
         predictions = []
         for text in texts:
             entities = self.model.predict_entities(text, self.labels, threshold=0.5)
