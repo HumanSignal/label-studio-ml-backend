@@ -32,11 +32,7 @@ class GLiNERModel(LabelStudioMLBase):
         self.LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1'))
-        labels = os.getenv('LABELS')
-        if not labels:
-            labels = '["Medication/Vaccine", "MedicalProcedure", "AnatomicalStructure", "Symptom", "Disease"]'
-        logger.info(f"LABELS {labels}")
-        self.labels = json.loads(labels)
+        self.threshold = float(os.getenv('THRESHOLD', 0.5))
         self.model = MODEL
 
     def convert_to_ls_annotation(self, prediction, from_name, to_name):
@@ -229,7 +225,7 @@ class GLiNERModel(LabelStudioMLBase):
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
         # we only train the model if the "start training" button is pressed from settings.
-        if event == "PROJECT_UPDATED":
+        if event == "START_TRAINING":
             logger.info("Fitting model")
 
             # download annotated tasks from Label Studio
@@ -279,6 +275,6 @@ class GLiNERModel(LabelStudioMLBase):
             logger.info("Saving new fine-tuned model as the default model")
             self.model = GLiNERModel.from_pretrained("finetuned", local_files_only=True)
             model_version = self.model_version[-1] + 1
-            self.set("model_version", f"0.0.{model_version}")
+            self.set("model_version", f'{self.__class__.__name__}-v{model_version}')
         else:
             logger.info("Model training not triggered")
