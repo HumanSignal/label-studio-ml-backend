@@ -57,4 +57,3 @@ The following common parameters are available:
 - `THREADS` - specify the number of threads for the model server
 - `LABEL_STUDIO_URL` - specify the URL of your label studio instance. Note that this might need to be `http://host.docker.internal:8080` if running Label Studio on another Docker container 
 - `LABEL_STUDIO_API_KEY`- specify the API key for authenticating your label studio instance 
-- `LABELS` - specify the labels that you want to use for NER. Defaults to the medical labels ["Medication/Vaccine", "MedicalProcedure", "AnatomicalStructure", "Symptom", "Disease"]

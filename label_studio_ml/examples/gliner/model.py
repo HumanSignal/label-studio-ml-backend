@@ -20,7 +20,7 @@ logger.info(f"Loading GLINER model {GLINER_MODEL_NAME}")
 MODEL = GLiNER.from_pretrained(GLINER_MODEL_NAME)
 
 
-class GLiNER(LabelStudioMLBase):
+class GLiNERModel(LabelStudioMLBase):
     """
     Custom ML Backend for GILNER model
     """
@@ -274,7 +274,7 @@ class GLiNER(LabelStudioMLBase):
             self.train(self.model, config, training_data, eval_data)
 
             logger.info("Saving new fine-tuned model as the default model")
-            self.model = GLiNER.from_pretrained("finetuned", local_files_only=True)
+            self.model = GLiNERModel.from_pretrained("finetuned", local_files_only=True)
             model_version = self.model_version[-1] + 1
             self.set("model_version", f"0.0.{model_version}")
         else:
