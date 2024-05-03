@@ -30,10 +30,6 @@ services:
       - LABEL_STUDIO_URL=http://host.docker.internal:8080
       - LABEL_STUDIO_API_KEY=
 
-      # Specify the labels you want to use for NER with GLiNER
-      # MUST BE A STRING CONTAINING A LIST, e.g. LABELS='[Label1, Label2...]'
-      - LABELS=
-
     ports:
       - "9090:9090"
     volumes:

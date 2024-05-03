@@ -31,7 +31,7 @@ class GLiNERModel(LabelStudioMLBase):
         self.LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_URL', 'http://localhost:8080')
         self.LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1'))
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
         self.threshold = float(os.getenv('THRESHOLD', 0.5))
         self.model = MODEL
 
@@ -241,7 +241,8 @@ class GLiNERModel(LabelStudioMLBase):
                 training_data.append({"tokenized_text": tokens, "ner": ner})
 
             eval_data = {
-                "entity_types": self.labels,
+                "entity_types": sorted(self.label_interface.get_tag(from_name).labels)
+,
                 "samples": training_data[:10]
             }
 
