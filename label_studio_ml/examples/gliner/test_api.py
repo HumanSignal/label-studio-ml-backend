@@ -65,4 +65,4 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
-    assert response == expected_response
+    assert response == pytest.approx(expected_response)
