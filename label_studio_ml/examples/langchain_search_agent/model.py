@@ -160,7 +160,7 @@ class LangchainSearchAgent(LabelStudioMLBase):
 
     def fit(self, event, data, **kwargs):
         logger.debug(f'Data received: {data}')
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
             return
 
         prompt_from_name, prompt_to_name, value_key = self.get_first_tag_occurence(
