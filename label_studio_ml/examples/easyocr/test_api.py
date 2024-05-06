@@ -9,10 +9,12 @@ Then execute `pytest` in the directory of this file.
 - Change `NewModel` to the name of the class in your model.py file.
 - Change the `request` and `expected_response` variables to match the input and output of your model.
 """
+import os.path
 
 import pytest
 import json
 from model import EasyOCR
+import responses
 
 
 @pytest.fixture
@@ -24,12 +26,18 @@ def client():
         yield client
 
 
+@responses.activate
 def test_predict(client):
+    responses.add(
+        responses.GET,
+        'http://test_predict.easyocr.ml-backend1.com/image.png',
+        body=open(os.path.join(os.path.dirname(__file__), 'test_images', 'image.jpeg'), 'rb').read(),
+        status=200
+    )
     request = {
         'tasks': [{
             'data': {
-                # TODO: replace it with non-s3 url - we should avoid using remotely hosted images in tests
-                'image': 'https://s3.amazonaws.com/htx-pub/datasets/images/125135519_415708316105264_2277342140805257509_n.jpg'
+                'image': 'http://test_predict.easyocr.ml-backend.com/image.png'
             }
         }],
         # Your labeling configuration here
@@ -61,6 +69,7 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
+    print('!!!!', response)
     expected_texts = {
         'IZIN SOLUTIONS',
         'HlRlS',
