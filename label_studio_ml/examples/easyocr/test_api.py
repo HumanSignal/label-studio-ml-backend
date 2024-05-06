@@ -30,7 +30,7 @@ def client():
 def test_predict(client):
     responses.add(
         responses.GET,
-        'http://test_predict.easyocr.ml-backend1.com/image.png',
+        'http://test_predict.easyocr.ml-backend.com/image.png',
         body=open(os.path.join(os.path.dirname(__file__), 'test_images', 'image.jpeg'), 'rb').read(),
         status=200
     )
