@@ -1,9 +1,31 @@
+<!--
+---
+title: Use GLiNER for NER annotation
+type: guide
+tier: all
+order: 37
+hide_sidebar: true
+hide_frontmatter_title: true
+meta_title: Use GLiNER for NER annotation
+meta_description: Tutorial on how to use GLiNER with your Label Studio project to complete NER tasks
+categories:
+    - Natural Language Processing
+    - Named Entity Recognition
+    - GLiNER
+    - BERT
+    - Hugging Face
+image: "/tutorials/gliner.png"
+---
+-->
+
+# Use GLiNER for NER annotation
+
 The GLiNER model is a BERT family model for generalist NER. We download the model from HuggingFace, but the original
 model is
 available on [GitHub](https://github.com/urchade/GLiNER).
 
 
-## Running with Docker (Recommended)
+## Running with Docker (recommended)
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
 
@@ -18,10 +40,10 @@ $ curl http://localhost:9090/
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
 
-## Building from source (Advanced)
+## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
 
@@ -29,7 +51,7 @@ To build the ML backend from source, you have to clone the repository and build 
 docker-compose build
 ```
 
-## Running without Docker (Advanced)
+## Running without Docker (advanced)
 
 To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
@@ -45,7 +67,7 @@ Then you can start the ML backend:
 label-studio-ml start ./dir_with_your_model
 ```
 
-# Configuration
+## Configuration
 Parameters can be set in `docker-compose.yml` before running the container.
 
 
