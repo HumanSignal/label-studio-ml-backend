@@ -68,14 +68,14 @@ label-studio-ml start ./dir_with_your_model
 ```
 
 ## Configuration
+
 Parameters can be set in `docker-compose.yml` before running the container.
 
-
 The following common parameters are available:
-- `BASIC_AUTH_USER` - specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
-- `LOG_LEVEL` - set the log level for the model server
-- `WORKERS` - specify the number of workers for the model server
-- `THREADS` - specify the number of threads for the model server
-- `LABEL_STUDIO_URL` - specify the URL of your label studio instance. Note that this might need to be `http://host.docker.internal:8080` if running Label Studio on another Docker container 
-- `LABEL_STUDIO_API_KEY`- specify the API key for authenticating your label studio instance 
+- `BASIC_AUTH_USER` - Specify the basic auth user for the model server.
+- `BASIC_AUTH_PASS` - Specify the basic auth password for the model server.
+- `LOG_LEVEL` - Set the log level for the model server.
+- `WORKERS` - Specify the number of workers for the model server.
+- `THREADS` - Specify the number of threads for the model server.
+- `LABEL_STUDIO_URL` - Specify the URL of your Label Studio instance. Note that this might need to be `http://host.docker.internal:8080` if you are running Label Studio on another Docker container.
+- `LABEL_STUDIO_API_KEY`- Specify the API key for authenticating your Label Studio instance. You can find this by logging into Label Studio and and [going to the **Account & Settings** page](https://labelstud.io/guide/user_account#Access-token). 
