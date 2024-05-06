@@ -303,7 +303,7 @@ class OpenAIInteractive(LabelStudioMLBase):
         """
         """
         logger.debug(f'Data received: {data}')
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
             return
 
         prompt_tag, object_tag = self._find_prompt_tags()
