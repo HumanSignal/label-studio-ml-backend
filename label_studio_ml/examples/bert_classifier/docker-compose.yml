@@ -3,7 +3,7 @@ version: "3.8"
 services:
   bert_classifier:
     container_name: bert_classifier
-    image: humansignal/ml-backend:v0
+    image: heartexlabs/label-studio-ml-backend:bertclass-master
     build:
       context: .
       args:

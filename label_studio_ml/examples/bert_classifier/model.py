@@ -24,7 +24,7 @@ else:
     device = torch.device("cpu")
 
 
-class NewModel(LabelStudioMLBase):
+class BertClassifier(LabelStudioMLBase):
     """
     BERT-based text classification model for Label Studio
 
@@ -70,6 +70,9 @@ class NewModel(LabelStudioMLBase):
         tag = li.get_tag(from_name)
         return tag.labels
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def _lazy_init(self):
         if not self._model:
             try:
@@ -85,11 +88,6 @@ class NewModel(LabelStudioMLBase):
                 labels = self.get_labels()
                 self._model.model.config.id2label = {i: label for i, label in enumerate(labels)}
                 self._model.model.config.label2id = {label: i for i, label in enumerate(labels)}
-    
-    def setup(self):
-        """Configure any paramaters of your model here
-        """
-        self.set("model_version", "0.0.1")
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Write your inference logic here
@@ -110,14 +108,18 @@ class NewModel(LabelStudioMLBase):
         for prediction in model_predictions:
             logger.debug(f"Prediction: {prediction}")
             region = li.get_tag(from_name).label(prediction['label'])
-            pv = PredictionValue(score=prediction['score'], result=[region], model_version=self.get('model_version'))
+            pv = PredictionValue(
+                score=prediction['score'],
+                result=[region],
+                model_version=self.get('model_version')
+            )
             predictions.append(pv)
 
         return ModelResponse(predictions=predictions)
 
     def fit(self, event, data, **additional_params):
         """Download dataset from Label Studio and prepare data for training in BERT"""
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
         project_id = data['annotation']['project']
@@ -129,7 +131,7 @@ class NewModel(LabelStudioMLBase):
 
         logger.info(f"Downloaded {len(tasks)} labeled tasks from Label Studio")
         logger.debug(f"Tasks: {tasks}")
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             # skip training if the number of tasks is not divisible by START_TRAINING_EACH_N_UPDATES
             logger.info(f"Skip training: the number of tasks is not divisible by {self.START_TRAINING_EACH_N_UPDATES}")
             return

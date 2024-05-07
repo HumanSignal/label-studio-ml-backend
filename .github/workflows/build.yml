@@ -20,6 +20,23 @@ jobs:
       backend_dir_name: ${{ matrix.ml_backend.backend_dir_name }}
       backend_tag_prefix: ${{ matrix.ml_backend.backend_tag_prefix }}
     steps:
+      - uses: hmarr/debug-action@v3.0.0
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GITHUB_SHA }}"
@@ -99,16 +116,6 @@ jobs:
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - name: Extract branch name on direct push to a branch
-        if: github.event_name == 'push'
-        run: |
-          echo "BASE_SHA=${{ github.event.before }}" >> $GITHUB_ENV
-
-      - name: Extract branch name on 'pull_request'
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "BASE_SHA=${{ github.event.pull_request.base.sha }}"  >> $GITHUB_ENV
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -119,7 +126,7 @@ jobs:
         id: set-matrix
         shell: bash
         env:
-          BASE_SHA: ${{ env.BASE_SHA }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CONFIG: .github/docker-build-config.yml
         run: |
           set -xuo pipefail

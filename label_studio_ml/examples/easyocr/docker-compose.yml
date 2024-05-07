@@ -3,7 +3,7 @@ version: "3.8"
 services:
   easyocr:
     container_name: easyocr
-    image: humansignal/ml-backend:v0
+    image: heartexlabs/label-studio-ml-backend:easyocr-master
     build:
       context: .
       args:

@@ -1,21 +1,44 @@
-# Langchain Search Agent
+<!--
+---
+title: RAG with a Langchain search agent
+type: blog
+tier: all
+order: 45
+meta_title: RAG with a Langchain search agent
+meta_description: Use Langchain, OpenAI, and Google to generate responses based on Google search results. 
+categories:
+    - Generative AI
+    - Retrieval Augmented Generation
+    - Google
+    - OpenAI
+    - Langchain
+image: "/tutorials/langchain.png"
+---
+-->
+
+
+
+# Langchain search agent
 
 This example demonstrates how to use Label Studio with a custom Machine Learning backend.
-It uses [Langchain](https://www.langchain.com/)-based agent that takes a text input, search for Google search results,
+
+It uses a [Langchain](https://www.langchain.com/)-based agent that accepts a text input, searches for Google,
 and returns the answer based on the search results (a.k.a Retrieval Augmented Generation).
 
-# Pre-requisites
+## Prerequisites
 
-## Use Google Search Engine
+### Use Google Search
 
-To use Google Search Engine, you need to have a Google Custom Search Engine (CSE) API key and a search engine ID.
+To use the Google search engine, you need to have a Google Custom Search Engine (CSE) API key and a search engine ID.
 
 ```
 GOOGLE_API_KEY=<your_google_api_key>
 GOOGLE_CSE_ID=<your_google_search_engine_id>
 ```
 
-## Use OpenAI
+For more information, see [Programmable Search Engine ID](https://support.google.com/programmable-search/answer/12499034?hl=en).
+
+### Use OpenAI
 
 To use OpenAI, you need to have an OpenAI API key.
 
@@ -23,16 +46,16 @@ To use OpenAI, you need to have an OpenAI API key.
 OPENAI_API_KEY=<your_openai_api_key>
 ```
 
-More details [here](https://support.google.com/programmable-search/answer/12499034?hl=en).
+For more information, see [Where do I find my OpenAI API Key?](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
 
-# Labeling Interface
+## Labeling interface
 
 The labeling interface must include:
 
-- input prompt
+- Input prompt
 - LLM response
-- search results snippets
-- classification labels
+- Search results snippets
+- Classification labels
 
 #### Example
 
@@ -55,20 +78,19 @@ The labeling interface must include:
 </View>
 ```
 
-# Quickstart
+## Quickstart
 
-1. Build and start Machine Learning backend on `http://localhost:9090`
+1. Build and start the Machine Learning backend on `http://localhost:9090`:
 
 ```bash
 docker-compose up
 ```
 
-2. Validate that backend is running
+2. Validate that the backend is running:
 
 ```bash
 $ curl http://localhost:9090/health
 {"status":"UP"}
 ```
 
-3. Connect to the backend from Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and
-   specify `http://localhost:9090` as a URL.
+3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.

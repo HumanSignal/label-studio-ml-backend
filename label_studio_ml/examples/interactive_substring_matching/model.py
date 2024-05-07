@@ -11,9 +11,12 @@ from label_studio_sdk.objects import PredictionValue
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class InteractiveSubstringMatching(LabelStudioMLBase):
     """Custom ML Backend model
     """
+
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def _extract_keywords(self, input_text, keyword_to_search, labels, from_name, to_name) -> PredictionValue:
         result = []
@@ -70,4 +73,4 @@ class NewModel(LabelStudioMLBase):
             prediction = self._extract_keywords(input_text, keyword_to_search, labels, from_name, to_name)
             predictions.append(prediction)
         
-        return ModelResponse(predictions=predictions)
+        return ModelResponse(predictions=predictions, model_version=self.get("model_version"))

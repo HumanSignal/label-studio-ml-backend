@@ -3,7 +3,7 @@ version: "3.8"
 services:
   langchain_search_agent:
     container_name: langchain_search_agent
-    image: humansignal/langchain:v0
+    image: heartexlabs/label-studio-ml-backend:langchainsearch-master
     build:
       context: .
       args:

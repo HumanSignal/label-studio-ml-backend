@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
-class NewModel(LabelStudioMLBase):
+class EasyOCR(LabelStudioMLBase):
     """Custom ML Backend model
     """
     LANG_LIST = list(os.getenv('LANG_LIST', 'mn,en').split(',') or ['mn', 'en'])
@@ -58,7 +58,7 @@ class NewModel(LabelStudioMLBase):
     def setup(self):
         """Configure any paramaters of your model here
         """
-        self.set("model_version", "0.0.1")
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
         if self.LABEL_MAPPINGS_FILE and os.path.exists(self.LABEL_MAPPINGS_FILE):
             with open(self.LABEL_MAPPINGS_FILE, 'r') as f:
@@ -99,6 +99,7 @@ class NewModel(LabelStudioMLBase):
         image_url = self._get_image_url(task, value)
         cache_dir = os.path.join(self.MODEL_DIR, '.file-cache')
         os.makedirs(cache_dir, exist_ok=True)
+        logger.debug(f'Using cache dir: {cache_dir}')
         image_path = get_local_path(
             image_url,
             cache_dir=cache_dir,

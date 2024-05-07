@@ -10,12 +10,14 @@ from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import make_pipeline, Pipeline
 
 logger = logging.getLogger(__name__)
 
+_model: Optional[Pipeline] = None
 
-class NewModel(LabelStudioMLBase):
+
+class SklearnTextClassifier(LabelStudioMLBase):
     """Custom ML Backend model
     """
 
@@ -30,22 +32,33 @@ class NewModel(LabelStudioMLBase):
     START_TRAINING_EACH_N_UPDATES = int(os.getenv('START_TRAINING_EACH_N_UPDATES', 10))
     MODEL_DIR = os.getenv('MODEL_DIR', '.')
 
-    _model = None
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def get_model(self, blank=False):
+        global _model
+        # Lazy initialization of the model
+        # If the model is not already initialized, it is initialized here
+        if _model is not None:
+            logger.debug('Model is already initialized')
+            return _model
+
         model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
         if not os.path.exists(model_path) or blank:
-            model = make_pipeline(
+            _model = make_pipeline(
                 TfidfVectorizer(ngram_range=(1, 3), token_pattern=r"(?u)\b\w\w+\b|\w"),
                 LogisticRegression(C=self.LOGISTIC_REGRESSION_C, verbose=True)
             )
             config = self.get_label_studio_parameters()
-            model = model.fit(X=config['labels'], y=list(range(len(config['labels']))))
+            logger.info(f'Creating a new model using labels: {config["labels"]}')
+            _model.fit(X=config['labels'], y=list(range(len(config['labels']))))
             logger.debug('Created a new model with labels: %s', config['labels'])
-            return model
         else:
+            logger.info(f'Loading model from {model_path}')
             with open(model_path, 'rb') as f:
-                return pickle.load(f)
+                _model = pickle.load(f)
+
+        return _model
 
     def get_label_studio_parameters(self) -> Dict:
         # Expect labeling config to have only one output of <Choices> type and one input of <Text> type
@@ -74,12 +87,7 @@ class NewModel(LabelStudioMLBase):
         ModelResponse: A ModelResponse object that contains the predictions for each task.
 
         """
-
-        # Lazy initialization of the model
-        # If the model is not already initialized, it is initialized here
-        if self._model is None:
-            self._model = self.get_model()
-
+        model = self.get_model()
         config = self.get_label_studio_parameters()
 
         # Collect input texts
@@ -91,12 +99,15 @@ class NewModel(LabelStudioMLBase):
 
         # Get model predictions
         # The model's predict_proba method is used to get the probabilities of each label for each task
-        probabilities = self._model.predict_proba(input_texts)
-        logger.debug('=== probabilities > %s', probabilities)
+        probabilities = model.predict_proba(input_texts)
 
         # The label with the highest probability is selected as the predicted label for each task
         predicted_label_indices = np.argmax(probabilities, axis=1)
         predicted_scores = probabilities[np.arange(len(predicted_label_indices)), predicted_label_indices]
+        logger.debug(
+            f'Probabilities: {probabilities}, '
+            f'predicted_label_indices: {predicted_label_indices}, '
+            f'predicted_scores: {predicted_scores}')
 
         # The predictions are stored in a list
         predictions = []
@@ -112,7 +123,11 @@ class NewModel(LabelStudioMLBase):
             }]
 
             # Expand predictions with their scores for all tasks
-            predictions.append({'result': result, 'score': score})
+            predictions.append({
+                'result': result,
+                'score': score,
+                'model_version': self.get('model_version')
+            })
 
         # Return predictions
         # The predictions are returned as a ModelResponse object
@@ -142,6 +157,9 @@ class NewModel(LabelStudioMLBase):
             event (str): The event that triggered the fitting of the model (e.g., 'ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
             data (Dict): The data that is used to fit the model.
         """
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
+            logger.info(f"Skip training: event {event} is not supported")
+            return
 
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
@@ -149,7 +167,11 @@ class NewModel(LabelStudioMLBase):
         # Get the labeling configuration parameters like labels and input / output annotation format names
         config = self.get_label_studio_parameters()
 
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
+            logger.info(
+                f'Not starting training, {len(tasks)} '
+                f'tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}'
+            )
             return
 
         input_texts = []
@@ -179,6 +201,7 @@ class NewModel(LabelStudioMLBase):
         model_path = os.path.join(self.MODEL_DIR, f'model.pkl')
         with open(model_path, 'wb') as f:
             pickle.dump(model, f)
-
-        # bump the model version
-        self.bump_model_version()
+        # TODO: not thread safe
+        global _model
+        _model = None
+        self.get_model()

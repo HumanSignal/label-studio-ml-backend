@@ -31,6 +31,9 @@ S3_TARGET = boto3.resource('s3',
 
 class BBOXOCR(LabelStudioMLBase):
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def load_image(self, img_path_url, task_id):
         # load an s3 image, this is very basic demonstration code
         # you may need to modify to fit your own needs
@@ -101,7 +104,8 @@ class BBOXOCR(LabelStudioMLBase):
             }
             return [{
                 'result': [temp, result],
-                'score': 0
+                'score': 0,
+                'model_version': self.get('model_version')
             }]
         else:
             return []

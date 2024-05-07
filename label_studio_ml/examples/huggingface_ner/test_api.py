@@ -12,14 +12,14 @@ Then execute `pytest` in the directory of this file.
 
 import pytest
 import json
-from model import NewModel
+from model import HuggingFaceNER
 import unittest.mock as mock
 
 
 @pytest.fixture
 def client():
     from _wsgi import init_app
-    app = init_app(model_class=NewModel)
+    app = init_app(model_class=HuggingFaceNER)
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
@@ -47,7 +47,7 @@ def test_predict(client):
 
     expected_response = {
         'results': [{
-            'model_version': '0.0.1',
+            'model_version': 'HuggingFaceNER-v0.0.1',
             'result': [{
                 'from_name': 'ner',
                 'score': 0.9974774718284607,
@@ -124,19 +124,19 @@ def get_labeled_tasks_mock(self, project_id):
 # mock NewModel.START_TRAINING_EACH_N_UPDATES to 1 to trigger training in the test
 @pytest.fixture
 def mock_start_training():
-    with mock.patch.object(NewModel, 'START_TRAINING_EACH_N_UPDATES', new=1):
+    with mock.patch.object(HuggingFaceNER, 'START_TRAINING_EACH_N_UPDATES', new=1):
         yield
 
 
 @pytest.fixture
 def mock_get_labeled_tasks():
-    with mock.patch.object(NewModel, '_get_tasks', new=get_labeled_tasks_mock):
+    with mock.patch.object(HuggingFaceNER, '_get_tasks', new=get_labeled_tasks_mock):
         yield
 
 
 @pytest.fixture
 def mock_baseline_model_name_for_train():
-    with mock.patch.object(NewModel, 'BASELINE_MODEL_NAME', new='distilbert/distilbert-base-uncased'):
+    with mock.patch('model.BASELINE_MODEL_NAME', new='distilbert/distilbert-base-uncased'):
         yield
 
 
@@ -166,7 +166,8 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
 
     # assert new model is created in ./results/finetuned_model directory
     import os
-    results_dir = os.path.join(NewModel.MODEL_DIR, 'finetuned_model')
+    from model import MODEL_DIR
+    results_dir = os.path.join(MODEL_DIR, 'finetuned_model')
     assert os.path.exists(os.path.join(results_dir, 'pytorch_model.bin'))
 
     # now let's test whether the model is trained by running predict

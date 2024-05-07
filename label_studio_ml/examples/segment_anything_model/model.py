@@ -12,6 +12,9 @@ PREDICTOR = SAMPredictor(SAM_CHOICE)
 
 class SamMLBackend(LabelStudioMLBase):
 
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """ Returns the predicted mask for a smart keypoint that has been placed."""
 
@@ -66,13 +69,14 @@ class SamMLBackend(LabelStudioMLBase):
 
     def get_results(self, masks, probs, width, height, from_name, to_name, label):
         results = []
+        total_prob = 0
         for mask, prob in zip(masks, probs):
             # creates a random ID for your label everytime so no chance for errors
             label_id = str(uuid4())[:4]
             # converting the mask from the model to RLE format which is usable in Label Studio
             mask = mask * 255
             rle = brush.mask2rle(mask)
-
+            total_prob += prob
             results.append({
                 'id': label_id,
                 'from_name': from_name,
@@ -92,7 +96,8 @@ class SamMLBackend(LabelStudioMLBase):
 
         return [{
             'result': results,
-            'model_version': PREDICTOR.model_name
+            'model_version': self.get('model_version'),
+            'score': total_prob / max(len(results), 1)
         }]
 
 

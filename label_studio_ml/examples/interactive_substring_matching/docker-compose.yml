@@ -3,7 +3,7 @@ version: "3.8"
 services:
   interactive_substring_matching:
     container_name: interactive_substring_matching
-    image: humansignal/ml-backend:v0
+    image: heartexlabs/label-studio-ml-backend:interactsubstrmatch-master
     build:
       context: .
       args:

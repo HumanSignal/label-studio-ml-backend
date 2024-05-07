@@ -36,7 +36,7 @@ expected = [
             }
         ],
         "score": 0.8933283090591431,
-        "model_version": "mmdet",
+        "model_version": 'MMDetection-v0.0.1',
     }
 ]
 

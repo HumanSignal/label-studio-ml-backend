@@ -63,7 +63,7 @@ jobs:
 
       - name: Generate Docs
         env:
-          ML_REPO_PATH: '${{ env.ML_REPO_PATH }}'
+          ML_REPO_PATH: "${{ github.workspace }}/${{ env.ML_REPO_PATH }}"
         working-directory: "${{ env.DOCS_REPO_PATH }}"
         run: python 'scripts/update_ml_tutorials.py'
 

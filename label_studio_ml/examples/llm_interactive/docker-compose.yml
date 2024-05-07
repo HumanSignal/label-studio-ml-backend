@@ -3,7 +3,7 @@ version: "3.8"
 services:
   llm_interactive:
     container_name: llm_interactive
-    image: heartexlabs/label-studio-ml-backend:llm-latest
+    image: heartexlabs/label-studio-ml-backend:llm-master
     build:
       context: .
       args:

@@ -12,13 +12,13 @@ Then execute `pytest` in the directory of this file.
 
 import pytest
 import json
-from model import NewModel
+from model import HuggingFaceLLM
 
 
 @pytest.fixture
 def client():
     from _wsgi import init_app
-    app = init_app(model_class=NewModel)
+    app = init_app(model_class=HuggingFaceLLM)
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
@@ -40,7 +40,7 @@ def test_predict(client):
 
     expected_response = {
         'results': [{
-            'model_version': '0.0.1',
+            'model_version': 'HuggingFaceLLM-v0.0.1',
             'score': 0.0,
             'result': [{
                 'from_name': 'generated_text',
