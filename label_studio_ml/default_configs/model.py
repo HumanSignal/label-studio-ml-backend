@@ -55,7 +55,7 @@ class NewModel(LabelStudioMLBase):
         You can run your logic here to update the model and persist it to the cache
         It is not recommended to perform long-running operations here, as it will block the main thread
         Instead, consider running a separate process or a thread (like RQ worker) to perform the training
-        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
+        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING')
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
 
