@@ -4,7 +4,7 @@ title: Sklearn Text Classifier model
 type: guide
 tier: all
 order: 50
-hide_sidebar: true
+hide_menu: true
 hide_frontmatter_title: true
 meta_title: Sklearn Text Classifier model for Label Studio
 meta_description: Tutorial on how to use an example ML backend for Label Studio with Scikit-learn logistic regression

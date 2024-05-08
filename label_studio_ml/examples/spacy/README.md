@@ -4,7 +4,7 @@ title: spaCy models for NER
 type: guide
 tier: all
 order: 70
-hide_sidebar: true
+hide_menu: true
 hide_frontmatter_title: true
 meta_title: Use spaCy models with Label Studio
 meta_description: Tutorial on how to use Label Studio and spaCy for faster NER and POS labeling 

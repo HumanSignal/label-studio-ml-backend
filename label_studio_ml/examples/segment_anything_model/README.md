@@ -4,7 +4,7 @@ title: Interactive annotation with Segment Anything Model
 type: guide
 tier: all
 order: 10
-hide_sidebar: true
+hide_menu: true
 hide_frontmatter_title: true
 meta_title: Interactive annotation in Label Studio with Segment Anything Model (SAM)
 meta_description: Label Studio tutorial for labeling images with MobileSAM or ONNX SAM. 
