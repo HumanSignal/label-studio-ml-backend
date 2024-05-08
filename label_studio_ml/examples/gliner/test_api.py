@@ -65,4 +65,9 @@ def test_predict(client):
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
-    assert response == pytest.approx(expected_response)
+    assert sorted((expected_response.keys()))  ==  sorted(response.keys())
+    for key, value in expected_response.items():
+        if type(value) == float:
+            assert value == pytest.approx(response[key])
+        else:
+            assert value == response[key]
