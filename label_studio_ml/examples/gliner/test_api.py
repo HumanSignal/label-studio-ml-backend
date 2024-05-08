@@ -56,18 +56,13 @@ def test_predict(client):
     }
 
     expected_response = {"results": [{"model_version": "GLiNERModel-v0.0.1", "result": [
-        {"from_name": "label", "score": 0.9219673275947571, "to_name": "text", "type": "labels",
+        {"from_name": "label", "score": 0.9220, "to_name": "text", "type": "labels",
          "value": {"end": 11, "labels": ["Medication/Vaccine"], "start": 0, "text": "atomoxetine"}},
-        {"from_name": "label", "score": 0.7052792310714722, "to_name": "text", "type": "labels",
+        {"from_name": "label", "score": 0.7053, "to_name": "text", "type": "labels",
          "value": {"end": 65, "labels": ["Medication/Vaccine"], "start": 32,
-                   "text": "norepinephrine reuptake inhibitor"}}], "score": 0.7052792310714722}]}
+                   "text": "norepinephrine reuptake inhibitor"}}], "score": 0.7053}]}
 
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
-    assert sorted((expected_response.keys()))  ==  sorted(response.keys())
-    for key, value in expected_response.items():
-        if type(value) == float:
-            assert value == pytest.approx(response[key])
-        else:
-            assert value == response[key]
+    assert expected_response == response

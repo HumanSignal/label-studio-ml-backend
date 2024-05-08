@@ -57,7 +57,7 @@ class GLiNERModel(LabelStudioMLBase):
                         "text": ent['text'],
                         "labels": label
                     },
-                    "score": score
+                    "score": round(score, 4)
                 })
 
         # add minimum of certaincy scores of entities in sentence for active learning use
