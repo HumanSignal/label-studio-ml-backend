@@ -15,14 +15,22 @@ def client():
         yield client
 
 
+@pytest.fixture
+def model_dir_env(tmp_path, monkeypatch):
+    model_dir = tmp_path / "model_dir"
+    model_dir.mkdir()
+    monkeypatch.setattr(BBOXOCR, 'MODEL_DIR', str(model_dir))
+    return model_dir
+
+
 def read_test_mage(file_name):
     image_path = os.path.join(os.path.dirname(__file__), "test_images", file_name)
     with open(image_path, "rb") as f:
         return f.read()
-    
+
 
 @responses.activate
-def test_basic_interactions(client):
+def test_basic_interactions(client, model_dir_env):
     responses.add(
         responses.GET,
         "http://test_predict.easyocr.ml-backend.com/image.jpeg",
@@ -56,7 +64,7 @@ def test_basic_interactions(client):
 
 
 @responses.activate
-def test_image_with_non_default_orientation(client):
+def test_image_with_non_default_orientation(client, model_dir_env):
     responses.add(
         responses.GET,
         "http://test_predict.easyocr.ml-backend.com/image.jpeg",

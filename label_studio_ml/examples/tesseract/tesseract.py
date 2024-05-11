@@ -30,6 +30,7 @@ S3_TARGET = boto3.resource('s3',
 
 
 class BBOXOCR(LabelStudioMLBase):
+    MODEL_DIR = os.environ.get('MODEL_DIR', '.')
 
     def setup(self):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
@@ -47,8 +48,12 @@ class BBOXOCR(LabelStudioMLBase):
             image = ImageOps.exif_transpose(image)
             return image
         else:
+            cache_dir = os.path.join(self.MODEL_DIR, '.file-cache')
+            os.makedirs(cache_dir, exist_ok=True)
+            logger.debug(f'Using cache dir: {cache_dir}')
             filepath = self.get_local_path(
                 img_path_url,
+                cache_dir=cache_dir,
                 ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task_id
