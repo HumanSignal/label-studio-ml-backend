@@ -99,6 +99,7 @@ class EasyOCR(LabelStudioMLBase):
         image_url = self._get_image_url(task, value)
         cache_dir = os.path.join(self.MODEL_DIR, '.file-cache')
         os.makedirs(cache_dir, exist_ok=True)
+        logger.debug(f'Using cache dir: {cache_dir}')
         image_path = get_local_path(
             image_url,
             cache_dir=cache_dir,
