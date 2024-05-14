@@ -16,11 +16,11 @@ from cohere.finetuning import (
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
-
+from types import SimpleNamespace
 
 POSITIVES = "positives"
 HARD_NEGATIVES = "hard_negatives"
-MODEL_VERSION = "reranker-cohere-english-v3.0"
+DEFAUL_MODEL_VERSION = "reranker-cohere-english-v3.0"
 CUSTOM_MODEL_VERSION = "reranker-cohere-custom"
 
 TRAIN_DIR = "data/train"
@@ -32,13 +32,14 @@ class CohereReranker(LabelStudioMLBase):
     """Cohere Reranker model helps to rerank the search results relatively to the user query."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.set("model_version", MODEL_VERSION)
-
         # it's a standard name for API key in Cohere
         self.co_api_key = os.getenv("CO_API_KEY")
         self.co = cohere.Client(api_key=self.co_api_key)
         self.executor_cohere = ThreadPoolExecutor(max_workers=2)
+
+        super().__init__(*args, **kwargs)
+
+        self.cohere_model = self.get_cohere_model()
         logger.info("CohereReranker initialized")
 
         # label studio sdk
@@ -53,11 +54,27 @@ class CohereReranker(LabelStudioMLBase):
         else:
             raise Exception(
                 "Please set LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL environment variables. "
-                "They are required to get batch predictions and annotations asynchronously. "
+                "They are required to get annotations for training. "
             )
+
+    def get_cohere_model(self):
+        response = self.co.finetuning.list_finetuned_models()
+        models = [
+            model for model in response.finetuned_models
+            if model.name.startswith(CUSTOM_MODEL_VERSION) and model.status == "STATUS_READY"
+        ]
+
+        # return the last model by created_at
+        models = sorted(models, key=lambda x: x.created_at, reverse=True)
+        self.cohere_model = (
+            models[0] if models else SimpleNamespace(id=DEFAUL_MODEL_VERSION, name=DEFAUL_MODEL_VERSION)
+        )
+        self.set("model_version", self.cohere_model.name + "-" + self.cohere_model.id[0:4])
+        return self.cohere_model
 
     def setup(self):
         """Configure any parameters of your model here"""
+        self.get_cohere_model()
         logger.info("CohereReranker setup completed successfully")
 
     def predict(
@@ -77,22 +94,18 @@ class CohereReranker(LabelStudioMLBase):
             [Predictions array in JSON format]
             (https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
-        logger.info(f"Reranker is going to predict {len(tasks)} tasks")
+        self.get_cohere_model()
+        logger.info(f"Reranker is going to predict {len(tasks)} tasks with model '{self.model_version}'")
 
         # Cohere: run for 1 task for labeling stream
         # because it requires showing the results immediately
         if len(tasks) == 1:
             task = tasks[0]
             prediction = self.cohere_rerank(
-                task["data"]["query"], task["data"]["similar_docs"]
+                task['data'].get('query') or task['data'].get('question'), task['data']['similar_docs']
             )
             logger.info(f"Cohere prediction was created for task {task['id']}")
             return [prediction]
-
-        # Cohere: run for all tasks in threads
-        # for task in tasks:
-        #     logger.debug(f"Cohere request starts in a thread for task {task['id']}")
-        #     self.executor_cohere.submit(self.threaded_cohere_rerank, project, task)
 
         # return nothing because we process and save predictions
         # asynchronously in a separate thread using Label Studio SDK
@@ -104,15 +117,11 @@ class CohereReranker(LabelStudioMLBase):
         error, response, try_count = True, None, 0
         while error:
             try:
-                co_model_version = self.model_version
-                if co_model_version == "reranker-cohere-english-v3.0":
-                    co_model_version = "rerank-english-v3.0"
-
                 response = self.co.rerank(
                     query=query,
                     documents=texts,
                     top_n=len(texts),
-                    model=co_model_version,
+                    model=self.cohere_model.id + '-ft',
                 )
                 error = False
             except cohere.errors.too_many_requests_error.TooManyRequestsError:
@@ -141,17 +150,8 @@ class CohereReranker(LabelStudioMLBase):
 
         score /= float(len(similar_docs))
         return self.create_prediction(
-            MODEL_VERSION, score, positives, hard_negatives
+            self.model_version, score, positives, hard_negatives
         )
-
-    def threaded_cohere_rerank(self, project, task):
-        # create predictions using cohere
-        prediction = self.cohere_rerank(
-            task["data"]["query"], task["data"]["similar_docs"]
-        )
-        # Use Label Studio SDK to async save the prediction to the project
-        project.create_prediction(task_id=task["id"], **prediction)
-        logger.info(f"Cohere prediction was created for task {task['id']} using LS SDK")
 
     @staticmethod
     def create_prediction(model_version, score, positives, hard_negatives):
@@ -210,7 +210,7 @@ class CohereReranker(LabelStudioMLBase):
             task = self.save_task(data)
             logger.info(f"Task {task['id']} with {len(task['annotations'])} was added successfully")
 
-        if event == 'PROJECT_UPDATED':  # todo: replace to START_TRAINING
+        if event == 'START_TRAINING':
             self.executor_cohere.submit(self.start_training, data)
             logger.info(f"Training event was received, starting training in background thread ...")
 
@@ -255,7 +255,7 @@ class CohereReranker(LabelStudioMLBase):
         docs = {doc['id']: doc for doc in docs}
 
         annotations = sorted(task['annotations'], key=lambda x: x['updated_at'])
-        annotation = annotations[-1]
+        annotation = annotations[-1]  # take the last added annotation
 
         positives, negatives = [], []
         for doc_id in annotation['result'][0]['value']['ranker'][POSITIVES]:
@@ -274,7 +274,7 @@ class CohereReranker(LabelStudioMLBase):
 
         # return relevant passages and hard negatives in cohere format
         return {
-            "query": task['data']['query'],
+            "query": task['data'].get('query') or task['data'].get('question'),
             "relevant_passages": positives,
             "hard_negatives": negatives
         }
@@ -302,7 +302,7 @@ class CohereReranker(LabelStudioMLBase):
                         fout.write(json.dumps(record) + '\n')
                         count += 1
 
-        logger.info(f"Dataset for project {project_id} with {count} anotations was saved to {out_path}")
+        logger.info(f"Dataset for project {project_id} with {count} annotations was saved to {out_path}")
         return out_path
 
     def download_snapshot(self, project_id):
@@ -325,7 +325,7 @@ class CohereReranker(LabelStudioMLBase):
         assert status == 200
         assert filename is not None
 
-        print(f"Status of the task export is {status}.\nFile name is {filename}")
+        logger.info(f"Status of the task export is {status}.\nFile name is {filename}")
         return filename
 
     def download_all_tasks(self, project_id):
@@ -337,6 +337,7 @@ class CohereReranker(LabelStudioMLBase):
 
         # save each task in a separate file
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        os.makedirs(project_dir, exist_ok=True)
         for task in tasks:
             task_path = os.path.join(project_dir, str(task['id']) + '.json')
             with open(task_path, 'w') as f:
@@ -357,10 +358,24 @@ class CohereReranker(LabelStudioMLBase):
         dataset_response = self.co.wait(rerank_dataset)
         logger.info(f"Cohere dataset await validation: {dataset_response}")
 
+        # get the latest cohere model
+        response = self.co.finetuning.list_finetuned_models()
+        models = sorted([
+            model for model in response.finetuned_models if model.name.startswith(CUSTOM_MODEL_VERSION)
+        ], key=lambda x: x.created_at, reverse=True)
+
+        # return the last model by created_at
+        if not models:
+            # it's the first training
+            name = CUSTOM_MODEL_VERSION + '-1'
+        else:
+            iteration = models[0].name.split('-')[-1]
+            name = f"{CUSTOM_MODEL_VERSION}-{int(iteration) + 1}"
+
         # start the fine-tune job using this dataset
         finetuned_model = self.co.finetuning.create_finetuned_model(
             request=FinetunedModel(
-                name=CUSTOM_MODEL_VERSION,
+                name=name,
                 settings=Settings(
                     base_model=BaseModel(
                         name="english",
@@ -382,8 +397,11 @@ class CohereReranker(LabelStudioMLBase):
     def start_training(self, data):
         try:
             project_id = data['project']['id']
-            # self.download_all_tasks(project_id)
+            logger.info('Downloading all tasks ...')
+            self.download_all_tasks(project_id)
+            logger.info('Convert annotations to cohere format ...')
             self.convert_dataset(project_id)
+            logger.info('Cohere train ...')
             self.cohere_train(project_id)
         except Exception as exc:
             logger.error(f"Training failed with error: {exc}\n")

@@ -122,7 +122,7 @@ class OpenAIReranker(LabelStudioMLBase):
 
     def threaded_openai_rerank(self, project, task):
         prediction = self.openai_rerank(
-            task["data"]["query"], task["data"]["similar_docs"]
+            task['data'].get('query') or task['data'].get('question'), task["data"]["similar_docs"]
         )
 
         # Use Label Studio SDK to async save the prediction to the project
@@ -161,10 +161,4 @@ class OpenAIReranker(LabelStudioMLBase):
         :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
-
-        # use cache to retrieve the data from the previous fit() runs
-        old_data = self.get("my_data")
-        old_model_version = self.get("model_version")
-        print(f"Old data: {old_data}")
-        print(f"Old model version: {old_model_version}")
-        print("fit() is dummy and does nothing")
+        return None
