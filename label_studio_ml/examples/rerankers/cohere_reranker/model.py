@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import shutil
 import traceback
 
 import cohere
@@ -269,8 +270,8 @@ class CohereReranker(LabelStudioMLBase):
         # if the same item in positives and negatives, remove it from both
         intersection = set(positives) & set(negatives)
         for item in intersection:
-            positives.remove(item)
-            negatives.remove(item)
+            positives = [i for i in positives if i != item]
+            negatives = [i for i in negatives if i != item]
 
         # return relevant passages and hard negatives in cohere format
         return {
@@ -337,6 +338,9 @@ class CohereReranker(LabelStudioMLBase):
 
         # save each task in a separate file
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
+        # remove project_dir
+        if os.path.exists(project_dir):
+            shutil.rmtree(project_dir)
         os.makedirs(project_dir, exist_ok=True)
         for task in tasks:
             task_path = os.path.join(project_dir, str(task['id']) + '.json')
