@@ -284,7 +284,7 @@ You might see these errors if you send multiple concurrent requests.
 
 Note that the provided ML backend examples are offered in development mode, and do not support production-level inference serving. 
 
-## Troubleshooting the ML backend acting dumb or unable to see predictions
+## Troubleshooting the ML backend failing to make simple auto-annotations or unable to see predictions
 
 You must ensure that the ML backend can access your Label Studio data. If it can't, you might encounter the following issues:
 
