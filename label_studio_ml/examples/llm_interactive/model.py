@@ -282,7 +282,7 @@ class OpenAIInteractive(LabelStudioMLBase):
             self._validate_tags(choices_tag, textarea_tag)
 
             for task in tasks:
-                task_data = task['data']
+                task_data = self.preload_task_data(task)
                 pred = self._predict_single_task(task_data, prompt_tag, object_tag, prompt,
                                                  choices_tag, textarea_tag, prompts)
                 predictions.append(pred)

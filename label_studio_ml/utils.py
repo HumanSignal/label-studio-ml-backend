@@ -1,11 +1,14 @@
-import logging
 import difflib
+import logging
+import os
+import re
 
 from PIL import Image, ImageOps
 from collections import OrderedDict
 from typing import List
+from urllib.parse import urlparse
 
-from label_studio_tools.core.utils.params import get_env
+import label_studio_tools.core.utils.params
 from label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface import LabelInterface
 
@@ -75,7 +78,7 @@ def get_image_local_path(
         url=url,
         cache_dir=image_cache_dir,
         project_dir=project_dir,
-        hostname=label_studio_host or get_env('HOSTNAME'),
+        hostname=label_studio_host or label_studio_tools.core.utils.params.get_env('HOSTNAME'),
         image_dir=image_dir,
         access_token=label_studio_access_token,
         task_id=task_id
@@ -130,6 +133,33 @@ def match_labels(input: str, labels: List[str]) -> List[str]:
         matched_labels.append(labels[scores.index(max(scores))])
     return matched_labels
 
+
+def is_valid_url(path):
+    # Check if the text is a valid URL
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+
+def is_preload_needed(url):
+    if url.startswith('upload') or url.startswith('/upload'):
+        url = '/data' + ('' if url.startswith('/') else '/') + url
+
+    is_uploaded_file = url.startswith('/data/upload')
+    is_local_storage_file = url.startswith('/data/') and '?d=' in url
+    is_cloud_storage_file = url.startswith('s3:') or url.startswith('gs:') or url.startswith('azure-blob:')
+    path_exists = os.path.exists(url)
+
+    return (
+        is_uploaded_file
+        or is_local_storage_file
+        or is_cloud_storage_file
+        or is_valid_url(url)
+        or path_exists
+    )
+    
 
 if __name__ == "__main__":
     c = InMemoryLRUDictCache(2)
