@@ -254,6 +254,32 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
+    def get_task_data(self, task, object_tag_name):
+        """Return task data value based on `valueType` attribute of object tag.
+        Usually valueType is used in object tags like Text, HyperText, TimeSeries, etc.
+        If `valueType` is `url`, then a file will be downloaded and its content is returned.
+        Otherwise, the task data value is returned as is.
+
+        Args:
+            task: Task to get data and id from.
+            object_tag_name: Object tag name to get data from.
+
+        Returns:
+            str: Task data value.
+        """
+        object_tag = self.label_interface.get_object(object_tag_name)
+        value = task['data'][object_tag.value_name]
+
+        # download file using value as url and return its content
+        if object_tag.value_type == 'url':
+            filepath = self.get_local_path(url=value, task_id=task.get('id'))
+            with open(filepath, 'r') as f:
+                return f.read()
+
+        # return value as is
+        else:
+            return value
+
     ## TODO this should go into SDK
     def get_first_tag_occurence(
         self,
@@ -281,7 +307,7 @@ class LabelStudioMLBase(ABC):
             control_type=control_type,
             object_type=object_type,
             name_filter=name_filter,
-            to_name_filter=to_name_filter)        
+            to_name_filter=to_name_filter)
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):
