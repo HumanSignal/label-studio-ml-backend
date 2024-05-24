@@ -256,7 +256,7 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
-    def preload_task_data(self, task: Dict, value=None):
+    def preload_task_data(self, task: Dict, value=None, start=True):
         """ Preload task_data values using get_local_path() if values are URI/URL/local path.
 
         Args:
@@ -267,19 +267,19 @@ class LabelStudioMLBase(ABC):
             Any: Preloaded task data value.
         """
         # start with task['data']
-        if value is None:
+        if start:
             value = copy.deepcopy(task['data'])
 
         # recursively preload dict
         if isinstance(value, dict):
             for key, item in value.items():
-                value[key] = self.preload_task_data(task=task, value=item)
+                value[key] = self.preload_task_data(task=task, value=item, start=False)
             return value
 
         # recursively preload list
         elif isinstance(value, list):
             return [
-                self.preload_task_data(task=task, value=item)
+                self.preload_task_data(task=task, value=item, start=False)
                 for item in value
             ]
 
