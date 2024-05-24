@@ -256,12 +256,14 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
-    def preload_task_data(self, task: Dict, value=None, start=True):
+    def preload_task_data(self, task: Dict, value=None, start=True, read_file=True):
         """ Preload task_data values using get_local_path() if values are URI/URL/local path.
 
         Args:
             task: Task root.
             value: task['data'] if it's None.
+            start: If True, start with task['data'] as value.
+            read_file: If True, read file content. Otherwise, return file path only.
 
         Returns:
             Any: Preloaded task data value.
@@ -273,19 +275,21 @@ class LabelStudioMLBase(ABC):
         # recursively preload dict
         if isinstance(value, dict):
             for key, item in value.items():
-                value[key] = self.preload_task_data(task=task, value=item, start=False)
+                value[key] = self.preload_task_data(task=task, value=item, start=False, read_file=read_file)
             return value
 
         # recursively preload list
         elif isinstance(value, list):
             return [
-                self.preload_task_data(task=task, value=item, start=False)
+                self.preload_task_data(task=task, value=item, start=False, read_file=read_file)
                 for item in value
             ]
 
         # preload task data if value is URI/URL/local path
         elif isinstance(value, str) and is_preload_needed(value):
             filepath = self.get_local_path(url=value, task_id=task.get('id'))
+            if not read_file:
+                return filepath
             with open(filepath, 'r') as f:
                 return f.read()
 
