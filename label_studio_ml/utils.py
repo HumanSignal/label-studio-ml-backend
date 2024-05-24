@@ -8,7 +8,7 @@ from collections import OrderedDict
 from typing import List
 from urllib.parse import urlparse
 
-import label_studio_tools.core.utils.params
+from label_studio_tools.core.utils.params import get_env
 from label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface import LabelInterface
 
@@ -78,7 +78,7 @@ def get_image_local_path(
         url=url,
         cache_dir=image_cache_dir,
         project_dir=project_dir,
-        hostname=label_studio_host or label_studio_tools.core.utils.params.get_env('HOSTNAME'),
+        hostname=label_studio_host or get_env('HOSTNAME'),
         image_dir=image_dir,
         access_token=label_studio_access_token,
         task_id=task_id
@@ -159,7 +159,7 @@ def is_preload_needed(url):
         or is_valid_url(url)
         or path_exists
     )
-    
+
 
 if __name__ == "__main__":
     c = InMemoryLRUDictCache(2)

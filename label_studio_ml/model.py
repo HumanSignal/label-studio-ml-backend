@@ -298,8 +298,8 @@ class LabelStudioMLBase(ABC):
 
         # recursively preload dict
         if isinstance(value, dict):
-            for key, value in value.items():
-                value[key] = self.preload_task_data(task=task, value=value)
+            for key, item in value.items():
+                value[key] = self.preload_task_data(task=task, value=item)
             return value
 
         # recursively preload list
@@ -311,7 +311,9 @@ class LabelStudioMLBase(ABC):
 
         # preload task data if value is URI/URL/local path
         elif isinstance(value, str) and is_preload_needed(value):
-            return self.get_local_path(value, task_id=task.get('id'))
+            filepath = self.get_local_path(url=value, task_id=task.get('id'))
+            with open(filepath, 'r') as f:
+                return f.read()
 
         # keep value as is
         return value

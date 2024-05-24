@@ -17,10 +17,11 @@ class SpacyMLBackend(LabelStudioMLBase):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> Union[List[Dict], ModelResponse]:
-        from_name, to_name, _ = self.label_interface.get_first_tag_occurence('Labels', 'Text')
+        from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
         predictions = []
         for task in tasks:
-            text = self.get_task_data(task, object_tag_name=to_name)
+            task['data'] = self.preload_task_data(task)
+            text = task['data'][value]
             doc = nlp(text)
             entities = []
             for ent in doc.ents:
