@@ -68,7 +68,7 @@ class HuggingFaceNER(LabelStudioMLBase):
         """
         li = self.label_interface
         from_name, to_name, value = li.get_first_tag_occurence('Labels', 'Text')
-        texts = [task['data'][value] for task in tasks]
+        texts = [self.preload_task_data(task, task['data'][value]) for task in tasks]
 
         # run predictions
         model_predictions = _model(texts)
@@ -168,7 +168,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     continue
                 spans = [{'label': r['value']['labels'][0], 'start': r['value']['start'], 'end': r['value']['end']} for r in annotation['result']]
                 spans = sorted(spans, key=lambda x: x['start'])
-                text = task['data'][value]
+                text = self.preload_task_data(task, task['data'][value])
 
                 # insert tokenizer.pad_token to the unlabeled chunks of the text in-between the labeled spans, as well as to the beginning and end of the text
                 last_end = 0

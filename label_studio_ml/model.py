@@ -256,32 +256,27 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
-    def preload_task_data(self, task: Dict, value=None, start=True, read_file=True):
+    def preload_task_data(self, task: Dict, value=None, read_file=True):
         """ Preload task_data values using get_local_path() if values are URI/URL/local path.
 
         Args:
             task: Task root.
             value: task['data'] if it's None.
-            start: If True, start with task['data'] as value.
             read_file: If True, read file content. Otherwise, return file path only.
 
         Returns:
             Any: Preloaded task data value.
         """
-        # start with task['data']
-        if start:
-            value = copy.deepcopy(task['data'])
-
         # recursively preload dict
         if isinstance(value, dict):
             for key, item in value.items():
-                value[key] = self.preload_task_data(task=task, value=item, start=False, read_file=read_file)
+                value[key] = self.preload_task_data(task=task, value=item, read_file=read_file)
             return value
 
         # recursively preload list
         elif isinstance(value, list):
             return [
-                self.preload_task_data(task=task, value=item, start=False, read_file=read_file)
+                self.preload_task_data(task=task, value=item, read_file=read_file)
                 for item in value
             ]
 
@@ -295,7 +290,6 @@ class LabelStudioMLBase(ABC):
 
         # keep value as is
         return value
-
 
     ## TODO this should go into SDK
     def get_first_tag_occurence(

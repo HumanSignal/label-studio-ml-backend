@@ -94,7 +94,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
         # The input texts are extracted from the tasks and stored in a list
         input_texts = []
         for task in tasks:
-            input_text = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+            value = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+            input_text = self.preload_task_data(task, value)
             input_texts.append(input_text)
 
         # Get model predictions
@@ -184,7 +185,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
                     continue
 
                 # collect input texts
-                input_text = task['data'][config['value']] or task['data'].get(DATA_UNDEFINED_NAME)
+                value = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+                input_text = self.preload_task_data(task, value)
                 input_texts.append(input_text)
 
                 # collect output labels
