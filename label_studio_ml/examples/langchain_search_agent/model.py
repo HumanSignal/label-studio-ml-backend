@@ -118,7 +118,7 @@ class LangchainSearchAgent(LabelStudioMLBase):
         }
 
         for task in tasks:
-            text = task['data'][value]
+            text = self.preload_task_data(task, task['data'][value])
             full_prompt = self.PROMPT_TEMPLATE.format(prompt=prompt, text=text)
             logger.info(f'Full prompt: {full_prompt}')
             llm_result = agent.run(full_prompt)
