@@ -56,6 +56,13 @@ def chat_completion_call(messages, params, *args, **kwargs):
         )
         if not model:
             model = 'gpt-35-turbo'
+    elif provider == "ollama":
+        client = OpenAI(
+            base_url=OpenAIInteractive.OLLAMA_ENDPOINT,
+
+            # required but ignored
+            api_key='ollama',
+        )
     else:
         raise
 
