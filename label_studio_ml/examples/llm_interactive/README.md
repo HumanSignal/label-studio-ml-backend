@@ -24,8 +24,6 @@ This example server connects Label Studio to [OpenAI](https://platform.openai.co
 or [Azure](https://azure.microsoft.com/en-us/products/ai-services/openai-service) API to interact with GPT chat models (
 gpt-3.5-turbo, gpt-4, etc.).
 
-You can also run local models with Ollama
-
 The interactive flow allows you to perform the following scenarios:
 
 * Autolabel data given an LLM prompt (e.g. "Classify this text as sarcastic or not")
