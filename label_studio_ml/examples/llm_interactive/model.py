@@ -56,6 +56,12 @@ def chat_completion_call(messages, params, *args, **kwargs):
         )
         if not model:
             model = 'gpt-35-turbo'
+    elif provider == "ollama":
+        client = OpenAI(
+            base_url=params.get('base_url', OpenAIInteractive.OLLAMA_ENDPOINT),
+            # required but ignored
+            api_key='ollama',
+        )
     else:
         raise
 
@@ -103,6 +109,7 @@ class OpenAIInteractive(LabelStudioMLBase):
     AZURE_RESOURCE_ENDPOINT = os.getenv("AZURE_RESOURCE_ENDPOINT", '')
     AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
     AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2023-05-15")
+    OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT")
 
     def setup(self):
         if self.DEFAULT_PROMPT and os.path.isfile(self.DEFAULT_PROMPT):
