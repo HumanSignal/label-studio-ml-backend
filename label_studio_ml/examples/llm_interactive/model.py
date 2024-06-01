@@ -6,7 +6,7 @@ import os
 import requests
 import pytesseract
 
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
 from typing import Union, List, Dict, Optional, Any, Tuple
 from tenacity import retry, stop_after_attempt, wait_random
@@ -121,6 +121,7 @@ class OpenAIInteractive(LabelStudioMLBase):
         # Open the image containing the text
         response = requests.get(image_url)
         image = Image.open(BytesIO(response.content))
+        image = ImageOps.exif_transpose(image)
 
         # Run OCR on the image
         text = pytesseract.image_to_string(image)
