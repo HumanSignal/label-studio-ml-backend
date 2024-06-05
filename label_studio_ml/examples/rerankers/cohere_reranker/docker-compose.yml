@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
   ml-backend:
-    container_name: ml-backend
-    image: humansignal/ml-backend:v0
+    container_name: cohere-reranker
+    image: humansignal/cohere-reranker:v0
     build:
       context: .
       args:
@@ -19,8 +19,15 @@ services:
       # specify the number of workers and threads for the model server
       - WORKERS=1
       - THREADS=8
-      # specify the model directory (likely you don't need to change this)
-      - MODEL_DIR=/data/models
+
+      # These vars are required: CO_API_KEY, LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL
+      - CO_API_KEY=
+      - LABEL_STUDIO_API_KEY=
+
+      # LABEL_STUDIO_URL can't be localhost or 0.0.0.0, it should be the public IP of the machine
+      # and accessible from the docker container, it always starts with http:// or https://,
+      # e.g. http://192.168.1.42:8080
+      - LABEL_STUDIO_URL=
     ports:
       - "9090:9090"
     volumes:
