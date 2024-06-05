@@ -81,7 +81,7 @@ class OpenAIReranker(LabelStudioMLBase):
         logger.debug(prompt)
         response = self.openai_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="gpt-4-0125-preview",
+            model="gpt-4o",
             n=1,
             stop=None,
             temperature=0.0,
@@ -116,6 +116,10 @@ class OpenAIReranker(LabelStudioMLBase):
                 hard_negatives.append(doc["id"])
             elif item["label"] == "positives":
                 positives.append(doc["id"])
+
+        # llm can duplicate the same doc in different or the same buckets
+        positives = list(set(positives))
+        hard_negatives = list(set(hard_negatives))
 
         score /= float(len(similar_docs))
         return self.create_prediction(MODEL_VERSION, score, positives, hard_negatives)

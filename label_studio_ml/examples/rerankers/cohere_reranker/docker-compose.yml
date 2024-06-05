@@ -31,4 +31,4 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - "./data/server:/data"
+      - "./data:/app/data"

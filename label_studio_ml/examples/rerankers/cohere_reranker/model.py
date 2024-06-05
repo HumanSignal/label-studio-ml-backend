@@ -62,7 +62,7 @@ class CohereReranker(LabelStudioMLBase):
         response = self.co.finetuning.list_finetuned_models()
         models = [
             model for model in response.finetuned_models
-            if model.name.startswith(CUSTOM_MODEL_VERSION) and model.status == "STATUS_READY"
+            if model.name.startswith(CUSTOM_MODEL_VERSION) and model.status in ["STATUS_READY", 'STATUS_PAUSED']
         ]
 
         # return the last model by created_at
@@ -273,11 +273,14 @@ class CohereReranker(LabelStudioMLBase):
             positives = [i for i in positives if i != item]
             negatives = [i for i in negatives if i != item]
 
+        if not positives:
+            return None
+
         # return relevant passages and hard negatives in cohere format
         return {
             "query": task['data'].get('query') or task['data'].get('question'),
-            "relevant_passages": positives,
-            "hard_negatives": negatives
+            "relevant_passages": list(set(positives)),
+            "hard_negatives": list(set(negatives))
         }
 
     def convert_dataset(self, project_id):
@@ -350,9 +353,11 @@ class CohereReranker(LabelStudioMLBase):
         logger.info(f"All {len(tasks)} tasks for project {project_id} were saved to {project_dir}")
 
     def cohere_train(self, project_id):
+        name = self.get_last_model_name()
+
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
         train_path = os.path.join(project_dir, 'train.jsonl')
-        dataset_name = CUSTOM_MODEL_VERSION + '-dataset'
+        dataset_name = name + '-dataset'
 
         rerank_dataset = self.co.datasets.create(
             name=dataset_name,
@@ -361,20 +366,6 @@ class CohereReranker(LabelStudioMLBase):
         )
         dataset_response = self.co.wait(rerank_dataset)
         logger.info(f"Cohere dataset await validation: {dataset_response}")
-
-        # get the latest cohere model
-        response = self.co.finetuning.list_finetuned_models()
-        models = sorted([
-            model for model in response.finetuned_models if model.name.startswith(CUSTOM_MODEL_VERSION)
-        ], key=lambda x: x.created_at, reverse=True)
-
-        # return the last model by created_at
-        if not models:
-            # it's the first training
-            name = CUSTOM_MODEL_VERSION + '-1'
-        else:
-            iteration = models[0].name.split('-')[-1]
-            name = f"{CUSTOM_MODEL_VERSION}-{int(iteration) + 1}"
 
         # start the fine-tune job using this dataset
         finetuned_model = self.co.finetuning.create_finetuned_model(
@@ -397,6 +388,21 @@ class CohereReranker(LabelStudioMLBase):
             f"Cohere Fine-tune created: {finetuned_model}\n"
             "------------------------------------------------------------------------\n"
         )
+
+    def get_last_model_name(self):
+        # get the latest cohere model
+        response = self.co.finetuning.list_finetuned_models()
+        models = sorted([
+            model for model in response.finetuned_models if model.name.startswith(CUSTOM_MODEL_VERSION)
+        ], key=lambda x: x.created_at, reverse=True)
+        # return the last model by created_at
+        if not models:
+            # it's the first training
+            name = CUSTOM_MODEL_VERSION + '-1'
+        else:
+            iteration = models[0].name.split('-')[-1]
+            name = f"{CUSTOM_MODEL_VERSION}-{int(iteration) + 1}"
+        return name
 
     def start_training(self, data):
         try:

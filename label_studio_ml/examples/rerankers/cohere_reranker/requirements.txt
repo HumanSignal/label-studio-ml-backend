@@ -1,2 +1,2 @@
-cohere==5.1.1
-label_studio_sdk
+cohere==5.5.4
+label_studio_sdk==0.0.34
