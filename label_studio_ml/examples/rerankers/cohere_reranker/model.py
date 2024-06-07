@@ -25,6 +25,7 @@ DEFAUL_MODEL_VERSION = "reranker-cohere-english-v3.0"
 CUSTOM_MODEL_VERSION = "reranker-cohere-custom"
 
 TRAIN_DIR = "data/train"
+TRAIN_FILE = 'train.jsonl'
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +287,7 @@ class CohereReranker(LabelStudioMLBase):
     def convert_dataset(self, project_id):
         count = 0
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
-        out_path = os.path.join(project_dir, 'train.jsonl')
+        out_path = os.path.join(project_dir, TRAIN_FILE)
 
         with open(out_path, 'w') as fout:
             # read each task, get the last updated annotation and save it in jsonl
@@ -356,8 +357,9 @@ class CohereReranker(LabelStudioMLBase):
         name = self.get_last_model_name()
 
         project_dir = os.path.join(TRAIN_DIR, str(project_id))
-        train_path = os.path.join(project_dir, 'train.jsonl')
+        train_path = os.path.join(project_dir, TRAIN_FILE)
         dataset_name = name + '-dataset'
+        logger.info(f"Training Cohere dataset: {dataset_name} with train file: {train_path}")
 
         rerank_dataset = self.co.datasets.create(
             name=dataset_name,
@@ -365,7 +367,7 @@ class CohereReranker(LabelStudioMLBase):
             type="reranker-finetune-input"
         )
         dataset_response = self.co.wait(rerank_dataset)
-        logger.info(f"Cohere dataset await validation: {dataset_response}")
+        logger.info(f"Cohere dataset validation is done: {dataset_response}")
 
         # start the fine-tune job using this dataset
         finetuned_model = self.co.finetuning.create_finetuned_model(
@@ -374,9 +376,8 @@ class CohereReranker(LabelStudioMLBase):
                 settings=Settings(
                     base_model=BaseModel(
                         name="english",
-                        version="3.0.0",
+                        # version="3.0.0",
                         base_type="BASE_TYPE_RERANK",
-                        strategy="STRATEGY_VANILLA"
                     ),
                     dataset_id=rerank_dataset.id,
                 ),
