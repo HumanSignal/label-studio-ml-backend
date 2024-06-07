@@ -89,7 +89,15 @@ class OpenAIReranker(LabelStudioMLBase):
 
         # Extracting the optimized text from the response
         response = response.choices[0].message.content
-        logger.debug("========================")
+        # cleanup response from ```json ... ```
+        if response.startswith("```"):
+            response = response[3:]
+        if response.startswith("json"):
+            response = response[4:]
+        if response.endswith("```"):
+            response = response[:-3]
+
+        logger.debug("======================== OpenAI response:")
         logger.debug(response)
         try:
             output = json.loads(response)
