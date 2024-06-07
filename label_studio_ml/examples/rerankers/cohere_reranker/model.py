@@ -386,7 +386,7 @@ class CohereReranker(LabelStudioMLBase):
                 settings=Settings(
                     base_model=BaseModel(
                         name="english",
-                        # version="3.0.0",
+                        version="3.0.0",
                         base_type="BASE_TYPE_RERANK",
                     ),
                     dataset_id=rerank_dataset.id,
