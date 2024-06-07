@@ -1,3 +1,8 @@
+"""
+Cohere Reranker with predict and model training.
+See more details in the tutorial:
+https://labelstud.io/blog/improving-rag-document-search-quality-with-cohere-re-ranking/#integrate-label-studio-with-the-qa-system
+"""
 import json
 import os
 import time
@@ -277,11 +282,16 @@ class CohereReranker(LabelStudioMLBase):
         if not positives:
             return None
 
+        # use only first 10 items to avoid Cohere token limits
+        # https://docs.cohere.com/docs/rerank-improving-the-results#refining-data-quality
+        positives = list(set(positives))[0:10]
+        negatives = list(set(negatives))[0:10]
+
         # return relevant passages and hard negatives in cohere format
         return {
             "query": task['data'].get('query') or task['data'].get('question'),
-            "relevant_passages": list(set(positives)),
-            "hard_negatives": list(set(negatives))
+            "relevant_passages": positives,
+            "hard_negatives": negatives
         }
 
     def convert_dataset(self, project_id):
@@ -385,8 +395,10 @@ class CohereReranker(LabelStudioMLBase):
         )
 
         logger.info(
-            "------------------------------------------------------------------------\n"
-            f"Cohere Fine-tune created: {finetuned_model}\n"
+            "\n------------------------------------------------------------------------\n"
+            f"Cohere Fine-tune Training is created: {finetuned_model}\n"
+            f"You have to wait until the model is ready to use.\n"
+            f"Check the readiness in the Cohere admin panel.\n"
             "------------------------------------------------------------------------\n"
         )
 

@@ -14,6 +14,8 @@ def classification_prompt(query, texts):
         "it's the `hard_negatives` label,\n"
         "  - otherwise it's the `neutral` label,\n"
         "output the label as the `label` field.\n"
+        "4. Ensure that there are no more than 10 `positives` and 10 `hard_negatives` labels. "
+        "Choose the most relevant `positives` and `hard_negatives` to include within this limit.\n"
         "5. Each TEXT starts with `===>`, a number and a newline, "
         "then a text fragment follows (e.g. `\n===> 1.\n this is text one\n`), "
         "you should use this number in the JSON output as the `id` field.\n"
