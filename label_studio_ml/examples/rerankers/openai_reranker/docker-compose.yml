@@ -17,7 +17,7 @@ services:
       # any other parameters that you want to pass to the model server
       - ANY=PARAMETER
       # specify the number of workers and threads for the model server
-      - WORKERS=1
+      - WORKERS=4
       - THREADS=8
 
       # These vars are required: OPENAI_API_KEY, LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL

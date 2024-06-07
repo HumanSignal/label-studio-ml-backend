@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 POSITIVES = "positives"
 HARD_NEGATIVES = "hard_negatives"
-DEFAUL_MODEL_VERSION = "reranker-cohere-english-v3.0"
+DEFAULT_MODEL_VERSION = "reranker-cohere-english-v3.0"
 CUSTOM_MODEL_VERSION = "reranker-cohere-custom"
 
 TRAIN_DIR = "data/train"
@@ -74,7 +74,7 @@ class CohereReranker(LabelStudioMLBase):
         # return the last model by created_at
         models = sorted(models, key=lambda x: x.created_at, reverse=True)
         self.cohere_model = (
-            models[0] if models else SimpleNamespace(id=DEFAUL_MODEL_VERSION, name=DEFAUL_MODEL_VERSION)
+            models[0] if models else SimpleNamespace(id=DEFAULT_MODEL_VERSION, name=DEFAULT_MODEL_VERSION)
         )
         self.set("model_version", self.cohere_model.name + "-" + self.cohere_model.id[0:4])
         return self.cohere_model
