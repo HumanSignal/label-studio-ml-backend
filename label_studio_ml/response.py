@@ -2,7 +2,7 @@
 from typing import Type, Dict, Optional, List, Tuple, Any, Union
 from pydantic import BaseModel, confloat
 
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk._legacy.objects import PredictionValue
 
 
 class ModelResponse(BaseModel):
