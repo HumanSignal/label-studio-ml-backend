@@ -67,7 +67,7 @@ class LabelStudioMLBase(ABC):
         'ANNOTATION_CREATED',
         'ANNOTATION_UPDATED',
         'ANNOTATION_DELETED',
-        'PROJECT_UPDATED'
+        'START_TRAINING'
     )
 
     def __init__(self, project_id: Optional[str] = None, label_config=None):
