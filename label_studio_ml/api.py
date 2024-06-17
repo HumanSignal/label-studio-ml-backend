@@ -77,7 +77,7 @@ def _predict():
         else:
             response.update_predictions_version()
 
-        response = response.serialize()
+        response = response.model_dump()
 
     res = response
     if res is None:
