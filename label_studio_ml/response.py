@@ -1,8 +1,8 @@
 
-from typing import Type, Dict, Optional, List, Tuple, Any, Union
-from pydantic import BaseModel, confloat
+from typing import Optional, List
+from pydantic import BaseModel
 
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk._legacy.objects import PredictionValue
 
 
 class ModelResponse(BaseModel):
