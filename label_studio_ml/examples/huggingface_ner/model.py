@@ -83,7 +83,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                 entities = list(group)
                 start = entities[0]['start']
                 end = entities[-1]['end']
-                score = sum([entity['score'] for entity in entities]) / len(entities)
+                score = float(sum([entity['score'] for entity in entities]) / len(entities))
                 results.append({
                     'from_name': from_name,
                     'to_name': to_name,
