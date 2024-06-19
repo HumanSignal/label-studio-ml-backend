@@ -1,1 +1,2 @@
 nemo-toolkit[all]
+numpy<2
