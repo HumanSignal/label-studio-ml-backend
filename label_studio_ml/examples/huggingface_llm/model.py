@@ -31,7 +31,7 @@ class HuggingFaceLLM(LabelStudioMLBase):
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('TextArea', 'Text')
         predictions = []
         for task in tasks:
-            text = task['data'][value]
+            text = self.preload_task_data(task, task['data'][value])
             result = _model(text, max_length=self.MAX_LENGTH)
             generated_text = result[0]['generated_text']
             # cut the `text` prefix

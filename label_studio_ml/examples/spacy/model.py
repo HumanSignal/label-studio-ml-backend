@@ -20,7 +20,7 @@ class SpacyMLBackend(LabelStudioMLBase):
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
         predictions = []
         for task in tasks:
-            text = task['data'][value]
+            text = self.preload_task_data(task, task['data'][value])
             doc = nlp(text)
             entities = []
             for ent in doc.ents:

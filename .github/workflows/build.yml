@@ -73,7 +73,7 @@ jobs:
 
       - name: Login to DockerHub
         if: ${{ !github.event.pull_request.head.repo.fork }}
-        uses: docker/login-action@v3.1.0
+        uses: docker/login-action@v3.2.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -99,7 +99,7 @@ jobs:
 
 
       - name: Push Docker image
-        uses: docker/build-push-action@v5.3.0
+        uses: docker/build-push-action@v5.4.0
         id: docker_build_and_push
         with:
           context: "${{ env.examples_dir }}/${{ env.backend_dir_name }}"

@@ -101,7 +101,7 @@ class BertClassifier(LabelStudioMLBase):
 
         li = self.label_interface
         from_name, to_name, value = li.get_first_tag_occurence('Choices', 'Text')
-        texts = [task['data'][value] for task in tasks]
+        texts = [self.preload_task_data(task, task['data'][value]) for task in tasks]
 
         model_predictions = self._model(texts)
         predictions = []
@@ -149,7 +149,8 @@ class BertClassifier(LabelStudioMLBase):
                     for result in annotation['result']:
                         if 'choices' in result['value']:
                             ds_raw['id'].append(task['id'])
-                            ds_raw['text'].append(task['data'][value])
+                            text = self.preload_task_data(task, task['data'][value])
+                            ds_raw['text'].append(text)
                             ds_raw['label'].append(result['value']['choices'])
 
         hf_dataset = Dataset.from_dict(ds_raw)

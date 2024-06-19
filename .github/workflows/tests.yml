@@ -127,7 +127,7 @@ jobs:
 
       - name: "Upload general coverage to Codecov"
         if: ${{ matrix.ml_backend == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v4.3.1
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: codecov-general
           files: ./tests/${{ matrix.ml_backend }}_coverage.xml
@@ -135,7 +135,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: "Upload ml-backend ${{ matrix.ml_backend }} coverage to Codecov"
-        uses: codecov/codecov-action@v4.3.1
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: codecov-${{ matrix.ml_backend }}
           files: ./label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
@@ -192,3 +192,22 @@ jobs:
             echo "All in matrix"
             echo "matrix={\"ml_backend\":[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
           fi
+
+
+  dependabot-auto-merge:
+    name: "Auto Merge dependabot PR"
+    if: |
+      always() &&
+      needs.run_pytest.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      ( startsWith(github.head_ref, 'dependabot/npm_and_yarn/') || startsWith(github.head_ref, 'dependabot/pip/') )
+    runs-on: ubuntu-latest
+    needs:
+      - run_pytest
+    steps:
+      - name: Enable auto-merge for Dependabot PRs
+        run: gh pr merge --admin --squash "${PR_URL}"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
