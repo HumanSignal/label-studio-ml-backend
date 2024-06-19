@@ -8,7 +8,7 @@ import torch
 from gliner import GLiNER
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
 

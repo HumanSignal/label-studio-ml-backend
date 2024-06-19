@@ -14,7 +14,7 @@ from label_studio_ml.utils import (
     get_single_tag_keys,
     DATA_UNDEFINED_NAME,
 )
-from label_studio_tools.core.utils.io import get_data_dir, get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_data_dir, get_local_path
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 

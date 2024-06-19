@@ -3,7 +3,7 @@ import logging
 
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase, ModelResponse
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 from flair.nn import Classifier
 from flair.data import Sentence
 

@@ -6,7 +6,7 @@ from label_studio_converter import brush
 from typing import List, Dict, Optional
 from uuid import uuid4
 from label_studio_ml.model import LabelStudioMLBase, ModelResponse
-from label_studio_tools.core.utils.params import get_bool_env
+from label_studio_sdk._extensions.label_studio_tools.core.utils.params import get_bool_env
 from label_studio_sdk.objects import PredictionValue
 from segment_anything.utils.transforms import ResizeLongestSide
 
