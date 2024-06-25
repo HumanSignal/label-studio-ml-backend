@@ -58,6 +58,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 RUN mim install mmengine==0.10.3
 RUN mim install mmdet==3.3.0
+RUN mim install mmcv-full==1.7.2
 RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .
 
 COPY . .
