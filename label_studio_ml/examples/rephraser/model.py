@@ -54,12 +54,12 @@ class RephraserModel(LabelStudioMLBase):
                     "from_name": "repharesed"
                 })
         
-        return ModelResponse(predictions=[])
+        return ModelResponse(predictions=[prediction])
 
     def get_rephrased_questions(self, context):
+        texts = []
         if context:
             # Interactive mode - get prompt from context
-            texts = []
             result = context.get('result', [])
             for item in result:
                 if item.get('name') == REPHRASER_TEXTAREA_TAG:
