@@ -41,19 +41,17 @@ class RephraserModel(LabelStudioMLBase):
         # get the rephrased questions from user textarea
         prediction = {"result": []}
         texts = self.get_rephrased_questions(context)
-        id_ = 0
         if not texts:
             texts = self.generate_reprhased_questions(question)
-            for text in texts:
-                prediction['result'].append({
-                    "id": str(id_),
-                    "type": "textarea",
-                    "value": {"text": [text]},
-                    "origin": "prediction",
-                    "to_name": "question",
-                    "from_name": "repharesed"
-                })
-        
+            prediction['result'].append({
+                "id": 'id0',
+                "type": "textarea",
+                "value": {"text": texts},
+                "origin": "prediction",
+                "to_name": "question",
+                "from_name": "relevant"
+            })
+
         return ModelResponse(predictions=[prediction])
 
     def get_rephrased_questions(self, context):
