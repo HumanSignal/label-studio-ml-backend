@@ -8,6 +8,18 @@ REPHRASER_TEXTAREA_TAG = 'repharesed'
 RELEVANT_TEXTAREA_TAG = 'relevant'
 
 
+def get_labeled_class(annotation):
+    lista = {}
+    for item in annotation["result"]:
+        # the format of annotations is annotations: [{"result": [{...
+        if item["type"] != "number":
+            # not all annotations have type "number"
+            continue
+        # we need to store them in the naming order to compare appropriately
+        lista[item["from_name"]] = item["value"]["number"]
+    return lista
+
+
 class RephraserModel(LabelStudioMLBase):
     """Custom ML Backend model
     """
@@ -21,13 +33,6 @@ class RephraserModel(LabelStudioMLBase):
         return ['test1', 'test2', 'test3']
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
-        """ Write your inference logic here
-            :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
-            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
-            :return model_response
-                ModelResponse(predictions=predictions) with
-                predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
-        """
         if not tasks:
             raise Exception('No tasks provided in predict()')
         if not tasks[0]['data'].get('question'):
