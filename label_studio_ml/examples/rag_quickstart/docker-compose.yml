@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  rag_quickstart:
+    container_name: rag_quickstart
+    image: heartexlabs/label-studio-ml-backend:llm-master
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      - LABEL_STUDIO_URL=http://localhost:8082
+      - LABEL_STUDIO_API_KEY=yourapikeyhere
+      - MODEL_DIR=/data/models
+      # Specify openai model provider: "openai", "azure", or "ollama"
+      - OPENAI_PROVIDER=openai
+      # Specify API key for openai or azure
+      - OPENAI_API_KEY=yourapikeyhere
+      # Specify model name for openai (by default it uses "gpt-3.5-turbo-0125")
+      - OPENAI_MODEL=gpt-3.5-turbo-0125
+      # Internal prompt template for the model is:
+      # **Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"
+      # TODO(jo): clean up default prompt behavior
+      - USE_INTERNAL_PROMPT_TEMPLATE=1
+      # You can define the default prompt to be used before the user input
+      # Can be the path to the file with the prompt or the prompt itself
+      # ! Note that USE_INTERNAL_PROMPT_TEMPLATE should be set to 0 in this case
+      # Prompt prefix for the TextArea component in the frontend to be used for the user input
+      - PROMPT_PREFIX=prompt
+      # Log level for the server
+      - LOG_LEVEL=DEBUG
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      - CLEAR_CONTEXT_BETWEEN_TASKS=0
+    ports:
+      - 9090:9090
+    volumes:
+      - "./data/server:/data"

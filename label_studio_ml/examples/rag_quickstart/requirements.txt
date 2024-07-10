@@ -1,0 +1,10 @@
+pytesseract==0.3.10
+openai==1.13.3
+tenacity==8.2.2
+langchain_openai
+langchain
+langchain_chroma
+bs4
+langchainhub
+unstructured[md]
+psutil
