@@ -11,6 +11,7 @@ from label_studio_sdk.label_interface.objects import PredictionValue
 from label_studio_sdk.label_interface.control_tags import ControlTag, ObjectTag
 
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
 from langchain_community.document_loaders.directory import DirectoryLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -32,23 +33,24 @@ def iife_rag():
         return rag_chain
 
     nltk.download('punkt')
-    llm = ChatOpenAI(model=RagQuickstart.OPENAI_MODEL)
+    nltk.download('averaged_perceptron_tagger')
+    llm = ChatOpenAI(model=RagQuickstart.OPENAI_RAG_MODEL)
 
-    loader = DirectoryLoader('/data/label-studio/docs/source', glob="**/*.md")
+    loader = DirectoryLoader(RagQuickstart.DOCUMENTATION_PATH, glob=RagQuickstart.DOCUMENTATION_GLOB)
     docs = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
-    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings())
+    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(model=RagQuickstart.OPENAI_EMBEDDING_MODEL))
     retriever = vectorstore.as_retriever()
 
     system_prompt = (
         "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
+        "Use the following pieces of retrieved documentation to answer "
         "the question. If you don't know the answer, say that you "
         "don't know."
         "\n\n"
-        "Also consider this additional context: {context}"
+        "{context}"
     )
 
     prompt = ChatPromptTemplate.from_messages(
@@ -63,21 +65,26 @@ def iife_rag():
     return rag_chain
 
 
+def format_documentation(documentation: List[Document]) -> List[str]:
+    """Format documentation for display in a TextArea"""
+
+    return [f"source: {d.metadata.get('source', 'source unknown')}\n\n{d.page_content}" for d in documentation]
+
 def get_rag_response(messages: Union[List[Dict], str], params, *args, **kwargs):
     """
     """
-    logger.debug(f"OpenAI request: {messages}, params={params}")
+    logger.debug(f"rag request: {messages}, params={params}")
     rag = iife_rag()
     response = rag.invoke({"input": messages})
     print(f'rag response: {response=} {response["answer"]=} {response["context"]=}')
-    return response #[]
+    return response
 
 def get_evaluation(response) -> Tuple[str, float]:
-    llm = ChatOpenAI(model=RagQuickstart.OPENAI_MODEL)
+    llm = ChatOpenAI(model=RagQuickstart.OPENAI_EVALUATION_MODEL)
     messages = [
-        ("system", "Evaluate the following answer to the given question (along with any additional context provided), both for correctness as well as whether it is supported by the given documentation."),
-        ("human", "QUESTION AND CONTEXT: " + response["input"]),
-        ("human", "ANSWER:" + response["answer"]),
+        ("system", "Evaluate the following answer to the given question (along with any additional instructions provided), both for correctness as well as whether it is supported by the given documentation."),
+        ("human", "QUESTION AND ADDITIONAL INSTRUCTIONS: " + response["input"]),
+        ("human", "ANSWER: " + response["answer"]),
         ("human", "DOCUMENTATION: " + str(response["context"])),
     ]
     evaluation = llm.invoke(messages)
@@ -110,18 +117,15 @@ def get_evaluation(response) -> Tuple[str, float]:
 class RagQuickstart(LabelStudioMLBase):
     """
     """
-    last_prompts = None
-    OPENAI_PROVIDER = os.getenv("OPENAI_PROVIDER", "openai")
+    DOCUMENTATION_PATH = os.getenv("DOCUMENTATION_PATH")
+    DOCUMENTATION_GLOB = os.getenv("DOCUMENTATION_GLOB")
     OPENAI_KEY = os.getenv('OPENAI_API_KEY')
-    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo-0125')
-    PROMPT_PREFIX = os.getenv("PROMPT_PREFIX", "prompt")
-    USE_INTERNAL_PROMPT_TEMPLATE = bool(int(os.getenv("USE_INTERNAL_PROMPT_TEMPLATE", 1)))
-    # if set, this prompt will be used at the beginning of the session
-    DEFAULT_PROMPT = os.getenv('DEFAULT_PROMPT')
-    # if set, additional context will be cleared between tasks
-    CLEAR_CONTEXT_BETWEEN_TASKS = bool(int(os.getenv("CLEAR_CONTEXT_BETWEEN_TASKS", 1)))
-    PROMPT_TEMPLATE = os.getenv("PROMPT_TEMPLATE", '**Question to answer**:\n\n"{text}"\n\n**Additional context (may be empty)**:\n\n"{prompt}"')
-    PROMPT_TAG = "TextArea"
+    OPENAI_EMBEDDING_MODEL = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
+    OPENAI_RAG_MODEL = os.getenv('OPENAI_RAG_MODEL', 'gpt-3.5-turbo-0125')
+    OPENAI_EVALUATION_MODEL = os.getenv('OPENAI_EVALUATION_MODEL', 'gpt-3.5-turbo-0125')
+    # if set, additional instructions will be cleared between tasks
+    CLEAR_ADDITIONAL_INSTRUCTIONS_BETWEEN_TASKS = bool(int(os.getenv("CLEAR_ADDITIONAL_INSTRUCTIONS_BETWEEN_TASKS", 1)))
+    PROMPT_TEMPLATE = os.getenv("PROMPT_TEMPLATE", '**Question to answer**:\n\n"{text}"\n\n**Additional instructions (may be empty)**:\n\n"{prompt}"')
     SUPPORTED_INPUTS = ("Text",)
 
     def setup(self):
@@ -130,7 +134,6 @@ class RagQuickstart(LabelStudioMLBase):
     def _get_text(self, task_data, object_tag):
         """
         """
-        print(f'{task_data=}, {object_tag=}')
         data = task_data.get(object_tag.value_name)
         return data
 
@@ -138,7 +141,6 @@ class RagQuickstart(LabelStudioMLBase):
         """Getting prompt values
         """
         if context:
-            print('going down context branch', context)
             # Interactive mode - get prompt from context
             result = context.get('result')
             for item in result:
@@ -146,17 +148,7 @@ class RagQuickstart(LabelStudioMLBase):
                     return item['value']['text']
         # Initializing - get existing prompt from storage
         elif prompt := self.get(prompt_tag.name):
-            print('going down prompt branch', prompt)
-            print('context:', context)
             return [prompt]
-        # Default prompt
-        elif self.DEFAULT_PROMPT:
-            if self.USE_INTERNAL_PROMPT_TEMPLATE:
-                logger.error('Using both `DEFAULT_PROMPT` and `USE_INTERNAL_PROMPT_TEMPLATE` is not supported. '
-                             'Please either specify `USE_INTERNAL_PROMPT_TEMPLATE=0` or remove `DEFAULT_PROMPT`. '
-                             'For now, no prompt will be used.')
-                return []
-            return [self.DEFAULT_PROMPT]
 
         return []
 
@@ -178,19 +170,18 @@ class RagQuickstart(LabelStudioMLBase):
         except:
             return None
 
-    def _find_prompt_tags(self) -> Tuple[ControlTag, ObjectTag]:
-        """Find prompting tags in the config
+    def _find_tags_with_prefix(self, prefix, tag_type) -> Tuple[ControlTag, ObjectTag]:
+        """Find tags in the config matching prefix and tag type
         """
         li = self.label_interface
-        prompt_from_name, prompt_to_name, value = li.get_first_tag_occurence(
-            # prompt tag
-            self.PROMPT_TAG,
+        tag_from_name, tag_to_name, value = li.get_first_tag_occurence(
+            tag_type,
             # supported input types
             self.SUPPORTED_INPUTS,
-            # if multiple <TextArea> are presented, use one with prefix specified in PROMPT_PREFIX
-            name_filter=lambda s: s.startswith(self.PROMPT_PREFIX))
+            # if multiple <TextArea> are presented, use one with prefix specified
+            name_filter=lambda s: s.startswith(prefix))
 
-        return li.get_control(prompt_from_name), li.get_object(prompt_to_name)
+        return li.get_control(tag_from_name), li.get_object(tag_to_name)
 
     def _validate_tags(self, textarea_tag: str) -> None:
         if not textarea_tag:
@@ -199,23 +190,26 @@ class RagQuickstart(LabelStudioMLBase):
     def _generate_normalized_prompt(self, text: str, prompt: str, task_data: Dict) -> str:
         """
         """
-        if self.USE_INTERNAL_PROMPT_TEMPLATE:
-            norm_prompt = self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
-        else:
-            norm_prompt = prompt.format(**task_data)
+        return self.PROMPT_TEMPLATE.format(text=text, prompt=prompt)
 
-        return norm_prompt
-
-    def _generate_response_regions(self, response: List[str], prompt_tag, textarea_tag: ControlTag, prompts: List[str]) -> List:
+    def _generate_response_regions(self, answer: str, float_eval: Optional[float], str_eval: str, documentation: List[str], prompt_tag, textarea_tag: ControlTag, prompts: List[str]) -> List:
         """
         """
         regions = []
 
         if textarea_tag:
-            regions.append(textarea_tag.label(text=response))
+            regions.append(textarea_tag.label(text=[answer]))
 
         # not sure why we need this but it was in the original code
         regions.append(prompt_tag.label(text=prompts))
+
+        doc_tag, _ = self._find_tags_with_prefix('documentation', 'TextArea')
+        eval_tag, _ = self._find_tags_with_prefix('evaluation', 'TextArea')
+        eval_number_tag, _ = self._find_tags_with_prefix('float_eval', 'Number')
+
+        regions.append(doc_tag.label(text=documentation))
+        regions.append(eval_tag.label(text=[str_eval]))
+        regions.append(eval_number_tag.label(number=int(float_eval * 100)))
 
         return regions
 
@@ -228,7 +222,7 @@ class RagQuickstart(LabelStudioMLBase):
         response = get_rag_response(norm_prompt, self.extra_params)
         evaluation, float_eval = get_evaluation(response)
 
-        regions = self._generate_response_regions([response["answer"] + f"\n\nEVALUATION (score: {float_eval})\n\n" + evaluation + "\n\nCONTEXT\n\n" + str(response["context"])], prompt_tag, textarea_tag, prompts)
+        regions = self._generate_response_regions(response["answer"], float_eval, evaluation, format_documentation(response["context"]), prompt_tag, textarea_tag, prompts)
 
         return PredictionValue(result=regions, score=(float_eval or 0.1), model_version=str(self.model_version))
 
@@ -240,11 +234,10 @@ class RagQuickstart(LabelStudioMLBase):
 
         # prompt tag contains the prompt in the config
         # object tag contains what we plan to label
-        print('\n\nFINDING PROMPT TAGS\n\n')
-        prompt_tag, object_tag = self._find_prompt_tags()
+        prompt_tag, object_tag = self._find_tags_with_prefix('prompt', 'TextArea')
         prompts = self._get_prompts(context, prompt_tag)
 
-        if self.CLEAR_CONTEXT_BETWEEN_TASKS:
+        if self.CLEAR_ADDITIONAL_INSTRUCTIONS_BETWEEN_TASKS:
             # hack: let's say if there are no predictions, then there are no prompts
             if not tasks[0].get('predictions'):
                 prompts = []
@@ -253,8 +246,6 @@ class RagQuickstart(LabelStudioMLBase):
                 prompts = last_prompts
         last_prompts = prompts
 
-
-        print('\n\nPROMPTS\n\n', prompts)
         prompt = "\n".join(prompts)
 
         textarea_tag = self._find_textarea_tag(prompt_tag, object_tag)

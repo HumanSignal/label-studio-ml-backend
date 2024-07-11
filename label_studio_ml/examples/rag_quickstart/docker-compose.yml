@@ -11,28 +11,24 @@ services:
     environment:
       - LABEL_STUDIO_URL=http://localhost:8082
       - LABEL_STUDIO_API_KEY=yourapikeyhere
-      - MODEL_DIR=/data/models
-      # Specify openai model provider: "openai", "azure", or "ollama"
-      - OPENAI_PROVIDER=openai
-      # Specify API key for openai or azure
+      # Specify the path (within this container) to the directory with the documentation files
+      - DOCUMENTATION_PATH=/path/to/your/docs
+      # Specify glob pattern for documentation files (ex: **/*.md for all markdown files under DOCUMENTATION_PATH)
+      - DOCUMENTATION_GLOB=**/*.md
+      # Specify API key for openai
       - OPENAI_API_KEY=yourapikeyhere
-      # Specify model name for openai (by default it uses "gpt-3.5-turbo-0125")
-      - OPENAI_MODEL=gpt-3.5-turbo-0125
-      # Internal prompt template for the model is:
-      # **Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"
-      # TODO(jo): clean up default prompt behavior
-      - USE_INTERNAL_PROMPT_TEMPLATE=1
-      # You can define the default prompt to be used before the user input
-      # Can be the path to the file with the prompt or the prompt itself
-      # ! Note that USE_INTERNAL_PROMPT_TEMPLATE should be set to 0 in this case
-      # Prompt prefix for the TextArea component in the frontend to be used for the user input
-      - PROMPT_PREFIX=prompt
+      # Specify embedding model name for openai (by default it uses "text-embedding-3-small")
+      - OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+      # Specify RAG model name for openai (by default it uses "gpt-3.5-turbo-0125")
+      - OPENAI_RAG_MODEL=gpt-3.5-turbo-0125
+      # Specify evaluation model name for openai (by default it uses "gpt-3.5-turbo-0125")
+      - OPENAI_EVALUATION_MODEL=gpt-3.5-turbo-0125
       # Log level for the server
       - LOG_LEVEL=DEBUG
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
-      - CLEAR_CONTEXT_BETWEEN_TASKS=0
+      - CLEAR_ADDITIONAL_INSTRUCTIONS_BETWEEN_TASKS=0
     ports:
       - 9090:9090
     volumes:

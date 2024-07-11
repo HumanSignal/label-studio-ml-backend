@@ -74,7 +74,6 @@ $ curl http://localhost:9090/health
 <View>
     <Style>
         .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
-
         .text-container {
         background-color: white;
         border-radius: 10px;
@@ -84,19 +83,31 @@ $ curl http://localhost:9090/health
         line-height: 1.6;
         font-size: 16px;
         }
+        .evaluation input {
+            background: none;
+            border: none;
+            padding: 0;
+            margin-top: -8px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .evaluation input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
     </Style>
     <Header value="Question:"/>
     <View className="text-container">
         <Text name="context" value="$text"/>
     </View>
-    <Header value="Additional context (optional):"/>
+    <Header value="Additional instructions for the LLM prompt (optional):"/>
     <View className="prompt">
         <TextArea name="prompt"
                   toName="context"
                   rows="4"
                   editable="true"
                   showSubmitButton="false"
-                  placeholder="Provide additional context here then Shift+Enter - to provide none, simply enter a space then shift+enter."
+                  placeholder="Provide additional instructions here then Shift+Enter - to provide none, simply enter a space then shift+enter."
         />
     </View>
     <Header value="Response:"/>
@@ -109,6 +120,30 @@ $ curl http://localhost:9090/health
               smart="false"
               placeholder="Generated response will appear here..."
     />
+    <View className="evaluation" >
+    <View style="display: flex;">
+      <Header style="padding-right: 1em;" value="Evaluation (scored 0 to 100):"/><Number name="float_eval" toName="context" defaultValue="0" />
+    </View>
+    <TextArea name="evaluation"
+              toName="context"
+              rows="4"
+              maxSubmissions="1"
+              showSubmitButton="false"
+              smart="false"
+              placeholder="Generated evaluation will appear here..."
+    />
+    </View>
+    <Header value="Documentation:"/>
+    <View className="documentation">
+    <TextArea name="documentation"
+              toName="context"
+              rows="0"
+              maxSubmissions="1"
+              showSubmitButton="false"
+              smart="false"
+              placeholder="Retrieved documentation will appear here..."
+    />
+    </View>
 </View>
 
 **Example data input:**
