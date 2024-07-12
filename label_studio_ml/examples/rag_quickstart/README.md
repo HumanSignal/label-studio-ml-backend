@@ -24,13 +24,13 @@ image: "/tutorials/llm-interactive.png"
 
 # RAG Quickstart Labeling
 
-This example server connects Label Studio to [OpenAI](https://platform.openai.com/), to interact with chat and embedding models. It supports question answering and evaluation using RAG, given a list of questions as tasks, and a folder containing documentation (eg, a /docs path within a Github repository.)
+This example server connects Label Studio to [OpenAI](https://platform.openai.com/), to interact with chat and embedding models. It supports question answering and evaluation using RAG, given a list of questions as tasks, and a folder containing documentation (eg, a `/docs` path within a Github repository that has been cloned on your computer.)
 
 ## Starting the ML Backend
 
 1. Make your reference documentation available to the backend
 
-Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML Backend's image. This example will mount the folder at /host/path/to/your/documentation on your computer, to the path /data/documentation inside the ML Backend docker image. The DOCUMENTATION_PATH and DOCUMENTATION_GLOB settings given below will match all `.md` files within /data/documentation (or its subfolders).
+Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML Backend's image. This example will mount the folder at `/host/path/to/your/documentation` on your computer, to the path /data/documentation inside the ML Backend docker image. The `DOCUMENTATION_PATH` and `DOCUMENTATION_GLOB` settings given below will match all `.md` files within `/data/documentation` (or its subfolders).
 
 ```
   rag_quickstart:
@@ -62,8 +62,9 @@ $ curl http://localhost:9090/health
    the response field.
 8. If you want to apply LLM auto-annotation to multiple tasks at once, go to the [Data Manager](https://labelstud.io/guide/manage_data), select a group of tasks and then select **Actions > Retrieve Predictions** (or **Batch Predictions** in Label Studio Enterprise).
 
-## Configuration
+## Label Config
 
+```
 <View>
     <Style>
         .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
@@ -151,6 +152,7 @@ $ curl http://localhost:9090/health
     />
     </View>
 </View>
+```
 
 **Example data input:**
 
