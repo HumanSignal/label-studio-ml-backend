@@ -9,8 +9,6 @@ services:
       args:
         TEST_ENV: ${TEST_ENV}
     environment:
-      - LABEL_STUDIO_URL=http://localhost:8082
-      - LABEL_STUDIO_API_KEY=your-label-studio-api-key
       # Specify the path (within this container) to the directory with the documentation files
       - DOCUMENTATION_PATH=/container/path/to/docs
       # Specify glob pattern for documentation files (ex: **/*.md for all markdown files under DOCUMENTATION_PATH)
@@ -22,14 +20,35 @@ services:
       # Specify RAG model name for openai (by default it uses "gpt-3.5-turbo-0125")
       - OPENAI_RAG_MODEL=gpt-3.5-turbo-0125
       # Specify evaluation model name for openai (by default it uses "gpt-4o")
+      # From testing, GPT3.5 is not adequate for evaluation, so strongly recommend GPT4
       - OPENAI_EVALUATION_MODEL=gpt-4o
       # Log level for the server
       - LOG_LEVEL=DEBUG
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
+      # If enabled, we'll discard additional instructions between tasks.
       - CLEAR_ADDITIONAL_INSTRUCTIONS_BETWEEN_TASKS=0
     ports:
       - 9090:9090
     volumes:
       - "./data/server:/data"
+
+
+# Rather than editing this file, we recommend creating a docker-compose.override.yml
+# file in the same directory as this file, with the following content+structure:
+
+# version: '3.8'
+#
+# services:
+#   rag_quickstart:
+#     volumes:
+#       # Specify the path to the directory with the documentation files on the host machine,
+#       # and the path to the directory where the documentation files should be mounted in the container
+#       - host/path/to/documentation:/data/yourpackagename
+#     environment:
+#       # Specify the path (within this container) to the directory with the documentation files
+#       - DOCUMENTATION_PATH=/data/yourpackagename/docs/source
+#       # Glob for your documentation files; in this example it's all Markdown files
+#       - DOCUMENTATION_GLOB=**/*.md
+#       - OPENAI_API_KEY=your-api-key-here

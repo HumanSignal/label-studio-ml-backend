@@ -30,7 +30,7 @@ This example server connects Label Studio to [OpenAI](https://platform.openai.co
 
 1. Make your reference documentation available to the backend
 
-Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML Backend's image. This example will mount the folder at /host/path/to/your/documentation on your host, to the path /data/documentation inside the ML Backend docker image. The DOCUMENTATION_PATH and DOCUMENTATION_GLOB settings given below will match all `.md` files within /data/documentation (or its subfolders).
+Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML Backend's image. This example will mount the folder at /host/path/to/your/documentation on your computer, to the path /data/documentation inside the ML Backend docker image. The DOCUMENTATION_PATH and DOCUMENTATION_GLOB settings given below will match all `.md` files within /data/documentation (or its subfolders).
 
 ```
   rag_quickstart:
@@ -39,7 +39,6 @@ Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and 
     environment:
       - DOCUMENTATION_PATH=/data/documentation
       - DOCUMENTATION_GLOB=**/*.md
-      - LABEL_STUDIO_API_KEY=<your label studio API key>
       - OPENAI_API_KEY=<your OpenAI API key>
 ```
 
@@ -155,10 +154,21 @@ $ curl http://localhost:9090/health
 
 **Example data input:**
 
+Tip: when generating questions for your project, it may be helpful to pass this snippet to ChatGPT etc to give it an example of Label Studio's tasks format to work from.
+
 ```
-{
-  "data": {
-    "text": "How do I install Label Studio?"
+[
+  {
+    "id": 1,
+    "data": {
+      "text": "How do I install Label Studio?"
+    }
+  },
+  {
+    "id": 2,
+    "data": {
+      "text": "How do I reinstall Label Studio?"
+    }
   }
-}
+]
 ```
