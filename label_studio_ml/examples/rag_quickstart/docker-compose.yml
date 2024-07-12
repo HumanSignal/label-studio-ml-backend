@@ -10,19 +10,19 @@ services:
         TEST_ENV: ${TEST_ENV}
     environment:
       - LABEL_STUDIO_URL=http://localhost:8082
-      - LABEL_STUDIO_API_KEY=yourapikeyhere
+      - LABEL_STUDIO_API_KEY=your-label-studio-api-key
       # Specify the path (within this container) to the directory with the documentation files
-      - DOCUMENTATION_PATH=/path/to/your/docs
+      - DOCUMENTATION_PATH=/container/path/to/docs
       # Specify glob pattern for documentation files (ex: **/*.md for all markdown files under DOCUMENTATION_PATH)
-      - DOCUMENTATION_GLOB=**/*.md
+      - DOCUMENTATION_GLOB=your-glob-pattern-here
       # Specify API key for openai
-      - OPENAI_API_KEY=yourapikeyhere
+      - OPENAI_API_KEY=your-openai-api-key
       # Specify embedding model name for openai (by default it uses "text-embedding-3-small")
       - OPENAI_EMBEDDING_MODEL=text-embedding-3-small
       # Specify RAG model name for openai (by default it uses "gpt-3.5-turbo-0125")
       - OPENAI_RAG_MODEL=gpt-3.5-turbo-0125
-      # Specify evaluation model name for openai (by default it uses "gpt-3.5-turbo-0125")
-      - OPENAI_EVALUATION_MODEL=gpt-3.5-turbo-0125
+      # Specify evaluation model name for openai (by default it uses "gpt-4o")
+      - OPENAI_EVALUATION_MODEL=gpt-4o
       # Log level for the server
       - LOG_LEVEL=DEBUG
       # specify these parameters if you want to use basic auth for the model server

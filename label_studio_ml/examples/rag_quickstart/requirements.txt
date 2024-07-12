@@ -8,3 +8,5 @@ bs4
 langchainhub
 unstructured[md]
 psutil
+ragas
+datasets
