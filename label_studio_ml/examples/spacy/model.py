@@ -2,7 +2,7 @@ import os
 import spacy
 from label_studio_ml.model import LabelStudioMLBase, ModelResponse
 from typing import List, Dict, Optional, Union
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 
 SPACY_MODEL = os.getenv('SPACY_MODEL', 'en_core_web_sm')
 nlp = spacy.load(SPACY_MODEL)
