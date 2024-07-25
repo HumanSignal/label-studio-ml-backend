@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  watsonx:
+    container_name: watsonx
+    image: humansignal/ml-backend:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_API_KEY=
+      # Specify your WatsonX Api Key
+      - WATSONX_API_KEY=Srj1SIAefzxmI6KjGuwrZuvFK10_MZVj1ZqrFpjcngYv
+      # Specify the ID of your WatsonX project. Must have WML capabilities
+      - WATSONX_PROJECT_ID=c5da3379-f72d-4e52-8aa0-4489ba377596
+      # Specify the name of the WatsonX model you'd like to use. A full list can be found at https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#TextModels:~:text=CODELLAMA_34B_INSTRUCT_HF
+      - WATSONX_MODELTYPE=GRANITE_13B_CHAT_V2
+      # If you want the model to automatically predict on new data samples, provide a default prompt or the location to a default prompt.
+      # If using a default prompt, set USE_INTERNAL_PROMPT to 0.
+      - DEFAULT_PROMPT="Answer the following question\n\n{text}"
+      - USE_INTERNAL_PROMPT_TEMPLATE=0
+
+
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
