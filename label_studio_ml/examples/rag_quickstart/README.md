@@ -57,7 +57,7 @@ $ curl http://localhost:9090/health
    Ensure the **Interactive preannotations** toggle is enabled and click **Validate and Save**.
 5. Use the label config below. The config and backend can be customized to fit your needs.
 6. Open a task and ensure the **Auto-Annotation** toggle is enabled (it is located at the bottom of the labeling interface).
-7. The text fields should be auto-completed by the LLM. However, you can provide additional instructions with the field provided. To submit, press `Shift+Enter`. The LLM response will be generated and displayed in the response field.
+7. The text fields should be auto-completed by the LLM. However, you can provide additional instructions in the empty text area field. To submit, press `Shift+Enter`. 
 8. If you want to apply LLM auto-annotation to multiple tasks at once, go to the [Data Manager](https://labelstud.io/guide/manage_data), select a group of tasks and then select **Actions > Retrieve Predictions** (or **Batch Predictions** in Label Studio Enterprise).
 
 ## Label Config
