@@ -7,7 +7,7 @@ import numpy as np
 
 from typing import List, Dict, Optional
 from label_studio_ml.utils import InMemoryLRUDictCache
-from label_studio_tools.core.utils.io import get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 
 logger = logging.getLogger(__name__)
 _MODELS_DIR = pathlib.Path(__file__).parent / "models"

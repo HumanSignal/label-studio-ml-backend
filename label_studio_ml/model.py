@@ -1,3 +1,4 @@
+import copy
 import os
 import logging
 import sys
@@ -23,9 +24,10 @@ from abc import ABC
 from colorama import Fore
 
 from label_studio_sdk.label_interface import LabelInterface
-from label_studio_tools.core.label_config import parse_config
-from label_studio_tools.core.utils.io import get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.label_config import parse_config
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from .response import ModelResponse
+from .utils import is_preload_needed
 from .cache import create_cache
 
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class LabelStudioMLBase(ABC):
         'ANNOTATION_CREATED',
         'ANNOTATION_UPDATED',
         'ANNOTATION_DELETED',
-        'PROJECT_UPDATED'
+        'START_TRAINING'
     )
 
     def __init__(self, project_id: Optional[str] = None, label_config=None):
@@ -254,6 +256,41 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
+    def preload_task_data(self, task: Dict, value=None, read_file=True):
+        """ Preload task_data values using get_local_path() if values are URI/URL/local path.
+
+        Args:
+            task: Task root.
+            value: task['data'] if it's None.
+            read_file: If True, read file content. Otherwise, return file path only.
+
+        Returns:
+            Any: Preloaded task data value.
+        """
+        # recursively preload dict
+        if isinstance(value, dict):
+            for key, item in value.items():
+                value[key] = self.preload_task_data(task=task, value=item, read_file=read_file)
+            return value
+
+        # recursively preload list
+        elif isinstance(value, list):
+            return [
+                self.preload_task_data(task=task, value=item, read_file=read_file)
+                for item in value
+            ]
+
+        # preload task data if value is URI/URL/local path
+        elif isinstance(value, str) and is_preload_needed(value):
+            filepath = self.get_local_path(url=value, task_id=task.get('id'))
+            if not read_file:
+                return filepath
+            with open(filepath, 'r') as f:
+                return f.read()
+
+        # keep value as is
+        return value
+
     ## TODO this should go into SDK
     def get_first_tag_occurence(
         self,
@@ -281,7 +318,8 @@ class LabelStudioMLBase(ABC):
             control_type=control_type,
             object_type=object_type,
             name_filter=name_filter,
-            to_name_filter=to_name_filter)        
+            to_name_filter=to_name_filter
+        )
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):

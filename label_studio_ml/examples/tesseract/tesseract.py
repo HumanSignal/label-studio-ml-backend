@@ -4,7 +4,7 @@ import os
 
 import boto3
 import pytesseract as pt
-from PIL import Image
+from PIL import Image, ImageOps
 
 from label_studio_ml.model import LabelStudioMLBase
 
@@ -30,6 +30,7 @@ S3_TARGET = boto3.resource('s3',
 
 
 class BBOXOCR(LabelStudioMLBase):
+    MODEL_DIR = os.environ.get('MODEL_DIR', '.')
 
     def setup(self):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
@@ -44,15 +45,22 @@ class BBOXOCR(LabelStudioMLBase):
             obj = S3_TARGET.Object(bucket_name, key).get()
             data = obj['Body'].read()
             image = Image.open(io.BytesIO(data))
+            image = ImageOps.exif_transpose(image)
             return image
         else:
+            cache_dir = os.path.join(self.MODEL_DIR, '.file-cache')
+            os.makedirs(cache_dir, exist_ok=True)
+            logger.debug(f'Using cache dir: {cache_dir}')
             filepath = self.get_local_path(
                 img_path_url,
+                cache_dir=cache_dir,
                 ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task_id
             )
-            return Image.open(filepath)
+            image = Image.open(filepath)
+            image = ImageOps.exif_transpose(image)
+            return image
 
     def predict(self, tasks, **kwargs):
         # extract task metadata: labels, from_name, to_name and other

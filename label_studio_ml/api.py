@@ -77,7 +77,7 @@ def _predict():
         else:
             response.update_predictions_version()
 
-        response = response.serialize()
+        response = response.model_dump()
 
     res = response
     if res is None:
@@ -110,7 +110,7 @@ TRAIN_EVENTS = (
     'ANNOTATION_CREATED',
     'ANNOTATION_UPDATED',
     'ANNOTATION_DELETED',
-    'PROJECT_UPDATED'
+    'START_TRAINING'
 )
 
 

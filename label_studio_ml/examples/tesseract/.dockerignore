@@ -16,3 +16,6 @@
 
 # Exclude specific requirements if necessary
 !example.env
+
+# exclude test files
+!test_images/

@@ -3,6 +3,5 @@ colorama~=0.4
 requests~=2.31
 semver~=3.0.2
 pillow~=10.3
-label_studio_tools @ git+https://github.com/HumanSignal/label-studio-tools.git@master
-# label_studio_sdk from git master branch
-label_studio_sdk @ git+https://github.com/heartexlabs/label-studio-sdk.git@master
+label-studio-sdk==1.0.2
+# label-studio-sdk @ git+https://github.com/HumanSignal/label-studio-sdk.git

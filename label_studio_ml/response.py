@@ -1,15 +1,19 @@
 
 from typing import Type, Dict, Optional, List, Tuple, Any, Union
-from pydantic import BaseModel, confloat
+from pydantic import BaseModel, confloat, Field
+from label_studio_sdk.label_interface.objects import PredictionValue
+from typing import Union, List
 
-from label_studio_sdk.objects import PredictionValue
+
+# one or multiple predictions per task
+SingleTaskPredictions = Union[List[PredictionValue], PredictionValue]
 
 
 class ModelResponse(BaseModel):
     """
     """
     model_version: Optional[str] = None
-    predictions: List[PredictionValue]
+    predictions: List[SingleTaskPredictions]
 
     def has_model_version(self) -> bool:
         return bool(self.model_version)
@@ -18,8 +22,11 @@ class ModelResponse(BaseModel):
         """
         """
         for prediction in self.predictions:
-            if not prediction.model_version:
-                prediction.model_version = self.model_version
+            if isinstance(prediction, PredictionValue):
+                prediction = [prediction]
+            for p in prediction:
+                if not p.model_version:
+                    p.model_version = self.model_version
     
     def set_version(self, version: str) -> None:
         """
@@ -27,12 +34,4 @@ class ModelResponse(BaseModel):
         self.model_version = version
         # Set the version for each prediction
         self.update_predictions_version()
-
-    def serialize(self):
-        """
-        """
-        return {
-            "model_version": self.model_version,
-            "predictions": [ p.serialize() for p in self.predictions ]
-        }
         

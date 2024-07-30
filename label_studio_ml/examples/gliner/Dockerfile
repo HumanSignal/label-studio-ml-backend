@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION=3.12.3
+ARG PYTHON_VERSION=3.11
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
-ARG TEST_ENV="false"
+ARG TEST_ENV
 
 WORKDIR /app
 
@@ -11,8 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=${PORT:-9090} \
     PIP_CACHE_DIR=/.cache \
     WORKERS=1 \
-    THREADS=8 \
-    SPACY_MODEL=en_core_web_sm
+    THREADS=8
 
 # Update the base OS
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
@@ -36,15 +35,11 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 # install test requirements if needed
 COPY requirements-test.txt .
-#RUN if [ "$TEST_ENV" = "true" ]; then \
-#    --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-#    pip install -r requirements-test.txt; \
-#    fi
+# build only when TEST_ENV="true"
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements-test.txt
-
-# install spacy model
-RUN python -m spacy download $SPACY_MODEL
+    if [ "$TEST_ENV" = "true" ]; then \
+      pip install -r requirements-test.txt; \
+    fi
 
 COPY . .
 

@@ -65,9 +65,9 @@ class InteractiveSubstringMatching(LabelStudioMLBase):
         labels = result['value']['labels']
         keyword_to_search = result['value']['text']
         for task in tasks:
-            input_text = task['data'].get(value)
+            input_text = self.preload_task_data(task, task['data'].get(value))
             if not input_text:
-                logger.warning(f"No input text found in task: {task}")
+                logger.warning(f"No input text found in task: {task}, input_text={input_text}")
                 continue
 
             prediction = self._extract_keywords(input_text, keyword_to_search, labels, from_name, to_name)
