@@ -6,7 +6,7 @@ langchain
 langchain_chroma
 bs4
 langchainhub
-unstructured[md]
+unstructured[md]==0.14.10
 psutil
 ragas
 datasets
