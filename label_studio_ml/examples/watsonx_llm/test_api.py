@@ -12,12 +12,12 @@ Then execute `pytest` in the directory of this file.
 
 import pytest
 import json
-from model import WatsonXModel
+from label_studio_ml.examples.watsonx_llm.wsgi_model.model import WatsonXModel
 
 
 @pytest.fixture
 def client():
-    from _wsgi import init_app
+    from label_studio_ml.examples.watsonx_llm.wsgi_model._wsgi import init_app
     app = init_app(model_class=WatsonXModel)
     app.config['TESTING'] = True
     with app.test_client() as client:
