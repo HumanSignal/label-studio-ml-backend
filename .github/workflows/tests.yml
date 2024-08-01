@@ -36,7 +36,7 @@ jobs:
       - uses: hmarr/debug-action@v3.0.0
 
       - name: Free Disk Space
-        if: matrix.ml_backend == 'mmdetection-3'
+        if: matrix.ml_backend == 'mmdetection-3' || matrix.ml_backend == 'segment_anything_2'
         uses: jlumbroso/free-disk-space@main
         with:
           # this might remove tools that are actually needed,
