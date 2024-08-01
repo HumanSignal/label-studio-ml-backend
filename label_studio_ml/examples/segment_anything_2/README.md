@@ -11,8 +11,10 @@ Note that as of 8/1/2024, SAM2 only runs on GPU.
 1. To run the ML backend without Docker, you have to clone the repository and install all dependencies using pip:
 
 ```bash
-python -m venv ml-backend
-source ml-backend/bin/activate
+git clone https://github.com/HumanSignal/label-studio-ml-backend.git
+cd label-studio-ml-backend
+pip install -e .
+cd label_studio_ml/examples/segment_anything_2
 pip install -r requirements.txt
 ```
 
@@ -22,6 +24,7 @@ pip install -r requirements.txt
 3. Then you can start the ML backend:
 
 ```bash
+cd ../
 label-studio-ml start ./segment_anything_2
 ```
 
