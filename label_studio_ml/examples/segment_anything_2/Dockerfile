@@ -28,9 +28,14 @@ RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
+# install base requirements
+COPY requirements-base.txt .
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install -r requirements-base.txt
+
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip3 install --no-cache-dir -r requirements.txt
+    pip3 install -r requirements.txt
 
 # install segment-anything-2
 RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
