@@ -21,7 +21,7 @@ services:
 
       # Add these variables if you want to access the images stored in Label Studio
       - LABEL_STUDIO_HOST=https://app.heartex.com/
-      - LABEL_STUDIO_ACCESS_TOKEN=d58b2054f9853fb9152c34f25356a7c90b9efd00
+      - LABEL_STUDIO_ACCESS_TOKEN=your_access_token
 
       - BOX_THRESHOLD=0.30
       - TEXT_THRESHOLD=0.25
