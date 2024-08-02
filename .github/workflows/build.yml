@@ -10,8 +10,8 @@ jobs:
     name: Build image
     needs: calculate_matrix
     runs-on: ${{
-      matrix.ml_backend == 'mmdetection-3' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend == 'segment_anything_2' && 'ubuntu-latest-4c-16gb' ||
+      matrix.ml_backend.backend_dir_name == 'mmdetection-3' && 'ubuntu-latest-4c-16gb' ||
+      matrix.ml_backend.backend_dir_name == 'segment_anything_2' && 'ubuntu-latest-4c-16gb' ||
       'ubuntu-latest' }} # Use larger runner for some backends, as we need >20GB during build time.
     timeout-minutes: 30
     strategy:
@@ -41,21 +41,6 @@ jobs:
             });
             core.setOutput("state", membership.state);
             core.setOutput("active", membership.state == "active");
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: false
-          # all of these default to true, but feel free to set to
-          # "false" if necessary for your workflow
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
 
       - uses: actions/checkout@v4
         with:
