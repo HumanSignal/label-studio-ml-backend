@@ -40,9 +40,10 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 RUN mkdir weights
 WORKDIR /GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
-RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha2/groundingdino_swinb_cogcoor.pth
 
 WORKDIR /app
+RUN wget -q https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
+RUN wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 
 # install test requirements if needed
 COPY requirements-test.txt .

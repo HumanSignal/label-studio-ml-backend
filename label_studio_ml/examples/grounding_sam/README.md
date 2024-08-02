@@ -52,19 +52,21 @@ See [here](https://github.com/IDEA-Research/GroundingDINO) for more details abou
 
 ```xml
 <View>
-    <Style>
+  <Image name="image" value="$image"/>
+  <Style>
     .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
-    </Style>
-    <View className="prompt">
-        <Header value="Enter a prompt to detect objects in the image:"/>
-    <TextArea name="prompt" toName="image" editable="true" rows="2" maxSubmissions="1" showSubmitButton="true"/>
-    </View>
-    <Image name="image" value="$image"/>
-
-    <RectangleLabels name="label" toName="image">
-        <Label value="cats" background="yellow"/>
-        <Label value="house" background="blue"/>
-    </RectangleLabels>
+  </Style>
+  <View className="prompt">
+  <TextArea name="prompt" toName="image" editable="true" rows="2" maxSubmissions="1" showSubmitButton="true"/>
+  </View>
+  <RectangleLabels name="label" toName="image">
+    <Label value="cats" background="yellow"/>
+    <Label value="house" background="blue"/>
+  </RectangleLabels>
+  <BrushLabels name="label2" toName="image">
+    <Label value="cats" background="yellow"/>
+    <Label value="house" background="blue"/>
+  </BrushLabels>
 </View>
 ```
 
