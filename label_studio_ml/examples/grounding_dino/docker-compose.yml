@@ -26,14 +26,14 @@ services:
       - BOX_THRESHOLD=0.30
       - TEXT_THRESHOLD=0.25
   # Uncomment the following lines if you want to use GPU
-      - NVIDIA_VISIBLE_DEVICES=all
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+#      - NVIDIA_VISIBLE_DEVICES=all
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [gpu]
     ports:
       - "30000:9090"
     volumes:
