@@ -9,7 +9,10 @@ jobs:
   build-image:
     name: Build image
     needs: calculate_matrix
-    runs-on: ubuntu-latest
+    runs-on: ${{
+      matrix.ml_backend == 'mmdetection-3' && 'ubuntu-latest-4c-16gb' ||
+      matrix.ml_backend == 'segment_anything_2' && 'ubuntu-latest-4c-16gb' ||
+      'ubuntu-latest' }} # Use larger runner for some backends, as we need >20GB during build time.
     timeout-minutes: 30
     strategy:
       fail-fast: false
