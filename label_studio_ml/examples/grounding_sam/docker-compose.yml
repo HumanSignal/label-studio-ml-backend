@@ -1,9 +1,9 @@
 version: "3.11"
 
 services:
-  grounding_dino:
-    container_name: grounding_dino
-    image: heartexlabs/label-studio-ml-backend:grnddino-master
+  grounding_sam:
+    container_name: grounding_sam
+    image: heartexlabs/label-studio-ml-backend:grndsam-master
     build:
       context: .
       args:
