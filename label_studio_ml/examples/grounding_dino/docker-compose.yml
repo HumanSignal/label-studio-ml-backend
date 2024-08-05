@@ -35,6 +35,6 @@ services:
 #              count: 1
 #              capabilities: [gpu]
     ports:
-      - "30000:9090"
+      - "9090:9090"
     volumes:
       - "./data/server:/data"
