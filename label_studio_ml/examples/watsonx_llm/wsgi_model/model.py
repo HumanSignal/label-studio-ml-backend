@@ -46,7 +46,7 @@ class WatsonXModel(LabelStudioMLBase):
 
         # If you want to specify model parameters, you can do so using this empty parameters dictionary
         parameters = {
-            GenParams.MAX_NEW_TOKENS: 25,
+            GenParams.MAX_NEW_TOKENS: 50,
         }
 
         self.model = ModelInference(

@@ -12,6 +12,17 @@ set up a webhook in settings under `webhooks` by using the following structure f
 
 See the configuration notes at the bottom for details on how to set up your environment variables to get the system to work.
 
+## Setting up WatsonX.Data
+To use your WatsonX.data integration, follow the steps below. 
+1. First, get the host and port information of the engine that you'll be using. To do this, navigate to the Infrastructure Manager 
+on the left sidebar of your WatsonX.data page and select the Infrastructure Manager. Change to list view by clicking the symbol in 
+the upper right hand corner. From there, click on the name of the engine you'll be using. This will bring up a pop up window, 
+where you can see the host and port information under "host". The port is the part after the `:` at the end of the url. 
+2. Next, make sure your catalog is set up. To create a new catalog, follow [these instructions](https://dataplatform.cloud.ibm.com/docs/content/wsj/catalog/create-catalog.html?context=wx&locale=en)
+3. Once your catalog is set up, make sure that the correct schema is also set up. Navigate to your Data Manager and select `create` to create a new schema
+4. With all of this information, you're ready to update the environment variables listed at the bottom of this page and get started with your WatsonX.data integration! 
+
+
 ## Running with Docker (recommended)
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:

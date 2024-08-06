@@ -39,7 +39,9 @@ def upload_to_watsonx():
     annotation = input_request["annotation"]
     task = input_request["task"]
 
-    data = get_data(annotation, task)
+    # Connect to Label Studio
+    client = connect_ls()
+    data = get_data(annotation, task, client)
 
     # Then, connect to WatsonX.data via prestodb
     eng_username = os.getenv("WATSONX_ENG_USERNAME")
@@ -56,7 +58,7 @@ def upload_to_watsonx():
                                     auth=prestodb.auth.BasicAuthentication(eng_username, eng_password)) as conn:
 
             cur = conn.cursor()
-            #dynamically create table schema?
+            #dynamically create table schema
             table_create, table_info_keys = create_table(table, data)
             cur.execute(table_create)
 
@@ -70,7 +72,7 @@ def upload_to_watsonx():
 
             elif action == "ANNOTATION_UPDATED":
                 # update existing annotation in watsonx by deleting the old one and uploading a new one
-                delete = f"""DELETE from {table} WHERE id={data["id"]}"""
+                delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
                 cur.execute(delete)
                 values = tuple([data[key] for key in table_info_keys])
                 insert_command = f"""INSERT INTO {table} VALUES {values}"""
@@ -79,13 +81,28 @@ def upload_to_watsonx():
     except Exception as e:
         print(e)
 
-
-def get_data(annotation, task):
+def connect_ls():
+    try:
+        client = LabelStudio(
+            base_url = os.getenv("LABEL_STUDIO_URL"),
+            api_key=os.getenv("LABEL_STUDIO_API_KEY")
+        )
+    except Exception as e:
+        print(e)
+    return client
+def get_data(annotation, task, client):
     """Collect the data to be uploaded to WatsonX.data"""
     info = {}
+
     try:
+        users = client.users.list()
+        print(users)
         id = task["id"]
-        info.update({"id": int(id)})
+        annotator_complete = annotation["completed_by"]
+        annotator_update = annotation["updated_by"]
+        annotator_complete = next((x.email for x in users if x.id == annotator_complete), None)
+        annotator_update = next((x.email for x in users if x.id == annotator_update), None)
+        info.update({"ID": int(id), "completed_by": annotator_complete, "updated_by": annotator_update})
         for key, value in task["data"].items():
             if isinstance(value, List):
                 value = value[0]
@@ -128,10 +145,12 @@ def create_table(table, data):
             table_info.update({key: "varchar"})
 
     table_info_keys = sorted(table_info.keys())
+    table_info_keys.insert(0, table_info_keys.pop(table_info_keys.index("ID")))
     nl = ",\n"
     strings = [f"{key} {table_info[key]}" for key in table_info_keys]
     table_create = f"""
     CREATE TABLE IF NOT EXISTS {table} ({nl.join(strings)})
+
     """
     print(table_create)
     return table_create, table_info_keys
