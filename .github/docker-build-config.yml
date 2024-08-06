@@ -22,7 +22,7 @@
   backend_tag_prefix: nemoasr-
 - backend_dir_name: segment_anything_model
   backend_tag_prefix: sam-
-- backend_dir_name: segment_anything_2
+- backend_dir_name: segment_anything_2_image
   backend_tag_prefix: sa2-
 - backend_dir_name: sklearn_text_classifier
   backend_tag_prefix: sklearntxtclass-
