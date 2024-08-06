@@ -29,7 +29,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from dino import GroundingDINO
+from dino import DINOBackend
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -102,13 +102,13 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + GroundingDINO.__name__ + '" instance creation..')
-        model = GroundingDINO(**kwargs)
+        print('Check "' + DINOBackend.__name__ + '" instance creation..')
+        model = DINOBackend(**kwargs)
 
-    app = init_app(model_class=GroundingDINO)
+    app = init_app(model_class=DINOBackend)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
     # for uWSGI use
-    app = init_app(model_class=GroundingDINO)
+    app = init_app(model_class=DINOBackend)

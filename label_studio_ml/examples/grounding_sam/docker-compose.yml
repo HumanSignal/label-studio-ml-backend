@@ -1,9 +1,9 @@
 version: "3.11"
 
 services:
-  grounding_dino:
-    container_name: grounding_dino
-    image: heartexlabs/label-studio-ml-backend:grnddino-master
+  grounding_sam:
+    container_name: grounding_sam
+    image: heartexlabs/label-studio-ml-backend:grndsam-master
     build:
       context: .
       args:
@@ -20,12 +20,16 @@ services:
       - LOG_LEVEL=DEBUG
 
       # Add these variables if you want to access the images stored in Label Studio
-      - LABEL_STUDIO_HOST=https://app.heartex.com/
-      - LABEL_STUDIO_ACCESS_TOKEN=your_access_token
+      - LABEL_STUDIO_HOST=
+      - LABEL_STUDIO_ACCESS_TOKEN=
+
+      # use these if you want to use segment anything instead of bounding box predictions from input text prompts
+      - USE_SAM=false  # if you want to automatically generate segment anything model predictions
+      - USE_MOBILE_SAM=false # whether you want to use a more efficient, yet a bit less accurate, version of the segment anything model
 
       - BOX_THRESHOLD=0.30
       - TEXT_THRESHOLD=0.25
-  # Uncomment the following lines if you want to use GPU
+# # Uncomment the following lines if you want to use GPU
 #      - NVIDIA_VISIBLE_DEVICES=all
 #    deploy:
 #      resources:
@@ -37,4 +41,6 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - "./data/server:/data"
+      - "./data/ml-backend:/data"
+      - "./prompt.txt:/app/prompt.txt"
+      - ./dino.py:/app/dino.py

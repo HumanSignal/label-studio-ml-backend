@@ -1,0 +1,11 @@
+gunicorn==22.0.0
+label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
+mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
+# torch -- inherited from GroundingDINO repo
+# torchvision -- inherited from GroundingDINO repo
+# opencv-python -- inherited from GroundingDINO repo
+segment-anything==1.0
+# replace converter with sdk
+label_studio_converter==0.0.58
+olefile==0.47
+# networkx==2.8.8
