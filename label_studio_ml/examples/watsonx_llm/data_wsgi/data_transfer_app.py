@@ -15,10 +15,10 @@ def init_app():
     return _server
 
 
-@_server.route('/')
-# ‘/’ URL is bound with hello_world() function.
-def hello_world():
-    return 'Hello World'
+# @_server.route('/')
+# # ‘/’ URL is bound with hello_world() function.
+# def hello_world():
+#     return 'Hello World'
 
 
 @_server.route('/health', methods=['GET'])
