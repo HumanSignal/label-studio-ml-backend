@@ -139,7 +139,7 @@ def create_dir(args):
     use('test_api.py')
     use('README.md')
 
-    wsgi_script_file = os.path.join(default_configs_dir, '_wsgi.py.tmpl')
+    wsgi_script_file = os.path.join(default_configs_dir, 'model_wsgi.py.tmpl')
     with open(wsgi_script_file) as f:
         wsgi_script = f.read()
     wsgi_script = wsgi_script.format(
@@ -168,7 +168,7 @@ def create_dir(args):
 def start_server(args, subprocess_params):
 
     project_dir = os.path.join(args.root_dir, args.project_name)
-    wsgi = os.path.join(project_dir, '_wsgi.py')
+    wsgi = os.path.join(project_dir, 'model_wsgi.py')
 
     cmd_args = []
     if args.basic_auth_user and args.basic_auth_pass:

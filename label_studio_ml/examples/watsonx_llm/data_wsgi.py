@@ -1,4 +1,4 @@
-from .data_transfer_app import init_app
+from data_transfer_app import init_app
 import os
 import argparse
 import json
