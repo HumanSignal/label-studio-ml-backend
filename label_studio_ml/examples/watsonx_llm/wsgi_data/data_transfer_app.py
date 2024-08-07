@@ -62,7 +62,6 @@ def upload_to_watsonx():
             table_create, table_info_keys = create_table(table, data)
             cur.execute(table_create)
 
-
             if action == "ANNOTATION_CREATED":
                 # upload new annotation to watsonx
                 values = tuple([data[key] for key in table_info_keys])
@@ -73,10 +72,19 @@ def upload_to_watsonx():
             elif action == "ANNOTATION_UPDATED":
                 # update existing annotation in watsonx by deleting the old one and uploading a new one
                 delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
+                print(delete)
                 cur.execute(delete)
                 values = tuple([data[key] for key in table_info_keys])
                 insert_command = f"""INSERT INTO {table} VALUES {values}"""
+                print(insert_command)
                 cur.execute(insert_command)
+
+            elif action == "ANNOTATIONS_DELETED":
+                # delete existing annotation in watsonx
+                delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
+                print(delete)
+                cur.execute(delete)
+
             conn.commit()
     except Exception as e:
         print(e)
@@ -96,12 +104,11 @@ def get_data(annotation, task, client):
 
     try:
         users = client.users.list()
-        print(users)
         id = task["id"]
         annotator_complete = annotation["completed_by"]
         annotator_update = annotation["updated_by"]
-        annotator_complete = next((x.email for x in users if x.id == annotator_complete), None)
-        annotator_update = next((x.email for x in users if x.id == annotator_update), None)
+        annotator_complete = next((x.email for x in users if x.id == annotator_complete), "")
+        annotator_update = next((x.email for x in users if x.id == annotator_update), "")
         info.update({"ID": int(id), "completed_by": annotator_complete, "updated_by": annotator_update})
         for key, value in task["data"].items():
             if isinstance(value, List):
