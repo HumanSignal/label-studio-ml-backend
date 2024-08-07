@@ -17,8 +17,7 @@ from label_studio_ml.examples.watsonx_llm.model_wsgi.model import WatsonXModel
 
 @pytest.fixture
 def client():
-    from label_studio_ml.examples.watsonx_llm.model_wsgi._wsgi import init_app
-    app = init_app(model_class=WatsonXModel)
+    from _wsgi import app
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
