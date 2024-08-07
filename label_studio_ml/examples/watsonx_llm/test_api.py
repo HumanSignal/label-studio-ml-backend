@@ -17,7 +17,6 @@ import json
 @pytest.fixture
 def client():
     from _wsgi import app
-    app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
 
