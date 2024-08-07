@@ -29,7 +29,48 @@ def test_predict(client):
             }
         }],
         # Your labeling configuration here
-        'label_config': '<View> \\n <Labels name="label" toName="text">\\n<Label value="Medication/Vaccine" background="red"/>\\n<Label value="MedicalProcedure" background="blue"/>\\n<Label value="AnatomicalStructure" background="orange"/>\\n<Label value="Symptom" background="green"/>\\n<Label value="Disease" background="purple"/>\\n</Labels>\\n<Text name="text" value="$text"/>\\n</View>'
+        'label_config':"""<View>
+    <Style>
+        .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+
+        .text-container {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        font-family: 'Courier New', monospace;
+        line-height: 1.6;
+        font-size: 16px;
+        }
+    </Style>
+    <Header value="Context:"/>
+    <View className="text-container">
+        <Text name="context" value="$text"/>
+    </View>
+    <Header value="Prompt:"/>
+    <View className="prompt">
+        <TextArea name="prompt"
+                  toName="context"
+                  rows="4"
+                  editable="true"
+                  maxSubmissions="1"
+                  showSubmitButton="false"
+                  placeholder="Type your prompt here then Shift+Enter..."
+        />
+    </View>
+    <Header value="Response:"/>
+    <TextArea name="response"
+              toName="context"
+              rows="4"
+              editable="true"
+              maxSubmissions="1"
+              showSubmitButton="false"
+              smart="false"
+              placeholder="Generated response will appear here..."
+    />
+    <Header value="Overall response quality:"/>
+    <Rating name="rating" toName="context"/>
+</View>"""
     }
 
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
