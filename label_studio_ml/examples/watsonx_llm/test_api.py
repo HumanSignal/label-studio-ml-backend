@@ -12,7 +12,6 @@ Then execute `pytest` in the directory of this file.
 
 import pytest
 import json
-from label_studio_ml.examples.watsonx_llm.model_wsgi.model import WatsonXModel
 
 
 @pytest.fixture
