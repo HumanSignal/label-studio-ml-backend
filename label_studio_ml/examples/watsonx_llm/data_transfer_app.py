@@ -15,12 +15,6 @@ def init_app():
     return _server
 
 
-# @_server.route('/')
-# # ‘/’ URL is bound with hello_world() function.
-# def hello_world():
-#     return 'Hello World'
-
-
 @_server.route('/health', methods=['GET'])
 @_server.route('/', methods=['GET'])
 def health():
@@ -32,7 +26,6 @@ def health():
 
 @_server.route('/upload', methods=['POST'])
 def upload_to_watsonx():
-
     # First, collect data from the request object passed by label studio
     input_request = request.json
     action = input_request["action"]
@@ -48,7 +41,7 @@ def upload_to_watsonx():
     eng_password = os.getenv("WATSONX_API_KEY")
     eng_host = os.getenv("WATSONX_ENG_HOST")
     eng_port = os.getenv("WATSONX_ENG_PORT")
-    catalog =  os.getenv("WATSONX_CATALOG")
+    catalog = os.getenv("WATSONX_CATALOG")
     schema = os.getenv("WATSONX_SCHEMA")
     table = os.getenv("WATSONX_TABLE")
 
@@ -58,7 +51,7 @@ def upload_to_watsonx():
                                     auth=prestodb.auth.BasicAuthentication(eng_username, eng_password)) as conn:
 
             cur = conn.cursor()
-            #dynamically create table schema
+            # dynamically create table schema
             table_create, table_info_keys = create_table(table, data)
             cur.execute(table_create)
 
@@ -89,15 +82,18 @@ def upload_to_watsonx():
     except Exception as e:
         print(e)
 
+
 def connect_ls():
     try:
         client = LabelStudio(
-            base_url = os.getenv("LABEL_STUDIO_URL"),
+            base_url=os.getenv("LABEL_STUDIO_URL"),
             api_key=os.getenv("LABEL_STUDIO_API_KEY")
         )
     except Exception as e:
         print(e)
     return client
+
+
 def get_data(annotation, task, client):
     """Collect the data to be uploaded to WatsonX.data"""
     info = {}
@@ -120,7 +116,6 @@ def get_data(annotation, task, client):
                 value = value.strip("\"")
             info.update({key: value})
 
-
         for result in annotation["result"]:
             print(result)
             val_dict_key = list(result["value"].keys())[0]
@@ -139,6 +134,7 @@ def get_data(annotation, task, client):
         return info
     except Exception as e:
         print(e)
+
 
 def create_table(table, data):
     """
