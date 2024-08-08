@@ -2,7 +2,7 @@ import csv
 import logging
 import os
 import prestodb
-import zipfile
+import traceback
 from flask import Flask, request, jsonify, Response
 from label_studio_sdk.client import LabelStudio
 from typing import List
@@ -80,6 +80,7 @@ def upload_to_watsonx():
 
             conn.commit()
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
 
 
@@ -89,9 +90,13 @@ def connect_ls():
             base_url=os.getenv("LABEL_STUDIO_URL"),
             api_key=os.getenv("LABEL_STUDIO_API_KEY")
         )
+
+        return client
+
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
-    return client
+
 
 
 def get_data(annotation, task, client):
@@ -133,6 +138,7 @@ def get_data(annotation, task, client):
         print(f"INFO {info}")
         return info
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
 
 

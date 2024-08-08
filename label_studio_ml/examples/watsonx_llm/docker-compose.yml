@@ -49,7 +49,7 @@ services:
 
       # To get host and port information, follow the steps under Pre-requisites https://cloud.ibm.com/docs/watsonxdata?topic=watsonxdata-con-presto-serv#conn-to-prestjava.
       # You can stop once you get the host and port information, as we'll use the same API key for all of the work in this project.
-      - WATSONX_ENG_HOST
+      - WATSONX_ENG_HOST=
       - WATSONX_ENG_PORT=
       # The name of the catalog that you'll insert your data into
       - WATSONX_CATALOG=
