@@ -45,6 +45,9 @@ def upload_to_watsonx():
     schema = os.getenv("WATSONX_SCHEMA")
     table = os.getenv("WATSONX_TABLE")
 
+    if None in [eng_username, eng_password, eng_host, eng_port, catalog, schema, table]:
+        raise Exception("You must provide the required WATSONX variables in your docker-compose.yml file!")
+
     try:
         with prestodb.dbapi.connect(host=eng_host, port=eng_port, user=eng_username, catalog=catalog,
                                     schema=schema, http_scheme='https',
@@ -86,9 +89,16 @@ def upload_to_watsonx():
 
 def connect_ls():
     try:
+        base_url = os.getenv("LABEL_STUDIO_URL")
+        api_key = os.getenv("LABEL_STUDIO_API_KEY")
+
+        if None in [base_url, api_key]:
+            raise Exception(
+                "You must provide your LABEL_STUDIO_URL and LABEL_STUDIO_API_KEY in your docker-compose.yml file!")
+
         client = LabelStudio(
-            base_url=os.getenv("LABEL_STUDIO_URL"),
-            api_key=os.getenv("LABEL_STUDIO_API_KEY")
+            base_url=base_url,
+            api_key=api_key
         )
 
         return client
@@ -96,7 +106,6 @@ def connect_ls():
     except Exception as e:
         logger.debug(traceback.format_exc())
         logger.debug(e)
-
 
 
 def get_data(annotation, task, client):
