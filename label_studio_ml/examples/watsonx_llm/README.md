@@ -12,6 +12,55 @@ set up a webhook in settings under `webhooks` by using the following structure f
 
 See the configuration notes at the bottom for details on how to set up your environment variables to get the system to work.
 
+## Setting up your label_config
+For this project, we reccoment you start with the labeling config as defined below, but you can always edit it or expand it to
+meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into. 
+
+    <View>
+        <Style>
+            .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+    
+            .text-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            font-size: 16px;
+            }
+        </Style>
+        <Header value="Context:"/>
+        <View className="text-container">
+            <Text name="context" value="$text"/>
+        </View>
+        <Header value="Prompt:"/>
+        <View className="prompt">
+            <TextArea name="prompt"
+                      toName="context"
+                      rows="4"
+                      editable="true"
+                      maxSubmissions="1"
+                      showSubmitButton="false"
+                      placeholder="Type your prompt here then Shift+Enter..."
+            />
+        </View>
+        <Header value="Response:"/>
+        <TextArea name="response"
+                  toName="context"
+                  rows="4"
+                  editable="true"
+                  maxSubmissions="1"
+                  showSubmitButton="false"
+                  smart="false"
+                  placeholder="Generated response will appear here..."
+        />
+        
+        <Header value="Overall response quality:"/>
+        <Rating name="rating" toName="context"/>
+    </View>
+
+
 ## Setting up WatsonX.Data
 To use your WatsonX.data integration, follow the steps below. 
 1. First, get the host and port information of the engine that you'll be using. To do this, navigate to the Infrastructure Manager 
