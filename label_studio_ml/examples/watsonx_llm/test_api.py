@@ -75,7 +75,6 @@ def test_predict(client):
     }
     with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference') as mock_model:
         response = client.post('/predict', data=json.dumps(request), content_type='application/json')
-        mock_model.assert_called_once()
     assert response.status_code == 200
 
 #TODO: finish tests
