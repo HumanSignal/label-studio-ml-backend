@@ -12,6 +12,7 @@ Then execute `pytest` in the directory of this file.
 
 import pytest
 import json
+import unittest.mock as mock
 
 
 @pytest.fixture
@@ -72,8 +73,10 @@ def test_predict(client):
     <Rating name="rating" toName="context"/>
 </View>"""
     }
+   with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference') as mock_model:
 
-    response = client.post('/predict', data=json.dumps(request), content_type='application/json')
+        response = client.post('/predict', data=json.dumps(request), content_type='application/json')
+        mock_model.assert_called_once()
     assert response.status_code == 200
 
 #TODO: finish tests
