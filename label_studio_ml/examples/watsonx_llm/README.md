@@ -8,7 +8,8 @@ access to these models and can automatically keep your annotated data up to date
 To run the integration, you'll need to pull this repo and host it locally or in the cloud. Then, you can link the model 
 to your Label Studio project under the `models` section in the settings. To use the WatsonX.data integration, 
 set up a webhook in settings under `webhooks` by using the following structure for the link: 
-`<link to your hosted container>/data/upload` and set the triggers to `ANNOTATION_CREATED` and `ANNOTATION_UPDATED`.
+`<link to your hosted container>/data/upload` and set the triggers to `ANNOTATION_CREATED` and `ANNOTATION_UPDATED`. For more
+on webhooks, see [our documentation](https://labelstud.io/guide/webhooks)
 
 See the configuration notes at the bottom for details on how to set up your environment variables to get the system to work.
 
