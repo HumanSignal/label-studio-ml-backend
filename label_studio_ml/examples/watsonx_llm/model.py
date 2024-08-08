@@ -35,7 +35,7 @@ class WatsonXModel(LabelStudioMLBase):
     PROMPT_TEMPLATE = os.getenv('PROMPT_TEMPLATE', '**Source Text**:\n\n"{text}"\n\n**Task Directive**:\n\n"{prompt}"')
     PROMPT_TAG = "TextArea"
     SUPPORTED_INPUTS = ("Image", "Text", "HyperText", "Paragraphs")
-
+    MODEL = None
     def setup(self):
         """Configure any parameters of your model here
         """
@@ -50,13 +50,13 @@ class WatsonXModel(LabelStudioMLBase):
         parameters = {
             GenParams.MAX_NEW_TOKENS: 50,
         }
-
-        self.model = ModelInference(
-            model_id=ModelTypes[self.MODEL_TYPE],
-            params=parameters,
-            credentials=self.WATSONX_CREDENTIALS,
-            project_id=self.PROJECT_ID
-        )
+        if not self.MODEL:
+            self.MODEL = ModelInference(
+                model_id=ModelTypes[self.MODEL_TYPE],
+                params=parameters,
+                credentials=self.WATSONX_CREDENTIALS,
+                project_id=self.PROJECT_ID
+            )
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def _ocr(self, image_url):
@@ -208,7 +208,7 @@ class WatsonXModel(LabelStudioMLBase):
 
         # run inference
         # this are params provided through the web interface
-        full_response = self.model.generate(prompt=norm_prompt)
+        full_response = self.MODEL.generate(prompt=norm_prompt)
         response = [full_response['results'][0]['generated_text']]
         print(f'RESPONSE {response}')
         regions = self._generate_response_regions(response, prompt_tag, choices_tag, textarea_tag, prompts)
