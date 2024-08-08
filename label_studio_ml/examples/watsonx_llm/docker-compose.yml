@@ -3,7 +3,7 @@ version: "3.8"
 services:
   watsonx_llm:
     container_name: watsonx_llm
-    image: humansignal/ml-backend:v0
+    image: humansignal/ml-backend_watsonx_llm:v0
     build:
       context: .
       args:
