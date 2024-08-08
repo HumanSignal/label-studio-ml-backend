@@ -36,11 +36,13 @@ class WatsonXModel(LabelStudioMLBase):
     PROMPT_TAG = "TextArea"
     SUPPORTED_INPUTS = ("Image", "Text", "HyperText", "Paragraphs")
 
-
-
     def setup(self):
         """Configure any parameters of your model here
         """
+        if None in [self.WATSONX_CREDENTIALS["apikey"], self.LABEL_STUDIO_HOST, self.LABEL_STUDIO_API_KEY,
+                    self.PROJECT_ID, self.MODEL_TYPE]:
+            raise Exception(
+                "You must provide your WATSONX credentials, label studio information, and WAtSONX project ID and Model Type in your docker-compose.yml!")
         if self.MODEL_TYPE not in ModelTypes.__members__:
             raise Exception(f"WATSONX_MODELTYPE must be one of {[model for model in ModelTypes.__members__]}")
 
@@ -80,6 +82,7 @@ class WatsonXModel(LabelStudioMLBase):
             return json.dumps(data)
         else:
             return data
+
     def _get_prompts(self, context, prompt_tag) -> List[str]:
         """Getting prompt values
         """
