@@ -21,6 +21,9 @@ def client():
     with app.test_client() as client:
         yield client
 
+def mock_create(**kwargs):
+    print(kwargs)
+    return {}
 
 def test_predict(client):
     request = {
@@ -73,7 +76,7 @@ def test_predict(client):
     <Rating name="rating" toName="context"/>
 </View>"""
     }
-    with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference') as mock_model:
+    with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference', side_effect= mock_create) as mock_model:
         response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
 
