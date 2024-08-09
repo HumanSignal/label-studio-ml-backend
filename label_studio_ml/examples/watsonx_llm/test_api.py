@@ -22,9 +22,7 @@ def client():
         yield client
 
 def mock_create(**kwargs):
-    model = mock.MagicMock()
-    model.generate = mock.MagicMock(return_value="this is a test")
-    return model
+    return None
 
 def test_predict(client):
     request = {
@@ -77,7 +75,7 @@ def test_predict(client):
     <Rating name="rating" toName="context"/>
 </View>"""
     }
-    with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference.__init__') as mock_model:
+    with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference.__init__', side_effect=mock_create()) as mock_model:
         response = client.post('/predict', data=json.dumps(request), content_type='application/json')
         mock_model.assert_called()
     assert response.status_code == 200
