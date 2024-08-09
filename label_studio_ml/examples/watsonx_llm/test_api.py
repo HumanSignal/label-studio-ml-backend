@@ -77,9 +77,11 @@ def test_predict(client):
     }
     with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference.__init__') as mock_model:
         mock_model.return_value = None
-        mock_model.return_value._inference.generate = "This is a test"
-        response = client.post('/predict', data=json.dumps(request), content_type='application/json')
-        mock_model.assert_called()
+        with mock.patch('ibn_watsonx_ai.foundation_models.ModelInference._inference.generate') as mock_gen:
+            mock_gen.return_value = "this is a test"
+            response = client.post('/predict', data=json.dumps(request), content_type='application/json')
+            mock_model.assert_called()
+            mock_gen.assert_called()
     assert response.status_code == 200
 
 #TODO: finish tests
