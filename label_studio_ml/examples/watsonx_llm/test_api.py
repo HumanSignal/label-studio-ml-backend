@@ -78,7 +78,7 @@ def test_predict(client):
     with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference.__init__') as mock_model:
         mock_model.return_value = None
         with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference.generate') as mock_gen:
-            mock_gen.return_value = "this is a test"
+            mock_gen.return_value = {"results": [{"generated_text": "this is a test"}]}
             response = client.post('/predict', data=json.dumps(request), content_type='application/json')
             mock_model.assert_called()
             mock_gen.assert_called()
