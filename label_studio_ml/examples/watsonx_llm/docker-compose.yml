@@ -27,14 +27,13 @@ services:
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=https://app.heartex.com/
-      - LABEL_STUDIO_API_KEY=6fbf06a72a117816c5cfb594b8664f43d73e3850
-
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
 
       # Specify your WatsonX Api Key
-      - WATSONX_API_KEY=Srj1SIAefzxmI6KjGuwrZuvFK10_MZVj1ZqrFpjcngYv
+      - WATSONX_API_KEY=
       # Specify the ID of your WatsonX project. Must have WML capabilities
-      - WATSONX_PROJECT_ID=c5da3379-f72d-4e52-8aa0-4489ba377596
+      - WATSONX_PROJECT_ID=
       # Specify the name of the WatsonX model you'd like to use. A full list can be found at https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#TextModels:~:text=CODELLAMA_34B_INSTRUCT_HF
       - WATSONX_MODELTYPE=GRANITE_13B_CHAT_V2
 
@@ -49,13 +48,13 @@ services:
 
       # To get host and port information, follow the steps under Pre-requisites https://cloud.ibm.com/docs/watsonxdata?topic=watsonxdata-con-presto-serv#conn-to-prestjava.
       # You can stop once you get the host and port information, as we'll use the same API key for all of the work in this project.
-      - WATSONX_ENG_HOST=eb6ba7e7-fe3d-4f70-9ff0-a5d87523814b.co1u05ot0jqujbai8j2g.lakehouse.appdomain.cloud
-      - WATSONX_ENG_PORT=30312
+      - WATSONX_ENG_HOST=
+      - WATSONX_ENG_PORT=
       # The name of the catalog that you'll insert your data into
-      - WATSONX_CATALOG=iceberg_data
+      - WATSONX_CATALOG=
       # The name of the schema within the catalog that you'll insert your data into
-      - WATSONX_SCHEMA=_new_table
-      - WATSONX_TABLE=test_insert_2
+      - WATSONX_SCHEMA=
+      - WATSONX_TABLE=
 
 
     ports:
