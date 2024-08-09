@@ -77,7 +77,7 @@ def test_predict(client):
     <Rating name="rating" toName="context"/>
 </View>"""
     }
-    with mock.patch('ibm_watsonx_ai.foundation_models.ModelInference', side_effect= mock_create) as mock_model:
+    with mock.patch('ModelInference', side_effect= mock_create) as mock_model:
         response = client.post('/predict', data=json.dumps(request), content_type='application/json')
         mock_model.assert_called()
     assert response.status_code == 200
