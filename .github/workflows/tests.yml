@@ -17,27 +17,25 @@ on:
 
 env:
   CACHE_NAME_PREFIX: v1
+  DOCKER_BUILD_CONFIG_BRANCH: "master"
+  DOCKER_BUILD_CONFIG_PATH: ".github/docker-build-config.yml"
+  DOCKER_EXAMPLES_DIRECTORY: "label_studio_ml/examples"
 
 jobs:
   run_pytest:
     name: Run pytest
+    if: needs.calculate_matrix.outputs.matrix-include != '[]'
     needs: calculate_matrix
-    runs-on: ${{
-      matrix.ml_backend == 'mmdetection-3' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend == 'segment_anything_2_image' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend == 'segment_anything_2_video' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend == 'grounding_dino' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend == 'grounding_sam' && 'ubuntu-latest-4c-16gb' ||
-      'ubuntu-latest' }} # Use larger runner for some backends, as we need >20GB during build time.
+    runs-on: ${{ matrix.runs_on || 'ubuntu-latest' }}
     timeout-minutes: 30
-    
     strategy:
       fail-fast: false
-      matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
+      matrix:
+        include: ${{ fromJson(needs.calculate_matrix.outputs.matrix-include) }}
     env:
       LOG_DIR: pytest_logs
       collect_analytics: false
-      TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
+      TEST_WITH_CPU: ${{ matrix.backend_dir_name == 'segment_anything_model' }}
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
@@ -86,7 +84,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           TEST_ENV: "true"
-        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml up -d --build
+        run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml up -d --build
 
       - name: Wait for stack
         timeout-minutes: 10
@@ -97,40 +95,40 @@ jobs:
 
       - name: Run general functional tests
         env:
-          ML_BACKEND: ${{ matrix.ml_backend }}
+          ML_BACKEND: ${{ matrix.backend_dir_name }}
         run: |
-          pytest tests/ -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:tests/${{ matrix.ml_backend }}_coverage.xml
+          pytest tests/ -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:tests/${{ matrix.backend_dir_name }}_coverage.xml
 
       - name: Run per-ml-backend tests
         env:
-          ML_BACKEND: ${{ matrix.ml_backend }}
+          ML_BACKEND: ${{ matrix.backend_dir_name }}
         run: |
-          docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml exec -T ${{ matrix.ml_backend }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+          docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml exec -T ${{ matrix.backend_dir_name }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 
       - name: Copy per-ml-backend coverage.xml from the container
         run: |
-          docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml cp ${{ matrix.ml_backend }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
+          docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml cp ${{ matrix.backend_dir_name }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
 
       - name: Pull the logs
         if: always()
         env:
           DOCKER_BUILDKIT: 1
-        run: docker compose -f label_studio_ml/examples/${{ matrix.ml_backend }}/docker-compose.yml logs
+        run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml logs
 
       - name: "Upload general coverage to Codecov"
-        if: ${{ matrix.ml_backend == 'the_simplest_backend' }}
+        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
         uses: codecov/codecov-action@v4.5.0
         with:
           name: codecov-general
-          files: ./tests/${{ matrix.ml_backend }}_coverage.xml
+          files: ./tests/${{ matrix.backend_dir_name }}_coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-      - name: "Upload ml-backend ${{ matrix.ml_backend }} coverage to Codecov"
+      - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
         uses: codecov/codecov-action@v4.5.0
         with:
-          name: codecov-${{ matrix.ml_backend }}
-          files: ./label_studio_ml/examples/${{ matrix.ml_backend }}/coverage.xml
+          name: codecov-${{ matrix.backend_dir_name }}
+          files: ./label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
@@ -138,53 +136,75 @@ jobs:
     name: "Calculate test matrix"
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix-include: ${{ steps.matrix.outputs.matrix-include }}
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - name: Extract branch name on direct push to a branch
-        if: github.event_name == 'push'
-        run: |
-          echo "BASE_SHA=${{ github.event.before }}" >> $GITHUB_ENV
-
-      - name: Extract branch name on 'pull_request'
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "BASE_SHA=${{ github.event.pull_request.base.sha }}"  >> $GITHUB_ENV
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GITHUB_SHA }}"
-          fetch-depth: 0
+      - run: npm install js-yaml
 
       - name: Build matrix
-        id: set-matrix
-        shell: bash
+        id: matrix
+        uses: actions/github-script@v7
         env:
-          BASE_SHA: ${{ env.BASE_SHA }}
-        run: |
-          set -xuo pipefail
-          set +e
-          CHANGED=$(git diff --name-only $BASE_SHA ${{ github.sha }} -- label_studio_ml/ | xargs -L1 dirname | uniq | cut -d'/' -f2-)
-          CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples )
-          set -e
-          ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
-          if [[ $GITHUB_REF == 'refs/heads/master' || $GITHUB_REF =~ ^refs/heads/release/.* ]]; then
-            echo "All in matrix because we are on master or a release branch"
-            echo "matrix={\"ml_backend\":[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
-          elif [[ $(echo "$CHANGED" | grep -c -v ^$) == $(echo "$CHANGED_EXAMPLES" | grep -c -v ^$) ]]; then
-            echo "Finding examples to test"
-            if [[ $(echo "$CHANGED" | grep -c -v ^$) == 0 ]]; then
-              echo "matrix={\"ml_backend\":[]}" >> $GITHUB_OUTPUT
-            else
-              echo "matrix={\"ml_backend\":[$(echo "$CHANGED_EXAMPLES" | cut -d'/' -f2- | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "All in matrix"
-            echo "matrix={\"ml_backend\":[$(echo "$ALL_EXAMPLES" | xargs | sed -e 's/ /\",\"/g' -e 's/^/\"/' -e 's/$/\"/')]}" >> $GITHUB_OUTPUT
-          fi
+          BASE_REF: "${{ github.event.pull_request.base.sha || github.event.before }}"
+          HEAD_REF: "${{ github.event.pull_request.head.sha || github.event.after }}"
+          EVENT_NAME: "${{ github.event_name }}"
+        with:
+          script: |
+            const yaml = require('js-yaml');
 
+            const {owner, repo} = context.repo;
+            
+            const default_branch = process.env.DOCKER_BUILD_CONFIG_BRANCH;
+            const docker_build_config_path = process.env.DOCKER_BUILD_CONFIG_PATH;
+            const docker_examples_directory = process.env.DOCKER_EXAMPLES_DIRECTORY;
+            const base_ref = process.env.BASE_REF;
+            const head_ref = process.env.HEAD_REF;
+            const event_name = process.env.EVENT_NAME;
+            
+            const docker_build_config_blob = await github.rest.repos.getContent({
+              owner: owner,
+              repo: repo,
+              ref: default_branch,
+              path: docker_build_config_path,
+            });
+            const docker_build_config_content = Buffer.from(docker_build_config_blob.data.content, docker_build_config_blob.data.encoding).toString("utf8");
+            const docker_build_config = yaml.load(docker_build_config_content);
+            
+            let backends = [];
+            if (event_name === 'push') {
+              const {data: examples} = await github.rest.repos.getContent({
+                owner: owner,
+                repo: repo,
+                ref: head_ref,
+                path: docker_examples_directory,
+              });
+              backends = new Set(examples.filter(e => e.type === 'dir').map(e => e.path.split('/')[2]));
+            } else {
+              const {data: compare} = await github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base: base_ref,
+                head: head_ref,
+              });
+              backends = new Set(compare.files.filter(e => e.filename.startsWith(docker_examples_directory)).map(e => e.filename.split('/')[2]));
+            }
+            
+            let matrixInclude = [];
+            for (const backend of backends) {
+              const config = docker_build_config.find(e => e.backend_dir_name === backend)
+              let runs_on = "ubuntu-latest";
+              if (config) {
+                if ((config.bypass ?? []).includes("pytest")) {
+                  console.log(`Skipping pytests for ${backend}`);
+                  continue;
+                }
+                runs_on = config.runs_on ?? "ubuntu-latest";
+              }
+              matrixInclude.push({"backend_dir_name": backend, "runs_on": runs_on});
+            }
+            console.log(matrixInclude);
+            core.setOutput("matrix-include", matrixInclude);
 
   dependabot-auto-merge:
     name: "Auto Merge dependabot PR"

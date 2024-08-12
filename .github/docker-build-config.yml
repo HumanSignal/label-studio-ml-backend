@@ -6,6 +6,10 @@
   backend_tag_prefix: flair-
 - backend_dir_name: grounding_dino
   backend_tag_prefix: grnddino-
+  runs_on: ubuntu-latest-4c-16gb
+- backend_dir_name: grounding_sam
+  backend_tag_prefix: grounding_sam-
+  runs_on: ubuntu-latest-4c-16gb
 - backend_dir_name: huggingface_llm
   backend_tag_prefix: huggingfacellm-
 - backend_dir_name: huggingface_ner
@@ -18,12 +22,21 @@
   backend_tag_prefix: llm-
 - backend_dir_name: mmdetection-3
   backend_tag_prefix: mmdetection3-
+  runs_on: ubuntu-latest-4c-16gb
 - backend_dir_name: nemo_asr
   backend_tag_prefix: nemoasr-
 - backend_dir_name: segment_anything_model
   backend_tag_prefix: sam-
 - backend_dir_name: segment_anything_2_image
   backend_tag_prefix: sa2-
+  runs_on: ubuntu-latest-4c-16gb
+  bypass:
+    - pytests
+- backend_dir_name: segment_anything_2_video
+  backend_tag_prefix: segment_anything_2_video-
+  runs_on: ubuntu-latest-4c-16gb
+  bypass:
+    - pytests
 - backend_dir_name: sklearn_text_classifier
   backend_tag_prefix: sklearntxtclass-
 - backend_dir_name: spacy
