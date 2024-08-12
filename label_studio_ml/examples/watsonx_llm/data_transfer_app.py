@@ -1,5 +1,3 @@
-import csv
-import logging
 import os
 import prestodb
 import traceback
@@ -7,7 +5,6 @@ from flask import Flask, request, jsonify, Response
 from label_studio_sdk.client import LabelStudio
 from typing import List
 
-logger = logging.getLogger(__name__)
 _server = Flask(__name__)
 
 
@@ -62,29 +59,29 @@ def upload_to_watsonx():
                 # upload new annotation to watsonx
                 values = tuple([data[key] for key in table_info_keys])
                 insert_command = f"""INSERT INTO {table} VALUES {values}"""
-                logger.debug(insert_command)
+                _server.logger.debug(insert_command)
                 cur.execute(insert_command)
 
             elif action == "ANNOTATION_UPDATED":
                 # update existing annotation in watsonx by deleting the old one and uploading a new one
                 delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
-                logger.debug(delete)
+                _server.logger.debug(delete)
                 cur.execute(delete)
                 values = tuple([data[key] for key in table_info_keys])
                 insert_command = f"""INSERT INTO {table} VALUES {values}"""
-                logger.debugint(insert_command)
+                _server.logger.debugint(insert_command)
                 cur.execute(insert_command)
 
             elif action == "ANNOTATIONS_DELETED":
                 # delete existing annotation in watsonx
                 delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
-                logger.debug(delete)
+                _server.logger.debug(delete)
                 cur.execute(delete)
 
             conn.commit()
     except Exception as e:
-        logger.debug(traceback.format_exc())
-        logger.debug(e)
+        _server.logger.debug(traceback.format_exc())
+        _server.logger.debug(e)
 
 
 def connect_ls():
@@ -104,8 +101,8 @@ def connect_ls():
         return client
 
     except Exception as e:
-        logger.debug(traceback.format_exc())
-        logger.debug(e)
+        _server.logger.debug(traceback.format_exc())
+        _server.logger.debug(e)
 
 
 def get_data(annotation, task, client):
@@ -131,7 +128,7 @@ def get_data(annotation, task, client):
             info.update({key: value})
 
         for result in annotation["result"]:
-            logger.debug(result)
+            _server.logger.debug(result)
             val_dict_key = list(result["value"].keys())[0]
             value = result["value"][val_dict_key]
             key = result["from_name"]
@@ -144,11 +141,11 @@ def get_data(annotation, task, client):
                 value = value.strip("\"")
             info.update({key: value})
 
-        logger.debug(f"INFO {info}")
+        _server.logger.debug(f"INFO {info}")
         return info
     except Exception as e:
-        logger.debug(traceback.format_exc())
-        logger.debug(e)
+        _server.logger.debug(traceback.format_exc())
+        _server.logger.debug(e)
 
 
 def create_table(table, data):
@@ -170,5 +167,5 @@ def create_table(table, data):
     CREATE TABLE IF NOT EXISTS {table} ({nl.join(strings)})
 
     """
-    logger.debug(table_create)
+    _server.logger.debug(table_create)
     return table_create, table_info_keys
