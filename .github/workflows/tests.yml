@@ -195,11 +195,15 @@ jobs:
               const config = docker_build_config.find(e => e.backend_dir_name === backend)
               let runs_on = "ubuntu-latest";
               if (config) {
-                if ((config.bypass ?? []).includes("pytest")) {
+                console.log(`Config for ${backend}:`);
+                console.log(config);
+                if ((config.bypass ?? []).includes("pytests")) {
                   console.log(`Skipping pytests for ${backend}`);
                   continue;
                 }
                 runs_on = config.runs_on ?? "ubuntu-latest";
+              } else {
+                console.log(`Could not find config for ${backend}`);
               }
               matrixInclude.push({"backend_dir_name": backend, "runs_on": runs_on});
             }
