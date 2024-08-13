@@ -13,7 +13,7 @@ Note that as of 8/1/2024, SAM2 only runs on GPU.
 git clone https://github.com/HumanSignal/label-studio-ml-backend.git
 cd label-studio-ml-backend
 pip install -e .
-cd label_studio_ml/examples/segment_anything_2
+cd label_studio_ml/examples/segment_anything_2_video
 pip install -r requirements.txt
 ```
 
