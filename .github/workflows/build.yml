@@ -94,7 +94,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           IMAGE_NAME: "${{ env.IMAGE_NAME }}"
-          TAGS: "${{ steps.version.outputs.image_version }},${{ steps.version.outputs.image_branch_version }},latest"
+          TAGS: "${{ steps.version.outputs.image_version }},${{ steps.version.outputs.image_branch_version }}"
         with:
           script: |
             const raw_tags_input = process.env.TAGS;
