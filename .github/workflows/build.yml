@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - ".github/workflows/build.yml"
+      - "label_studio_ml/examples"
 
 env:
   DOCKER_BUILD_CONFIG_BRANCH: "master"
