@@ -18,51 +18,42 @@ pip install -r requirements.txt
 
 2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation). Make sure that you complete the steps for downloadingn the checkpoint files! 
 
+3. Export the following environment variables (fill them in with your credentials!):
+- LABEL_STUDIO_URL: the http:// or https:// link to your label studio instance (include the prefix!) 
+- LABEL_STUDIO_API_KEY: your api key for label studio, available in your profile. 
 
-3. Then you can start the ML backend on the default port `9090`:
+4. Then you can start the ML backend on the default port `9090`:
 
 ```bash
 cd ../
 label-studio-ml start ./segment_anything_2
 ```
 Note that if you're running in a cloud server, you'll need to run on an exposed port. To change the port, add `-p <port number>` to the end of the start command above.
-4. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
+5. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
  Again, if you're running in the cloud, you'll need to replace this localhost location with whatever the external ip address is of your container, along with the exposed port.
-## Running with Docker (coming soon)
 
-1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
+# Labeling Config
+For your project, you can use any labeling config with video properties. Here's a basic one to get you started!
+     
+    <View>
+         <Labels name="videoLabels" toName="video" allowEmpty="true">
+           
+           
+           
+         <Label value="Player" background="#11A39E"/><Label value="Ball" background="#D4380D"/></Labels>
+         
+         <!-- Please specify FPS carefully, it will be used for all project videos -->
+         <Video name="video" value="$video" framerate="25.0"/>
+         <VideoRectangle name="box" toName="video" smart="true"/>
+      </View><!--{
+       "video": "/static/samples/opossum_snow.mp4"
+      }-->
 
-```bash
-docker-compose up
-```
-
-2. Validate that backend is running
-
-```bash
-$ curl http://localhost:9090/
-{"status":"UP"}
-```
-
-3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
-
-
-# Configuration
-Parameters can be set in `docker-compose.yml` before running the container.
-
-
-The following common parameters are available:
-- `DEVICE` - specify the device for the model server (currently only `cuda` is supported, `cpu` is coming soon)
-- `MODEL_CONFIG` - SAM2 model configuration file (`sam2_hiera_l.yaml` by default)
-- `MODEL_CHECKPOINT` - SAM2 model checkpoint file (`sam2_hiera_large.pt` by default)
-- `BASIC_AUTH_USER` - specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
-- `LOG_LEVEL` - set the log level for the model server
-- `WORKERS` - specify the number of workers for the model server
-- `THREADS` - specify the number of threads for the model server
 
 # Known limitiations
 - As of 8/11/2024, SAM2 only runs on GPU servers. 
 - Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
+- No Docker support
 
 If you want to contribute to this repository to help with some of these limitations, you can submit a PR. 
 # Customization
