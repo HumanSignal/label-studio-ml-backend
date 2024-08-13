@@ -4,27 +4,30 @@ on:
   push:
     branches:
       - master
+    paths:
+      - ".github/workflows/build.yml"
+      - "label_studio_ml/examples"
+
+env:
+  DOCKER_BUILD_CONFIG_BRANCH: "master"
+  DOCKER_BUILD_CONFIG_PATH: ".github/docker-build-config.yml"
+  DOCKER_EXAMPLES_DIRECTORY: "label_studio_ml/examples"
 
 jobs:
   build-image:
     name: Build image
+    if: needs.calculate_matrix.outputs.matrix-include != '[]'
     needs: calculate_matrix
-    runs-on: ${{
-      matrix.ml_backend.backend_dir_name == 'mmdetection-3' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend.backend_dir_name == 'segment_anything_2_image' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend.backend_dir_name == 'segment_anything_2_video' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend.backend_dir_name == 'grounding_dino' && 'ubuntu-latest-4c-16gb' ||
-      matrix.ml_backend.backend_dir_name == 'grounding_sam' && 'ubuntu-latest-4c-16gb' ||
-      'ubuntu-latest' }} # Use larger runner for some backends, as we need >20GB during build time.
+    runs-on: ${{ matrix.runs_on || 'ubuntu-latest' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix: ${{fromJSON(needs.calculate_matrix.outputs.matrix)}}
+      matrix:
+        include: ${{ fromJson(needs.calculate_matrix.outputs.matrix-include) }}
     env:
       IMAGE_NAME: heartexlabs/label-studio-ml-backend
-      examples_dir: label_studio_ml/examples
-      backend_dir_name: ${{ matrix.ml_backend.backend_dir_name }}
-      backend_tag_prefix: ${{ matrix.ml_backend.backend_tag_prefix }}
+      backend_dir_name: ${{ matrix.backend_dir_name }}
+      backend_tag_prefix: ${{ matrix.backend_tag_prefix }}
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
@@ -109,7 +112,7 @@ jobs:
         uses: docker/build-push-action@v6.6.1
         id: docker_build_and_push
         with:
-          context: "${{ env.examples_dir }}/${{ env.backend_dir_name }}"
+          context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
           push: ${{ steps.actor-membership.outputs.active }}
           tags: "${{ steps.calculate-docker-tags.outputs.tags }}"
           cache-from: type=gha
@@ -119,43 +122,31 @@ jobs:
     name: "Calculate build matrix"
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix-include: ${{ steps.matrix.outputs.matrix-include }}
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GITHUB_SHA }}"
-          fetch-depth: 2
+      - run: npm install js-yaml
 
       - name: Build matrix
-        id: set-matrix
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CONFIG: .github/docker-build-config.yml
-        run: |
-          set -xuo pipefail
-          set +e
-          CHANGED=$(git diff --name-only $BASE_SHA ${{ github.sha }} -- label_studio_ml/ | xargs -L1 dirname | uniq | cut -d'/' -f2-)
-          CHANGED_EXAMPLES=$(echo "$CHANGED" | grep examples )
-          set -e
-          echo "Finding examples to test"
-          if [[ $(echo "$CHANGED" | grep -c -v ^$) == 0 ]]; then
-            echo "matrix={\"ml_backend\":[]}" >> $GITHUB_OUTPUT
-          else
-            ALL_EXAMPLES=$(ls -1d label_studio_ml/examples/*/ | cut -d'/' -f3- | cut -d'/' -f1)
-            echo "Reading configuration from $CONFIG"
-            MATRIX="{\"ml_backend\": ["
-            while IFS= read -r line; do
-              FOLDER=$(echo $line | awk '{print $1}')
-              TAG_PREFIX=$(echo $line | awk '{print $2}')
-              if egrep -q $FOLDER <<< "${CHANGED_EXAMPLES}"; then
-                MATRIX+="{\"backend_dir_name\":\"$FOLDER\", \"backend_tag_prefix\":\"$TAG_PREFIX\"},"
-              fi
-            done < <(yq '.[] | .backend_dir_name + " " + .backend_tag_prefix' $CONFIG)
-            MATRIX=$(echo "$MATRIX" | sed 's/,$//')
-            MATRIX+="]}"
-            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          fi
+        id: matrix
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const yaml = require('js-yaml');
+
+            const {owner, repo} = context.repo;
+            
+            const default_branch = process.env.DOCKER_BUILD_CONFIG_BRANCH;
+            const docker_build_config_path = process.env.DOCKER_BUILD_CONFIG_PATH;
+            
+            const docker_build_config_blob = await github.rest.repos.getContent({
+              owner: owner,
+              repo: repo,
+              ref: default_branch,
+              path: docker_build_config_path,
+            });
+            const docker_build_config_content = Buffer.from(docker_build_config_blob.data.content, docker_build_config_blob.data.encoding).toString("utf8");
+            const docker_build_config = yaml.load(docker_build_config_content);
+            
+            core.setOutput("matrix-include", docker_build_config);
