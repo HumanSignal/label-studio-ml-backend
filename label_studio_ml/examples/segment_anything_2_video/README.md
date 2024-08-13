@@ -3,7 +3,6 @@ This guide describes the simplest way to start using **SegmentAnything 2** with 
 ## Using SAM2 with Label Studio (tutorial)
 [![Connecting SAM2 Model to Label Studio for Image Annotation ](https://img.youtube.com/vi/FTg8P8z4RgY/0.jpg)](https://www.youtube.com/watch?v=FTg8P8z4RgY)
 
-Note that as of 8/1/2024, SAM2 only runs on GPU.
 
 ## Running from source
 
@@ -17,7 +16,7 @@ cd label_studio_ml/examples/segment_anything_2_video
 pip install -r requirements.txt
 ```
 
-2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation)
+2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation). Make sure that you complete the steps for downloadingn the checkpoint files! 
 
 
 3. Then you can start the ML backend on the default port `9090`:
@@ -26,9 +25,9 @@ pip install -r requirements.txt
 cd ../
 label-studio-ml start ./segment_anything_2
 ```
-
+Note that if you're running in a cloud server, you'll need to run on an exposed port. To change the port, add `-p <port number>` to the end of the start command above.
 4. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
-
+ Again, if you're running in the cloud, you'll need to replace this localhost location with whatever the external ip address is of your container, along with the exposed port.
 ## Running with Docker (coming soon)
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
@@ -61,6 +60,11 @@ The following common parameters are available:
 - `WORKERS` - specify the number of workers for the model server
 - `THREADS` - specify the number of threads for the model server
 
+# Known limitiations
+- As of 8/11/2024, SAM2 only runs on GPU servers. 
+- Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
+
+If you want to contribute to this repository to help with some of these limitations, you can submit a PR. 
 # Customization
 
-The ML backend can be customized by adding your own models and logic inside the `./segment_anything_2` directory. 
+The ML backend can be customized by adding your own models and logic inside the `./segment_anything_2_video` directory. 
