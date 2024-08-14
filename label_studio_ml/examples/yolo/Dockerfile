@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=9090 \
     WORKERS=2 \
     THREADS=4 \
-    CUDA_HOME=/usr/local/cuda \
+    CUDA_HOME=/usr/local/cuda
 
 RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
 ENV CUDA_HOME=/opt/conda \
