@@ -67,54 +67,13 @@ class YOLO(LabelStudioMLBase):
                 'model': models[control.tag],
                 'score_threshold': score_threshold
             }
-            tag['label_map'] = self.build_label_map(from_name, tag['model'].names)
+            tag['label_map'] = self.build_label_map(from_name, tag['model'].names.values())
             control_tags.append(tag)
 
         if not control_tags:
-            logger.error(f'No {control_type} detected in the label config with {object_tag}')
+            logger.error(f'No control tags detected in the label config for Image object tag')
 
         return control_tags
-
-    def build_label_map(self, tag_name: str, names: Dict[int, str]) -> Dict[str, str]:
-        """
-        Build label maps using `predicted_values="truck,car"` attribute from <Label> tag
-        and model names, e.g. "truck", "car" are label names in model and "Car" is from
-        labeling config. As the result, it will return {'car': 'Car', 'truck': Car}
-        """
-        label_map = {}
-        labels_attrs = self.label_interface.get_control(tag_name).labels_attrs
-
-        model_labels = list(names.values())
-        model_labels_lower = [label.lower() for label in model_labels]
-        logger.info(f"Labels supported by model for {tag_name}:", names)
-
-        # if labeling config has Label tags
-        if labels_attrs:
-            # try to find `predicted_values` in Labels, e.g.
-            # <Label value="Vehicle" predicted_values="airplane,car">
-            for ls_label, label_tag in labels_attrs.items():
-                predicted_values = label_tag.attr.get("predicted_values", "").split(",")
-                for predicted_value in predicted_values:
-                    predicted_value = predicted_value.strip()  # remove spaces at the beginning and at the end
-                    if predicted_value:  # it shouldn't be empty (like '')
-                        if predicted_value not in model_labels:
-                            logger.warning(f'Predicted value "{predicted_value}" is not in model labels')
-                        label_map[predicted_value] = ls_label
-
-        # label map is still empty, not predicted_values found in Label tags,
-        # try to build mapping automatically: map LS labels.lower() to model.names lower() directly
-        if not label_map:
-            # try to find thin <Label value="Vehicle" predicted_values="airplane,car">
-            for ls_label, _ in labels_attrs.items():
-                try:
-                    index = model_labels_lower.index(ls_label.lower())
-                except ValueError:
-                    continue  # no label found in labels
-                else:
-                    label_map[model_labels[index]] = ls_label
-
-        logger.debug("Model Labels <=> Label Studio Labels:\n", label_map)
-        return label_map
 
     def setup(self):
         """Configure any parameters of your model here
