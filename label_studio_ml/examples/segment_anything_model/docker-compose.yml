@@ -1,49 +1,89 @@
 version: "3.8"
 
 services:
+  label_studio:
+    container_name: label-studio-nict
+    image: heartexlabs/label-studio:latest
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    # local strage
+    volumes:
+      - ~/res/label-studio/mydata:/label-studio/data
+    environment:
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data/local-strage
+
   segment_anything_model:
-    container_name: segment_anything_model
+    container_name: sam-nict
     image: heartexlabs/label-studio-ml-backend:sam-master
+    restart: unless-stopped
     build:
       context: .
       shm_size: '4gb'
       args:
         TEST_ENV: ${TEST_ENV}
-    deploy:
-      resources:
-        limits:
-            memory: 8G
-        reservations:
-            memory: 4G
-# Add this to pass through 1 GPU 
-#            devices:
-#              - driver: nvidia
-#                count: 1
-#                capabilities: [gpu]
     environment:
-      # specify these parameters if you want to use basic auth for the model server
+    # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
-      # Change this to your model name: MobileSAM or SAM
-      - SAM_CHOICE=MobileSAM
+    # Change this to your model name: MobileSAM or SAM
+      - SAM_CHOICE=SAM
       - LOG_LEVEL=DEBUG
-      # Enable this to use the GPU
-      # - NVIDIA_VISIBLE_DEVICES=all
-      # specify the number of workers and threads for the model server
-      - WORKERS=1
-      - THREADS=8
-      # specify the model directory (likely you don't need to change this)
+    # Enable this to use the GPU
+      - NVIDIA_VISIBLE_DEVICES=all
+    # specify the number of workers and threads for the model server
+      - WORKERS=2
+      - THREADS=6
+    # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
-
-      # Specify the Label Studio URL and API key to access
+    # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_HOST=
-      - LABEL_STUDIO_ACCESS_TOKEN=
-
+      - LABEL_STUDIO_HOST=http://192.168.0.170:8080
+      - LABEL_STUDIO_ACCESS_TOKEN=91ed261931135c9d694ad8e4d2a75c54f597f3f9
     ports:
       - 9090:9090
     volumes:
-      - "./data/server:/data"
+      - ~/res/label-studio/label-studio-ml-backend/label_studio_ml/examples/segment_anything_model/data:/data
+    deploy:
+      resources:
+        limits:
+            memory: 64G
+        reservations:
+            memory: 4G
+# Add this to pass through 1 GPU 
+            devices:
+              - driver: nvidia
+                count: all
+                capabilities: [gpu]
+
+  syncthing:
+    image: syncthing/syncthing
+    container_name: syncthing-nict
+    restart: unless-stopped
+    hostname: NICT
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ~/res/label-studio/syncthing-config:/var/syncthing-config
+      - ~/res/label-studio/mydata:/var/syncthing/label-studio-mydata
+    ports:
+      - 8384:8384 # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
+      - 21027:21027/udp # Receive local discovery broadcasts
+
+  jupyternotebook:
+    image: jupyter/base-notebook:latest
+    container_name: jupyter-nict
+    ports:
+      - 8888:8888
+    volumes:
+      - ~/res/label-studio/mydata/notebooks:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: start-notebook.sh --ip=0.0.0.0 --allow-root --NotebookApp.password='' --NotebookApp.token=''
