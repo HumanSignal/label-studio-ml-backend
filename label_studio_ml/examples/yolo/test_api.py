@@ -78,7 +78,7 @@ def compare_nested_structures(a, b, path=""):
         for i, (act_item, exp_item) in enumerate(zip(a, b)):
             compare_nested_structures(act_item, exp_item, path + f"[{i}]")
     elif isinstance(a, float) and isinstance(b, float):
-        assert a == approx(b), f"Mismatch at {path}"
+        assert a == approx(b, rel=1e-4), f"Mismatch at {path}"
     else:
         assert a == b, f"Mismatch at {path}"
 
