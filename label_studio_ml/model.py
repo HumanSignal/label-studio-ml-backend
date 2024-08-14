@@ -78,7 +78,10 @@ class LabelStudioMLBase(ABC):
             project_id (str, optional): The project ID. Defaults to None.
         """
         self.project_id = project_id or ''
-        self.use_label_config(label_config)
+        if label_config is not None:
+            self.use_label_config(label_config)
+        else:
+            logger.warning('Label config is not provided')
 
         # set initial model version
         if not self.model_version:

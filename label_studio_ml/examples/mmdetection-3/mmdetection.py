@@ -100,6 +100,7 @@ class MMDetection(LabelStudioMLBase):
             for ls_label, label_attrs in self.labels_attrs.items():
                 predicted_values = label_attrs.get("predicted_values", "").split(",")
                 for predicted_value in predicted_values:
+                    predicted_value = predicted_value.strip()  # remove spaces at the beginning and at the end
                     if predicted_value:  # it shouldn't be empty (like '')
                         if predicted_value not in mmdet_labels:
                             print(
