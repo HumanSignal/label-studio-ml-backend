@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
-    image: humansignal/ml-backend:v0
+  yolo:
+    container_name: yolo
+    image: humansignal/yolo:v0
     build:
       context: .
       args:
