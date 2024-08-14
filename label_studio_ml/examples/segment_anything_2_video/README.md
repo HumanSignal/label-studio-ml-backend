@@ -1,7 +1,7 @@
 This guide describes the simplest way to start using **SegmentAnything 2** with Label Studio.
 
-## Using SAM2 with Label Studio (tutorial)
-[![Connecting SAM2 Model to Label Studio for Image Annotation ](https://img.youtube.com/vi/FTg8P8z4RgY/0.jpg)](https://www.youtube.com/watch?v=FTg8P8z4RgY)
+This repository is specifically for working with object tracking in videos. For working with images, 
+see the [segment_anything_2_image repository](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/segment_anything_2_image)
 
 
 ## Running from source
@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 ```bash
 cd ../
-label-studio-ml start ./segment_anything_2
+label-studio-ml start ./segment_anything_2_video
 ```
 Note that if you're running in a cloud server, you'll need to run on an exposed port. To change the port, add `-p <port number>` to the end of the start command above.
 5. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
