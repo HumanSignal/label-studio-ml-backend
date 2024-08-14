@@ -53,6 +53,7 @@ For your project, you can use any labeling config with video properties. Here's 
 # Known limitiations
 - As of 8/11/2024, SAM2 only runs on GPU servers. 
 - Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
+- Currently, we do not support video segmentation. 
 - No Docker support
 
 If you want to contribute to this repository to help with some of these limitations, you can submit a PR. 
