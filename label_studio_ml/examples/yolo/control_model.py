@@ -5,10 +5,10 @@ from label_studio_sdk.label_interface.control_tags import ControlTag
 from ultralytics import YOLO
 
 
-class ControlTag(BaseModel):
+class ControlModel(BaseModel):
     """
     Represents a control tag in Label Studio, which is associated with a specific type of data
-    and is used to generate predictions using a model like YOLO.
+    and is used to generate predictions using a YOLO model.
 
     Attributes:
         type (str): Type of the control, e.g., RectangleLabels, Choices, etc.
@@ -40,8 +40,6 @@ class ControlTag(BaseModel):
             f"{self.type} from_name={self.from_name}, "
             f"label_map={self.label_map}, score_threshold={self.score_threshold}"
         )
-
-
 
     class Config:
         arbitrary_types_allowed = True

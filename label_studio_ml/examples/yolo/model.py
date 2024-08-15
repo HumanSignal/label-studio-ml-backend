@@ -12,15 +12,17 @@ from ultralytics import YOLO
 
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
-from control_tag import ControlTag
+from control_model import ControlModel
 
 
 # default threshold for confidences
 SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.5))
 
 logger = logging.getLogger(__name__)
+if not os.getenv('LOG_LEVEL'):
+    logger.setLevel(logging.INFO)
 
-# preload default models at the startup
+# preload default models at the startup, comment out the models you don't need
 models = {
     'RectangleLabels': YOLO('yolov8m.pt'),  # https://docs.ultralytics.com/tasks/detect/
     'RectangleLabels.OBB': YOLO('yolov8n-obb.pt'),  # https://docs.ultralytics.com/tasks/obb/
@@ -30,6 +32,10 @@ models = {
 }
 # Taxonomy is the same as Choices
 models['Taxonomy'] = models['Choices']
+
+# print model labels for user info
+for control, model in models.items():
+    logger.info(f'Available "{model.model_name}" model labels for {control}: {list(model.names.values())}')
 
 
 class YOLO(LabelStudioMLBase):
@@ -41,7 +47,7 @@ class YOLO(LabelStudioMLBase):
         """
         self.set("model_version", "yolo")
 
-    def detect_control_tags(self) -> List[ControlTag]:
+    def detect_control_tags(self) -> List[ControlModel]:
         """ Use the label config to detect the models to use.
         You can customize this method using `self.project_id` to load different models for specific projects.
         """
@@ -70,18 +76,18 @@ class YOLO(LabelStudioMLBase):
             label_map = self.build_label_map(from_name, model_names)
             if not label_map:
                 logger.error(
-                    f"No label map found for the '{control.tag}' control tag.\n"
-                    f"Model labels: {list(model_names)}\n"
+                    f"No label map built for the '{control.tag}' control tag.\n"
                     f"This indicates that your Label Studio config labels do not match the model's labels.\n"
                     f"To fix this, ensure that the 'predicted_values' or 'value' attribute in your Label Studio config "
                     f'matches one or more of these model labels.\n'
                     f'Examples:\n<Label value="Car"/>\n'
                     f'<Label value="YourLabel" predicted_values="label1,label2"/>'
+                    f"Available '{model.model_name}' model labels: {list(model_names)}"
                 )
                 continue
 
-            # add control tag that we need to use for predictions
-            tag = ControlTag(
+            # add control tag with model that we need to use for predictions
+            control_model = ControlModel(
                 type=control.tag,
                 control=control,
                 from_name=from_name,
@@ -91,8 +97,8 @@ class YOLO(LabelStudioMLBase):
                 score_threshold=score_threshold,
                 label_map=label_map
             )
-            control_tags.append(tag)
-            logger.info(f"Control tag detected: {tag}")
+            control_tags.append(control_model)
+            logger.info(f"Control tag with model detected: {control_model}")
 
         if not control_tags:
             logger.error(f'No control tags detected in the label config for Image object tag')
@@ -102,10 +108,11 @@ class YOLO(LabelStudioMLBase):
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Run YOLO predictions on the tasks
             :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
-            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
+            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create)
             :return model_response
                 ModelResponse(predictions=predictions) with
-                predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
+                predictions [Predictions array in JSON format]
+                (https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
         logger.info(f'Run prediction on {len(tasks)} tasks, project ID = {self.project_id}')
         control_tags = self.detect_control_tags()

@@ -21,6 +21,7 @@ services:
       - THREADS=8
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
+      - LOG_LEVEL=INFO
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
