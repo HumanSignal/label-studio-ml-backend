@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  ml-backend:
-    container_name: ml-backend
-    image: humansignal/ml-backend:v0
+  segment_anything_2_video:
+    container_name: segment_anything_2_video
+    image: humansignal/segment_anything_2_video:v0
     build:
       context: .
       args:
