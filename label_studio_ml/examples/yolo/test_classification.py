@@ -9,8 +9,8 @@ pip install -r requirements-test.txt
 import pytest
 import json
 
-from model import YOLO
 from label_studio_ml.utils import compare_nested_structures
+from test_bboxes import client
 
 
 label_configs = [
@@ -18,10 +18,10 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <Choices name="label" toName="image" score_threshold="0.25">
-        <Label value="Airplane" background="green"/>
-        <Label value="Car" background="blue" predicted_values="car, truck"/>
-      </RectangleLabels>
+      <Choices name="label" toName="image" score_threshold="0.01">
+        <Choice value="Airplane" background="green"/>
+        <Choice value="Car" background="blue" predicted_values="racer, cab"/>
+      </Choices>
     </View>
     """
 ]
@@ -43,35 +43,22 @@ expected = [
             "result": [
                 {
                     "from_name": "label",
-                    "score": 0.684260904788971,
+                    "score": 0.04205331951379776,
                     "to_name": "image",
-                    "type": "rectanglelabels",
+                    "type": "choices",
                     "value": {
-                        "height": 26.102054119110107,
-                        "rectanglelabels": ["Car"],
-                        "width": 18.652383983135223,
-                        "x": 81.26997724175453,
-                        "y": 0.07733255624771118
+                        "choices": ["Car"]
                     }
                 }
             ],
-            "score": 0.6459808945655823
+            "score": 0.04205331951379776
         }
-    ],
+    ]
 ]
 
 
-@pytest.fixture
-def client():
-    from _wsgi import init_app
-    app = init_app(model_class=YOLO)
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-
 @pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
-def test_rectanglelabels_predict(client, label_config, task, expect):
+def test_choices_predict(client, label_config, task, expect):
     data = {"schema": label_config, "project": "42"}
     response = client.post("/setup", data=json.dumps(data), content_type='application/json')
     assert response.status_code == 200, "Error while setup: " + str(response.content)
