@@ -17,25 +17,34 @@ from control_model import ControlModel
 
 # default threshold for confidences
 SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.5))
+# use matplotlib plots for debug
+DEBUG_PLOT = os.getenv('DEBUG_PLOT', "false").lower() in ["1", "true"]
 
 logger = logging.getLogger(__name__)
 if not os.getenv('LOG_LEVEL'):
     logger.setLevel(logging.INFO)
 
-# preload default models at the startup, comment out the models you don't need
-models = {
-    'RectangleLabels': YOLO('yolov8m.pt'),  # https://docs.ultralytics.com/tasks/detect/
-    'RectangleLabels.OBB': YOLO('yolov8n-obb.pt'),  # https://docs.ultralytics.com/tasks/obb/
-    'Keypoints': YOLO('yolov8n-pose.pt'),  # https://docs.ultralytics.com/tasks/pose/
-    'PolygonLabels': YOLO('yolov8n-seg.pt'),  # https://docs.ultralytics.com/tasks/segment/
-    'Choices': YOLO('yolov8n-cls.pt'),  # https://docs.ultralytics.com/tasks/classify/
-}
-# Taxonomy is the same as Choices
-models['Taxonomy'] = models['Choices']
 
-# print model labels for user info
-for control, model in models.items():
-    logger.info(f'Available "{model.model_name}" model labels for {control}: {list(model.names.values())}')
+def load_models():
+    # preload default models at the startup, comment out the models you don't need
+    models = {
+        'RectangleLabels': YOLO('yolov8m.pt'),  # https://docs.ultralytics.com/tasks/detect/
+        'RectangleLabels.OBB': YOLO('yolov8n-obb.pt'),  # https://docs.ultralytics.com/tasks/obb/
+        'Keypoints': YOLO('yolov8n-pose.pt'),  # https://docs.ultralytics.com/tasks/pose/
+        'PolygonLabels': YOLO('yolov8n-seg.pt'),  # https://docs.ultralytics.com/tasks/segment/
+        'Choices': YOLO('yolov8n-cls.pt'),  # https://docs.ultralytics.com/tasks/classify/
+    }
+    # Taxonomy is the same as Choices
+    models['Taxonomy'] = models['Choices']
+
+    # print model labels for user info
+    for control, model in models.items():
+        logger.info(f'Available "{model.model_name}" model labels for {control}: {list(model.names.values())}')
+
+    return models
+
+
+models = load_models()
 
 
 class YOLO(LabelStudioMLBase):
@@ -69,6 +78,7 @@ class YOLO(LabelStudioMLBase):
             from_name = control.name
             to_name = control.to_name[0]
             value = control.objects[0].value_name
+
             # read `score_threshold` attribute from the control tag, e.g.: <RectangleLabels score_threshold="0.5">
             score_threshold = float(control.attr.get('score_threshold') or SCORE_THRESHOLD)
             model = models[control.tag]
@@ -98,7 +108,7 @@ class YOLO(LabelStudioMLBase):
                 label_map=label_map
             )
             control_tags.append(control_model)
-            logger.info(f"Control tag with model detected: {control_model}")
+            logger.debug(f"Control tag with model detected: {control_model}")
 
         if not control_tags:
             logger.error(f'No control tags detected in the label config for Image object tag')
@@ -149,6 +159,7 @@ class YOLO(LabelStudioMLBase):
 
     @staticmethod
     def create_choices(results, task, tag):
+        logger.debug(f'create_choices: {tag.from_name}')
         mode = tag.control.attr.get('choice', 'single')
         data = results[0].probs.numpy().data
 
@@ -205,6 +216,7 @@ class YOLO(LabelStudioMLBase):
 
     @staticmethod
     def create_rectangles(results, task, tag):
+        logger.debug(f'create_rectangles: {tag.from_name}')
         label_map, score_threshold = tag.label_map, tag.score_threshold
         data = results[0].boxes  # take bboxes from the first frame
         regions = []
@@ -252,6 +264,7 @@ class YOLO(LabelStudioMLBase):
     @staticmethod
     def load_image(tag, task):
         path = task["data"].get(tag.value) or task["data"].get(DATA_UNDEFINED_NAME)
+        logger.debug(f'load_image: {path}')
         path = get_local_path(path, task_id=task.get('id'))
         image = cv2.imread(path)
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -259,6 +272,9 @@ class YOLO(LabelStudioMLBase):
 
     @staticmethod
     def debug_plot(image, title):
+        if not DEBUG_PLOT:
+            return
+
         plt.figure(figsize=(10, 10))
         plt.imshow(image)
         plt.axis('off')
@@ -289,3 +305,102 @@ class YOLO(LabelStudioMLBase):
         print(f'New model version: {self.get("model_version")}')
 
         print('fit() is not implemented!')
+
+    def temp(self):
+
+        model = YOLO("yolov8n.pt")
+        video_path = "path/to/video.mp4"
+        cap = cv2.VideoCapture(video_path)
+        track_history = defaultdict(lambda: [])
+
+        while cap.isOpened():
+            success, frame = cap.read()
+            if success:
+                results = model.track(frame, persist=True)
+                boxes = results[0].boxes.xywh.cpu()
+                track_ids = results[0].boxes.id.int().cpu().tolist()
+                annotated_frame = results[0].plot()
+                for box, track_id in zip(boxes, track_ids):
+                    x, y, w, h = box
+                    track = track_history[track_id]
+                    track.append((float(x), float(y)))
+                    if len(track) > 30:
+                        track.pop(0)
+                    points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
+                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=10)
+                cv2.imshow("YOLOv8 Tracking", annotated_frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+            else:
+                break
+
+            {
+                "result": [
+                {
+                    "value": {
+                        "framesCount": 864,
+                        "duration": 34.538667,
+                        "sequence": [
+                            {
+                                "frame": 1,
+                                "enabled": true,
+                                "rotation": 0,
+                                "x": 14.23913043478261,
+                                "y": 30.434782608695656,
+                                "width": 58.26086956521739,
+                                "height": 34.78260869565217,
+                                "time": 0.04
+                            },
+                            {
+                                "x": 35.7608695652174,
+                                "y": 18.2608695652174,
+                                "width": 58.26086956521739,
+                                "height": 34.78260869565217,
+                                "rotation": 0,
+                                "frame": 26,
+                                "enabled": true,
+                                "time": 1.04
+                            },
+                            {
+                                "x": 18.15217391304348,
+                                "y": 35.21739130434784,
+                                "width": 58.26086956521739,
+                                "height": 34.78260869565217,
+                                "rotation": 0,
+                                "frame": 65,
+                                "enabled": true,
+                                "time": 2.6
+                            },
+                            {
+                                "x": 24.891304347826065,
+                                "y": 42.82608695652174,
+                                "width": 27.608695652173886,
+                                "height": 22.826086956521756,
+                                "rotation": 0,
+                                "frame": 127,
+                                "enabled": false,
+                                "time": 5.08
+                            },
+                            {
+                                "x": 24.891304347826065,
+                                "y": 42.82608695652174,
+                                "width": 27.608695652173886,
+                                "height": 22.826086956521756,
+                                "rotation": 0,
+                                "enabled": true,
+                                "frame": 143,
+                                "time": 5.72
+                            }
+                        ],
+                        "labels": [
+                            "Man"
+                        ]
+                    },
+                    "id": "7Ar8lQGrBx",
+                    "from_name": "box",
+                    "to_name": "video",
+                    "type": "videorectangle",
+                    "origin": "manual"
+                }
+            ]
+        }
