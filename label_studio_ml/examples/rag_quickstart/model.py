@@ -35,7 +35,9 @@ def iife_rag():
         return rag_chain
 
     nltk.download("punkt")
+    nltk.download("punkt_tab")
     nltk.download("averaged_perceptron_tagger")
+    nltk.download("averaged_perceptron_tagger_eng")
     llm = ChatOpenAI(model=RagQuickstart.OPENAI_RAG_MODEL)
 
     loader = DirectoryLoader(
