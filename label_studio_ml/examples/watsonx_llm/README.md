@@ -30,6 +30,10 @@ on webhooks, see [our documentation](https://labelstud.io/guide/webhooks)
 
 See the configuration notes at the bottom for details on how to set up your environment variables to get the system to work.
 
+For a video demonstration, see [Integrating Label Studio with IBM WatsonX](https://www.youtube.com/watch?v=9iP2yO4Geqc).
+
+<video src="https://www.youtube.com/watch?v=9iP2yO4Geqc" controls="controls" style="max-width: 800px;" class="gif-border" />
+
 ## Setting up your label_config
 For this project, we recommend you start with the labeling config as defined below, but you can always edit it or expand it to
 meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into. 
