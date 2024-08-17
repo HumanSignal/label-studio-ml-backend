@@ -12,11 +12,16 @@ from label_studio_sdk.label_interface.control_tags import ControlTag
 # use matplotlib plots for debug
 DEBUG_PLOT = os.getenv('DEBUG_PLOT', "false").lower() in ["1", "true"]
 SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.5))
+# if true, allow to use custom model path from the control tag in the labeling config
+ALLOW_CUSTOM_MODEL_PATH = os.getenv('ALLOW_CUSTOM_MODEL_PATH', "false").lower() in ["1", "true"]
+
+# Global cache for YOLO models
+_model_cache = {}
 
 
 class ControlModel(BaseModel):
     """
-    Represents a control tag in Label Studio, which is associated with a specific type of data
+    Represents a control tag in Label Studio, which is associated with a specific type of labeling task
     and is used to generate predictions using a YOLO model.
 
     Attributes:
@@ -26,6 +31,7 @@ class ControlModel(BaseModel):
         to_name (str): The name of the data field that this control is associated with.
         value (str): The value name from the object that this control operates on, e.g., an image or text field.
         model (object): The model instance (e.g., YOLO) used to generate predictions for this control.
+        model_path (str): Path to the YOLO model file.
         score_threshold (float): Threshold for prediction scores; predictions below this value will be ignored.
         label_map (Optional[Dict[str, str]]): A mapping of model labels to Label Studio labels.
     """
@@ -35,6 +41,7 @@ class ControlModel(BaseModel):
     to_name: str
     value: str
     model: YOLO
+    model_path: ClassVar[str]
     score_threshold: float = 0.5
     label_map: Optional[Dict[str, str]] = {}
     label_studio_ml_backend: LabelStudioMLBase
@@ -60,13 +67,14 @@ class ControlModel(BaseModel):
         from_name = control.name
         to_name = control.to_name[0]
         value = control.objects[0].value_name
-
-        model = cls.load_yolo_model()
-        model_names = model.names.values()
-        label_map = mlbackend.build_label_map(from_name, model_names)
-        
         # read `score_threshold` attribute from the control tag, e.g.: <RectangleLabels score_threshold="0.5">
         score_threshold = float(control.attr.get('score_threshold') or SCORE_THRESHOLD)
+        # read `model_path` attribute from the control tag
+        model_path = (ALLOW_CUSTOM_MODEL_PATH and control.attr.get('model_path')) or cls.model_path
+
+        model = cls.load_yolo_model(model_path)
+        model_names = model.names.values()  # class names from the model
+        label_map = mlbackend.build_label_map(from_name, model_names)
 
         return cls(
             control=control,
@@ -80,9 +88,14 @@ class ControlModel(BaseModel):
         )
 
     @classmethod
-    def load_yolo_model(cls) -> YOLO:
-        """This method should be overridden in child classes to load the specific YOLO model."""
-        raise NotImplementedError("This method should be overridden in derived classes")
+    def load_yolo_model(cls, path) -> YOLO:
+        return YOLO(path)
+
+    @classmethod
+    def get_cached_model(cls, path: str) -> YOLO:
+        if path not in _model_cache:
+            _model_cache[path] = cls.load_yolo_model(path)
+        return _model_cache[path]
 
     def debug_plot(self, image):
         if not DEBUG_PLOT:

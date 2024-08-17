@@ -3,7 +3,6 @@ import numpy as np
 
 from control_models.base import ControlModel
 from typing import List, Dict
-from ultralytics import YOLO
 
 
 logger = logging.getLogger(__name__)
@@ -14,10 +13,7 @@ class ChoicesModel(ControlModel):
     Class representing a Choices (classes) control tag for YOLO model.
     """
     type = 'Choices'
-
-    @classmethod
-    def load_yolo_model(cls) -> YOLO:
-        return YOLO('yolov8n-cls.pt')
+    model_path = 'yolov8n-cls.pt'
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
@@ -87,3 +83,7 @@ class ChoicesModel(ControlModel):
             },
             "score": float(score),
         }]
+
+
+# pre-load and cache default model at startup
+ChoicesModel.get_cached_model(ChoicesModel.model_path)

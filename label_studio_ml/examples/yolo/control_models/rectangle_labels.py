@@ -2,7 +2,6 @@ import logging
 
 from control_models.base import ControlModel
 from typing import List, Dict
-from ultralytics import YOLO
 
 
 logger = logging.getLogger(__name__)
@@ -13,10 +12,7 @@ class RectangleLabelsModel(ControlModel):
     Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
     """
     type = 'RectangleLabels'
-
-    @classmethod
-    def load_yolo_model(cls) -> YOLO:
-        return YOLO('yolov8m.pt')
+    model_path = 'yolov8m.pt'
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
@@ -74,3 +70,7 @@ class RectangleLabelsModel(ControlModel):
             }
             regions.append(region)
         return regions
+
+
+# pre-load and cache default model at startup
+RectangleLabelsModel.get_cached_model(RectangleLabelsModel.model_path)
