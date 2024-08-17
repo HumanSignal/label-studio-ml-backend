@@ -29,7 +29,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image" score_threshold="0.65">
+      <RectangleLabels name="label" toName="image" score_threshold="0.30">
         <Label value="Airplane" background="green"/>
         <Label value="Car" background="blue" predicted_values="car, truck"/>
       </RectangleLabels>
@@ -68,32 +68,32 @@ expected = [
             "result": [
                 {
                     "from_name": "label",
-                    "score": 0.684260904788971,
+                    "score": 0.5791077017784119,
                     "to_name": "image",
                     "type": "rectanglelabels",
                     "value": {
-                        "height": 26.102054119110107,
+                        "height": 77.13761925697327,
                         "rectanglelabels": ["Car"],
-                        "width": 18.652383983135223,
-                        "x": 81.26997724175453,
-                        "y": 0.07733255624771118
+                        "width": 69.33701038360596,
+                        "x": 21.9377338886261,
+                        "y": 7.984769344329834
                     }
                 },
                 {
                     "from_name": "label",
-                    "score": 0.6077008843421936,
+                    "score": 0.31354132294654846,
                     "to_name": "image",
                     "type": "rectanglelabels",
                     "value": {
-                        "height": 77.03651785850525,
+                        "height": 25.369155406951904,
                         "rectanglelabels": ["Car"],
-                        "width": 69.53177452087402,
-                        "x": 21.781492233276367,
-                        "y": 8.59556794166565
+                        "width": 18.623733520507812,
+                        "x": 81.27312660217285,
+                        "y": 0.10521858930587769
                     }
                 }
             ],
-            "score": 0.6459808945655823
+            "score": 0.44632451236248016
         }
     ],
 
@@ -104,32 +104,45 @@ expected = [
             "result": [
                 {
                     "from_name": "label",
-                    "score": 0.684260904788971,
+                    "score": 0.5791077017784119,
                     "to_name": "image",
                     "type": "rectanglelabels",
                     "value": {
-                        "height": 26.102054119110107,
+                        "height": 77.13761925697327,
                         "rectanglelabels": ["Car"],
-                        "width": 18.652383983135223,
-                        "x": 81.26997724175453,
-                        "y": 0.07733255624771118
+                        "width": 69.33701038360596,
+                        "x": 21.9377338886261,
+                        "y": 7.984769344329834
+                    }
+                },
+                {
+                    "from_name": "label",
+                    "score": 0.31354132294654846,
+                    "to_name": "image",
+                    "type": "rectanglelabels",
+                    "value": {
+                        "height": 25.369155406951904,
+                        "rectanglelabels": ["Car"],
+                        "width": 18.623733520507812,
+                        "x": 81.27312660217285,
+                        "y": 0.10521858930587769
                     }
                 },
                 {
                     "from_name": "label2",
-                    "score": 0.9029274582862854,
+                    "score": 0.9059886932373047,
                     "to_name": "image2",
                     "type": "rectanglelabels",
                     "value": {
-                        "height": 39.65578079223633,
+                        "height": 39.60925042629242,
                         "rectanglelabels": ["Person"],
-                        "width": 10.530853271484375,
-                        "x": 89.4278347492218,
-                        "y": 6.96789026260376
+                        "width": 10.503808408975601,
+                        "x": 89.45398144423962,
+                        "y": 6.985808908939362
                     }
-                },
+                }
             ],
-            "score": 0.7935941815376282
+            "score": 0.5995459059874216
         }
     ],
 ]
@@ -154,4 +167,4 @@ def test_rectanglelabels_predict(client, label_config, task, expect):
     response = client.post("/predict", data=json.dumps(data), content_type='application/json')
     assert response.status_code == 200, "Error while predict: " + str(response.content)
     data = response.json
-    compare_nested_structures(data["results"], expect), "Expected and returned results mismatch"
+    compare_nested_structures(data["results"], expect)

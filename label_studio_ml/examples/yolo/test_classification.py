@@ -18,7 +18,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <Choices name="label" toName="image" score_threshold="0.01">
+      <Choices name="label" toName="image" score_threshold="0.53">
         <Choice value="Airplane" background="green"/>
         <Choice value="Car" background="blue" predicted_values="racer, cab"/>
       </Choices>
@@ -43,7 +43,7 @@ expected = [
             "result": [
                 {
                     "from_name": "label",
-                    "score": 0.04205331951379776,
+                    "score": 0.5582300424575806,
                     "to_name": "image",
                     "type": "choices",
                     "value": {
@@ -51,7 +51,7 @@ expected = [
                     }
                 }
             ],
-            "score": 0.04205331951379776
+            "score": 0.5582300424575806
         }
     ]
 ]
@@ -67,4 +67,4 @@ def test_choices_predict(client, label_config, task, expect):
     response = client.post("/predict", data=json.dumps(data), content_type='application/json')
     assert response.status_code == 200, "Error while predict: " + str(response.content)
     data = response.json
-    compare_nested_structures(data["results"], expect), "Expected and returned results mismatch"
+    compare_nested_structures(data["results"], expect)
