@@ -1,3 +1,23 @@
+<!--
+---
+title: SAM2 with Videos
+type: guide
+tier: all
+order: 15
+hide_menu: true
+hide_frontmatter_title: true
+meta_title: Using SAM2 with Label Studio for Video Annotation
+categories:
+    - Computer Vision
+    - Video Annotation
+    - Object Detection
+    - Segment Anything Model
+image: "/tutorials/sam2-video.png"
+---
+-->
+
+# Using SAM2 with Label Studio for Video Annotation
+
 This guide describes the simplest way to start using **SegmentAnything 2** with Label Studio.
 
 This repository is specifically for working with object tracking in videos. For working with images, 
@@ -51,7 +71,7 @@ For your project, you can use any labeling config with video properties. Here's 
       }-->
 
 
-# Known limitiations
+# Known limitations
 - As of 8/11/2024, SAM2 only runs on GPU servers. 
 - Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
 - Currently, we do not support video segmentation. 

@@ -1,9 +1,27 @@
+<!--
+---
+title: SAM2 with Images
+type: guide
+tier: all
+order: 15
+hide_menu: true
+hide_frontmatter_title: true
+meta_title: Using SAM2 with Label Studio for Image Annotation
+categories:
+    - Computer Vision
+    - Image Annotation
+    - Object Detection
+    - Segment Anything Model
+image: "/tutorials/sam2-images.png"
+---
+-->
 
-Segment Anything 2, or SAM 2, is a model releaed by Meta in July 2024. An update to the original Segment Anything Model, 
+# Using SAM2 with Label Studio for Image Annotation
+
+Segment Anything 2, or SAM 2, is a model released by Meta in July 2024. An update to the original Segment Anything Model, 
 SAM 2 provides even better object segmentation for both images and video. In this guide, we'll show you how to use 
 SAM 2 for better image labeling with label studio. 
 
-## Using SAM2 with Label Studio (tutorial)
 Click on the image below to watch our ML Evangelist Micaela Kaplan explain how to link SAM 2 to your Label Studio Project.
 You'll need to follow the instructions below to stand up an instance of SAM2 before you can link your model! 
 
