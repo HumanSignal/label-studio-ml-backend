@@ -3,7 +3,7 @@ import logging
 
 from control_models.base import ControlModel
 from control_models.choices import ChoicesModel
-from control_models.rectangle_labels import RectangleLabelsModel
+from control_models.rectanglelabels import RectangleLabelsModel
 from control_models.videorectangle import VideoRectangleModel
 from typing import List, Dict, Optional
 

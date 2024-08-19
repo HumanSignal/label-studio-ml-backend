@@ -1,6 +1,7 @@
 """
 This file contains tests for the API of your model. You can run these tests by installing test requirements:
 """
+import os.path
 import pickle
 import pytest
 import json
@@ -8,7 +9,6 @@ import json
 from label_studio_ml.utils import compare_nested_structures
 from model import YOLO
 from test_common import client
-from control_models.videorectangle import VideoRectangleModel
 
 
 label_configs = [
@@ -76,4 +76,9 @@ def test_create_video_rectangles():
     ml = YOLO(project_id='42', label_config=label_configs[0])
     control_models = ml.detect_control_models()
     regions = control_models[0].create_video_rectangles(results, 'opossum_snow_short.mp4')
-    pass
+
+    with open(os.path.dirname(__file__) + '/test_videorectangle.json') as f:
+        expected_regions = json.load(f)
+
+    assert regions == expected_regions
+

@@ -96,7 +96,8 @@ class VideoRectangleModel(ControlModel):
         regions = []
         for track_id in tracks:
             sequence = tracks[track_id]
-            sequence[-1]['enabled'] = False  # the last frame enabled is false to turn off lifespan line
+            sequence = self.process_lifespans_enabled(sequence)
+
             label = track_labels[track_id]
             region = {
                 "from_name": self.from_name,
@@ -114,6 +115,25 @@ class VideoRectangleModel(ControlModel):
             regions.append(region)
 
         return regions
+
+    @staticmethod
+    def process_lifespans_enabled(sequence: List[Dict]) -> List[Dict]:
+        """ This function detects gaps in the sequence of bboxes
+        and disables lifespan line for the gaps assigning "enabled": False
+        to the last bboxes in the whole span sequence.
+        """
+        prev = None
+        for i, box in enumerate(sequence):
+            if prev is None:
+                prev = box
+                continue
+            if box['frame'] - prev['frame'] > 1:
+                sequence[i-1]['enabled'] = False
+
+        # the last frame enabled is false to turn off lifespan line
+        sequence[-1]['enabled'] = False
+        return sequence
+
 
 # pre-load and cache default model at startup
 VideoRectangleModel.get_cached_model(VideoRectangleModel.model_path)
