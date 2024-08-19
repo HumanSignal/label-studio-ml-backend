@@ -196,7 +196,7 @@ def deploy_to_gcp(args):
     # check if auth token exists
     auth_token = subprocess.check_output(' '.join(["gcloud", "auth", "print-identity-token"]), shell=True)
     if not auth_token:
-        raise PermissionError("You are not authentificated in gcloud! Please run gcloud auth login.")
+        raise PermissionError("You are not authenticated in gcloud! Please run gcloud auth login.")
     # configurate project
     subprocess.check_output(' '.join(["gcloud", "config", "set", "project", project_id]), shell=True)
     # deploy service

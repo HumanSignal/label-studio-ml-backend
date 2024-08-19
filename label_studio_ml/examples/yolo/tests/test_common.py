@@ -6,7 +6,6 @@ import pytest
 import json
 
 from model import YOLO
-from label_studio_ml.utils import compare_nested_structures
 
 
 label_configs = [

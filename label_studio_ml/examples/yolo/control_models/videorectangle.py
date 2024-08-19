@@ -125,10 +125,11 @@ class VideoRectangleModel(ControlModel):
         prev = None
         for i, box in enumerate(sequence):
             if prev is None:
-                prev = box
+                prev = sequence[i]
                 continue
             if box['frame'] - prev['frame'] > 1:
                 sequence[i-1]['enabled'] = False
+            prev = sequence[i]
 
         # the last frame enabled is false to turn off lifespan line
         sequence[-1]['enabled'] = False
