@@ -148,15 +148,6 @@ expected = [
 ]
 
 
-@pytest.fixture
-def client():
-    from _wsgi import init_app
-    app = init_app(model_class=YOLO)
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-
 @pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
 def test_rectanglelabels_predict(client, label_config, task, expect):
     data = {"schema": label_config, "project": "42"}
@@ -165,6 +156,6 @@ def test_rectanglelabels_predict(client, label_config, task, expect):
 
     data = {"tasks": [task], "label_config": label_config}
     response = client.post("/predict", data=json.dumps(data), content_type='application/json')
-    assert response.status_code == 200, "Error while predict: " + str(response.content)
+    assert response.status_code == 200, "Error while predict"
     data = response.json
     compare_nested_structures(data["results"], expect)

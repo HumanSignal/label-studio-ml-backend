@@ -66,6 +66,15 @@ There is an example of such a prompt, it includes 1000 labels from YOLOv8 classi
    - Provide the final labeling config with the predicted_values attribute added, using all relevant labels from the ML model, without any explanations.
 ```
 
+# Video Object Tracking
+
+## Trackers 
+
+The best tracker to use with Ultralytics YOLO depends on your specific needs. The default tracker is BoT-SORT, which is generally well-suited for most scenarios. However, if you're looking for an alternative with different strengths, ByteTrack is another excellent choice that you can easily configure. ByteTrack is known for its high performance in multi-object tracking, especially in situations with varying object appearances and reappearances. Both trackers can be customized using YAML configuration files to fit your specific use case.
+You can specify tracker in the control tag: 
+* `<VideoRectangle tracker="botsort.yaml">`
+* `<VideoRectangle tracker="bytetrack.yaml">`
+
 # Run YOLO ML backend
 
 ## Running with Docker (Recommended)

@@ -12,7 +12,7 @@ class RectangleLabelsModel(ControlModel):
     Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
     """
     type = 'RectangleLabels'
-    model_path = 'yolov8m.pt'
+    model_path = 'yolov8n.pt'
 
     @classmethod
     def is_control_matched(cls, control) -> bool:

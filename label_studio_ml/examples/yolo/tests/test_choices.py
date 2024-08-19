@@ -10,7 +10,7 @@ import pytest
 import json
 
 from label_studio_ml.utils import compare_nested_structures
-from test_bboxes import client
+from test_common import client
 
 
 label_configs = [
@@ -65,6 +65,6 @@ def test_choices_predict(client, label_config, task, expect):
 
     data = {"tasks": [task], "label_config": label_config}
     response = client.post("/predict", data=json.dumps(data), content_type='application/json')
-    assert response.status_code == 200, "Error while predict: " + str(response.content)
+    assert response.status_code == 200, "Error while predict"
     data = response.json
     compare_nested_structures(data["results"], expect)

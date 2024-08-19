@@ -1,5 +1,5 @@
 import os
-import matplotlib.pyplot as plt
+import logging
 
 from pydantic import BaseModel
 from typing import Optional, List, Dict, ClassVar
@@ -7,16 +7,21 @@ from ultralytics import YOLO
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_sdk.label_interface.control_tags import ControlTag
+from label_studio_sdk.label_interface import LabelInterface
 
 
 # use matplotlib plots for debug
 DEBUG_PLOT = os.getenv('DEBUG_PLOT', "false").lower() in ["1", "true"]
 SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.5))
+DEFAULT_MODEL_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
+MODEL_ROOT = os.getenv('MODEL_ROOT', DEFAULT_MODEL_ROOT)
+os.makedirs(MODEL_ROOT, exist_ok=True)
 # if true, allow to use custom model path from the control tag in the labeling config
 ALLOW_CUSTOM_MODEL_PATH = os.getenv('ALLOW_CUSTOM_MODEL_PATH', "false").lower() in ["1", "true"]
 
 # Global cache for YOLO models
 _model_cache = {}
+logger = logging.getLogger(__name__)
 
 
 class ControlModel(BaseModel):
@@ -57,6 +62,12 @@ class ControlModel(BaseModel):
         """
         raise NotImplementedError("This method should be overridden in derived classes")
 
+    @staticmethod
+    def get_from_name_for_label_map(label_interface: LabelInterface, target_name: str) -> str:
+        """ Get the 'from_name' attribute for the label map building.
+        """
+        return target_name
+
     @classmethod
     def create(cls, mlbackend: LabelStudioMLBase, control: ControlTag):
         """Factory method to create an instance of a specific control model class.
@@ -74,7 +85,9 @@ class ControlModel(BaseModel):
 
         model = cls.load_yolo_model(model_path)
         model_names = model.names.values()  # class names from the model
-        label_map = mlbackend.build_label_map(from_name, model_names)
+        # from_name for label mapping can be differed from control.name (e.g. VideoRectangle)
+        label_map_from_name = cls.get_from_name_for_label_map(mlbackend.label_interface, from_name)
+        label_map = mlbackend.build_label_map(label_map_from_name, model_names)
 
         return cls(
             control=control,
@@ -88,7 +101,10 @@ class ControlModel(BaseModel):
         )
 
     @classmethod
-    def load_yolo_model(cls, path) -> YOLO:
+    def load_yolo_model(cls, filename) -> YOLO:
+        """ Load YOLO model from the file."""
+        path = os.path.join(MODEL_ROOT, filename)
+        logger.debug('Loading yolo model: {path}')
         return YOLO(path)
 
     @classmethod
@@ -100,6 +116,8 @@ class ControlModel(BaseModel):
     def debug_plot(self, image):
         if not DEBUG_PLOT:
             return
+
+        import matplotlib.pyplot as plt
 
         plt.figure(figsize=(10, 10))
         plt.imshow(image[..., ::-1])
