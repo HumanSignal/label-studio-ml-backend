@@ -70,10 +70,26 @@ There is an example of such a prompt, it includes 1000 labels from YOLOv8 classi
 
 ## Trackers 
 
-The best tracker to use with Ultralytics YOLO depends on your specific needs. The default tracker is BoT-SORT, which is generally well-suited for most scenarios. However, if you're looking for an alternative with different strengths, ByteTrack is another excellent choice that you can easily configure. ByteTrack is known for its high performance in multi-object tracking, especially in situations with varying object appearances and reappearances. Both trackers can be customized using YAML configuration files to fit your specific use case.
+https://docs.ultralytics.com/modes/track/?h=track#tracker-selection
+
+The best tracker to use with Ultralytics YOLO depends on your specific needs. 
+The default tracker is BoT-SORT, which is generally well-suited for most scenarios. 
+However, if you're looking for an alternative with different strengths, 
+ByteTrack is another excellent choice that you can easily configure. 
+ByteTrack is known for its high performance in multi-object tracking, 
+especially in situations with varying object appearances and reappearances. 
+Both trackers can be customized using YAML configuration files to fit your specific use case.
+
 You can specify tracker in the control tag: 
 * `<VideoRectangle tracker="botsort.yaml">`
 * `<VideoRectangle tracker="bytetrack.yaml">`
+
+### Common parameters for trackers
+
+https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
+
+| conf | float | 0.25 | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
+| iou | float | 0.7 | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.|
 
 # Run YOLO ML backend
 

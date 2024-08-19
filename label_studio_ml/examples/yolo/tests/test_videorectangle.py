@@ -1,10 +1,11 @@
 """
 This file contains tests for the API of your model. You can run these tests by installing test requirements:
 """
-import os.path
+import os
 import pickle
 import pytest
 import json
+import yaml
 
 from label_studio_ml.utils import compare_nested_structures
 from model import YOLO
@@ -13,11 +14,17 @@ from unittest import mock
 
 TEST_DIR = os.path.dirname(__file__)
 
-with open(TEST_DIR + '/opossum_snow_short.pickle', 'rb') as f:
-    yolo_results_1 = pickle.load(f)
 
-with open(TEST_DIR + '/opossum_snow_short.json') as f:
-    expected_predictions_1 = json.load(f)
+def load_file(path):
+    # json
+    if path.endswith('.json'):
+        with open(path, 'r') as f:
+            return json.load(f)
+    # pickle
+    if path.endswith('.pickle'):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+
 
 label_configs = [
     # test 1: one control tag with video rectangle
@@ -29,13 +36,27 @@ label_configs = [
        
        <!-- Please specify FPS carefully, it will be used for all project videos -->
        <Video name="video" value="$video" framerate="25.0"/>
-       <VideoRectangle name="box" toName="video" />
+       <VideoRectangle name="box" toName="video" botsort_track_high_thresh="0.1" botsort_track_low_thresh="0.1" />
     </View>
     """,
+
+    # test 2: video rectangle without botsort parameters
+    """
+    <View>
+       <Labels name="videoLabels" toName="video" allowEmpty="true">
+         <Label value="person" background="blue"/>
+       </Labels>
+    
+       <!-- Please specify FPS carefully, it will be used for all project videos -->
+       <Video name="video" value="$video" framerate="25.0"/>
+       <VideoRectangle name="box" toName="video" />
+    </View>
+    """
 ]
 
 yolo_results = [
-    yolo_results_1
+    load_file(TEST_DIR + '/opossum_snow_short.pickle'),
+    None
 ]
 
 tasks = [
@@ -45,11 +66,19 @@ tasks = [
             "video": "tests/opossum_snow_short.mp4"
         }
     },
+
+    # test 2: one control tag with rectangle labels
+    {
+        "data": {
+            "video": "tests/opossum_snow_short.mp4"
+        }
+    },
 ]
 
 expected = [
     # test 1: one control tag with rectangle labels
-    expected_predictions_1,
+    load_file(TEST_DIR + '/opossum_snow_short_1.json'),
+    load_file(TEST_DIR + '/opossum_snow_short_2.json'),
 ]
 
 
@@ -63,8 +92,13 @@ def test_rectanglelabels_predict(client, label_config, task, yolo_result, expect
 
     # mock yolo model.track, because it takes too different results from run to run
     # also track is a heavy operation, and it might take too much time for tests
-    with mock.patch('ultralytics.YOLO.track') as mock_yolo:
-        mock_yolo.return_value = yolo_result
+    if yolo_result:
+        with mock.patch('ultralytics.YOLO.track') as mock_yolo:
+            mock_yolo.return_value = yolo_result
+            response = client.post("/predict", data=json.dumps(data), content_type='application/json')
+
+    # don't mock if no yolo_result
+    else:
         response = client.post("/predict", data=json.dumps(data), content_type='application/json')
 
     assert response.status_code == 200, "Error while predict"
@@ -88,3 +122,71 @@ def test_create_video_rectangles():
     predictions = expected[0]
     assert regions == predictions[0]['result']
 
+
+def test_update_tracker_params_with_real_config():
+    tmp_path = os.path.dirname(__file__)
+    label_config = """
+    <View>
+       <Labels name="videoLabels" toName="video" allowEmpty="true">
+         <Label value="person" background="blue"/>
+       </Labels>
+
+       <!-- Please specify FPS carefully, it will be used for all project videos -->
+       <Video name="video" value="$video" framerate="25.0"/>
+       <VideoRectangle name="box" toName="video" 
+           botsort_track_high_thresh="0.6" 
+           botsort_track_low_thresh="0.4" 
+           botsort_new_track_thresh="0.3" 
+           botsort_track_buffer="50" 
+           botsort_match_thresh="0.85" 
+           botsort_fuse_score="false" 
+           botsort_gmc_method="none" />
+    </View>
+    """
+
+    # Initialize the model with the label config
+    ml = YOLO(project_id='42', label_config=label_config)
+    control_models = ml.detect_control_models()
+    video_rectangle_model = control_models[0]
+
+    # Mock original botsort.yaml content
+    original_yaml_content = """
+        tracker_type: botsort
+        track_high_thresh: 0.1
+        track_low_thresh: 0.1
+        new_track_thresh: 0.1
+        track_buffer: 30
+        match_thresh: 0.8
+        fuse_score: true
+        gmc_method: sparseOptFlow
+        proximity_thresh: 0.5
+        appearance_thresh: 0.25
+        with_reid: false
+    """
+
+    # Create a temporary YAML file to simulate the original config
+    original_yaml_path = f"{tmp_path}/botsort.yaml"
+    with open(original_yaml_path, 'w') as file:
+        file.write(original_yaml_content)
+
+    # Update tracker parameters based on the labeling config
+    new_yaml_path = video_rectangle_model.update_tracker_params(original_yaml_path, 'botsort_')
+
+    # Check that the new YAML file was created
+    assert os.path.exists(new_yaml_path), "The new YAML file was not created."
+
+    # Load the new YAML file
+    with open(new_yaml_path, 'r') as file:
+        updated_config = yaml.safe_load(file)
+
+    # Verify that the parameters were correctly updated
+    assert updated_config['track_high_thresh'] == 0.6
+    assert updated_config['track_low_thresh'] == 0.4
+    assert updated_config['new_track_thresh'] == 0.3
+    assert updated_config['track_buffer'] == 50
+    assert updated_config['match_thresh'] == 0.85
+    assert updated_config['fuse_score'] == False  # Boolean comparison
+    assert updated_config['gmc_method'] == 'none'
+
+    # Clean up: remove the temporary YAML file
+    os.remove(new_yaml_path)

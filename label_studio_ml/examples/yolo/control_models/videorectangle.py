@@ -1,11 +1,13 @@
 import os
 import cv2
 import logging
+import yaml
+import hashlib
 
 from collections import defaultdict
 from control_models.base import ControlModel, MODEL_ROOT
 from label_studio_sdk.label_interface.control_tags import ControlTag
-from typing import List, Dict
+from typing import List, Dict, Union
 
 
 logger = logging.getLogger(__name__)
@@ -53,16 +55,32 @@ class VideoRectangleModel(ControlModel):
         return duration
 
     def predict_regions(self, path) -> List[Dict]:
+        # bounding box parameters
+        # https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
+        conf = self.control.attr.get('conf', 0.25)
+        iou = self.control.attr.get('iou', 0.70)
+
+        # tracking parameters
         # https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers
-        tracker_name = self.control.attr.get('tracker', 'botsort.yaml')  # 'bytetrack.yaml'
-        tracker_params = {
-            'tracker': tracker_name,
-            'track_high_thresh': 0.01
-        }
-        results = self.model.track(path, conf=0.01, iou=0.5, tracker=MODEL_ROOT + '/' + tracker_name)
+        tracker_name = self.control.attr.get('tracker', 'botsort')  # or 'bytetrack'
+        original = f'{MODEL_ROOT}/{tracker_name}.yaml'
+        tmp_yaml = self.update_tracker_params(original, prefix=tracker_name+'_')
+        tracker = tmp_yaml if tmp_yaml else original
+
+        # run model track
+        try:
+            results = self.model.track(path, conf=conf, iou=iou, tracker=tracker)
+        finally:
+            # clean temporary file
+            if tmp_yaml and os.path.exists(tmp_yaml):
+                os.remove(tmp_yaml)
+
+        # convert model results to label studio regions
         return self.create_video_rectangles(results, path)
 
     def create_video_rectangles(self, results, path):
+        """ Create regions of video rectangles from the yolo tracker results
+        """
         frames_count, duration = len(results), self.get_video_duration(path)
         logger.debug(f'create_video_rectangles: {self.from_name}, {frames_count} frames')
 
@@ -137,6 +155,62 @@ class VideoRectangleModel(ControlModel):
         # the last frame enabled is false to turn off lifespan line
         sequence[-1]['enabled'] = False
         return sequence
+
+    @staticmethod
+    def generate_hash_filename(extension=".yaml"):
+        """ Store yaml configs as temporary files just for one model.track() run
+        """
+        hash_name = hashlib.sha256(os.urandom(16)).hexdigest()
+        os.makedirs(f'{MODEL_ROOT}/tmp/', exist_ok=True)
+        return f"{MODEL_ROOT}/tmp/{hash_name}{extension}"
+
+    def update_tracker_params(self, yaml_path: str, prefix: str) -> Union[str, None]:
+        """ Update tracker parameters in the yaml file with the attributes from the ControlTag,
+        e.g. <VideoRectangle tracker="bytetrack" bytetrack_max_age="10" bytetrack_min_hits="3" />
+        or <VideoRectangle tracker="botsort" botsort_max_age="10" botsort_min_hits="3" />
+        Args:
+            yaml_path: Path to the original yaml file.
+            prefix: Prefix for attributes of control tag to extract
+        Returns:
+            The file path for new yaml with updated parameters
+        """
+        # check if there are any custom parameters in the labeling config
+        for attr_name, attr_value in self.control.attr.items():
+            if attr_name.startswith(prefix):
+                break
+        else:
+            # no custom parameters, exit
+            return None
+
+        # Load the original yaml file
+        with open(yaml_path, 'r') as file:
+            config = yaml.safe_load(file)
+
+        # Extract parameters with prefix from ControlTag
+        for attr_name, attr_value in self.control.attr.items():
+            if attr_name.startswith(prefix):
+                # Remove prefix and update the corresponding yaml key
+                key = attr_name[len(prefix):]
+
+                # Convert value to the appropriate type (bool, int, float, etc.)
+                if isinstance(config[key], bool):
+                    attr_value = attr_value.lower() == 'true'
+                elif isinstance(config[key], int):
+                    attr_value = int(attr_value)
+                elif isinstance(config[key], float):
+                    attr_value = float(attr_value)
+
+                config[key] = attr_value
+
+        # Generate a new filename with a random hash
+        new_yaml_filename = self.generate_hash_filename()
+
+        # Save the updated config to a new yaml file
+        with open(new_yaml_filename, 'w') as file:
+            yaml.dump(config, file)
+
+        # Return the new filename
+        return new_yaml_filename
 
 
 # pre-load and cache default model at startup
