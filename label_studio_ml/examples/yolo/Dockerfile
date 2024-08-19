@@ -48,9 +48,10 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 WORKDIR /app
 
 # Download the YOLOv8n model
-RUN yolo download model=yolov8m.pt dir=/app \
-    && yolo download model=yolov8n-cls.pt dir=/app \
-    && yolo download model=yolov8n-seg.pt dir=/app
+RUN yolo predict model=yolov8m.pt source=/app/tests/car.jpg dir=/app/models \
+    && yolo predict model=yolov8n.pt source=/app/tests/car.jpg dir=/app/models \
+    && yolo predict model=yolov8n-cls.pt source=/app/tests/car.jpg dir=/app/models \
+    && yolo predict model=yolov8n-seg.pt source=/app/tests/car.jpg dir=/app/models
 
 COPY . ./
 
