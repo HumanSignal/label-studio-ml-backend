@@ -1,3 +1,4 @@
+import os
 import cv2
 import logging
 
@@ -15,7 +16,7 @@ class VideoRectangleModel(ControlModel):
     Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
     """
     type = 'VideoRectangle'
-    model_path = 'yolov8m.pt'
+    model_path = 'yolov8n.pt'
 
     @classmethod
     def is_control_matched(cls, control: ControlTag) -> bool:
@@ -42,6 +43,8 @@ class VideoRectangleModel(ControlModel):
 
     @staticmethod
     def get_video_duration(path):
+        if not os.path.exists(path):
+            raise ValueError(f'Video file not found: {path}')
         video = cv2.VideoCapture(path)
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))

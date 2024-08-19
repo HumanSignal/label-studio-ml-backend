@@ -10,7 +10,7 @@ import pytest
 import json
 
 from label_studio_ml.utils import compare_nested_structures
-from test_common import client
+from .test_common import client
 
 
 label_configs = [

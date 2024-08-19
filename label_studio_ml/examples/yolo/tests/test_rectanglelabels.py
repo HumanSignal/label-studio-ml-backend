@@ -9,8 +9,8 @@ pip install -r requirements-test.txt
 import pytest
 import json
 
-from model import YOLO
 from label_studio_ml.utils import compare_nested_structures
+from .test_common import client
 
 
 label_configs = [

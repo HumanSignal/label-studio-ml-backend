@@ -8,14 +8,15 @@ import json
 
 from label_studio_ml.utils import compare_nested_structures
 from model import YOLO
-from test_common import client
+from .test_common import client
 from unittest import mock
 
+TEST_DIR = os.path.dirname(__file__)
 
-with open('opossum_snow_short.pickle', 'rb') as f:
+with open(TEST_DIR + '/opossum_snow_short.pickle', 'rb') as f:
     yolo_results_1 = pickle.load(f)
 
-with open(os.path.dirname(__file__) + '/opossum_snow_short.json') as f:
+with open(TEST_DIR + '/opossum_snow_short.json') as f:
     expected_predictions_1 = json.load(f)
 
 label_configs = [
@@ -41,7 +42,7 @@ tasks = [
     # test 1: one control tag with rectangle labels
     {
         "data": {
-            "video": "opossum_snow_short.mp4"
+            "video": "tests/opossum_snow_short.mp4"
         }
     },
 ]
@@ -80,11 +81,9 @@ def test_create_video_rectangles():
         3.2 for r in results: r.orig_img = []
         3.2 with open('model_track_results.pickle', 'wb') as f: pickle.dump(results, f)
     """
-    logger.info('\n\n\n!!! => TEST !!!!!\n\n\n')
-
     ml = YOLO(project_id='42', label_config=label_configs[0])
     control_models = ml.detect_control_models()
-    regions = control_models[0].create_video_rectangles(yolo_results[0], 'opossum_snow_short.mp4')
+    regions = control_models[0].create_video_rectangles(yolo_results[0], 'tests/opossum_snow_short.mp4')
 
     predictions = expected[0]
     assert regions == predictions[0]['result']
