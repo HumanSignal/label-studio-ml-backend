@@ -80,6 +80,8 @@ def test_create_video_rectangles():
         3.2 for r in results: r.orig_img = []
         3.2 with open('model_track_results.pickle', 'wb') as f: pickle.dump(results, f)
     """
+    logger.info('\n\n\n!!! => TEST !!!!!\n\n\n')
+
     ml = YOLO(project_id='42', label_config=label_configs[0])
     control_models = ml.detect_control_models()
     regions = control_models[0].create_video_rectangles(yolo_results[0], 'opossum_snow_short.mp4')

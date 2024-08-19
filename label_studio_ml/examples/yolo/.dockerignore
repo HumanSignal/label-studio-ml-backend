@@ -8,7 +8,9 @@
 # Include Python application files
 !*.py
 !*.yaml
-!tests/car.jpg
+!tests/*
+!control_models/*
+!models/*
 
 # Include requirements files
 !requirements*.txt
