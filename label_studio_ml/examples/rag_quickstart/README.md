@@ -3,7 +3,7 @@
 title: Question answering with RAG using Label Studio
 type: guide
 tier: all
-order: 5
+order: 5 
 hide_menu: true
 hide_frontmatter_title: true
 meta_title: RAG labeling with OpenAI using Label Studio
@@ -12,27 +12,26 @@ categories:
     - Generative AI
     - Large Language Model
     - OpenAI
-    - Azure
-    - Ollama
     - ChatGPT
     - RAG
-    - LangChain
+    - Ragas
     - Embeddings
-image: "/tutorials/llm-interactive.png"
+image: "/tutorials/ragas.png"
 ---
 -->
 
 # RAG Quickstart Labeling
 
-This example server connects Label Studio to [OpenAI](https://platform.openai.com/), to interact with chat and embedding models. It supports question answering and evaluation using RAG, given a list of questions as tasks, and a folder containing documentation (eg, a `/docs` path within a Github repository that has been cloned on your computer.)
+This example server connects Label Studio to [OpenAI](https://platform.openai.com/), to interact with chat and embedding models. It supports question answering and evaluation using RAG, given a list of questions as tasks, and a folder containing documentation (e.g. a `/docs` path within a Github repository that has been cloned on your computer.)
 
 ## Starting the ML Backend
 
-1. Make your reference documentation available to the backend
+1. Make your reference documentation available to the backend.
 
-Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML Backend's image. This example will mount the folder at `/host/path/to/your/documentation` on your computer, to the path /data/documentation inside the ML Backend docker image. The `DOCUMENTATION_PATH` and `DOCUMENTATION_GLOB` settings given below will match all `.md` files within `/data/documentation` (or its subfolders).
+Create a `docker-compose.override.yml` file alongside `docker-compose.yml`, and use it to mount a folder containing your documentation into the filesystem of the ML backend's image. This example will mount the folder at `/host/path/to/your/documentation` on your computer, to the path /data/documentation inside the ML backend Docker image. The `DOCUMENTATION_PATH` and `DOCUMENTATION_GLOB` settings given below will match all `.md` files within `/data/documentation` (or its subfolders).
 
 ```
+services:
   rag_quickstart:
     volumes:
       - /host/path/to/your/documentation:/data/documentation
@@ -58,8 +57,7 @@ $ curl http://localhost:9090/health
    Ensure the **Interactive preannotations** toggle is enabled and click **Validate and Save**.
 5. Use the label config below. The config and backend can be customized to fit your needs.
 6. Open a task and ensure the **Auto-Annotation** toggle is enabled (it is located at the bottom of the labeling interface).
-7. Enter a prompt in the prompt input field and press `Shift+Enter`. The LLM response will be generated and displayed in
-   the response field.
+7. The text fields should be auto-completed by the LLM. However, you can provide additional instructions in the empty text area field. To submit, press `Shift+Enter`. 
 8. If you want to apply LLM auto-annotation to multiple tasks at once, go to the [Data Manager](https://labelstud.io/guide/manage_data), select a group of tasks and then select **Actions > Retrieve Predictions** (or **Batch Predictions** in Label Studio Enterprise).
 
 ## Label Config
@@ -116,7 +114,7 @@ $ curl http://localhost:9090/health
     />
   	<View className="ragas" >
     <View style="display: flex;">
-      <Header style="padding-right: 1em;" value="RAGAS evaluation (averaged, 0 to 100):"/><Number name="float_eval" toName="context" defaultValue="0" />
+      <Header style="padding-right: 1em;" value="Ragas evaluation (averaged, 0 to 100):"/><Number name="float_eval" toName="context" defaultValue="0" />
     </View>
     <TextArea name="ragas"
               toName="context"
@@ -124,7 +122,7 @@ $ curl http://localhost:9090/health
               maxSubmissions="1"
               showSubmitButton="false"
               smart="false"
-              placeholder="RAGAS evaluation will appear here..."
+              placeholder="Ragas evaluation will appear here..."
     />
   	</View>
     <View className="evaluation" >
@@ -153,6 +151,8 @@ $ curl http://localhost:9090/health
     </View>
 </View>
 ```
+
+For more information on this labeling config, see the [Evaluate RAG with Ragas](https://labelstud.io/templates/llm_ragas) template documentation.
 
 **Example data input:**
 
