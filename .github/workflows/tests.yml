@@ -38,6 +38,7 @@ jobs:
       LOG_DIR: pytest_logs
       collect_analytics: false
       TEST_WITH_CPU: ${{ matrix.ml_backend == 'segment_anything_model' }}
+      LOG_LEVEL: DEBUG
     steps:
       - uses: hmarr/debug-action@v3.0.0
 

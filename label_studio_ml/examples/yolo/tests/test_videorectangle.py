@@ -60,7 +60,8 @@ def test_rectanglelabels_predict(client, label_config, task, yolo_result, expect
 
     data = {"tasks": [task], "label_config": label_config}
 
-    # moch yolo model.track, because it takes too different results from run to run
+    # mock yolo model.track, because it takes too different results from run to run
+    # also track is a heavy operation, and it might take too much time for tests
     with mock.patch('ultralytics.YOLO.track') as mock_yolo:
         mock_yolo.return_value = yolo_result
         response = client.post("/predict", data=json.dumps(data), content_type='application/json')
