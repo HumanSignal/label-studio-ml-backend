@@ -95,7 +95,10 @@ class YOLO(LabelStudioMLBase):
                 task_path = task["data"].get(model.value) or task["data"].get(DATA_UNDEFINED_NAME)
                 if task_path is None:
                     raise ValueError(f"Can't load path using key '{model.value}' from task {task}")
-                # try as local file or try to load from Label Studio instance or download from Internet
+                if not isinstance(task_path, str):
+                    raise ValueError(f"Path should be a string, but got {task_path}")
+
+                # try path as local file or try to load it from Label Studio instance/download via http
                 path = (
                     task_path if os.path.exists(task_path)
                     else get_local_path(task_path, task_id=task.get('id'))

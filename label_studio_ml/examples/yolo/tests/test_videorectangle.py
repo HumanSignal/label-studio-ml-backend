@@ -30,7 +30,7 @@ tasks = [
     # test 1: one control tag with rectangle labels
     {
         "data": {
-            "video": "output.mp4"
+            "video": "opossum_snow_short.mp4"
         }
     },
 ]
