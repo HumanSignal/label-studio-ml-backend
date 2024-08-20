@@ -88,7 +88,7 @@ jobs:
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
           base_branch_name: "develop"
           branch_name: "${{ steps.get-branch.outputs.branch_name }}"
-          github-token: "${{ secrets.GIT_PAT }}"
+          github_token: "${{ secrets.GIT_PAT }}"
 
       - name: Add Pull Request Reviewers
         uses: ./.github/actions-hub/actions/github-add-pull-request-reviewers
@@ -97,7 +97,7 @@ jobs:
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
           pullrequest_number: "${{ fromJSON(steps.get-pull-request.outputs.pull).number }}"
           reviewers: "${{ env.DOCS_REPO_PR_REVIEWERS }}"
-          github-token: "${{ secrets.GIT_PAT }}"
+          github_token: "${{ secrets.GIT_PAT }}"
 
       - name: Set notice
         run: echo "::notice::Pull Request ${{ fromJSON(steps.get-pull-request.outputs.pull).html_url }}"
