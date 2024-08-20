@@ -55,7 +55,8 @@ Note that if you're running in a cloud server, you'll need to run on an exposed 
 
 # Labeling Config
 For your project, you can use any labeling config with video properties. Here's a basic one to get you started!
-     
+
+```xml     
     <View>
          <Labels name="videoLabels" toName="video" allowEmpty="true">
            
@@ -69,15 +70,16 @@ For your project, you can use any labeling config with video properties. Here's 
       </View><!--{
        "video": "/static/samples/opossum_snow.mp4"
       }-->
+```
 
-
-# Known limitations
+## Known limitations
 - As of 8/11/2024, SAM2 only runs on GPU servers. 
 - Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
 - Currently, we do not support video segmentation. 
 - No Docker support
 
 If you want to contribute to this repository to help with some of these limitations, you can submit a PR. 
-# Customization
+
+## Customization
 
 The ML backend can be customized by adding your own models and logic inside the `./segment_anything_2_video` directory. 
