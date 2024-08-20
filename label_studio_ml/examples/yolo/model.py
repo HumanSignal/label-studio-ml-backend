@@ -1,16 +1,17 @@
 import os
 import logging
 
-from control_models.base import ControlModel
-from control_models.choices import ChoicesModel
-from control_models.rectanglelabels import RectangleLabelsModel
-from control_models.videorectangle import VideoRectangleModel
-from typing import List, Dict, Optional
-
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
+
+from control_models.base import ControlModel
+from control_models.choices import ChoicesModel
+from control_models.rectanglelabels import RectangleLabelsModel
+from control_models.polygonlabels import PolygonLabelsModel
+from control_models.videorectangle import VideoRectangleModel
+from typing import List, Dict, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ if not os.getenv('LOG_LEVEL'):
 available_model_classes = [
     ChoicesModel,
     RectangleLabelsModel,
+    PolygonLabelsModel,
     VideoRectangleModel
 ]
 

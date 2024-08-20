@@ -5,7 +5,6 @@ This file contains tests for the API of your model. You can run these tests by i
 pip install -r requirements-test.txt
 ```
 """
-
 import pytest
 import json
 

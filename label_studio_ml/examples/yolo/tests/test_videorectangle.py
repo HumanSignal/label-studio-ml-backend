@@ -2,28 +2,14 @@
 This file contains tests for the API of your model. You can run these tests by installing test requirements:
 """
 import os
-import pickle
 import pytest
 import json
 import yaml
 
 from label_studio_ml.utils import compare_nested_structures
 from model import YOLO
-from .test_common import client
+from .test_common import client, load_file, TEST_DIR
 from unittest import mock
-
-TEST_DIR = os.path.dirname(__file__)
-
-
-def load_file(path):
-    # json
-    if path.endswith('.json'):
-        with open(path, 'r') as f:
-            return json.load(f)
-    # pickle
-    if path.endswith('.pickle'):
-        with open(path, 'rb') as f:
-            return pickle.load(f)
 
 
 label_configs = [

@@ -1,12 +1,34 @@
 """
 This file contains tests for the API
 """
-
+import os
+import pickle
 import pytest
 import json
 
 from model import YOLO
 
+
+def load_file(path):
+    # json
+    if path.endswith('.json'):
+        with open(path, 'r') as f:
+            return json.load(f)
+    # pickle
+    if path.endswith('.pickle'):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+
+
+@pytest.fixture
+def client():
+    from _wsgi import init_app
+    app = init_app(model_class=YOLO)
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+TEST_DIR = os.path.dirname(__file__)
 
 label_configs = [
     # test 1: wrong key in task data
@@ -34,15 +56,6 @@ expected = [
     # test 1: wrong key in task data
     [],
 ]
-
-
-@pytest.fixture
-def client():
-    from _wsgi import init_app
-    app = init_app(model_class=YOLO)
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
 
 
 @pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))

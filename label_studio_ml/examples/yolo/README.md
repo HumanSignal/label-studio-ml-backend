@@ -132,7 +132,74 @@ You can load your own YOLO labels. To achieve this you should follow these steps
 
 # Classification using `Choices`
 
+## Labeling config
+```
+<View>
+  <Image name="image" value="$image"/>
+  <Choices name="choice" toName="image">
+    <Choice value="Car" predicted_values="jeep,cab,limousine,truck"/>
+    <Choice value="Adult content"/>
+    <Choice value="Violence"/>
+  </Choices>
+```
+
+## Parameters
+
+| Parameter | Type  | Default | Description                                                                                                                                                                            |
+|-----------|-------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                                                                         |
+
+For example:
+```
+<Choices name="choice" toName="image" score_threshold="0.25" model_path="my_model.pt">
+```
+
 # Object Detection using `RectangleLabels`
+
+## Labeling config
+```
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="label" toName="image" score_threshold="0.25">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
+  </RectangleLabels>
+```
+
+## Parameters
+
+| Parameter | Type  | Default | Description |
+|-----------|-------|---------|-------------|
+| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
+| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models". |
+
+For example:
+```
+<RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
+```
+
+# Segmentation using `PolygonLabels`
+
+## Labeling config
+```
+<View>
+  <Image name="image" value="$image"/>
+  <PolygonLabels name="label" toName="image" score_threshold="0.25">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
+  </PolygonLabels>
+```
+
+## Parameters
+
+| Parameter | Type  | Default | Description                                                                                                                                                                            |
+|-----------|-------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+
+For example:
+```
+<PolygonLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
+```
 
 # Video Object Tracking using `VideoRectangle` 
 
