@@ -2,17 +2,55 @@
 
 This guide describes the simplest way to start using YOLO ML backend with Label Studio.
 
-### How to get YOLO model names?
+# Quick Start
 
-official docs
+1. Add `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` to the `docker-compose.yml` file. 
 
-## Labeling Config
+2. Run docker compose
 
-### How to get YOLO model labels?
+    ```
+    docker-compose up
+    ```
 
-Labels are printed in the ML model logs when you start using the ML backend at the INFO logger. 
+3. Open Label Studio and create a new project with the following labeling config:
 
-Or you can find some labels in [YOLO_CLASSES.md](YOLO_CLASSES.md)
+    ```
+    <View>
+      <Image name="image" value="$image"/>
+      <RectangleLabels name="label" toName="image" score_threshold="0.25">
+        <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
+      </RectangleLabels>
+    </View>
+    ```
+
+3. Connect ML backend to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` 
+and specify `http://<your-ip>:9090` as a URL.
+
+4. Add images to Label Studio.
+
+5. Open any task in the Data Manager and see the predictions from the YOLO model.
+
+# Labeling Configurations
+
+### Supported object and control tags
+
+**Object tags**
+- `<Image>` - image to annotate
+- `<Video>` - video to annotate
+
+**Control tags**
+- `<RectangleLabels>` - bounding boxes, object detection task
+- `<VideoRectangle>` - video bounding boxes, object tracking task
+- `<Choices>` - classification
+
+**How to skip control tag?**
+
+If you don't want to use ML backend for some tasks, 
+you can force skipping by adding `model_skip="true"` attribute to the control tag:
+    
+```
+<Choices name="choice" toName="image" model_skip="true">
+```
 
 ### Labels and Choices Mapping
 
@@ -29,11 +67,23 @@ In this example your label "Jeep" will be mapped to "jeep" from ML model.
 <Choices value="Jeep"> 
 ```
 
-For more precise control you can use `predicted_values` attribute to specify multiple and different labels from ML model:
+For more precise control you can use `predicted_values` attribute 
+to specify multiple and different labels from ML model:
 
 ```
 <Choice value="Car" predicted_values="jeep,cab,limousine"/>
 ```
+
+<details>
+<summary>Tip: How to find all YOLO model names?</summary>
+
+Labels are printed in the ML model logs when you start using the ML backend at the INFO logger. 
+
+Or you can find some labels in [YOLO_CLASSES.md](YOLO_CLASSES.md)
+</details>
+
+<details>
+<summary>Tip: How to map my labels to YOLO names using LLM?</summary>
 
 You can use LLM model (e.g. GPT) to build mapping between Label Studio labels and ML model labels automatically. 
 There is an example of such a prompt, it includes 1000 labels from YOLOv8 classification model (`yolov8n-cls`).
@@ -66,7 +116,25 @@ There is an example of such a prompt, it includes 1000 labels from YOLOv8 classi
    - Provide the final labeling config with the predicted_values attribute added, using all relevant labels from the ML model, without any explanations.
 ```
 
-# Video Object Tracking
+</details>
+
+## Custom YOLO Models
+
+You can load your own YOLO labels. To achieve this you should follow these steps:
+
+1. Mount your model as `/app/models/<your-model>.pt`.
+2. Add `ALLOW_CUSTOM_MODEL_PATH=true` to docker environment parameters.
+3. Add `model_path="<your-model>.pt" to the control tag in the labeling configuration, e.g.:
+
+```
+<RectangleLabels model_path="my_model.pt">
+```
+
+# Classification using `Choices`
+
+# Object Detection using `RectangleLabels`
+
+# Video Object Tracking using `VideoRectangle` 
 
 ## Trackers 
 
@@ -81,15 +149,40 @@ especially in situations with varying object appearances and reappearances.
 Both trackers can be customized using YAML configuration files to fit your specific use case.
 
 You can specify tracker in the control tag: 
-* `<VideoRectangle tracker="botsort.yaml">`
-* `<VideoRectangle tracker="bytetrack.yaml">`
+* `<VideoRectangle tracker="botsort">`
+* `<VideoRectangle tracker="bytetrack">`
 
-### Common parameters for trackers
+## Parameters for bounding boxes
 
+You can add `conf` and `iou` parameters to the `VideoRectagnle` control, e.g. 
+```
+<VideoRectangle name="label" toName="video" tracker="botsort" conf="0.25" iou="0.7" />  
+```
+
+Read more about these parameters: 
 https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
 
-| conf | float | 0.25 | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
-| iou | float | 0.7 | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.|
+| Parameter | Type  | Default | Description |
+|-----------|-------|---------|-------------|
+| conf      | float | 0.25    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
+| iou       | float | 0.7     | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.|
+
+## Parameters for trackers 
+
+The main parameter is `tracker` which can be set to 
+* `botsort` 
+* `bytetrack`
+* or any custom yaml file (without `.yaml`) that you place into `models` directory.  
+
+You can specify all tracker parameters that are available inside the yaml files in the labeling config: 
+https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers
+
+All parameters should be prefixed with `botsort_` or `bytetrack_`.
+
+For example: 
+```
+<VideoRectangle name="label" toName="video" tracker="botsort" botsort_max_age="30" botsort_min_hits="3" />  
+```
 
 # Run YOLO ML backend
 
@@ -143,6 +236,7 @@ The following common parameters are available:
 - `LOG_LEVEL` - set the log level for the model server
 - `WORKERS` - specify the number of workers for the model server
 - `THREADS` - specify the number of threads for the model server
+- `ALLOW_CUSTOME_MODELS` - allow to use custom yolo models from the `models` directory
 
 # Customization
 

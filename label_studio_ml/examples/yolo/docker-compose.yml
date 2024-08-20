@@ -22,6 +22,7 @@ services:
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
       - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
@@ -30,6 +31,9 @@ services:
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       - LABEL_STUDIO_URL=
       - LABEL_STUDIO_API_KEY=
+
+      # YOLO parameters
+      - ALLOW_CUSTOM_MODEL_PATH=false
     ports:
       - "9090:9090"
     volumes:
