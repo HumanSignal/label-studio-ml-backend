@@ -6,12 +6,11 @@ tier: all
 order: 15
 hide_menu: true
 hide_frontmatter_title: true
-meta_title: Using WatsonX with Label Studio
+meta_title: Integrate WatsonX with Label Studio
 categories:
     - Computer Vision
-    - Video Annotation
-    - Object Detection
-    - Segment Anything Model
+    - Large Language Model
+    - WatsonX
 image: "/tutorials/watsonx.png"
 ---
 -->
@@ -32,12 +31,11 @@ See the configuration notes at the bottom for details on how to set up your envi
 
 For a video demonstration, see [Integrating Label Studio with IBM WatsonX](https://www.youtube.com/watch?v=9iP2yO4Geqc).
 
-<video src="https://www.youtube.com/watch?v=9iP2yO4Geqc" controls="controls" style="max-width: 800px;" class="gif-border" />
-
 ## Setting up your label_config
 For this project, we recommend you start with the labeling config as defined below, but you can always edit it or expand it to
 meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into. 
 
+```xml
     <View>
         <Style>
             .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
@@ -81,7 +79,7 @@ meet your needs! Crucially, there must be a `<TextArea>` tag for the model to in
         <Header value="Overall response quality:"/>
         <Rating name="rating" toName="context"/>
     </View>
-
+```
 
 ## Setting up WatsonX.Data
 To use your WatsonX.data integration, follow the steps below. 
@@ -159,7 +157,7 @@ The following parameters allow you to link the WatsonX models to Label Studio:
 
 The following parameters allow you to use the webhook connection to transfer data from Label Studio to WatsonX.data:
 
--`WATSONX_ENG_USERNAME`- MUST be `ibmlhapikey` for the integration to work.
+- `WATSONX_ENG_USERNAME`- MUST be `ibmlhapikey` for the integration to work.
 
 To get the host and port information below, you can follow the steps under [Pre-requisites](https://cloud.ibm.com/docs/watsonxdata?topic=watsonxdata-con-presto-serv#conn-to-prestjava).
 
