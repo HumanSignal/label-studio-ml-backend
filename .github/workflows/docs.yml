@@ -45,7 +45,7 @@ jobs:
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
           base_branch_name: "develop"
           branch_name: "${{ env.DOCS_REPO_PR_BRANCH_NAME }}"
-          github-token: "${{ secrets.GIT_PAT }}"
+          github_token: "${{ secrets.GIT_PAT }}"
 
       - name: Checkout ML
         uses: actions/checkout@v4
