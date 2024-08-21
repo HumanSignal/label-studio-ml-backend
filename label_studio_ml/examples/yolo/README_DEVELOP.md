@@ -46,10 +46,10 @@ classDiagram
 
 ### 1. **Architecture Overview**
 
-The architecture of the project is modular and is primarily centered around integrating YOLO-based object detection models with Label Studio to automate the labeling of images and videos. The system is organized into several Python modules that interact with each other to perform this task. The main components of the architecture include:
+The architecture of the project is modular and is primarily centered around integrating YOLO-based models with Label Studio to automate the labeling of images and videos. The system is organized into several Python modules that interact with each other to perform this task. The main components of the architecture include:
 
 1. **Main YOLO Integration Module (`model.py`)**:
-   - This is the central module that connects Label Studio with YOLO models. It handles the overall process of detecting control models from Label Studio’s configuration, running predictions on tasks, and returning the predictions in the format that Label Studio expects.
+   - This is the central module that connects Label Studio with YOLO models. It handles the overall process of detecting control models from Label Studio’s configuration, running predictions on tasks, and returning the predictions in the format that Label Studio expects.a
 
 2. **Control Models (`control_models/`)**:
    - The control models are specialized modules that correspond to different annotation types in Label Studio (e.g., RectangleLabels, PolygonLabels, Choices, VideoRectangle). Each control model is responsible for handling specific types of annotations by using the YOLO model to predict the necessary regions or labels.
