@@ -58,9 +58,11 @@ class YOLO(LabelStudioMLBase):
                             f"This indicates that your Label Studio config labels do not match the model's labels.\n"
                             f"To fix this, ensure that the 'predicted_values' or 'value' attribute "
                             f"in your Label Studio config matches one or more of these model labels.\n"
+                            f"If you don't want to use this control tag for predictions, "
+                            f"add `model_skip=\"true\"` to it.\n"
                             f'Examples:\n<Label value="Car"/>\n'
-                            f'<Label value="YourLabel" predicted_values="label1,label2"/>'
-                            f"Available '{instance.model_path}' model labels: {list(instance.model.names.values())}"
+                            f'<Label value="YourLabel" predicted_values="label1,label2"/>\n'
+                            f"Available '{instance.model_path}' model labels:\n{list(instance.model.names.values())}"
                         )
                         continue
 

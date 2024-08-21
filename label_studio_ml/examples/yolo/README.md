@@ -157,11 +157,14 @@ For example:
 
 # Object Detection using `RectangleLabels`
 
+YOLO models provide bounding box detection, or also it's known as object detection. 
+Label Studio supports this task with the `RectangleLabels` control tag.
+
 ## Labeling config
 ```
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="label" toName="image" score_threshold="0.25">
+  <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
     <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
   </RectangleLabels>
 ```
@@ -178,13 +181,24 @@ For example:
 <RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
 ```
 
+## Oriented Bounding Boxes (YOLO OBB)
+
+Oriented (rotated) bounding boxes will be generated automatically if you use OBB model. 
+To enable OBB model, you should specify `model_path` parameter with obb model in the control tag:
+
+```
+<RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="yolo8n-obb.pt">
+```
+
+More info and available models: https://docs.ultralytics.com/tasks/obb/
+
 # Segmentation using `PolygonLabels`
 
 ## Labeling config
 ```
 <View>
   <Image name="image" value="$image"/>
-  <PolygonLabels name="label" toName="image" score_threshold="0.25">
+  <PolygonLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
     <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
   </PolygonLabels>
 ```
@@ -249,6 +263,48 @@ All parameters should be prefixed with `botsort_` or `bytetrack_`.
 For example: 
 ```
 <VideoRectangle name="label" toName="video" tracker="botsort" botsort_max_age="30" botsort_min_hits="3" />  
+```
+
+# Mixed Labeling Configurations
+
+You can use different control tags associated with different YOLO models in the same labeling configuration.
+For example: 
+
+```
+<View>
+  <Image name="image" value="$image"/>
+  
+  <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1" model_path="yolo8n.pt">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
+  </RectangleLabels>
+  
+  <PolygonLabels name="label" toName="image" score_threshold="0.25" opacity="0.1" model_path="yolo8n-seg.pt">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
+  </PolygonLabels>
+  
+  <VideoRectangle name="label" toName="video" tracker="botsort" conf="0.25" iou="0.7" model_path="yolo8n.pt"/>
+  
+  <Choices name="choice" toName="image" model_path="yolo8n-cls.pt">
+    <Choice value="Car" predicted_values="jeep,cab,limousine,truck"/>
+    <Choice value="Adult content"/>
+    <Choice value="Violence"/>
+  </Choices>
+```
+
+Also, you can use a few object tags in the same labeling configuration:
+
+```
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1" model_path="yolo8n.pt">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck" />
+  </RectangleLabels>
+  
+  <Video name="video" value="$video"/>
+  <Labels name="vdeo_label" toName="video">
+    <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck" />
+  </Labels>
+  <VideoRectangle name="video_rect" toName="video" tracker="botsort" />
 ```
 
 # Run YOLO ML backend

@@ -87,7 +87,7 @@ class ControlModel(BaseModel):
         # read `model_path` attribute from the control tag
         model_path = (ALLOW_CUSTOM_MODEL_PATH and control.attr.get('model_path')) or cls.model_path
 
-        model = cls.load_yolo_model(model_path)
+        model = cls.get_cached_model(model_path)
         model_names = model.names.values()  # class names from the model
         # from_name for label mapping can be differed from control.name (e.g. VideoRectangle)
         label_map_from_name = cls.get_from_name_for_label_map(mlbackend.label_interface, from_name)
@@ -108,8 +108,10 @@ class ControlModel(BaseModel):
     def load_yolo_model(cls, filename) -> YOLO:
         """ Load YOLO model from the file."""
         path = os.path.join(MODEL_ROOT, filename)
-        logger.debug('Loading yolo model: {path}')
-        return YOLO(path)
+        logger.info(f'Loading yolo model: {path}')
+        model = YOLO(path)
+        logger.info(f'Model {path} names:\n{model.names}')
+        return model
 
     @classmethod
     def get_cached_model(cls, path: str) -> YOLO:

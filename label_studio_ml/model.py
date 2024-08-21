@@ -377,7 +377,7 @@ class LabelStudioMLBase(ABC):
 
         model_labels = list(names)
         model_labels_lower = [label.lower() for label in model_labels]
-        logger.info(f"Labels supported by model for {tag_name}: {names}")
+        logger.debug(f"Labels supported by model for {tag_name}: {names}")
 
         if labels_attrs:
             for ls_label, label_tag in labels_attrs.items():
