@@ -134,7 +134,6 @@ class YOLO(LabelStudioMLBase):
         :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING')
         :param data: the payload received from the event
         (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
-        """
 
         # use cache to retrieve the data from the previous fit() runs
         old_data = self.get('my_data')
@@ -149,3 +148,5 @@ class YOLO(LabelStudioMLBase):
         print(f'New model version: {self.get("model_version")}')
 
         print('fit() is not implemented!')
+        """
+        raise NotImplementedError('Training is not implemented yet')

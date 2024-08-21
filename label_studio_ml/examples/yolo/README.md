@@ -342,6 +342,7 @@ To run the ML backend without Docker, you have to clone the repository and insta
 ```bash
 python -m venv ml-backend
 source ml-backend/bin/activate
+pip install -r requirements-base.txt
 pip install -r requirements.txt
 ```
 
@@ -351,17 +352,80 @@ Then you can start the ML backend:
 label-studio-ml start ./dir_with_your_model
 ```
 
-# Configuration
-Parameters can be set in `docker-compose.yml` before running the container.
+Also, you can check [Dockerfile](Dockerfile) for additional dependencies and install them manually. 
 
-The following common parameters are available:
-- `BASIC_AUTH_USER` - specify the basic auth user for the model server
-- `BASIC_AUTH_PASS` - specify the basic auth password for the model server
-- `LOG_LEVEL` - set the log level for the model server
-- `WORKERS` - specify the number of workers for the model server
-- `THREADS` - specify the number of threads for the model server
-- `ALLOW_CUSTOME_MODELS` - allow to use custom yolo models from the `models` directory
+## Parameters
 
-# Customization
+Check `environment` section in the [`docker-compose.yml`](docker-compose.yml) file before running the container. 
+All available parameters are listed there.
 
-The ML backend can be customized by adding your own models and logic inside the `./dir_with_your_model` directory. 
+> Note: You can use lots of YOLO model parameters in labeling configurations directly, e.g. `model_path` or `score_threshold`.
+
+## Command Line Interface for Terminal
+
+### Overview
+
+This Command Line Interface (CLI) tool facilitates the integration of YOLO models with Label Studio for machine learning predictions. 
+It provides an alternative method for running YOLO predictions on tasks managed by Label Studio, 
+particularly useful for processing long videos or large datasets. 
+Running the model predictions directly from the CLI helps to avoid issues 
+like connection timeouts between Label Studio and the ML backend, 
+which can occur during lengthy processing times.
+
+### When Use CLI?
+
+When working with extensive media files such as long videos, processing times can be significant. 
+Label Studio may interrupt the connection with the ML backend if the request takes too long, resulting in incomplete predictions. 
+By running this CLI tool, you can execute model predictions asynchronously 
+without the need for Label Studio to maintain a constant connection to the backend. 
+This ensures that even large or complex tasks are processed fully, 
+and predictions are saved to Label Studio using SDK once completed.
+
+### How It Works
+
+1. **Label Studio Connection**: The tool connects to a running instance of Label Studio using the provided API key and URL.
+2. **Task Preparation**: Tasks can be provided directly via a JSON file or as a list of task IDs. The tool fetches task data from Label Studio if task IDs are supplied.
+3. **Model Loading**: The YOLO model is loaded and initialized based on the project’s configuration.
+4. **Prediction Process**: For each task, the YOLO model generates predictions, which are then post-processed to Label Studio's expected format.
+5. **Asynchronous Upload**: The generated predictions are uploaded back to Label Studio, allowing for large tasks to be processed without timing out.
+
+### Usage
+
+```bash
+python cli.py --ls-url http://localhost:8080 --ls-api-key your_api_key --project 1 --tasks tasks.json
+```
+
+or 
+
+```bash
+python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project 1 --tasks 1,2,3
+```
+
+#### Parameters
+
+- **`--ls-url`**: The URL of the Label Studio instance. Defaults to `http://localhost:8080`.
+- **`--ls-api-key`**: The API key for Label Studio. Used to authenticate the connection.
+- **`--project`**: The ID of the Label Studio project where the tasks are managed. Defaults to `1`.
+- **`--tasks`**:
+
+  1. The path to a JSON file containing a list of tasks or task IDs, e.g.:
+
+    tasks_ids.json 
+    ```
+    [1,2,3]
+    ```
+  
+    tasks.json
+    ```
+    [{"id": 1, "data": {"image": "http://example.com/1.jpg"}}, {"id": 2, "data": {"image": "http://example.com/2.jpg"}}]
+    ```
+  
+  2. If a file is not provided, you can pass a comma-separated list of task IDs directly, e.g.: `1,2,3`
+
+### Logging
+
+Use `LOG_LEVEL=DEBUG` to get detailed logs. Example:
+
+```bash
+LOG_LEVEL=DEBUG python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project 2 --tasks 1,2,3
+```
