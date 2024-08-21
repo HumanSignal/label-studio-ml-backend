@@ -5,6 +5,8 @@ on:
     branches:
       - master
       - 'release/**'
+    paths-ignore:
+      - '**/*.md'  # Ignore changes to all .md files
   pull_request:
     types:
       - opened
@@ -14,6 +16,8 @@ on:
     branches:
       - master
       - 'release/**'
+    paths-ignore:
+      - '**/*.md'  # Ignore changes to all .md files
 
 env:
   CACHE_NAME_PREFIX: v1
