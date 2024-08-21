@@ -40,6 +40,7 @@ and specify `http://<your-ip>:9090` as a URL.
 
 **Control tags**
 - `<RectangleLabels>` - bounding boxes, object detection task
+- `<PolygonLabels>` - polygons, segmentation task
 - `<VideoRectangle>` - video bounding boxes, object tracking task
 - `<Choices>` - classification
 
