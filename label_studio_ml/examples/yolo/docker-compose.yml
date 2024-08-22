@@ -34,7 +34,7 @@ services:
       # YOLO parameters
 
       # Allow to use custom `model_path` in labeling configurations
-      - ALLOW_CUSTOM_MODEL_PATH=false
+      - ALLOW_CUSTOM_MODEL_PATH=true
       # Show matplotlib debug plot for YOLO predictions
       - DEBUG_PLOT=false
       # Default score threshold, which is used to filter out low-confidence predictions,

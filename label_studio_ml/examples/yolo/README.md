@@ -2,6 +2,10 @@
 
 This guide describes the simplest way to start using YOLO ML backend with Label Studio.
 
+! TODO: insert video with demo:
+! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
+! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen.  
+
 # Quick Start
 
 1. Add `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` to the `docker-compose.yml` file. 
@@ -9,7 +13,7 @@ This guide describes the simplest way to start using YOLO ML backend with Label 
 2. Run docker compose
 
     ```
-    docker-compose up
+    docker-compose up --build
     ```
 
 3. Open Label Studio and create a new project with the following labeling config:
@@ -23,16 +27,16 @@ This guide describes the simplest way to start using YOLO ML backend with Label 
     </View>
     ```
 
-3. Connect ML backend to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` 
+4. Connect ML backend to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` 
 and specify `http://<your-ip>:9090` as a URL.
 
-4. Add images to Label Studio.
+5. Add images to Label Studio.
 
-5. Open any task in the Data Manager and see the predictions from the YOLO model.
+6. Open any task in the Data Manager and see the predictions from the YOLO model.
 
 # Labeling Configurations
 
-### Supported object and control tags
+## Supported Object & Control Tags
 
 **Object tags**
 - `<Image>` - image to annotate
@@ -53,7 +57,30 @@ you can force skipping by adding `model_skip="true"` attribute to the control ta
 <Choices name="choice" toName="image" model_skip="true">
 ```
 
-### Labels and Choices Mapping
+## Mixed Object & Control Tags
+
+You can mix different object and control tags in one project. 
+YOLO model will detect all known control tags and make predictions for them.
+For example: 
+
+```
+<View>
+  <Image name="image1" value="$image"/>
+  <RectangleLabels name="label" toName="image1">
+    <Label value="Car" background="blue"/>
+  </RectangleLabels>
+  
+  <Image name="image2" value="$image"/>
+  <Choices name="choice" toName="image2">
+    <Label value="Car"/>
+    <Label value="Truck"/>
+  </Choices>
+</View>
+```
+
+In this example, both `RectangleLabels` and `Choices` will be detected and predicted by YOLO model.
+
+## Label & Choice Mapping
 
 ```mermaid
 graph TD
@@ -65,7 +92,7 @@ By default, YOLO ML backend will use the same (or lowercased) names as you speci
 In this example your label "Jeep" will be mapped to "jeep" from ML model.
 
 ```
-<Choices value="Jeep"> 
+<Choice value="Jeep"> 
 ```
 
 For more precise control you can use `predicted_values` attribute 
@@ -77,7 +104,7 @@ to specify multiple and different labels from ML model:
 
 <details>
 <summary>Tip: How to find all YOLO model names?</summary>
-
+<br/>
 Labels are printed in the ML model logs when you start using the ML backend at the INFO logger. 
 
 Or you can find some labels in [YOLO_CLASSES.md](YOLO_CLASSES.md)
@@ -85,7 +112,7 @@ Or you can find some labels in [YOLO_CLASSES.md](YOLO_CLASSES.md)
 
 <details>
 <summary>Tip: How to map my labels to YOLO names using LLM?</summary>
-
+<br/>
 You can use LLM model (e.g. GPT) to build mapping between Label Studio labels and ML model labels automatically. 
 There is an example of such a prompt, it includes 1000 labels from YOLOv8 classification model (`yolov8n-cls`).
 
@@ -124,7 +151,7 @@ There is an example of such a prompt, it includes 1000 labels from YOLOv8 classi
 You can load your own YOLO labels. To achieve this you should follow these steps:
 
 1. Mount your model as `/app/models/<your-model>.pt`.
-2. Add `ALLOW_CUSTOM_MODEL_PATH=true` to docker environment parameters.
+2. Set `ALLOW_CUSTOM_MODEL_PATH=true` (by default it is true) to docker environment parameters ([`docker-compose.yml`](docker-compose.yml)).
 3. Add `model_path="<your-model>.pt" to the control tag in the labeling configuration, e.g.:
 
 ```
@@ -133,56 +160,85 @@ You can load your own YOLO labels. To achieve this you should follow these steps
 
 # Classification using `Choices`
 
-## Labeling config
+YOLO provides classification model and Label Studio supports this task with the `Choices` control tag.
+
+More info: https://docs.ultralytics.com/tasks/classify/
+
+! TODO: insert video with demo: 
+! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
+! You click on a tab with `yolo` title to emphasize that it's a prediction.     
+
+### Labeling config
+
 ```
 <View>
   <Image name="image" value="$image"/>
-  <Choices name="choice" toName="image">
-    <Choice value="Car" predicted_values="jeep,cab,limousine,truck"/>
-    <Choice value="Adult content"/>
-    <Choice value="Violence"/>
+  <Choices name="choice" toName="image" score_threshold="0.25">
+    <Choice value="Airplane" predicted_values="aircraft_carrier,airliner,airship"/>
+    <Choice value="Car" predicted_values="jeep,limousine,Model_T,minivan,sports_car,truck"/>
   </Choices>
+</View>
 ```
 
-## Parameters
+### Parameters
 
-| Parameter | Type  | Default | Description                                                                                                                                                                            |
-|-----------|-------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                                                                         |
+| Parameter          | Type   | Default | Description                                                                                                                                                                            |
+|--------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_path`       | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                           |
+| `predicted_values` | string | None    | Comma-separated list of labels from the ML model.                                                                                                                                      |
 
 For example:
 ```
 <Choices name="choice" toName="image" score_threshold="0.25" model_path="my_model.pt">
 ```
 
+### Default model
+
+`yolov8n-cls.pt` is the default classification model.
+
+
+
 # Object Detection using `RectangleLabels`
 
 YOLO models provide bounding box detection, or also it's known as object detection. 
 Label Studio supports this task with the `RectangleLabels` control tag.
 
-## Labeling config
+More info: https://docs.ultralytics.com/tasks/detect/
+
+! TODO: insert video with demo: 
+! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
+! You click on a tab with `yolo` title to emphasize that it's a prediction.     
+
+### Labeling config
+
 ```
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
+    <Label value="Airplane" background="red" predicted_values=""/>
     <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
   </RectangleLabels>
+</View>
 ```
 
-## Parameters
+### Parameters
 
-| Parameter | Type  | Default | Description |
-|-----------|-------|---------|-------------|
-| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
-| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models". |
+| Parameter         | Type   | Default | Description                                                                                                                                                                            |
+|-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
 
 For example:
 ```
 <RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
 ```
 
-## Oriented Bounding Boxes (YOLO OBB)
+### Default model
+
+`yolov8m.pt` is the default object detection model.
+
+### Oriented Bounding Boxes (YOLO OBB)
 
 Oriented (rotated) bounding boxes will be generated automatically if you use OBB model. 
 To enable OBB model, you should specify `model_path` parameter with obb model in the control tag:
@@ -191,50 +247,84 @@ To enable OBB model, you should specify `model_path` parameter with obb model in
 <RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="yolo8n-obb.pt">
 ```
 
-More info and available models: https://docs.ultralytics.com/tasks/obb/
+More info: https://docs.ultralytics.com/tasks/obb/
+
+
+
 
 # Segmentation using `PolygonLabels`
 
-## Labeling config
+YOLO models provide segmentation detection, or also it's known as instance segmentation. 
+Label Studio supports this task with the `PolygonLabels` control tag.
+
+More info: https://docs.ultralytics.com/tasks/segment/
+
+! TODO: insert video with demo: 
+! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
+! You click on a tab with `yolo` title to emphasize that it's a prediction.
+
+### Labeling config
+
 ```
 <View>
   <Image name="image" value="$image"/>
   <PolygonLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
     <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
   </PolygonLabels>
+</View>
 ```
 
-## Parameters
+### Parameters
 
-| Parameter | Type  | Default | Description                                                                                                                                                                            |
-|-----------|-------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold` | float | 0.5    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path` | string | None | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| Parameter         | Type   | Default | Description                                                                                                                                                                            |
+|-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `predicted_values`| string | None    | Comma-separated list of labels from the ML model.                                                                                                                                      |
 
 For example:
 ```
 <PolygonLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
 ```
 
+### Default model
+
+`yolov8n-seg.pt` is the default segmentation model.
+
+
+
 # Video Object Tracking using `VideoRectangle` 
 
-## Trackers 
+YOLO models provide object tracking, or also it's known as multi-object tracking.
+Label Studio supports this task with the `VideoRectangle` + `Labels` control tags.
+
+More info: https://docs.ultralytics.com/modes/track/
+
+! TODO: insert video with demo: 
+! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
+! You click on a tab with `yolo` title to emphasize that it's a prediction.
+
+### Trackers
 
 https://docs.ultralytics.com/modes/track/?h=track#tracker-selection
 
 The best tracker to use with Ultralytics YOLO depends on your specific needs. 
 The default tracker is BoT-SORT, which is generally well-suited for most scenarios. 
 However, if you're looking for an alternative with different strengths, 
-ByteTrack is another excellent choice that you can easily configure. 
+ByteTrack is another good choice that you can easily configure. 
 ByteTrack is known for its high performance in multi-object tracking, 
 especially in situations with varying object appearances and reappearances. 
-Both trackers can be customized using YAML configuration files to fit your specific use case.
+Both trackers can be customized using YAML configuration files to fit your specific use cases.
 
 You can specify tracker in the control tag: 
 * `<VideoRectangle tracker="botsort">`
 * `<VideoRectangle tracker="bytetrack">`
 
-## Parameters for bounding boxes
+### Parameters for bounding boxes
+
+The tracker works upon the bounding boxes. 
+The first step is to detect bounding boxes, the second step is to track (find the same boxes among frames) them. 
+These parameters are addressed to the first step - bounding box detection.
 
 You can add `conf` and `iou` parameters to the `VideoRectagnle` control, e.g. 
 ```
@@ -244,12 +334,12 @@ You can add `conf` and `iou` parameters to the `VideoRectagnle` control, e.g.
 Read more about these parameters: 
 https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
 
-| Parameter | Type  | Default | Description |
-|-----------|-------|---------|-------------|
-| conf      | float | 0.25    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.|
-| iou       | float | 0.7     | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.|
+| Parameter | Type  | Default | Description                                                                                                                                                                            |
+|-----------|-------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| conf      | float | 0.25    | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| iou       | float | 0.7     | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.   |
 
-## Parameters for trackers 
+### Parameters for trackers 
 
 The main parameter is `tracker` which can be set to 
 * `botsort` 
@@ -265,6 +355,20 @@ For example:
 ```
 <VideoRectangle name="label" toName="video" tracker="botsort" botsort_max_age="30" botsort_min_hits="3" />  
 ```
+
+### Default model
+
+`yolov8n.pt` is the default object detection model. 
+
+### Recommendations
+
+* Video object tracking is a computationally intensive task. 
+Small models like `yolov8n.pt` are recommended for real-time tracking, however, they may not be as accurate as larger models.
+
+* Label Studio has timeout limits for ML backend requests. You can adjust the timeout in the LS backend settings.
+! TODO: https://github.com/HumanSignal/label-studio/pull/5414/files#diff-20432d8093df2c0400b0f41b004a6b772b856b985fa1f5fd1e1f909247c89fc6L30
+
+* Or use the [CLI tool](#when-use-cli) to run predictions asynchronously.
 
 # Mixed Labeling Configurations
 
@@ -314,16 +418,16 @@ Also, you can use a few object tags in the same labeling configuration:
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
 
-```bash
-docker-compose up
-```
+    ```bash
+    docker-compose up
+    ```
 
 2. Validate that backend is running
 
-```bash
-$ curl http://localhost:9090/
-{"status":"UP"}
-```
+    ```bash
+    $ curl http://localhost:9090/
+    {"status":"UP"}
+    ```
 
 3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
 
@@ -417,7 +521,7 @@ python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project
   
     tasks.json
     ```
-    [{"id": 1, "data": {"image": "http://example.com/1.jpg"}}, {"id": 2, "data": {"image": "http://example.com/2.jpg"}}]
+    [{"id": 1, "data": {"image": "https://example.com/1.jpg"}}, {"id": 2, "data": {"image": "https://example.com/2.jpg"}}]
     ```
   
   2. If a file is not provided, you can pass a comma-separated list of task IDs directly, e.g.: `1,2,3`
