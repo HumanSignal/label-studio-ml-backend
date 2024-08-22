@@ -167,8 +167,8 @@ There is an example of such a prompt, it includes 1000 labels from YOLOv8 classi
 You can load your own YOLO labels. To achieve this you should follow these steps:
 
 1. Mount your model as `/app/models/<your-model>.pt`.
-2. Set `ALLOW_CUSTOM_MODEL_PATH=true` (it is true by default) to docker environment parameters ([`docker-compose.yml`](docker-compose.yml)).
-3. Add `model_path="<your-model>.pt" to the control tag in the labeling configuration, e.g.:
+2. Set `ALLOW_CUSTOM_MODEL_PATH=true` (it is true by default) in docker environment parameters ([`docker-compose.yml`](docker-compose.yml)).
+3. Add `model_path="<your-model>.pt"` to the control tag in the labeling configuration, e.g.:
 
 ```
 <RectangleLabels model_path="my_model.pt">

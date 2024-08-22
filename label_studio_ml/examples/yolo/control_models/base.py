@@ -17,7 +17,7 @@ DEFAULT_MODEL_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'm
 MODEL_ROOT = os.getenv('MODEL_ROOT', DEFAULT_MODEL_ROOT)
 os.makedirs(MODEL_ROOT, exist_ok=True)
 # if true, allow to use custom model path from the control tag in the labeling config
-ALLOW_CUSTOM_MODEL_PATH = os.getenv('ALLOW_CUSTOM_MODEL_PATH', "false").lower() in ["1", "true"]
+ALLOW_CUSTOM_MODEL_PATH = os.getenv('ALLOW_CUSTOM_MODEL_PATH', "true").lower() in ["1", "true"]
 
 # Global cache for YOLO models
 _model_cache = {}

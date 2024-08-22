@@ -56,13 +56,17 @@ class YOLO(LabelStudioMLBase):
                         logger.error(
                             f"No label map built for the '{control.tag}' control tag '{instance.from_name}'.\n"
                             f"This indicates that your Label Studio config labels do not match the model's labels.\n"
-                            f"To fix this, ensure that the 'predicted_values' or 'value' attribute "
+                            f"To fix this, ensure that the 'value' or 'predicted_values' attribute "
                             f"in your Label Studio config matches one or more of these model labels.\n"
                             f"If you don't want to use this control tag for predictions, "
                             f"add `model_skip=\"true\"` to it.\n"
-                            f'Examples:\n<Label value="Car"/>\n'
-                            f'<Label value="YourLabel" predicted_values="label1,label2"/>\n'
-                            f"Available '{instance.model_path}' model labels:\n{list(instance.model.names.values())}"
+                            f'Examples:\n'
+                            f'  <Label value="Car"/>\n'
+                            f'  <Label value="YourLabel" predicted_values="label1,label2"/>\n'
+                            f'Labels provided in your labeling config:\n'
+                            f'  {str(control.labels_attrs)}\n'
+                            f"Available '{instance.model_path}' model labels:\n"
+                            f"  {list(instance.model.names.values())}"
                         )
                         continue
 
