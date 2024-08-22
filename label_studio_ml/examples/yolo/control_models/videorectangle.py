@@ -57,8 +57,8 @@ class VideoRectangleModel(ControlModel):
     def predict_regions(self, path) -> List[Dict]:
         # bounding box parameters
         # https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
-        conf = self.control.attr.get('conf', 0.25)
-        iou = self.control.attr.get('iou', 0.70)
+        conf = float(self.control.attr.get('conf', 0.25))
+        iou = float(self.control.attr.get('iou', 0.70))
 
         # tracking parameters
         # https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers
