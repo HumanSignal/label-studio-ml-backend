@@ -67,7 +67,7 @@ For example:
 <View>
   <Image name="image1" value="$image"/>
   <RectangleLabels name="label" toName="image1" score_threshold="0.1">
-    <Label value="airplane" background="red"/>
+    <Label value="person" background="red"/>
     <Label value="car" background="blue"/>
   </RectangleLabels>
   
@@ -231,7 +231,7 @@ More info: https://docs.ultralytics.com/tasks/detect/
 <View>
   <Image name="image" value="$image"/>
   <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
-    <Label value="Airplane" background="red"/>
+    <Label value="Person" background="red"/>
     <Label value="Car" background="blue"/>
   </RectangleLabels>
 </View>
@@ -326,7 +326,7 @@ More info: https://docs.ultralytics.com/modes/track/
     <Video name="video" value="$video"/>
     <VideoRectangle name="box" toName="video" tracker="botsort" conf="0.25" iou="0.7" />
     <Labels name="label" toName="video">
-      <Label value="Airplane" background="red"/>
+      <Label value="Person" background="red"/>
       <Label value="Car" background="blue"/>
     </Labels>
 </View>
