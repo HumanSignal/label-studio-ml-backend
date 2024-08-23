@@ -1,6 +1,22 @@
 # YOLO ML Backend for Label Studio
 
-This guide describes the simplest way to start using YOLO ML backend with Label Studio.
+The YOLO ML Backend for Label Studio is designed to integrate advanced object detection, 
+segmentation, classification, and video object tracking capabilities directly into Label Studio. 
+This integration allows you to leverage powerful YOLO models for various machine learning tasks, 
+making it easier to annotate large datasets and ensure high-quality predictions.
+
+**Supported Features**
+
+| YOLO Task Name                        | Label Studio Control Tag             | Prediction Supported | Training Supported |
+|---------------------------------------|--------------------------------------|----------------------|--------------------|
+| Object Detection                      | `<RectangleLabels>`                  | ✅                  | ❌                 |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                  | ❌                 |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                  | ❌                 |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                   | ❌                 |
+| Image Classification                  | `<Choices>`                          | ✅                  | ❌                 |
+| Pose Detection                        | `<KeyPoints>`                        | ❌                   | ❌                 |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                  | ❌                 |
+| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                 |
 
 ! TODO: insert video with demo:
 ! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
