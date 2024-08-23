@@ -9,14 +9,14 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 
 | YOLO Task Name                        | Label Studio Control Tag             | Prediction Supported | Training Supported |
 |---------------------------------------|--------------------------------------|----------------------|--------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                  | ❌                 |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                  | ❌                 |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                  | ❌                 |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                   | ❌                 |
-| Image Classification                  | `<Choices>`                          | ✅                  | ❌                 |
-| Pose Detection                        | `<KeyPoints>`                        | ❌                   | ❌                 |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                  | ❌                 |
-| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                 |
+| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  |
+| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  |
+| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  |
+| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                  |
 
 ! TODO: insert video with demo:
 ! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
@@ -545,3 +545,7 @@ Use `LOG_LEVEL=DEBUG` to get detailed logs. Example:
 ```bash
 LOG_LEVEL=DEBUG python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project 2 --tasks 1,2,3
 ```
+
+### For Developers
+
+The architecture of the project and development guidelines are described in the [README_DEVELOP.md](README_DEVELOP.md) file. 
