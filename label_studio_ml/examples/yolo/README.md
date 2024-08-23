@@ -546,6 +546,6 @@ Use `LOG_LEVEL=DEBUG` to get detailed logs. Example:
 LOG_LEVEL=DEBUG python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project 2 --tasks 1,2,3
 ```
 
-### For Developers
+# For Developers
 
 The architecture of the project and development guidelines are described in the [README_DEVELOP.md](README_DEVELOP.md) file. 

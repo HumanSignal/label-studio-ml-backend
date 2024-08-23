@@ -22,6 +22,12 @@ classDiagram
         +create_rotated_rectangles(results, path) List[Dict]
     }
 
+    class RectangleLabelsObbModel {
+        +predict_regions(path: str) List[Dict]
+        +create_rotated_rectangles(results, path) List[Dict]
+    }    
+    
+
     class PolygonLabelsModel {
         +predict_regions(path: str) List[Dict]
         +create_polygons(results, path) List[Dict]
@@ -39,6 +45,7 @@ classDiagram
     }
 
     ControlModel <|-- RectangleLabelsModel
+    ControlModel <|-- RectangleLabelsObbModel
     ControlModel <|-- PolygonLabelsModel
     ControlModel <|-- ChoicesModel
     ControlModel <|-- VideoRectangleModel
