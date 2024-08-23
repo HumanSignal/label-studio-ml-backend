@@ -219,6 +219,8 @@ For example:
 YOLO models provide bounding box detection, or also it's known as object detection. 
 Label Studio supports this task with the `RectangleLabels` control tag.
 
+YOLO OBB models are also supported.
+
 More info: https://docs.ultralytics.com/tasks/detect/
 
 ! TODO: insert video with demo: 
@@ -243,6 +245,7 @@ More info: https://docs.ultralytics.com/tasks/detect/
 |-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_obb`       | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
 ```
@@ -252,14 +255,15 @@ For example:
 ### Default model
 
 `yolov8m.pt` is the default object detection model.
+`yolov8n-obb.pt` is the default OBB object detection model.
 
 ### Oriented Bounding Boxes (YOLO OBB)
 
 Oriented (rotated) bounding boxes will be generated automatically if you use OBB model. 
-To enable OBB model, you should specify `model_path` parameter with obb model in the control tag:
+Specify `model_obb="true"` in the `RectangleLabels` tag to enable this mode:
 
 ```
-<RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="yolo8n-obb.pt">
+<RectangleLabels name="label" toName="image" score_threshold="0.25" model_obb="true">
 ```
 
 More info: https://docs.ultralytics.com/tasks/obb/
