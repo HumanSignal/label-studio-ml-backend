@@ -1,6 +1,22 @@
-
+<!--
+---
+title: Integrate WatsonX with Label Studio
+type: guide
+tier: all
+order: 15
+hide_menu: true
+hide_frontmatter_title: true
+meta_title: Integrate WatsonX with Label Studio
+categories:
+    - Computer Vision
+    - Large Language Model
+    - WatsonX
+image: "/tutorials/watsonx.png"
+---
+-->
 
 # Integrate WatsonX to Label Studio
+
 WatsonX offers a suite of machine learning tools, including access to many LLMs, prompt
 refinement interfaces, and datastores via WatsonX.data. When you integrate WatsonX with Label Studio, you get 
 access to these models and can automatically keep your annotated data up to date in your WatsonX.data tables. 
@@ -13,10 +29,13 @@ on webhooks, see [our documentation](https://labelstud.io/guide/webhooks)
 
 See the configuration notes at the bottom for details on how to set up your environment variables to get the system to work.
 
+For a video demonstration, see [Integrating Label Studio with IBM WatsonX](https://www.youtube.com/watch?v=9iP2yO4Geqc).
+
 ## Setting up your label_config
-For this project, we reccoment you start with the labeling config as defined below, but you can always edit it or expand it to
+For this project, we recommend you start with the labeling config as defined below, but you can always edit it or expand it to
 meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into. 
 
+```xml
     <View>
         <Style>
             .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
@@ -60,7 +79,7 @@ meet your needs! Crucially, there must be a `<TextArea>` tag for the model to in
         <Header value="Overall response quality:"/>
         <Rating name="rating" toName="context"/>
     </View>
-
+```
 
 ## Setting up WatsonX.Data
 To use your WatsonX.data integration, follow the steps below. 
@@ -138,13 +157,13 @@ The following parameters allow you to link the WatsonX models to Label Studio:
 
 The following parameters allow you to use the webhook connection to transfer data from Label Studio to WatsonX.data:
 
--`WATSONX_ENG_USERNAME`- MUST be `ibmlhapikey` for the intergration to work.
+- `WATSONX_ENG_USERNAME`- MUST be `ibmlhapikey` for the integration to work.
 
-To get the host and port information below, you can folllow the steps under [Pre-requisites](https://cloud.ibm.com/docs/watsonxdata?topic=watsonxdata-con-presto-serv#conn-to-prestjava).
+To get the host and port information below, you can follow the steps under [Pre-requisites](https://cloud.ibm.com/docs/watsonxdata?topic=watsonxdata-con-presto-serv#conn-to-prestjava).
 
 - `WATSONX_ENG_HOST` - the host information for your WatsonX.data Engine
 - `WATSONX_ENG_PORT` - the port information for your WatsonX.data Engine
 - `WATSONX_CATALOG` - the name of the catalog for the table you'll insert your data into. Must be created in the WatsonX.data platform.
-- `WATSONX_SCHEMA` - the name of the schema for the table you'll insert your data into. Must be created in the WatsonX.data platofrm.
+- `WATSONX_SCHEMA` - the name of the schema for the table you'll insert your data into. Must be created in the WatsonX.data platform.
 - `WATSONX_TABLE` - the name of the table you'll insert your data into. Does not need to be already created.
 
