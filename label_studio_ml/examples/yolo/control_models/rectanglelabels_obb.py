@@ -1,33 +1,29 @@
 import logging
 
 from control_models.base import ControlModel
+from control_models.rectanglelabels import is_obb
 from typing import List, Dict
-from label_studio_sdk.label_interface.control_tags import ControlTag
+from label_studio_sdk.converter.utils import convert_yolo_obb_to_annotation
 
 
 logger = logging.getLogger(__name__)
 
 
-def is_obb(control: ControlTag) -> bool:
-    """ Check if the model should use oriented bounding boxes (OBB)
-    based on the control tag attribute `model_obb` from the labeling config.
+class RectangleLabelsObbModel(ControlModel):
     """
-    return control.attr.get('model_obb', 'false').lower() in ['true', 'yes', '1']
-
-
-class RectangleLabelsModel(ControlModel):
-    """
-    Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
+    Class representing a RectangleLabels OBB
+    (oriented bounding boxes, rotated bounding boxes)
+    control tag for YOLO model.
     """
     type = 'RectangleLabels'
-    model_path = 'yolov8m.pt'
+    model_path = 'yolov8n-obb.pt'
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # check object tag type
         if control.objects[0].tag != 'Image':
             return False
-        if is_obb(control):
+        if not is_obb(control):
             return False
         return control.tag == cls.type
 
@@ -35,34 +31,37 @@ class RectangleLabelsModel(ControlModel):
         results = self.model.predict(path)
         self.debug_plot(results[0].plot())
 
-        # oriented bounding boxes are detected, but it should be processed by RectangleLabelsObbModel
-        if results[0].obb is not None and results[0].boxes is None:
+        # simple bounding boxes without rotation
+        if results[0].obb is None:
             raise ValueError(
-                'Oriented bounding boxes are detected in the YOLO model results. '
-                'However, `model_obb="true"` is not set at the RectangleLabels tag '
-                'in the labeling config.'
+                'Simple bounding boxes are detected in the YOLO model results. '
+                'However, `model_obb="true"` is set at the RectangleLabels tag '
+                'in the labeling config. Set it to `false` to use simple bounding boxes.'
             )
 
-        # simple bounding boxes without rotation
-        return self.create_rectangles(results, path)
+        # oriented bounding boxes with rotation (yolo obb model)
+        return self.create_rotated_rectangles(results, path)
 
-    def create_rectangles(self, results, path):
-        """ Simple bounding boxes without rotation
+    def create_rotated_rectangles(self, results, path):
+        """ YOLO OBB: oriented bounding boxes
         """
-        logger.debug(f'create_rectangles: {self.from_name}')
-        data = results[0].boxes  # take bboxes from the first frame
+        logger.debug(f'create_rotated_rectangles: {self.from_name}')
+        data = results[0].obb  # take bboxes from the first frame
         regions = []
 
         for i in range(data.shape[0]):  # iterate over items
             score = float(data.conf[i])  # tensor => float
-            x, y, w, h = data.xywhn[i].tolist()
             model_label = self.model.names[int(data.cls[i])]
+            original_height, original_width = data.orig_shape
+            value = convert_yolo_obb_to_annotation(
+                data.xyxyxyxy[i].tolist(), original_width, original_height
+            )
 
             logger.debug(
                 "----------------------\n"
                 f"task id > {path}\n"
                 f"type: {self.control}\n"
-                f"x, y, w, h > {x, y, w, h}\n"
+                f"x, y, w, h, r > {value}\n"
                 f"model label > {model_label}\n"
                 f"score > {score}\n"
             )
@@ -75,19 +74,14 @@ class RectangleLabelsModel(ControlModel):
             if model_label not in self.label_map:
                 continue
             output_label = self.label_map[model_label]
+            value["rectanglelabels"] = [output_label]
 
             # add new region with rectangle
             region = {
                 "from_name": self.from_name,
                 "to_name": self.to_name,
                 "type": "rectanglelabels",
-                "value": {
-                    "rectanglelabels": [output_label],
-                    "x": (x - w / 2) * 100,
-                    "y": (y - h / 2) * 100,
-                    "width": w * 100,
-                    "height": h * 100,
-                },
+                "value": value,
                 "score": score,
             }
             regions.append(region)
@@ -95,4 +89,4 @@ class RectangleLabelsModel(ControlModel):
 
 
 # pre-load and cache default model at startup
-RectangleLabelsModel.get_cached_model(RectangleLabelsModel.model_path)
+RectangleLabelsObbModel.get_cached_model(RectangleLabelsObbModel.model_path)

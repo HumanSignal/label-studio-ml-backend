@@ -9,6 +9,7 @@ from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_lo
 from control_models.base import ControlModel
 from control_models.choices import ChoicesModel
 from control_models.rectanglelabels import RectangleLabelsModel
+from control_models.rectanglelabels_obb import RectangleLabelsObbModel
 from control_models.polygonlabels import PolygonLabelsModel
 from control_models.videorectangle import VideoRectangleModel
 from typing import List, Dict, Optional
@@ -22,8 +23,9 @@ if not os.getenv('LOG_LEVEL'):
 available_model_classes = [
     ChoicesModel,
     RectangleLabelsModel,
+    RectangleLabelsObbModel,
     PolygonLabelsModel,
-    VideoRectangleModel
+    VideoRectangleModel,
 ]
 
 
