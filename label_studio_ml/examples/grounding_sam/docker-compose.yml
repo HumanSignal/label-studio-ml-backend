@@ -3,7 +3,7 @@ version: "3.11"
 services:
   grounding_sam:
     container_name: grounding_sam
-    image: heartexlabs/label-studio-ml-backend:grndsam-master
+    image: heartexlabs/label-studio-ml-backend:grounding_sam-master
     build:
       context: .
       args:
