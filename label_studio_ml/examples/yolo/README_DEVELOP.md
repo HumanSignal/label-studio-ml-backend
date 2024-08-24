@@ -19,7 +19,6 @@ classDiagram
     class RectangleLabelsModel {
         +predict_regions(path: str) List[Dict]
         +create_rectangles(results, path) List[Dict]
-        +create_rotated_rectangles(results, path) List[Dict]
     }
 
     class RectangleLabelsObbModel {
