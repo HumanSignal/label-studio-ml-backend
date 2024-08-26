@@ -176,10 +176,3 @@ def compare_nested_structures(a, b, path="", rel=1e-4):
         assert a == approx(b, rel=rel), f"Mismatch at {path}"
     else:
         assert a == b, f"Mismatch at {path}"
-
-
-if __name__ == "__main__":
-    c = InMemoryLRUDictCache(2)
-    c.put(1, 1)
-    c.put(2,2)
-    print(c.cache)

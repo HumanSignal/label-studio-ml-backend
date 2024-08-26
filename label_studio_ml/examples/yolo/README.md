@@ -7,16 +7,20 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 
 **Supported Features**
 
-| YOLO Task Name                        | Label Studio Control Tag             | Prediction Supported | Training Supported |
-|---------------------------------------|--------------------------------------|----------------------|--------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  |
-| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  |
-| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  |
-| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                  |
+| YOLO Task Name                        | LS Control Tag                       | Prediction Supported | Training Supported | LS Import Supported | LS Export Supported |
+|---------------------------------------|--------------------------------------|----------------------|--------------------|---------------------|---------------------|
+| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO          | YOLO, COCO          |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO                | YOLO                |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO                | YOLO, COCO          |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | ❌                   | ❌                   |
+| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | ❌                   | ❌                   |
+| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  | ❌                   | ❌                   |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | ❌                   | ❌                   |
+| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                  | ❌                   | ❌                   |
+
+* LS Control Tag: Label Studio Control Tag from the labeling configuration.
+* LS Import Supported: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
+* LS Export Supported: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter). 
 
 ! TODO: insert video with demo:
 ! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
