@@ -21,7 +21,7 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 * **LS Control Tag**: Label Studio Control Tag from the labeling configuration.
 * **LS Import Supported**: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
 * **LS Export Supported**: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter).
-* **Native**: Native means that only Native Label Studio JSON format is supported.
+* **Native**: Native means that only Native Label Studio JSON format is supported. All other formats where Native is not mentioned support Native Label Studio JSON format as well.
 
 ! TODO: insert video with demo:
 ! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
