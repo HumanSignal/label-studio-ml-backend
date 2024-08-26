@@ -44,6 +44,17 @@ label_configs = [
       </RectangleLabels>
     </View>
     """,
+
+    # test 2: model_skip=true
+    """
+    <View>
+      <Image name="image" value="$image"/>
+      <RectangleLabels name="label" toName="image" model_skip="true">
+        <Label value="Airplane" background="green"/>
+        <Label value="Car" background="blue" predicted_values="car, truck"/>
+      </RectangleLabels>
+    </View>
+    """,
 ]
 
 tasks = [
@@ -53,11 +64,21 @@ tasks = [
             "wrong_key": "https://some/path"
         }
     },
+
+    # test 2: model_skip
+    {
+        "data": {
+            "image": "https://some/path"
+        }
+    },
 ]
 
 expected = [
     # test 1: wrong key in task data
     [],
+
+    # test 2: model skip
+    []
 ]
 
 

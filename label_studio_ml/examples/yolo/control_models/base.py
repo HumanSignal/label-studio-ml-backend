@@ -81,6 +81,7 @@ class ControlModel(BaseModel):
 
         # if skip is true, don't process this control
         if control.attr.get('model_skip', 'false').lower() in ['1', 'true', 'yes']:
+            logger.info(f"Skipping control tag '{control.tag}' with name '{from_name}', model_skip=true found")
             return None
         # read `score_threshold` attribute from the control tag, e.g.: <RectangleLabels score_threshold="0.5">
         score_threshold = float(control.attr.get('score_threshold') or SCORE_THRESHOLD)
