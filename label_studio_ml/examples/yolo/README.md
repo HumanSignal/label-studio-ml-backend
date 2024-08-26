@@ -214,10 +214,14 @@ More info: https://docs.ultralytics.com/tasks/classify/
 
 ### Parameters
 
-| Parameter          | Type   | Default | Description                                                                                                                                                                            |
-|--------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`       | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                           |
+| Parameter          | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                    |
+|--------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                         |
+| `model_path`       | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                                                                                                                                                                                                   |
+| `choice`           | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `score_threshold`. |
+
+**Note about `choice` parameter**
+
 
 For example:
 ```
