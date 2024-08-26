@@ -116,7 +116,7 @@ Also, you can use different YOLO models for the same task to compare them visual
 
 ```mermaid
 graph TD
-    A[Label Studio :: Labeling Config :: Labels or Choices] <--> B[ML Model :: Labels]
+    A[Label Studio :: Labeling Config :: Labels or Choices] <--> B[ML Model :: Names]
 ```
 
 If you use a common YOLO model, you have to make mapping between your labels and ML model labels. 
