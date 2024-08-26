@@ -8,19 +8,20 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 **Supported Features**
 
 | YOLO Task Name                        | LS Control Tag                       | Prediction Supported | Training Supported | LS Import Supported | LS Export Supported |
-|---------------------------------------|--------------------------------------|----------------------|--------------------|---------------------|---------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO          | YOLO, COCO          |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO                | YOLO                |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO                | YOLO, COCO          |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | ❌                   | ❌                   |
-| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | ❌                   | ❌                   |
-| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  | ❌                   | ❌                   |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | ❌                   | ❌                   |
-| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                  | ❌                   | ❌                   |
+|---------------------------------------|--------------------------------------|----------------------|--------------------|--------------------|------------------|
+| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO         | YOLO, COCO       |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO               | YOLO             |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO               | YOLO, COCO       |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | Native         | Native           |
+| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | Native             | Native                |
+| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  | Native             | Native                 |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | Native             | Native                 |
+| Video Temporal Classification         | `<Timeline>`                         | Coming soon          | ❌                  | Native             | Native                 |
 
-* LS Control Tag: Label Studio Control Tag from the labeling configuration.
-* LS Import Supported: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
-* LS Export Supported: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter). 
+* *LS Control Tag*: Label Studio Control Tag from the labeling configuration.
+* *LS Import Supported*: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
+* *LS Export Supported*: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter).
+* *Native*: Native means that only Native Label Studio JSON format is supported.
 
 ! TODO: insert video with demo:
 ! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
