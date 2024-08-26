@@ -94,8 +94,8 @@ For example:
   
   <Image name="image2" value="$image"/>
   <Choices name="choice" toName="image2" score_threshold="0.1>
-    <Label value="airship"/>
-    <Label value="passenger_car"/>
+    <Choice value="airship"/>
+    <Choice value="passenger_car"/>
   </Choices>
 </View>
 ```
@@ -201,9 +201,7 @@ YOLO provides classification model and Label Studio supports this task with the 
 
 More info: https://docs.ultralytics.com/tasks/classify/
 
-! TODO: insert video with demo: 
-! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
-! You click on a tab with `yolo` title to emphasize that it's a prediction.     
+![Yolo Choices](./YoloChoices.gif)    
 
 ### Labeling config
 
@@ -248,9 +246,7 @@ YOLO OBB models are also supported.
 
 More info: https://docs.ultralytics.com/tasks/detect/
 
-! TODO: insert video with demo: 
-! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
-! You click on a tab with `yolo` title to emphasize that it's a prediction.     
+![Yolo Rectangles](./YoloRectangle.gif)  
 
 ### Labeling config
 
@@ -303,9 +299,7 @@ Label Studio supports this task with the `PolygonLabels` control tag.
 
 More info: https://docs.ultralytics.com/tasks/segment/
 
-! TODO: insert video with demo: 
-! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
-! You click on a tab with `yolo` title to emphasize that it's a prediction.
+![Yolo Polygons](./YoloPolygons.gif)
 
 ### Labeling config
 
@@ -344,9 +338,7 @@ Label Studio supports this task with the `VideoRectangle` + `Labels` control tag
 
 More info: https://docs.ultralytics.com/modes/track/
 
-! TODO: insert video with demo: 
-! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
-! You click on a tab with `yolo` title to emphasize that it's a prediction.
+![Video Object Tracking](./YoloVideo.gif)
 
 ### Labeling config
 
