@@ -14,7 +14,7 @@ from .test_common import client
 
 
 label_configs = [
-    # test 1: one control tag with rectangle labels
+    # test 1: one control tag with single choice
     """
     <View>
       <Image name="image" value="$image"/>
@@ -23,11 +23,47 @@ label_configs = [
         <Choice value="Car" background="blue" predicted_values="racer, cab"/>
       </Choices>
     </View>
+    """,
+
+    # test 2: one control tag with multi choices
+    """
+    <View>
+      <Image name="image" value="$image"/>
+      <Choices name="label" toName="image" choice="multiple" score_threshold="0.1">
+        <Choice value="Grille" background="green"/>
+        <Choice value="Cab" background="blue" predicted_values="racer, cab"/>
+      </Choices>
+    </View>
+    """,
+
+    # test 3: no choices
+    """
+    <View>
+      <Image name="image" value="$image"/>
+      <Choices name="label" toName="image" choice="multiple" score_threshold="0.9">
+        <Choice value="Grille" background="green"/>
+        <Choice value="Cab" background="blue" predicted_values="racer, cab"/>
+      </Choices>
+    </View>
     """
 ]
 
 tasks = [
-    # test 1: one control tag with rectangle labels
+    # test 1: one control tag with single choice
+    {
+        "data": {
+            "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
+        }
+    },
+
+    # test 2: one control tag with multi choices
+    {
+        "data": {
+            "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
+        }
+    },
+
+    # test 3: no choices
     {
         "data": {
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
@@ -36,7 +72,7 @@ tasks = [
 ]
 
 expected = [
-    # test 1: one control tag with rectangle labels
+    # test 1: one control tag with single choice
     [
         {
             "model_version": "yolo",
@@ -53,7 +89,39 @@ expected = [
             ],
             "score": 0.5582300424575806
         }
+    ],
+
+    # test 2: one control tag with multi choices
+    [
+        {
+            "model_version": "yolo",
+            "result": [
+                {
+                    "from_name": "label",
+                    "score": 0.4747641831636429,
+                    "to_name": "image",
+                    "type": "choices",
+                    "value": {
+                        "choices": [
+                            "Cab",
+                            "Grille"
+                        ]
+                    }
+                }
+            ],
+            "score": 0.4747641831636429
+        }
+    ],
+
+    # test 3: no choices
+    [
+        {
+            "model_version": "yolo",
+            "result": [],
+            "score": 0.0,
+        }
     ]
+
 ]
 
 

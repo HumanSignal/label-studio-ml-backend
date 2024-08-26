@@ -47,8 +47,8 @@ class ChoicesModel(ControlModel):
         else:
             # get indexes of data where data >= self.score_threshold
             indexes = np.where(data >= self.score_threshold)
-            probs = data[indexes]
-            names = self.model.names[indexes]
+            probs = data[indexes].tolist()
+            names = [self.model.names[int(i)] for i in indexes[0]]
 
         if not probs:
             logger.debug("No choices found")
