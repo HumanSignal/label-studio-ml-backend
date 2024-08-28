@@ -160,8 +160,19 @@ def is_preload_needed(url):
     )
 
 
-if __name__ == "__main__":
-    c = InMemoryLRUDictCache(2)
-    c.put(1, 1)
-    c.put(2,2)
-    print(c.cache)
+def compare_nested_structures(a, b, path="", rel=1e-4):
+    from pytest import approx  # pytest is optional package, use it inside of this func
+
+    """Compare two dicts or list with approx() for float values"""
+    if isinstance(a, dict) and isinstance(b, dict):
+        assert a.keys() == b.keys(), f"Keys mismatch at {path}"
+        for key in a.keys():
+            compare_nested_structures(a[key], b[key], path + "." + str(key))
+    elif isinstance(a, list) and isinstance(b, list):
+        assert len(a) == len(b), f"List size mismatch at {path}"
+        for i, (act_item, exp_item) in enumerate(zip(a, b)):
+            compare_nested_structures(act_item, exp_item, path + f"[{i}]")
+    elif isinstance(a, float) and isinstance(b, float):
+        assert a == approx(b, rel=rel), f"Mismatch at {path}"
+    else:
+        assert a == b, f"Mismatch at {path}"

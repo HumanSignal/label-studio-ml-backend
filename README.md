@@ -61,6 +61,8 @@ Check the **Required parameters** column to see if you need to set any additiona
 | [spacy](/label_studio_ml/examples/spacy)                                                   | NER by [SpaCy](https://spacy.io/)                                                                                                                    | ✅              | ❌                | ❌        | None                       | Set      [(see documentation)](https://spacy.io/usage/linguistic-features) |
 | [tesseract](/label_studio_ml/examples/tesseract)                                           | Interactive OCR. [Details](https://github.com/tesseract-ocr/tesseract)                                                                               | ❌              | ✅                | ❌        | None                       | Set (characters)                                                           | 
 | [watsonX](/label_studio_ml/exampels/watsonx)| LLM inference with [WatsonX](https://www.ibm.com/products/watsonx-ai) and integration with [WatsonX.data](watsonx.data)| ✅ | ✅| ❌ | None| Arbitrary|
+| [yolo](/label_studio_ml/examples/yolo)                                                     | Object detection with [YOLO](https://docs.ultralytics.com/tasks/) | ✅ | ❌ | ❌ | None | Arbitrary |
+
 # (Advanced usage) Develop your model
 
 To start developing your own ML backend, follow the instructions below.
