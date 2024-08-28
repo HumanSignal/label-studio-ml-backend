@@ -47,7 +47,7 @@ jobs:
             --report-format=sarif \
             --report-path=results.sarif \
             --log-level=debug \
-            --log-opts='${{ github.event.pull_request.head.sha || github.event.after }}..${{ github.event.pull_request.base.sha || github.event.before }}'
+            --log-opts='${{ github.event.pull_request.base.sha || github.event.before }}..${{ github.event.pull_request.head.sha || github.event.after }}'
 
       - name: Upload test results
         if: failure()
