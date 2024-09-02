@@ -11,6 +11,7 @@ from control_models.choices import ChoicesModel
 from control_models.rectanglelabels import RectangleLabelsModel
 from control_models.rectanglelabels_obb import RectangleLabelsObbModel
 from control_models.polygonlabels import PolygonLabelsModel
+from control_models.keypointlabels import KeypointLabelsModel
 from control_models.videorectangle import VideoRectangleModel
 from typing import List, Dict, Optional
 
@@ -25,6 +26,7 @@ available_model_classes = [
     RectangleLabelsModel,
     RectangleLabelsObbModel,
     PolygonLabelsModel,
+    KeypointLabelsModel,
     VideoRectangleModel,
 ]
 
