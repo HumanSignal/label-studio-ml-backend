@@ -94,7 +94,7 @@ class KeypointLabelsModel(ControlModel):
                     continue
 
                 x, y = xyn.tolist()
-                index_name = f"{model_label}::{point_index + 1}"
+                index_name = f"{model_label}::{point_index}"
                 if index_name not in self.point_map:
                     logger.warning(
                         f"Point {index_name} not found in point map, "
