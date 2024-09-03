@@ -214,7 +214,7 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 You can load your own YOLO labels using the following steps:
 
-1. Mount your model as `/app/models/<your-model>.pt`.
+1. Mount your model as `/app/models/<your-model>.pt` inside of your docker.
 2. Set `ALLOW_CUSTOM_MODEL_PATH=true` (it is true by default) in your Docker environment parameters ([`docker-compose.yml`](docker-compose.yml)).
 3. Add `model_path="<your-model>.pt"` to the control tag in the labeling configuration, e.g.:
 
