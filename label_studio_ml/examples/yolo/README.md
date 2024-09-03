@@ -27,16 +27,16 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 
 **Supported Features**
 
-| YOLO Task Name                        | LS Control Tag                       | Prediction Supported | Training Supported | LS Import Supported | LS Export Supported |
-|---------------------------------------|--------------------------------------|----------------------|--------------------|---------------------|---------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO          | YOLO, COCO          |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO                | YOLO                |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO                | YOLO, COCO          |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | Native              | Native              |
-| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | Native              | Native              |
-| Pose Detection                        | `<KeyPoints>`                        | ✅                    | ❌                  | Native              | Native              |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | Native              | Native              |
-| Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | ❌                  | Native              | Native              |
+| YOLO Task Name                        | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
+|---------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
+| Object Detection                      | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | Native              | Native              |
+| Image Classification                  | `<Choices>`                          | ✅                    | Native              | Native              |
+| Pose Detection                        | `<KeyPoints>`                        | ✅                    | Native              | Native              |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
+| Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | Native              | Native              |
 
 * **LS Control Tag**: Label Studio Control Tag from the labeling configuration.
 * **LS Import Supported**: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
@@ -68,7 +68,7 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
     ```xml
     <View>
       <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image" score_threshold="0.25">
+      <RectangleLabels name="label" toName="image" model_score_threshold="0.25">
         <Label value="Car" background="blue" predicted_values="jeep,cab,limousine,truck"/>
       </RectangleLabels>
     </View>
@@ -114,13 +114,13 @@ For example:
 ```xml
 <View>
   <Image name="image1" value="$image"/>
-  <RectangleLabels name="label" toName="image1" score_threshold="0.1">
+  <RectangleLabels name="label" toName="image1" model_score_threshold="0.1">
     <Label value="person" background="red"/>
     <Label value="car" background="blue"/>
   </RectangleLabels>
   
   <Image name="image2" value="$image"/>
-  <Choices name="choice" toName="image2" score_threshold="0.1">
+  <Choices name="choice" toName="image2" model_score_threshold="0.1">
     <Choice value="airship"/>
     <Choice value="passenger_car"/>
   </Choices>
@@ -134,10 +134,10 @@ You can also use different YOLO models for the same task to compare them visuall
 ```xml
 <View>
   <Image name="image1" value="$image"/>
-  <RectangleLabels name="label1" toName="image1" model_path="yolov8n.pt" score_threshold="0.1">
+  <RectangleLabels name="label1" toName="image1" model_path="yolov8n.pt" model_score_threshold="0.1">
     <Label value="car" background="blue"/>
   </RectangleLabels>
-  <RectangleLabels name="label2" toName="image1" model_path="yolov8m.pt" score_threshold="0.1">
+  <RectangleLabels name="label2" toName="image1" model_path="yolov8m.pt" model_score_threshold="0.1">
     <Label value="car" background="red"/>
   </RectangleLabels>
 </View>
@@ -222,6 +222,11 @@ You can load your own YOLO labels using the following steps:
 <RectangleLabels model_path="my_model.pt">
 ```
 
+## Training
+
+Current Label Studio ML backend doesn't support training YOLO models. You have to do it manually on your side.
+Or you can contribute to this repository and add training support for this ML backend.
+
 
 
 -------------------
@@ -242,7 +247,7 @@ https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
 ```xml
 <View>
   <Image name="image" value="$image"/>
-  <Choices name="choice" toName="image" score_threshold="0.25">
+  <Choices name="choice" toName="image" model_score_threshold="0.25">
     <Choice value="Airplane" predicted_values="aircraft_carrier,airliner,airship,warplane"/>
     <Choice value="Car" predicted_values="limousine,minivan,jeep,sports_car,passenger_car,police_van"/>
   </Choices>
@@ -253,16 +258,16 @@ https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
 
 | Parameter          | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                    |
 |--------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                         |
+| `model_score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                         |
 | `model_path`       | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                                                                                                                                                                                                   |
-| `choice`           | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `score_threshold`. |
+| `choice`           | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `model_score_threshold`. |
 
 **Note about `choice` parameter**
 
 
 For example:
 ```xml
-<Choices name="choice" toName="image" score_threshold="0.25" model_path="my_model.pt">
+<Choices name="choice" toName="image" model_score_threshold="0.25" model_path="my_model.pt">
 ```
 
 ### Default model
@@ -291,7 +296,7 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 ```xml
 <View>
   <Image name="image" value="$image"/>
-  <RectangleLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
+  <RectangleLabels name="label" toName="image" model_score_threshold="0.25" opacity="0.1">
     <Label value="Person" background="red"/>
     <Label value="Car" background="blue"/>
   </RectangleLabels>
@@ -302,13 +307,13 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 
 | Parameter         | Type   | Default | Description                                                                                                                                                                            |
 |-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
 | `model_obb`       | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
 ```xml
-<RectangleLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
+<RectangleLabels name="label" toName="image" model_score_threshold="0.25" model_path="my_model.pt">
 ```
 
 ### Default model
@@ -322,7 +327,7 @@ Oriented (rotated) bounding boxes will be generated automatically if you use an 
 Specify `model_obb="true"` in the `RectangleLabels` tag to enable this mode:
 
 ```xml
-<RectangleLabels name="label" toName="image" score_threshold="0.25" model_obb="true">
+<RectangleLabels name="label" toName="image" model_score_threshold="0.25" model_obb="true">
 ```
 
 More info: https://docs.ultralytics.com/tasks/obb/
@@ -350,7 +355,7 @@ https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
 ```xml
 <View>
   <Image name="image" value="$image"/>
-  <PolygonLabels name="label" toName="image" score_threshold="0.25" opacity="0.1">
+  <PolygonLabels name="label" toName="image" model_score_threshold="0.25" opacity="0.1">
     <Label value="Car" background="blue"/>
     <Label value="Person" background="red"/>
   </PolygonLabels>
@@ -361,12 +366,12 @@ https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
 
 | Parameter         | Type   | Default | Description                                                                                                                                                                            |
 |-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
 
 For example:
 ```xml
-<PolygonLabels name="label" toName="image" score_threshold="0.25" model_path="my_model.pt">
+<PolygonLabels name="label" toName="image" model_score_threshold="0.25" model_path="my_model.pt">
 ```
 
 ### Default model
@@ -389,7 +394,7 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 ```xml
 <View>
   <KeyPointLabels name="keypoints" toName="image"
-    score_threshold="0.75" model_point_threshold="0.5" 
+    model_score_threshold="0.75" model_point_threshold="0.5" 
     model_add_bboxes="true" model_point_size="1"
     model_path="yolov8n-pose.pt"
   >
@@ -430,7 +435,7 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 | Parameter               | Type   | Default | Description                                                                                                                                                                    |
 |-------------------------|--------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                       |
-| `score_threshold`       | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
+| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
 | `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
 | `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be groupped by parent bounding boxes on the region panel.                                                       |
 | `model_point_size`      | float  | 1       | Size of the keypoints in pixels. Just a visual parameter.                                                                                                                      |
@@ -440,7 +445,7 @@ For example:
 ```xml
 <KeyPointLabels name="keypoints" toName="image"
                 model_path="yolov8n-pose.pt"
-                score_threshold="0.25" model_point_threshold="0.5" 
+                model_score_threshold="0.25" model_point_threshold="0.5" 
                 model_add_bboxes="true" model_point_size="2">
 ```
 
@@ -470,7 +475,7 @@ You can use this advanced labeling configuration to combine keypoint detection w
   </RectangleLabels>
   
   <KeyPointLabels name="keypoints" toName="image"
-    score_threshold="0.75" model_point_threshold="0.5" 
+    model_score_threshold="0.75" model_point_threshold="0.5" 
     model_add_bboxes="true" model_point_size="1"
     model_path="yolov8n-pose.pt"
   >
@@ -532,7 +537,7 @@ For pose detection models, the `index` attribute is used to map keypoints to spe
 ### Recommendations
 
 - **Bounding Box Visualization**: Use the `model_add_bboxes` parameter to visualize the bounding box containing the keypoints, especially useful when dealing with multiple detected persons or objects.
-- **Threshold Adjustment**: Adjust the `score_threshold` and `model_point_threshold` parameters based on your dataset and the confidence level required for accurate keypoint detection.
+- **Threshold Adjustment**: Adjust the `model_score_threshold` and `model_point_threshold` parameters based on your dataset and the confidence level required for accurate keypoint detection.
 
 
 
@@ -698,7 +703,7 @@ Also, you can check [Dockerfile](Dockerfile) for additional dependencies and ins
 Check the `environment` section in the [`docker-compose.yml`](docker-compose.yml) file before running the container. 
 All available parameters are listed there.
 
-> Note: You can use lots of YOLO model parameters in labeling configurations directly, e.g. `model_path` or `score_threshold`.
+> Note: You can use lots of YOLO model parameters in labeling configurations directly, e.g. `model_path` or `model_score_threshold`.
 
 ## Command line interface for the terminal
 

@@ -38,8 +38,8 @@ services:
       # Show matplotlib debug plot for YOLO predictions
       - DEBUG_PLOT=false
       # Default score threshold, which is used to filter out low-confidence predictions,
-      # you can change it in the labeling configuration using `score_threshold` parameter in the control tags
-      - SCORE_THRESHOLD=0.5
+      # you can change it in the labeling configuration using `model_score_threshold` parameter in the control tags
+      - MODEL_SCORE_THRESHOLD=0.5
       # Model root directory, where the YOLO model files are stored
       - MODEL_ROOT=/app/models
     ports:

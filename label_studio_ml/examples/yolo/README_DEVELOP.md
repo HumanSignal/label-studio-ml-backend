@@ -7,7 +7,7 @@ classDiagram
         +str to_name
         +str value
         +YOLO model
-        +float score_threshold
+        +float model_score_threshold
         +Optional[Dict[str, str]] label_map
         +LabelStudioMLBase label_studio_ml_backend
         +get_cached_model(path: str) YOLO
