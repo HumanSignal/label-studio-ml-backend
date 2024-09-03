@@ -28,15 +28,15 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 **Supported Features**
 
 | YOLO Task Name                        | LS Control Tag                       | Prediction Supported | Training Supported | LS Import Supported | LS Export Supported |
-|---------------------------------------|--------------------------------------|----------------------|--------------------|--------------------|------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO         | YOLO, COCO       |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO               | YOLO             |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO               | YOLO, COCO       |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | Native         | Native           |
-| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | Native             | Native                |
-| Pose Detection                        | `<KeyPoints>`                        | ❌                    | ❌                  | Native             | Native                 |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | Native             | Native                 |
-| Video Temporal Classification         | `<TimelineLabels>`                         | Coming soon          | ❌                  | Native             | Native                 |
+|---------------------------------------|--------------------------------------|----------------------|--------------------|---------------------|---------------------|
+| Object Detection                      | `<RectangleLabels>`                  | ✅                    | ❌                  | YOLO, COCO          | YOLO, COCO          |
+| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | ❌                  | YOLO                | YOLO                |
+| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | ❌                  | COCO                | YOLO, COCO          |
+| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | ❌                  | Native              | Native              |
+| Image Classification                  | `<Choices>`                          | ✅                    | ❌                  | Native              | Native              |
+| Pose Detection                        | `<KeyPoints>`                        | ✅                    | ❌                  | Native              | Native              |
+| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | ❌                  | Native              | Native              |
+| Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | ❌                  | Native              | Native              |
 
 * **LS Control Tag**: Label Studio Control Tag from the labeling configuration.
 * **LS Import Supported**: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
@@ -85,16 +85,19 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 ### Supported object & control tags
 
 **Object tags**
+
 - `<Image>` - [Image to annotate](https://labelstud.io/tags/image)
 - `<Video>` - [Video to annotate](https://labelstud.io/tags/video)
 
 **Control tags**
+
 - `<RectangleLabels>` - [Bounding boxes](https://labelstud.io/tags/rectanglelabels); object detection task
 - `<PolygonLabels>` - [Polygons](https://labelstud.io/tags/polygonlables); segmentation task
 - `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task
 - `<Choices>` - [Classification](https://labelstud.io/tags/choices)
 
 **How to skip control tag?**
+
 If you don't want to use ML backend for some control tags, 
 you can force skipping by adding the `model_skip="true"` attribute to the control tag:
     
@@ -219,16 +222,19 @@ You can load your own YOLO labels using the following steps:
 <RectangleLabels model_path="my_model.pt">
 ```
 
+
+
+-------------------
+
+
+
 ## Classification using `<Choices>`
 
 YOLO provides a classification model and Label Studio supports this with the `Choices` control tag.
 
 More info: https://docs.ultralytics.com/tasks/classify/
 
- 
-
 https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
-
 
 
 ### Labeling config
@@ -263,6 +269,9 @@ For example:
 
 `yolov8n-cls.pt` is the default classification model.
 
+
+
+-------------------
 
 
 ## Object detection using `RectangleLabels`
@@ -320,8 +329,11 @@ More info: https://docs.ultralytics.com/tasks/obb/
 
 
 
+-------------------
 
-# Segmentation using `PolygonLabels`
+
+
+## Segmentation using `PolygonLabels`
 
 YOLO models provide segmentation detection, also known as instance segmentation. 
 Label Studio supports this with the `PolygonLabels` control tag.
@@ -331,7 +343,6 @@ More info: https://docs.ultralytics.com/tasks/segment/
 ![Yolo Polygons](./YoloPolygons.gif)
 
 https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
-
 
 
 ### Labeling config
@@ -361,6 +372,171 @@ For example:
 ### Default model
 
 `yolov8n-seg.pt` is the default segmentation model.
+
+
+-------------------
+
+
+## Keypoint detection using `KeyPointLabels`
+
+YOLO models provide keypoint detection, also known as pose estimation. 
+Label Studio supports this with the `KeyPointLabels` control tag.
+
+More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.com/tasks/pose/)
+
+### Labeling config
+
+```xml
+<View>
+  <KeyPointLabels name="keypoints" toName="image"
+    score_threshold="0.75" model_point_threshold="0.5" 
+    model_add_bboxes="true" model_point_size="1"
+    model_path="yolov8n-pose.pt"
+  >
+    <Label value="nose" predicted_values="person" index="1" background="red" />
+
+    <Label value="left_eye" predicted_values="person" index="2" background="yellow" />
+    <Label value="right_eye" predicted_values="person" index="3" background="yellow" />
+
+    <Label value="left_ear" predicted_values="person" index="4" background="purple" />
+    <Label value="right_ear" predicted_values="person" index="5" background="purple" />
+    
+    <View>
+      <Label value="left_shoulder" predicted_values="person" index="6" background="green" />
+      <Label value="left_elbow" predicted_values="person" index="8" background="green" />
+      <Label value="left_wrist" predicted_values="person" index="10" background="green" />
+
+      <Label value="right_shoulder" predicted_values="person" index="7" background="blue" />
+      <Label value="right_elbow" predicted_values="person" index="9" background="blue" />
+      <Label value="right_wrist" predicted_values="person" index="11" background="blue" />
+    </View>
+    
+    <View>
+      <Label value="left_hip" predicted_values="person" index="12" background="brown" />
+      <Label value="left_knee" predicted_values="person" index="14" background="brown" />
+      <Label value="left_ankle" predicted_values="person" index="16" background="brown" />
+
+      <Label value="right_hip" predicted_values="person" index="13" background="orange" />
+      <Label value="right_knee" predicted_values="person" index="15" background="orange" />
+      <Label value="right_ankle" predicted_values="person" index="17" background="orange" />
+    </View>
+  </KeyPointLabels>
+  <Image name="image" value="$image" />
+</View>
+```
+
+### Parameters
+
+| Parameter               | Type   | Default | Description                                                                                                                                                                    |
+|-------------------------|--------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                       |
+| `score_threshold`       | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
+| `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
+| `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be groupped by parent bounding boxes on the region panel.                                                       |
+| `model_point_size`      | float  | 1       | Size of the keypoints in pixels. Just a visual parameter.                                                                                                                      |
+
+For example:
+
+```xml
+<KeyPointLabels name="keypoints" toName="image"
+                model_path="yolov8n-pose.pt"
+                score_threshold="0.25" model_point_threshold="0.5" 
+                model_add_bboxes="true" model_point_size="2">
+```
+
+### Default model
+
+`yolov8n-pose.pt` is the default keypoint detection model.
+
+### Grouping keypoints with bounding boxes
+
+When using keypoint detection, you can group keypoints by the bounding box (bbox) associated with each detected person or object. 
+The bounding box for each detected person is not added to prediction results by default 
+but can be included in the output for better visualization or grouping of keypoints. 
+You can enable or disable this by setting `model_add_bboxes`:
+
+```xml
+<KeyPointLabels name="keypoints" toName="image" model_add_bboxes="false">
+```
+
+<details><summary>Tip: How to use both KeyPointLabels and RectangleLabels together?</summary>
+
+You can use this advanced labeling configuration to combine keypoint detection with the bounding box detection in the same task:
+
+```xml
+<View>
+  <RectangleLabels name="keypoints_bbox" toName="image">
+    <Label value="person"/>
+  </RectangleLabels>
+  
+  <KeyPointLabels name="keypoints" toName="image"
+    score_threshold="0.75" model_point_threshold="0.5" 
+    model_add_bboxes="true" model_point_size="1"
+    model_path="yolov8n-pose.pt"
+  >
+    <Label value="nose" predicted_values="person" index="1" background="red" />
+
+    <Label value="left_eye" predicted_values="person" index="2" background="yellow" />
+    <Label value="right_eye" predicted_values="person" index="3" background="yellow" />
+
+    <Label value="left_ear" predicted_values="person" index="4" background="purple" />
+    <Label value="right_ear" predicted_values="person" index="5" background="purple" />
+    
+    <View>
+      <Label value="left_shoulder" predicted_values="person" index="6" background="green" />
+      <Label value="left_elbow" predicted_values="person" index="8" background="green" />
+      <Label value="left_wrist" predicted_values="person" index="10" background="green" />
+
+      <Label value="right_shoulder" predicted_values="person" index="7" background="blue" />
+      <Label value="right_elbow" predicted_values="person" index="9" background="blue" />
+      <Label value="right_wrist" predicted_values="person" index="11" background="blue" />
+    </View>
+    
+    <View>
+      <Label value="left_hip" predicted_values="person" index="12" background="brown" />
+      <Label value="left_knee" predicted_values="person" index="14" background="brown" />
+      <Label value="left_ankle" predicted_values="person" index="16" background="brown" />
+
+      <Label value="right_hip" predicted_values="person" index="13" background="orange" />
+      <Label value="right_knee" predicted_values="person" index="15" background="orange" />
+      <Label value="right_ankle" predicted_values="person" index="17" background="orange" />
+    </View>
+  </KeyPointLabels>
+  
+  <Image name="image" value="$image" />
+</View>
+```
+
+</details>
+
+### Point mapping
+
+For precise control, you can map keypoints to specific labels in your Label Studio configuration. 
+Each keypoint can be associated with a specific part of a person or object, 
+and you can define this mapping using the `index` and `predicted_values` attributes.
+
+```xml
+<Label value="left_eye" predicted_values="person" index="2" />
+<Label value="right_eye" predicted_values="person" index="3" />
+```
+
+This configuration ensures that the keypoints detected by the YOLO model are correctly labeled in the Label Studio interface.
+For pose detection models, the `index` attribute is used to map keypoints to specific parts of the body according to the YOLO model output:
+
+```
+0: Nose 1: Left Eye 2: Right Eye 3: Left Ear 4: Right Ear 
+5: Left Shoulder 6: Right Shoulder 7: Left Elbow 8: Right Elbow 9: Left Wrist 10: Right Wrist 
+11: Left Hip 12: Right Hip 13: Left Knee 14: Right Knee 15: Left Ankle 16: Right Ankle
+```
+
+### Recommendations
+
+- **Bounding Box Visualization**: Use the `model_add_bboxes` parameter to visualize the bounding box containing the keypoints, especially useful when dealing with multiple detected persons or objects.
+- **Threshold Adjustment**: Adjust the `score_threshold` and `model_point_threshold` parameters based on your dataset and the confidence level required for accurate keypoint detection.
+
+
+
+-------------------
 
 
 
@@ -465,7 +641,13 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 
 * Or use the [CLI tool](#when-use-cli) to run predictions asynchronously.
 
-## Run YOLO ML backend
+
+
+-------------------
+
+
+# Run YOLO ML backend
+
 
 ### Running with Docker (recommended)
 
