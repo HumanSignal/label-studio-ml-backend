@@ -31,6 +31,11 @@ classDiagram
         +predict_regions(path: str) List[Dict]
         +create_polygons(results, path) List[Dict]
     }
+    
+    class KeyPointLabelsModel {
+        +predict_regions(path: str) List[Dict]
+        +create_keypoints(results, path) List[Dict]
+    }
 
     class ChoicesModel {
         +predict_regions(path: str) List[Dict]
@@ -47,7 +52,9 @@ classDiagram
     ControlModel <|-- RectangleLabelsObbModel
     ControlModel <|-- PolygonLabelsModel
     ControlModel <|-- ChoicesModel
+    ControlModel <|-- KeyPointLabelsModel
     ControlModel <|-- VideoRectangleModel
+    
 ```
 
 ### 1. **Architecture Overview**
@@ -67,6 +74,7 @@ The architecture of the project is modular and is primarily centered around inte
    - **RectangleLabelsModel (`control_models/rectanglelabels.py`)**: Handles bounding boxes (both simple and oriented bounding boxes) for images.
    - **PolygonLabelsModel (`control_models/polygonlabels.py`)**: Deals with polygon annotations, typically used for segmentation tasks.
    - **ChoicesModel (`control_models/choices.py`)**: Manages classification tasks where the model predicts one or more labels for the entire image.
+   - **KeyPointLabelsModel (`control_models/keypointlabels.py`)**: Supports keypoint annotations, where the model predicts the locations of keypoints on an image.
    - **VideoRectangleModel (`control_models/videorectangle.py`)**: Focuses on tracking objects across video frames, generating bounding boxes for each frame.
 
 ### 2. **Module Descriptions**
@@ -102,7 +110,12 @@ The architecture of the project is modular and is primarily centered around inte
    - **Key Functions**:
      - `create_polygons()`: Transforms the YOLO model’s segmentation output into polygon annotations.
 
-6. **`control_models/videorectangle.py` (VideoRectangleModel)**:
+6. **`control_models/keypointlabels.py` (KeyPointLabelsModel)**:
+   - **Purpose**: Supports keypoint annotations by predicting the locations of keypoints on an image using the pose YOLO model.
+   - **Key Functions**:
+     - `create_keypoints()`: Processes the YOLO model’s keypoint predictions and converts them into Label Studio’s keypoint labels format.
+
+7. **`control_models/videorectangle.py` (VideoRectangleModel)**:
    - **Purpose**: Focuses on tracking objects across video frames, using YOLO’s tracking capabilities to generate bounding box annotations for each frame in a video sequence.
    - **Key Functions**:
      - `predict_regions()`: Runs YOLO’s tracking model on a video and converts the results into Label Studio’s video rectangle format.
