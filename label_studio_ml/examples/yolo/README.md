@@ -465,7 +465,7 @@ You can use this advanced labeling configuration to combine keypoint detection w
 
 ```xml
 <View>
-  <RectangleLabels name="keypoints_bbox" toName="image">
+  <RectangleLabels name="keypoints_bbox" toName="image" model_skip="true">
     <Label value="person"/>
   </RectangleLabels>
   
