@@ -11,14 +11,15 @@ class KeypointLabelsModel(ControlModel):
     """
     type = 'KeyPointLabels'
     model_path = 'yolov8n-pose.pt'  # Adjust the model path to your keypoint detection model
-    point_size: int = 1
+    add_bboxes: bool = True
+    point_size: float = 1
     point_threshold: float = 0
     point_map: Dict = {}
 
     def __init__(self, **data):
         super().__init__(**data)
 
-        self.model_bboxes = self.control.attr.get('model_bboxes', 'true').lower() in ['1', 'true', 'yes']
+        self.add_bboxes = self.control.attr.get('model_add_bboxes', 'true').lower() in ['1', 'true', 'yes']
         self.point_size = float(self.control.attr.get('model_point_size', 1))
         self.point_threshold = float(self.control.attr.get('model_point_threshold', 0))
         self.point_map = self.build_point_mapping()
@@ -83,12 +84,13 @@ class KeypointLabelsModel(ControlModel):
                 continue
 
             # Add parent bbox that contains all keypoints
-            region = self.create_bounding_box(bbox_conf, bbox_data, bbox_index, model_label)
-            regions.append(region)
+            if self.add_bboxes:
+                region = self.create_bounding_box(bbox_conf, bbox_data, bbox_index, model_label)
+                regions.append(region)
 
             for point_index, xyn in enumerate(point_xyn):
                 point_conf = keypoints_data.conf[bbox_index][point_index]
-                if point_conf < self.score_threshold:
+                if point_conf < self.point_threshold:
                     continue
 
                 x, y = xyn.tolist()
@@ -108,16 +110,18 @@ class KeypointLabelsModel(ControlModel):
                     "type": "keypointlabels",
                     "value": {
                         "keypointlabels": [point_label], # Keypoint label
+                        "width": self.point_size / image_width * 100,  # Keypoint width, just visual styling
                         "x": x,
                         "y": y,
-                        "width": self.point_size / image_width * 100,  # Keypoint width
                     },
                     "meta": {
                         "text": [f"bbox-{bbox_index}"]  # Group keypoints by bbox index
                     },
-                    "parentID": f"bbox-{bbox_index}",
                     "score": float(point_conf),
                 }
+                # If bboxes are used, group keypoints by bbox
+                if self.add_bboxes:
+                    region["parentID"] = f"bbox-{bbox_index}"
                 regions.append(region)
         return regions
 
@@ -137,7 +141,7 @@ class KeypointLabelsModel(ControlModel):
                 "height": h * 100,
             },
             "meta": {
-                "text": [f"bbox-{bbox_index + 1}"]  # Group keypoints by bbox index
+                "text": [f"bbox-{bbox_index}"]  # Group keypoints by bbox index
             },
             "score": float(bbox_conf),
             "hidden": True,
