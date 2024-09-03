@@ -57,12 +57,12 @@ class VideoRectangleModel(ControlModel):
     def predict_regions(self, path) -> List[Dict]:
         # bounding box parameters
         # https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
-        conf = float(self.control.attr.get('conf', 0.25))
-        iou = float(self.control.attr.get('iou', 0.70))
+        conf = float(self.control.attr.get('model_conf', 0.25))
+        iou = float(self.control.attr.get('model_iou', 0.70))
 
         # tracking parameters
         # https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers
-        tracker_name = self.control.attr.get('tracker', 'botsort')  # or 'bytetrack'
+        tracker_name = self.control.attr.get('model_tracker', 'botsort')  # or 'bytetrack'
         original = f'{MODEL_ROOT}/{tracker_name}.yaml'
         tmp_yaml = self.update_tracker_params(original, prefix=tracker_name+'_')
         tracker = tmp_yaml if tmp_yaml else original
@@ -166,8 +166,8 @@ class VideoRectangleModel(ControlModel):
 
     def update_tracker_params(self, yaml_path: str, prefix: str) -> Union[str, None]:
         """ Update tracker parameters in the yaml file with the attributes from the ControlTag,
-        e.g. <VideoRectangle tracker="bytetrack" bytetrack_max_age="10" bytetrack_min_hits="3" />
-        or <VideoRectangle tracker="botsort" botsort_max_age="10" botsort_min_hits="3" />
+        e.g. <VideoRectangle model_tracker="bytetrack" bytetrack_max_age="10" bytetrack_min_hits="3" />
+        or <VideoRectangle model_tracker="botsort" botsort_max_age="10" botsort_min_hits="3" />
         Args:
             yaml_path: Path to the original yaml file.
             prefix: Prefix for attributes of control tag to extract

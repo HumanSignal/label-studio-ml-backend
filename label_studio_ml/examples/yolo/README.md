@@ -567,7 +567,7 @@ https://github.com/user-attachments/assets/7b0d50e6-164a-4d66-87cf-df443b77f638
 ```xml
 <View>
     <Video name="video" value="$video"/>
-    <VideoRectangle name="box" toName="video" tracker="botsort" conf="0.25" iou="0.7" />
+    <VideoRectangle name="box" toName="video" model_tracker="botsort" model_conf="0.25" model_iou="0.7" />
     <Labels name="label" toName="video">
       <Label value="Person" background="red"/>
       <Label value="Car" background="blue"/>
@@ -590,8 +590,8 @@ especially in situations with varying object appearances and reappearances.
 Both trackers can be customized using YAML configuration files to fit your specific use cases.
 
 You can specify tracker in the control tag: 
-* `<VideoRectangle tracker="botsort">`
-* `<VideoRectangle tracker="bytetrack">`
+* `<VideoRectangle model_tracker="botsort">`
+* `<VideoRectangle model_tracker="bytetrack">`
 
 ### Parameters for bounding boxes
 
@@ -603,23 +603,23 @@ These parameters are addressed to the first step - bounding box detection.
 Read more about these parameters: 
 https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
 
-| Parameter    | Type   | Default   | Description                                                                                                                                                                            |
-|--------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `conf`       | float  | 0.25      | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `iou`        | float  | 0.7       | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.   |
-| `tracker`    | string | `botsort` | Sets the tracker to use for multi-object tracking. Options include `botsort`, `bytetrack`, or a custom YAML file.                                                                      |
-| `model_path` | string | None      | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| Parameter       | Type   | Default   | Description                                                                                                                                                                            |
+|-----------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_conf`    | float  | 0.25      | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
+| `model_iou`     | float  | 0.7       | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.   |
+| `model_tracker` | string | `botsort` | Sets the tracker to use for multi-object tracking. Options include `botsort`, `bytetrack`, or a custom YAML file.                                                                      |
+| `model_path`    | string | None      | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
 
 For example: 
 ```
-<VideoRectangle name="label" toName="video" tracker="botsort" conf="0.25" iou="0.7" />  
+<VideoRectangle name="label" toName="video" model_tracker="botsort" model_conf="0.25" model_iou="0.7" />  
 ```
 
 ### Parameters for trackers 
 
 For an example of tracker parameters, see https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers. 
 
-The main parameter is `tracker` which can be set to 
+The main parameter is `model_tracker` which can be set to 
 * `botsort` 
 * `bytetrack`
 * Or the name of any custom yaml file that you place into `models` directory (do not include the file extension `.yaml`).  
@@ -630,7 +630,7 @@ For example:
 ```xml
 <VideoRectangle 
     name="label" toName="video" 
-    tracker="botsort" 
+    model_tracker="botsort" 
     botsort_track_low_thresh="0.1" botsort_track_high_thresh="0.2" 
 />  
 ```
