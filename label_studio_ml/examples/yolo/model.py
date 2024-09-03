@@ -56,6 +56,9 @@ class YOLO(LabelStudioMLBase):
             for model_class in available_model_classes:
                 if model_class.is_control_matched(control):
                     instance = model_class.create(self, control)
+                    if not instance:
+                        logger.debug(f"No instance created for {control.tag} {control.name}")
+                        continue
                     if not instance.label_map:
                         logger.error(
                             f"No label map built for the '{control.tag}' control tag '{instance.from_name}'.\n"

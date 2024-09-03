@@ -75,15 +75,15 @@ tasks = [
 
 expected = [
     # test 1: wrong key in task data
-    [],
+    "Can't load path using key",
 
     # test 2: model skip
-    []
+    "No suitable control tags"
 ]
 
 
 @pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
-def test_wrong_key_in_task_data(client, label_config, task, expect, capsys):
+def test_label_configs(client, label_config, task, expect, capsys):
     data = {"schema": label_config, "project": "42"}
     response = client.post("/setup", data=json.dumps(data), content_type='application/json')
     assert response.status_code == 200, "Error while setup: " + str(response.content)
@@ -96,7 +96,7 @@ def test_wrong_key_in_task_data(client, label_config, task, expect, capsys):
     captured = capsys.readouterr()
 
     # Check for specific words in the output
-    assert "Can't load path using key" in captured.err or captured.out, "Not expected error text found"
+    assert expect in captured.out, "Text not found in error string"
 
 
 @pytest.fixture
