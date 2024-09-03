@@ -33,18 +33,18 @@ class KeypointLabelsModel(ControlModel):
 
     def build_point_mapping(self):
         """Build a mapping between points and Label Studio labels, e.g.
-        <Label value="left_eye" predicted_values="person" index="2" /> => {"person::2": "left_eye"}
+        <Label value="left_eye" predicted_values="person" model_index="2" /> => {"person::2": "left_eye"}
         """
         mapping = {}
         for value, label_tag in self.control.labels_attrs.items():
             model_name = label_tag.attr.get('predicted_values')
-            index = label_tag.attr.get('index')
-            if model_name and not index:
-                logger.warning(f"`index` is not provided for Label tag: {label_tag}")
-            if not model_name and index:
+            model_index = label_tag.attr.get('model_index')
+            if model_name and not model_index:
+                logger.warning(f"`model_index` is not provided for Label tag: {label_tag}")
+            if not model_name and model_index:
                 logger.warning(f"`predicted_values` is not provided for Label tag: {label_tag}")
-            if model_name and index:
-                mapping[f"{model_name}::{index}"] = value
+            if model_name and model_index:
+                mapping[f"{model_name}::{model_index}"] = value
 
         if not mapping:
             logger.error(f"No point to label mapping found for control tag: {self.control}")

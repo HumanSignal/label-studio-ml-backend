@@ -256,11 +256,11 @@ https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
 
 ### Parameters
 
-| Parameter          | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                    |
-|--------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `model_score_threshold`  | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                         |
-| `model_path`       | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                                                                                                                                                                                                   |
-| `choice`           | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `model_score_threshold`. |
+| Parameter               | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                          |
+|-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                                                                                                                                                                                                         |
+| `choice`                | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `model_score_threshold`. |
 
 **Note about `choice` parameter**
 
@@ -305,11 +305,11 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 
 ### Parameters
 
-| Parameter         | Type   | Default | Description                                                                                                                                                                            |
-|-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Parameter               | Type   | Default | Description                                                                                                                                                                            |
+|-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
-| `model_obb`       | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_obb`             | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
 ```xml
@@ -364,10 +364,10 @@ https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
 
 ### Parameters
 
-| Parameter         | Type   | Default | Description                                                                                                                                                                            |
-|-------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Parameter               | Type   | Default | Description                                                                                                                                                                            |
+|-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`      | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
 
 For example:
 ```xml
@@ -401,32 +401,32 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
     model_add_bboxes="true" model_point_size="1"
     model_path="yolov8n-pose.pt"
   >
-    <Label value="nose" predicted_values="person" index="1" background="red" />
+    <Label value="nose" predicted_values="person" model_index="1" background="red" />
 
-    <Label value="left_eye" predicted_values="person" index="2" background="yellow" />
-    <Label value="right_eye" predicted_values="person" index="3" background="yellow" />
+    <Label value="left_eye" predicted_values="person" model_index="2" background="yellow" />
+    <Label value="right_eye" predicted_values="person" model_index="3" background="yellow" />
 
-    <Label value="left_ear" predicted_values="person" index="4" background="purple" />
-    <Label value="right_ear" predicted_values="person" index="5" background="purple" />
+    <Label value="left_ear" predicted_values="person" model_index="4" background="purple" />
+    <Label value="right_ear" predicted_values="person" model_index="5" background="purple" />
     
     <View>
-      <Label value="left_shoulder" predicted_values="person" index="6" background="green" />
-      <Label value="left_elbow" predicted_values="person" index="8" background="green" />
-      <Label value="left_wrist" predicted_values="person" index="10" background="green" />
+      <Label value="left_shoulder" predicted_values="person" model_index="6" background="green" />
+      <Label value="left_elbow" predicted_values="person" model_index="8" background="green" />
+      <Label value="left_wrist" predicted_values="person" model_index="10" background="green" />
 
-      <Label value="right_shoulder" predicted_values="person" index="7" background="blue" />
-      <Label value="right_elbow" predicted_values="person" index="9" background="blue" />
-      <Label value="right_wrist" predicted_values="person" index="11" background="blue" />
+      <Label value="right_shoulder" predicted_values="person" model_index="7" background="blue" />
+      <Label value="right_elbow" predicted_values="person" model_index="9" background="blue" />
+      <Label value="right_wrist" predicted_values="person" model_index="11" background="blue" />
     </View>
     
     <View>
-      <Label value="left_hip" predicted_values="person" index="12" background="brown" />
-      <Label value="left_knee" predicted_values="person" index="14" background="brown" />
-      <Label value="left_ankle" predicted_values="person" index="16" background="brown" />
+      <Label value="left_hip" predicted_values="person" model_index="12" background="brown" />
+      <Label value="left_knee" predicted_values="person" model_index="14" background="brown" />
+      <Label value="left_ankle" predicted_values="person" model_index="16" background="brown" />
 
-      <Label value="right_hip" predicted_values="person" index="13" background="orange" />
-      <Label value="right_knee" predicted_values="person" index="15" background="orange" />
-      <Label value="right_ankle" predicted_values="person" index="17" background="orange" />
+      <Label value="right_hip" predicted_values="person" model_index="13" background="orange" />
+      <Label value="right_knee" predicted_values="person" model_index="15" background="orange" />
+      <Label value="right_ankle" predicted_values="person" model_index="17" background="orange" />
     </View>
   </KeyPointLabels>
   <Image name="image" value="$image" />
@@ -442,7 +442,7 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 | `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
 | `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be groupped by parent bounding boxes on the region panel.                                                       |
 | `model_point_size`      | float  | 1       | Size of the keypoints in pixels. Just a visual parameter.                                                                                                                      |
-
+| `model_index`           | int    | None    | Index of the keypoint in the YOLO model output. It's used in `Label` tags only to build mapping between a Label and an output point.                                           |
 For example:
 
 ```xml
@@ -482,32 +482,32 @@ You can use this advanced labeling configuration to combine keypoint detection w
     model_add_bboxes="true" model_point_size="1"
     model_path="yolov8n-pose.pt"
   >
-    <Label value="nose" predicted_values="person" index="1" background="red" />
+    <Label value="nose" predicted_values="person" model_index="1" background="red" />
 
-    <Label value="left_eye" predicted_values="person" index="2" background="yellow" />
-    <Label value="right_eye" predicted_values="person" index="3" background="yellow" />
+    <Label value="left_eye" predicted_values="person" model_index="2" background="yellow" />
+    <Label value="right_eye" predicted_values="person" model_index="3" background="yellow" />
 
-    <Label value="left_ear" predicted_values="person" index="4" background="purple" />
-    <Label value="right_ear" predicted_values="person" index="5" background="purple" />
+    <Label value="left_ear" predicted_values="person" model_index="4" background="purple" />
+    <Label value="right_ear" predicted_values="person" model_index="5" background="purple" />
     
     <View>
-      <Label value="left_shoulder" predicted_values="person" index="6" background="green" />
-      <Label value="left_elbow" predicted_values="person" index="8" background="green" />
-      <Label value="left_wrist" predicted_values="person" index="10" background="green" />
+      <Label value="left_shoulder" predicted_values="person" model_index="6" background="green" />
+      <Label value="left_elbow" predicted_values="person" model_index="8" background="green" />
+      <Label value="left_wrist" predicted_values="person" model_index="10" background="green" />
 
-      <Label value="right_shoulder" predicted_values="person" index="7" background="blue" />
-      <Label value="right_elbow" predicted_values="person" index="9" background="blue" />
-      <Label value="right_wrist" predicted_values="person" index="11" background="blue" />
+      <Label value="right_shoulder" predicted_values="person" model_index="7" background="blue" />
+      <Label value="right_elbow" predicted_values="person" model_index="9" background="blue" />
+      <Label value="right_wrist" predicted_values="person" model_index="11" background="blue" />
     </View>
     
     <View>
-      <Label value="left_hip" predicted_values="person" index="12" background="brown" />
-      <Label value="left_knee" predicted_values="person" index="14" background="brown" />
-      <Label value="left_ankle" predicted_values="person" index="16" background="brown" />
+      <Label value="left_hip" predicted_values="person" model_index="12" background="brown" />
+      <Label value="left_knee" predicted_values="person" model_index="14" background="brown" />
+      <Label value="left_ankle" predicted_values="person" model_index="16" background="brown" />
 
-      <Label value="right_hip" predicted_values="person" index="13" background="orange" />
-      <Label value="right_knee" predicted_values="person" index="15" background="orange" />
-      <Label value="right_ankle" predicted_values="person" index="17" background="orange" />
+      <Label value="right_hip" predicted_values="person" model_index="13" background="orange" />
+      <Label value="right_knee" predicted_values="person" model_index="15" background="orange" />
+      <Label value="right_ankle" predicted_values="person" model_index="17" background="orange" />
     </View>
   </KeyPointLabels>
   
@@ -521,15 +521,15 @@ You can use this advanced labeling configuration to combine keypoint detection w
 
 For precise control, you can map keypoints to specific labels in your Label Studio configuration. 
 Each keypoint can be associated with a specific part of a person or object, 
-and you can define this mapping using the `index` and `predicted_values` attributes.
+and you can define this mapping using the `model_index` and `predicted_values` attributes.
 
 ```xml
-<Label value="left_eye" predicted_values="person" index="2" />
-<Label value="right_eye" predicted_values="person" index="3" />
+<Label value="left_eye" predicted_values="person" model_index="2" />
+<Label value="right_eye" predicted_values="person" model_index="3" />
 ```
 
 This configuration ensures that the keypoints detected by the YOLO model are correctly labeled in the Label Studio interface.
-For pose detection models, the `index` attribute is used to map keypoints to specific parts of the body according to the YOLO model output:
+For pose detection models, the `model_index` attribute is used to map keypoints to specific parts of the body according to the YOLO model output:
 
 ```
 0: Nose 1: Left Eye 2: Right Eye 3: Left Ear 4: Right Ear 
