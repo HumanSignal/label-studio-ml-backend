@@ -384,6 +384,9 @@ Label Studio supports this with the `KeyPointLabels` control tag.
 
 More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.com/tasks/pose/)
 
+![image](https://github.com/user-attachments/assets/72e32125-ba72-47b2-bc9d-a3269d199996)
+
+
 ### Labeling config
 
 ```xml
