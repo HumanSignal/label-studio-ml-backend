@@ -25,8 +25,11 @@ segmentation, classification, and video object tracking capabilities directly in
 This integration allows you to leverage powerful YOLOv8 models for various machine learning tasks, 
 making it easier to annotate large datasets and ensure high-quality predictions. 
 
-[![YOLO Integration Video](http://img.youtube.com/vi/UyaecID1iG8/0.jpg)](http://www.youtube.com/watch?v=UyaecID1iG8 "Integrating YOLO V8 with Label Studio")
-
+<div align="center">
+  <a href="http://www.youtube.com/watch?v=UyaecID1iG8" title="Integrating YOLO V8 with Label Studio">
+    <img src="http://img.youtube.com/vi/UyaecID1iG8/0.jpg" alt="YOLO Integration Video" style="width:100%;">
+  </a>
+</div>
 
 
 **Supported Features**
