@@ -135,6 +135,10 @@ class DINOBackend(LabelStudioMLBase):
         if not context or not context.get('result'):
             # if there is no context, no interaction has happened yet
             return []
+        
+        if len(context['result'][0]['value']['text']) > 1:
+            # workaround for labelstudio running interactive annotations on submit
+            return []
 
         from_name_r, to_name_r, value = self.get_first_tag_occurence('RectangleLabels', 'Image')
         from_name_b, to_name_b, _ = self.get_first_tag_occurence('BrushLabels', 'Image')
