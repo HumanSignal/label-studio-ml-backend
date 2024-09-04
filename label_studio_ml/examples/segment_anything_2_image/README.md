@@ -25,10 +25,36 @@ SAM 2 for better image labeling with label studio.
 Click on the image below to watch our ML Evangelist Micaela Kaplan explain how to link SAM 2 to your Label Studio Project.
 You'll need to follow the instructions below to stand up an instance of SAM2 before you can link your model! 
 
-
 [![Connecting SAM2 Model to Label Studio for Image Annotation ](https://img.youtube.com/vi/FTg8P8z4RgY/0.jpg)](https://www.youtube.com/watch?v=FTg8P8z4RgY)
 
 Note that as of 8/1/2024, SAM2 only runs on GPU.
+
+## Labeling configuration
+
+The current implementation of SAM2 Label Studio ML backend works using the Interactive mode. The user guided inputs are:
+- KeypointLabels
+- RectangleLabels
+
+SAM2 outputs BrushLabels as a result.
+It means these tree control tags should be presented in your labeling configuration:
+
+```xml
+<View>
+  <Image name="image" value="$image" zoom="true"/>
+  <BrushLabels name="tag" toName="image">
+  	<Label value="Banana" background="#FF0000"/>
+  	<Label value="Orange" background="#0d14d3"/>
+  </BrushLabels>
+  <KeyPointLabels name="tag2" toName="image" smart="true">
+    <Label value="Banana" smart="true" background="#000000" showInline="true"/>
+    <Label value="Orange" smart="true" background="#000000" showInline="true"/>
+  </KeyPointLabels>
+  <RectangleLabels name="tag3" toName="image" smart="true">
+    <Label value="Banana" background="#000000" showInline="true"/>
+    <Label value="Orange" background="#000000" showInline="true"/>
+  </RectangleLabels>
+</View>
+```
 
 ## Running from source
 
