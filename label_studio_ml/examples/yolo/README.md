@@ -26,7 +26,9 @@ This integration allows you to leverage powerful YOLOv8 models for various machi
 making it easier to annotate large datasets and ensure high-quality predictions. 
 
 <div align="center">
-  <embed width="100%" height="400" src="https://www.youtube.com/embed/UyaecID1iG8" frameborder="0" allowfullscreen></embed>
+  <a href="http://www.youtube.com/watch?v=UyaecID1iG8" title="Integrating YOLO V8 with Label Studio">
+    <img src="http://img.youtube.com/vi/UyaecID1iG8/0.jpg" alt="YOLO Integration Video" style="width:70%;">
+  </a>
 </div>
 
 
