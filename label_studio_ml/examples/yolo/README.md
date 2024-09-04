@@ -228,11 +228,9 @@ Current Label Studio ML backend doesn't support training YOLO models. You have t
 Or you can contribute to this repository and add training support for this ML backend.
 
 <br>
-<br>
 
 -------------------
 
-<br>
 <br>
 
 
