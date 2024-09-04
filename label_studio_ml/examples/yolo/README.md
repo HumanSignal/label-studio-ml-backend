@@ -25,6 +25,8 @@ segmentation, classification, and video object tracking capabilities directly in
 This integration allows you to leverage powerful YOLOv8 models for various machine learning tasks, 
 making it easier to annotate large datasets and ensure high-quality predictions. 
 
+<video src="https://youtu.be/UyaecID1iG8"></video>
+
 **Supported Features**
 
 | YOLO Task Name                        | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
