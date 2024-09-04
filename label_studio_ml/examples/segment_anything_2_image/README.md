@@ -31,12 +31,13 @@ Note that as of 8/1/2024, SAM2 only runs on GPU.
 
 ## Labeling configuration
 
-The current implementation of SAM2 Label Studio ML backend works using the Interactive mode. The user guided inputs are:
-- KeypointLabels
-- RectangleLabels
+The current implementation of the Label Studio SAM2 ML backend works using Interactive mode. The user-guided inputs are:
+- `KeypointLabels`
+- `RectangleLabels`
 
-SAM2 outputs BrushLabels as a result.
-It means these tree control tags should be presented in your labeling configuration:
+And then SAM2 outputs `BrushLabels` as a result.
+
+This means all three control tags should be represented in your labeling configuration:
 
 ```xml
 <View>
