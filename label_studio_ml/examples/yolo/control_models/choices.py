@@ -12,16 +12,17 @@ class ChoicesModel(ControlModel):
     """
     Class representing a Choices (classes) control tag for YOLO model.
     """
-    type = 'Choices'
-    model_path = 'yolov8n-cls.pt'
+
+    type = "Choices"
+    model_path = "yolov8n-cls.pt"
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # check object tag type
-        if control.objects[0].tag != 'Image':
+        if control.objects[0].tag != "Image":
             return False
         # support both Choices and Taxonomy because of their similarity
-        return control.tag in [cls.type, 'Taxonomy']
+        return control.tag in [cls.type, "Taxonomy"]
 
     def predict_regions(self, path) -> List[Dict]:
         results = self.model.predict(path)
@@ -29,14 +30,16 @@ class ChoicesModel(ControlModel):
         return self.create_choices(results, path)
 
     def create_choices(self, results, path):
-        logger.debug(f'create_choices: {self.from_name}')
-        mode = self.control.attr.get('choice', 'single')
+        logger.debug(f"create_choices: {self.from_name}")
+        mode = self.control.attr.get("choice", "single")
         data = results[0].probs.numpy().data
 
         # single
-        if mode in ['single', 'single-radio']:
+        if mode in ["single", "single-radio"]:
             # we must keep data items that matches label_map only, because we need to search among label_map only
-            indexes = [i for i, name in self.model.names.items() if name in self.label_map]
+            indexes = [
+                i for i, name in self.model.names.items() if name in self.label_map
+            ]
             data = data[indexes]
             model_names = [self.model.names[i] for i in indexes]
             # find the best choice
@@ -74,15 +77,15 @@ class ChoicesModel(ControlModel):
         ]
 
         # add new region with rectangle
-        return [{
-            "from_name": self.from_name,
-            "to_name": self.to_name,
-            "type": "choices",
-            "value": {
-                "choices": output_labels
-            },
-            "score": float(score),
-        }]
+        return [
+            {
+                "from_name": self.from_name,
+                "to_name": self.to_name,
+                "type": "choices",
+                "value": {"choices": output_labels},
+                "score": float(score),
+            }
+        ]
 
 
 # pre-load and cache default model at startup

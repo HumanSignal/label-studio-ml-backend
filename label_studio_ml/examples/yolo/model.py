@@ -13,11 +13,12 @@ from control_models.rectangle_labels_obb import RectangleLabelsObbModel
 from control_models.polygon_labels import PolygonLabelsModel
 from control_models.keypoint_labels import KeypointLabelsModel
 from control_models.video_rectangle import VideoRectangleModel
+from control_models.timeline_labels import TimelineLabelsModel
 from typing import List, Dict, Optional
 
 
 logger = logging.getLogger(__name__)
-if not os.getenv('LOG_LEVEL'):
+if not os.getenv("LOG_LEVEL"):
     logger.setLevel(logging.INFO)
 
 # Register available model classes
@@ -28,16 +29,15 @@ available_model_classes = [
     PolygonLabelsModel,
     KeypointLabelsModel,
     VideoRectangleModel,
+    TimelineLabelsModel,
 ]
 
 
 class YOLO(LabelStudioMLBase):
-    """ Label Studio ML Backend based on Ultralytics YOLO
-    """
+    """Label Studio ML Backend based on Ultralytics YOLO"""
 
     def setup(self):
-        """Configure any parameters of your model here
-        """
+        """Configure any parameters of your model here"""
         self.set("model_version", "yolo")
 
     def detect_control_models(self) -> List[ControlModel]:
@@ -49,7 +49,9 @@ class YOLO(LabelStudioMLBase):
         for control in self.label_interface.controls:
             # skipping tags without toName
             if not control.to_name:
-                logger.warning(f'{control.tag} {control.name} has no "toName" attribute, skipping it')
+                logger.warning(
+                    f'{control.tag} {control.name} has no "toName" attribute, skipping it'
+                )
                 continue
 
             # match control tag with available control models
@@ -57,7 +59,9 @@ class YOLO(LabelStudioMLBase):
                 if model_class.is_control_matched(control):
                     instance = model_class.create(self, control)
                     if not instance:
-                        logger.debug(f"No instance created for {control.tag} {control.name}")
+                        logger.debug(
+                            f"No instance created for {control.tag} {control.name}"
+                        )
                         continue
                     if not instance.label_map:
                         logger.error(
@@ -66,12 +70,12 @@ class YOLO(LabelStudioMLBase):
                             f"To fix this, ensure that the 'value' or 'predicted_values' attribute "
                             f"in your Label Studio config matches one or more of these model labels.\n"
                             f"If you don't want to use this control tag for predictions, "
-                            f"add `model_skip=\"true\"` to it.\n"
-                            f'Examples:\n'
+                            f'add `model_skip="true"` to it.\n'
+                            f"Examples:\n"
                             f'  <Label value="Car"/>\n'
                             f'  <Label value="YourLabel" predicted_values="label1,label2"/>\n'
-                            f'Labels provided in your labeling config:\n'
-                            f'  {str(control.labels_attrs)}\n'
+                            f"Labels provided in your labeling config:\n"
+                            f"  {str(control.labels_attrs)}\n"
                             f"Available '{instance.model_path}' model labels:\n"
                             f"  {list(instance.model.names.values())}"
                         )
@@ -84,22 +88,26 @@ class YOLO(LabelStudioMLBase):
         if not control_models:
             control_tags = ", ".join([c.type for c in available_model_classes])
             raise ValueError(
-                f'No suitable control tags (e.g. {control_tags} connected to Image or Video object tags) '
-                f'detected in the label config'
+                f"No suitable control tags (e.g. {control_tags} connected to Image or Video object tags) "
+                f"detected in the label config"
             )
 
         return control_models
 
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
-        """ Run YOLO predictions on the tasks
-            :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
-            :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create)
-            :return model_response
-                ModelResponse(predictions=predictions) with
-                predictions [Predictions array in JSON format]
-                (https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
+    def predict(
+        self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs
+    ) -> ModelResponse:
+        """Run YOLO predictions on the tasks
+        :param tasks: [Label Studio tasks in JSON format](https://labelstud.io/guide/task_format.html)
+        :param context: [Label Studio context in JSON format](https://labelstud.io/guide/ml_create)
+        :return model_response
+            ModelResponse(predictions=predictions) with
+            predictions [Predictions array in JSON format]
+            (https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
         """
-        logger.info(f'Run prediction on {len(tasks)} tasks, project ID = {self.project_id}')
+        logger.info(
+            f"Run prediction on {len(tasks)} tasks, project ID = {self.project_id}"
+        )
         control_models = self.detect_control_models()
 
         predictions = []
@@ -107,30 +115,35 @@ class YOLO(LabelStudioMLBase):
 
             regions = []
             for model in control_models:
-                task_path = task["data"].get(model.value) or task["data"].get(DATA_UNDEFINED_NAME)
+                task_path = task["data"].get(model.value) or task["data"].get(
+                    DATA_UNDEFINED_NAME
+                )
                 if task_path is None:
-                    raise ValueError(f"Can't load path using key '{model.value}' from task {task}")
+                    raise ValueError(
+                        f"Can't load path using key '{model.value}' from task {task}"
+                    )
                 if not isinstance(task_path, str):
                     raise ValueError(f"Path should be a string, but got {task_path}")
 
                 # try path as local file or try to load it from Label Studio instance/download via http
                 path = (
-                    task_path if os.path.exists(task_path)
-                    else get_local_path(task_path, task_id=task.get('id'))
+                    task_path
+                    if os.path.exists(task_path)
+                    else get_local_path(task_path, task_id=task.get("id"))
                 )
-                logger.debug(f'load_image: {task_path} => {path}')
+                logger.debug(f"load_image: {task_path} => {path}")
 
                 regions += model.predict_regions(path)
 
             # calculate final score
-            all_scores = [region['score'] for region in regions if 'score' in region]
+            all_scores = [region["score"] for region in regions if "score" in region]
             avg_score = sum(all_scores) / max(len(all_scores), 1)
 
             # compose final prediction
             prediction = {
-                'result': regions,
-                'score': avg_score,
-                'model_version': self.model_version
+                "result": regions,
+                "score": avg_score,
+                "model_version": self.model_version,
             }
             predictions.append(prediction)
 
@@ -160,4 +173,4 @@ class YOLO(LabelStudioMLBase):
 
         print('fit() is not implemented!')
         """
-        raise NotImplementedError('Training is not implemented yet')
+        raise NotImplementedError("Training is not implemented yet")

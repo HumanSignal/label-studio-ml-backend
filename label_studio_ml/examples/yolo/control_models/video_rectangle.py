@@ -17,13 +17,14 @@ class VideoRectangleModel(ControlModel):
     """
     Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
     """
-    type = 'VideoRectangle'
-    model_path = 'yolov8n.pt'
+
+    type = "VideoRectangle"
+    model_path = "yolov8n.pt"
 
     @classmethod
     def is_control_matched(cls, control: ControlTag) -> bool:
         # check object tag type
-        if control.objects[0].tag != 'Video':
+        if control.objects[0].tag != "Video":
             return False
         # check control type VideoRectangle
         return control.tag == cls.type
@@ -38,7 +39,7 @@ class VideoRectangleModel(ControlModel):
             raise ValueError(f'Control tag with name "{target_name}" not found')
 
         for connected in label_interface.controls:
-            if connected.tag == 'Labels' and connected.to_name == target.to_name:
+            if connected.tag == "Labels" and connected.to_name == target.to_name:
                 return connected.name
 
         logger.error("VideoRectangle detected, but no connected 'Labels' tag found")
@@ -46,25 +47,29 @@ class VideoRectangleModel(ControlModel):
     @staticmethod
     def get_video_duration(path):
         if not os.path.exists(path):
-            raise ValueError(f'Video file not found: {path}')
+            raise ValueError(f"Video file not found: {path}")
         video = cv2.VideoCapture(path)
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = frame_count / fps
-        logger.info(f'Video duration: {duration} seconds, {frame_count} frames, {fps} fps')
+        logger.info(
+            f"Video duration: {duration} seconds, {frame_count} frames, {fps} fps"
+        )
         return duration
 
     def predict_regions(self, path) -> List[Dict]:
         # bounding box parameters
         # https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
-        conf = float(self.control.attr.get('model_conf', 0.25))
-        iou = float(self.control.attr.get('model_iou', 0.70))
+        conf = float(self.control.attr.get("model_conf", 0.25))
+        iou = float(self.control.attr.get("model_iou", 0.70))
 
         # tracking parameters
         # https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/trackers
-        tracker_name = self.control.attr.get('model_tracker', 'botsort')  # or 'bytetrack'
-        original = f'{MODEL_ROOT}/{tracker_name}.yaml'
-        tmp_yaml = self.update_tracker_params(original, prefix=tracker_name+'_')
+        tracker_name = self.control.attr.get(
+            "model_tracker", "botsort"
+        )  # or 'bytetrack'
+        original = f"{MODEL_ROOT}/{tracker_name}.yaml"
+        tmp_yaml = self.update_tracker_params(original, prefix=tracker_name + "_")
         tracker = tmp_yaml if tmp_yaml else original
 
         # run model track
@@ -79,10 +84,11 @@ class VideoRectangleModel(ControlModel):
         return self.create_video_rectangles(results, path)
 
     def create_video_rectangles(self, results, path):
-        """ Create regions of video rectangles from the yolo tracker results
-        """
+        """Create regions of video rectangles from the yolo tracker results"""
         frames_count, duration = len(results), self.get_video_duration(path)
-        logger.debug(f'create_video_rectangles: {self.from_name}, {frames_count} frames')
+        logger.debug(
+            f"create_video_rectangles: {self.from_name}, {frames_count} frames"
+        )
 
         tracks = defaultdict(list)
         track_labels = dict()
@@ -110,7 +116,7 @@ class VideoRectangleModel(ControlModel):
                     "width": w * 100,
                     "height": h * 100,
                     "time": (frame + 1) * (duration / frames_count),
-                    "score": score
+                    "score": score,
                 }
                 tracks[track_id].append(box)
 
@@ -128,10 +134,10 @@ class VideoRectangleModel(ControlModel):
                     "framesCount": frames_count,
                     "duration": duration,
                     "sequence": sequence,
-                    "labels": [label]
+                    "labels": [label],
                 },
-                "score": max([frame_info['score'] for frame_info in sequence]),
-                "origin": "manual"
+                "score": max([frame_info["score"] for frame_info in sequence]),
+                "origin": "manual",
             }
             regions.append(region)
 
@@ -139,7 +145,7 @@ class VideoRectangleModel(ControlModel):
 
     @staticmethod
     def process_lifespans_enabled(sequence: List[Dict]) -> List[Dict]:
-        """ This function detects gaps in the sequence of bboxes
+        """This function detects gaps in the sequence of bboxes
         and disables lifespan line for the gaps assigning "enabled": False
         to the last bboxes in the whole span sequence.
         """
@@ -148,24 +154,23 @@ class VideoRectangleModel(ControlModel):
             if prev is None:
                 prev = sequence[i]
                 continue
-            if box['frame'] - prev['frame'] > 1:
-                sequence[i-1]['enabled'] = False
+            if box["frame"] - prev["frame"] > 1:
+                sequence[i - 1]["enabled"] = False
             prev = sequence[i]
 
         # the last frame enabled is false to turn off lifespan line
-        sequence[-1]['enabled'] = False
+        sequence[-1]["enabled"] = False
         return sequence
 
     @staticmethod
     def generate_hash_filename(extension=".yaml"):
-        """ Store yaml configs as temporary files just for one model.track() run
-        """
+        """Store yaml configs as temporary files just for one model.track() run"""
         hash_name = hashlib.sha256(os.urandom(16)).hexdigest()
-        os.makedirs(f'{MODEL_ROOT}/tmp/', exist_ok=True)
+        os.makedirs(f"{MODEL_ROOT}/tmp/", exist_ok=True)
         return f"{MODEL_ROOT}/tmp/{hash_name}{extension}"
 
     def update_tracker_params(self, yaml_path: str, prefix: str) -> Union[str, None]:
-        """ Update tracker parameters in the yaml file with the attributes from the ControlTag,
+        """Update tracker parameters in the yaml file with the attributes from the ControlTag,
         e.g. <VideoRectangle model_tracker="bytetrack" bytetrack_max_age="10" bytetrack_min_hits="3" />
         or <VideoRectangle model_tracker="botsort" botsort_max_age="10" botsort_min_hits="3" />
         Args:
@@ -183,18 +188,18 @@ class VideoRectangleModel(ControlModel):
             return None
 
         # Load the original yaml file
-        with open(yaml_path, 'r') as file:
+        with open(yaml_path, "r") as file:
             config = yaml.safe_load(file)
 
         # Extract parameters with prefix from ControlTag
         for attr_name, attr_value in self.control.attr.items():
             if attr_name.startswith(prefix):
                 # Remove prefix and update the corresponding yaml key
-                key = attr_name[len(prefix):]
+                key = attr_name[len(prefix) :]
 
                 # Convert value to the appropriate type (bool, int, float, etc.)
                 if isinstance(config[key], bool):
-                    attr_value = attr_value.lower() == 'true'
+                    attr_value = attr_value.lower() == "true"
                 elif isinstance(config[key], int):
                     attr_value = int(attr_value)
                 elif isinstance(config[key], float):
@@ -206,7 +211,7 @@ class VideoRectangleModel(ControlModel):
         new_yaml_filename = self.generate_hash_filename()
 
         # Save the updated config to a new yaml file
-        with open(new_yaml_filename, 'w') as file:
+        with open(new_yaml_filename, "w") as file:
             yaml.dump(config, file)
 
         # Return the new filename

@@ -5,6 +5,7 @@ This file contains tests for the API of your model. You can run these tests by i
 pip install -r requirements-test.txt
 ```
 """
+
 import pytest
 import json
 
@@ -23,7 +24,6 @@ label_configs = [
       </RectangleLabels>
     </View>
     """,
-
     # test 2: two control tags with rectangle labels and two images
     """
     <View>
@@ -39,7 +39,7 @@ label_configs = [
         <Label value="Animal" background="blue" predicted_values="cat,dog"/>
       </RectangleLabels>
     </View>
-    """
+    """,
 ]
 
 tasks = [
@@ -49,12 +49,11 @@ tasks = [
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
         }
     },
-
     # test 2: two control tags with rectangle labels and two images
     {
         "data": {
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg",
-            "image2": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
+            "image2": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg",
         }
     },
 ]
@@ -75,8 +74,8 @@ expected = [
                         "rectanglelabels": ["Car"],
                         "width": 69.33701038360596,
                         "x": 21.9377338886261,
-                        "y": 7.984769344329834
-                    }
+                        "y": 7.984769344329834,
+                    },
                 },
                 {
                     "from_name": "label",
@@ -88,14 +87,13 @@ expected = [
                         "rectanglelabels": ["Car"],
                         "width": 18.623733520507812,
                         "x": 81.27312660217285,
-                        "y": 0.10521858930587769
-                    }
-                }
+                        "y": 0.10521858930587769,
+                    },
+                },
             ],
-            "score": 0.44632451236248016
+            "score": 0.44632451236248016,
         }
     ],
-
     # test 2: two control tags with rectangle labels and two images
     [
         {
@@ -111,8 +109,8 @@ expected = [
                         "rectanglelabels": ["Car"],
                         "width": 69.33701038360596,
                         "x": 21.9377338886261,
-                        "y": 7.984769344329834
-                    }
+                        "y": 7.984769344329834,
+                    },
                 },
                 {
                     "from_name": "label",
@@ -124,8 +122,8 @@ expected = [
                         "rectanglelabels": ["Car"],
                         "width": 18.623733520507812,
                         "x": 81.27312660217285,
-                        "y": 0.10521858930587769
-                    }
+                        "y": 0.10521858930587769,
+                    },
                 },
                 {
                     "from_name": "label2",
@@ -137,24 +135,30 @@ expected = [
                         "rectanglelabels": ["Person"],
                         "width": 10.503808408975601,
                         "x": 89.45398144423962,
-                        "y": 6.985808908939362
-                    }
-                }
+                        "y": 6.985808908939362,
+                    },
+                },
             ],
-            "score": 0.5995459059874216
+            "score": 0.5995459059874216,
         }
     ],
 ]
 
 
-@pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
+@pytest.mark.parametrize(
+    "label_config, task, expect", zip(label_configs, tasks, expected)
+)
 def test_rectanglelabels_predict(client, label_config, task, expect):
     data = {"schema": label_config, "project": "42"}
-    response = client.post("/setup", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/setup", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while setup: " + str(response.content)
 
     data = {"tasks": [task], "label_config": label_config}
-    response = client.post("/predict", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/predict", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while predict"
     data = response.json
     compare_nested_structures(data["results"], expect)

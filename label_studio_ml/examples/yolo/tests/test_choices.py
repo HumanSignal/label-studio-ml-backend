@@ -24,7 +24,6 @@ label_configs = [
       </Choices>
     </View>
     """,
-
     # test 2: one control tag with multi choices
     """
     <View>
@@ -35,7 +34,6 @@ label_configs = [
       </Choices>
     </View>
     """,
-
     # test 3: no choices
     """
     <View>
@@ -45,7 +43,7 @@ label_configs = [
         <Choice value="Cab" background="blue" predicted_values="racer, cab"/>
       </Choices>
     </View>
-    """
+    """,
 ]
 
 tasks = [
@@ -55,14 +53,12 @@ tasks = [
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
         }
     },
-
     # test 2: one control tag with multi choices
     {
         "data": {
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
         }
     },
-
     # test 3: no choices
     {
         "data": {
@@ -82,15 +78,12 @@ expected = [
                     "score": 0.5582300424575806,
                     "to_name": "image",
                     "type": "choices",
-                    "value": {
-                        "choices": ["Car"]
-                    }
+                    "value": {"choices": ["Car"]},
                 }
             ],
-            "score": 0.5582300424575806
+            "score": 0.5582300424575806,
         }
     ],
-
     # test 2: one control tag with multi choices
     [
         {
@@ -101,18 +94,12 @@ expected = [
                     "score": 0.4747641831636429,
                     "to_name": "image",
                     "type": "choices",
-                    "value": {
-                        "choices": [
-                            "Cab",
-                            "Grille"
-                        ]
-                    }
+                    "value": {"choices": ["Cab", "Grille"]},
                 }
             ],
-            "score": 0.4747641831636429
+            "score": 0.4747641831636429,
         }
     ],
-
     # test 3: no choices
     [
         {
@@ -120,19 +107,24 @@ expected = [
             "result": [],
             "score": 0.0,
         }
-    ]
-
+    ],
 ]
 
 
-@pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
+@pytest.mark.parametrize(
+    "label_config, task, expect", zip(label_configs, tasks, expected)
+)
 def test_choices_predict(client, label_config, task, expect):
     data = {"schema": label_config, "project": "42"}
-    response = client.post("/setup", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/setup", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while setup: " + str(response.content)
 
     data = {"tasks": [task], "label_config": label_config}
-    response = client.post("/predict", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/predict", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while predict"
     data = response.json
     compare_nested_structures(data["results"], expect)

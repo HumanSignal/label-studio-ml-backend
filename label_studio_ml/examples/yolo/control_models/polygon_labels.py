@@ -11,13 +11,14 @@ class PolygonLabelsModel(ControlModel):
     """
     Class representing a PolygonLabels control tag for YOLO model.
     """
-    type = 'PolygonLabels'
-    model_path = 'yolov8n-seg.pt'
+
+    type = "PolygonLabels"
+    model_path = "yolov8n-seg.pt"
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # check object tag type
-        if control.objects[0].tag != 'Image':
+        if control.objects[0].tag != "Image":
             return False
         return control.tag == cls.type
 
@@ -26,13 +27,15 @@ class PolygonLabelsModel(ControlModel):
         return self.create_polygons(results, path)
 
     def create_polygons(self, results, path):
-        logger.debug(f'create_polygons: {self.from_name}')
+        logger.debug(f"create_polygons: {self.from_name}")
         data = results[0].masks  # take masks from the first frame
         regions = []
 
         for i in range(len(data)):
             score = float(results[0].boxes.conf[i])  # tensor => float
-            points = data.xyn[i] * 100  # get the polygon points for the current instance
+            points = (
+                data.xyn[i] * 100
+            )  # get the polygon points for the current instance
             model_label = self.model.names[int(results[0].boxes.cls[i])]
 
             logger.debug(
@@ -61,7 +64,7 @@ class PolygonLabelsModel(ControlModel):
                 "value": {
                     "polygonlabels": [output_label],
                     "points": points.tolist(),  # Converting the tensor to a list for JSON serialization
-                    "closed": True
+                    "closed": True,
                 },
                 "score": score,
             }

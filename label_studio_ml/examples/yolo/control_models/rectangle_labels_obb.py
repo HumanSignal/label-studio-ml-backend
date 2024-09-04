@@ -15,13 +15,14 @@ class RectangleLabelsObbModel(ControlModel):
     (oriented bounding boxes, rotated bounding boxes)
     control tag for YOLO model.
     """
-    type = 'RectangleLabels'
-    model_path = 'yolov8n-obb.pt'
+
+    type = "RectangleLabels"
+    model_path = "yolov8n-obb.pt"
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # check object tag type
-        if control.objects[0].tag != 'Image':
+        if control.objects[0].tag != "Image":
             return False
         if not is_obb(control):
             return False
@@ -34,18 +35,17 @@ class RectangleLabelsObbModel(ControlModel):
         # simple bounding boxes without rotation
         if results[0].obb is None:
             raise ValueError(
-                'Simple bounding boxes are detected in the YOLO model results. '
+                "Simple bounding boxes are detected in the YOLO model results. "
                 'However, `model_obb="true"` is set at the RectangleLabels tag '
-                'in the labeling config. Set it to `false` to use simple bounding boxes.'
+                "in the labeling config. Set it to `false` to use simple bounding boxes."
             )
 
         # oriented bounding boxes with rotation (yolo obb model)
         return self.create_rotated_rectangles(results, path)
 
     def create_rotated_rectangles(self, results, path):
-        """ YOLO OBB: oriented bounding boxes
-        """
-        logger.debug(f'create_rotated_rectangles: {self.from_name}')
+        """YOLO OBB: oriented bounding boxes"""
+        logger.debug(f"create_rotated_rectangles: {self.from_name}")
         data = results[0].obb  # take bboxes from the first frame
         regions = []
 

@@ -9,8 +9,11 @@ class KeypointLabelsModel(ControlModel):
     """
     Class representing a KeypointLabels control tag for YOLO model.
     """
-    type = 'KeyPointLabels'
-    model_path = 'yolov8n-pose.pt'  # Adjust the model path to your keypoint detection model
+
+    type = "KeyPointLabels"
+    model_path = (
+        "yolov8n-pose.pt"  # Adjust the model path to your keypoint detection model
+    )
     add_bboxes: bool = True
     point_size: float = 1
     point_threshold: float = 0
@@ -19,15 +22,19 @@ class KeypointLabelsModel(ControlModel):
     def __init__(self, **data):
         super().__init__(**data)
 
-        self.add_bboxes = self.control.attr.get('model_add_bboxes', 'true').lower() in ['1', 'true', 'yes']
-        self.point_size = float(self.control.attr.get('model_point_size', 1))
-        self.point_threshold = float(self.control.attr.get('model_point_threshold', 0))
+        self.add_bboxes = self.control.attr.get("model_add_bboxes", "true").lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
+        self.point_size = float(self.control.attr.get("model_point_size", 1))
+        self.point_threshold = float(self.control.attr.get("model_point_threshold", 0))
         self.point_map = self.build_point_mapping()
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # Check object tag type
-        if control.objects[0].tag != 'Image':
+        if control.objects[0].tag != "Image":
             return False
         return control.tag == cls.type
 
@@ -37,17 +44,23 @@ class KeypointLabelsModel(ControlModel):
         """
         mapping = {}
         for value, label_tag in self.control.labels_attrs.items():
-            model_name = label_tag.attr.get('predicted_values')
-            model_index = label_tag.attr.get('model_index')
+            model_name = label_tag.attr.get("predicted_values")
+            model_index = label_tag.attr.get("model_index")
             if model_name and not model_index:
-                logger.warning(f"`model_index` is not provided for Label tag: {label_tag}")
+                logger.warning(
+                    f"`model_index` is not provided for Label tag: {label_tag}"
+                )
             if not model_name and model_index:
-                logger.warning(f"`predicted_values` is not provided for Label tag: {label_tag}")
+                logger.warning(
+                    f"`predicted_values` is not provided for Label tag: {label_tag}"
+                )
             if model_name and model_index:
                 mapping[f"{model_name}::{model_index}"] = value
 
         if not mapping:
-            logger.error(f"No point to label mapping found for control tag: {self.control}")
+            logger.error(
+                f"No point to label mapping found for control tag: {self.control}"
+            )
         return mapping
 
     def predict_regions(self, path) -> List[Dict]:
@@ -55,15 +68,19 @@ class KeypointLabelsModel(ControlModel):
         return self.create_keypoints(results, path)
 
     def create_keypoints(self, results, path):
-        logger.debug(f'create_keypoints: {self.from_name}')
+        logger.debug(f"create_keypoints: {self.from_name}")
         keypoints_data = results[0].keypoints  # Get keypoints from the first frame
         bbox_data = results[0].boxes
         image_width = results[0].orig_shape[1]
         regions = []
 
-        for bbox_index in range(keypoints_data.shape[0]):  # Iterate over detected bboxes
+        for bbox_index in range(
+            keypoints_data.shape[0]
+        ):  # Iterate over detected bboxes
             bbox_conf = bbox_data.conf[bbox_index]
-            point_xyn = keypoints_data.xyn[bbox_index] * 100  # Convert normalized keypoints to percentages
+            point_xyn = (
+                keypoints_data.xyn[bbox_index] * 100
+            )  # Convert normalized keypoints to percentages
             model_label = self.model.names[int(results[0].boxes.cls[bbox_index])]
 
             logger.debug(
@@ -85,7 +102,9 @@ class KeypointLabelsModel(ControlModel):
 
             # Add parent bbox that contains all keypoints
             if self.add_bboxes:
-                region = self.create_bounding_box(bbox_conf, bbox_data, bbox_index, model_label)
+                region = self.create_bounding_box(
+                    bbox_conf, bbox_data, bbox_index, model_label
+                )
                 regions.append(region)
 
             for point_index, xyn in enumerate(point_xyn):
@@ -99,7 +118,8 @@ class KeypointLabelsModel(ControlModel):
                     logger.warning(
                         f"Point {index_name} not found in point map, "
                         f"you have to define it in the labeling config, e.g.:\n"
-                        f'<Label value="nose" predicted_values="person" index="1" />')
+                        f'<Label value="nose" predicted_values="person" index="1" />'
+                    )
                     continue
                 point_label = self.point_map[index_name]
 
@@ -109,8 +129,10 @@ class KeypointLabelsModel(ControlModel):
                     "to_name": self.to_name,
                     "type": "keypointlabels",
                     "value": {
-                        "keypointlabels": [point_label], # Keypoint label
-                        "width": self.point_size / image_width * 100,  # Keypoint width, just visual styling
+                        "keypointlabels": [point_label],  # Keypoint label
+                        "width": self.point_size
+                        / image_width
+                        * 100,  # Keypoint width, just visual styling
                         "x": x,
                         "y": y,
                     },
@@ -130,7 +152,7 @@ class KeypointLabelsModel(ControlModel):
         x, y, w, h = bbox_data.xywhn[bbox_index].tolist()
         region = {
             "id": f"bbox-{bbox_index}",
-            "from_name": self.from_name + '_bbox',
+            "from_name": self.from_name + "_bbox",
             "to_name": self.to_name,
             "type": "rectanglelabels",
             "value": {
@@ -140,9 +162,7 @@ class KeypointLabelsModel(ControlModel):
                 "width": w * 100,
                 "height": h * 100,
             },
-            "meta": {
-                "text": [f"bbox-{bbox_index}"]  # Group keypoints by bbox index
-            },
+            "meta": {"text": [f"bbox-{bbox_index}"]},  # Group keypoints by bbox index
             "score": float(bbox_conf),
             "hidden": True,
         }

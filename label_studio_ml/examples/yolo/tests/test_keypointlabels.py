@@ -5,6 +5,7 @@ This file contains tests for the API of your model. You can run these tests by i
 pip install -r requirements-test.txt
 ```
 """
+
 import pytest
 import json
 
@@ -52,7 +53,6 @@ label_configs = [
       <Image name="image" value="$image" />
     </View>
     """,
-
     # test 2: no bboxes
     """
     <View>
@@ -99,7 +99,6 @@ tasks = [
             "image": "https://s3.amazonaws.com/htx-pub/datasets/mmdetection-ml-test/001bebecea382500.jpg"
         }
     },
-
     # test 2: no bbox
     {
         "data": {
@@ -110,21 +109,26 @@ tasks = [
 
 expected = [
     # test 1
-    load_file(TEST_DIR + '/test_keypointlabels_1.json'),
-
+    load_file(TEST_DIR + "/test_keypointlabels_1.json"),
     # test 2: no bbox
-    load_file(TEST_DIR + '/test_keypointlabels_2.json')
+    load_file(TEST_DIR + "/test_keypointlabels_2.json"),
 ]
 
 
-@pytest.mark.parametrize("label_config, task, expect", zip(label_configs, tasks, expected))
+@pytest.mark.parametrize(
+    "label_config, task, expect", zip(label_configs, tasks, expected)
+)
 def test_keypoints_predict(client, label_config, task, expect):
     data = {"schema": label_config, "project": "42"}
-    response = client.post("/setup", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/setup", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while setup: " + str(response.content)
 
     data = {"tasks": [task], "label_config": label_config}
-    response = client.post("/predict", data=json.dumps(data), content_type='application/json')
+    response = client.post(
+        "/predict", data=json.dumps(data), content_type="application/json"
+    )
     assert response.status_code == 200, "Error while predict"
     data = response.json
     compare_nested_structures(data["results"], expect)

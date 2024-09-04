@@ -9,23 +9,24 @@ logger = logging.getLogger(__name__)
 
 
 def is_obb(control: ControlTag) -> bool:
-    """ Check if the model should use oriented bounding boxes (OBB)
+    """Check if the model should use oriented bounding boxes (OBB)
     based on the control tag attribute `model_obb` from the labeling config.
     """
-    return control.attr.get('model_obb', 'false').lower() in ['true', 'yes', '1']
+    return control.attr.get("model_obb", "false").lower() in ["true", "yes", "1"]
 
 
 class RectangleLabelsModel(ControlModel):
     """
     Class representing a RectangleLabels (bounding boxes) control tag for YOLO model.
     """
-    type = 'RectangleLabels'
-    model_path = 'yolov8m.pt'
+
+    type = "RectangleLabels"
+    model_path = "yolov8m.pt"
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # check object tag type
-        if control.objects[0].tag != 'Image':
+        if control.objects[0].tag != "Image":
             return False
         if is_obb(control):
             return False
@@ -38,18 +39,17 @@ class RectangleLabelsModel(ControlModel):
         # oriented bounding boxes are detected, but it should be processed by RectangleLabelsObbModel
         if results[0].obb is not None and results[0].boxes is None:
             raise ValueError(
-                'Oriented bounding boxes are detected in the YOLO model results. '
+                "Oriented bounding boxes are detected in the YOLO model results. "
                 'However, `model_obb="true"` is not set at the RectangleLabels tag '
-                'in the labeling config.'
+                "in the labeling config."
             )
 
         # simple bounding boxes without rotation
         return self.create_rectangles(results, path)
 
     def create_rectangles(self, results, path):
-        """ Simple bounding boxes without rotation
-        """
-        logger.debug(f'create_rectangles: {self.from_name}')
+        """Simple bounding boxes without rotation"""
+        logger.debug(f"create_rectangles: {self.from_name}")
         data = results[0].boxes  # take bboxes from the first frame
         regions = []
 
