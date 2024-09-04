@@ -1,7 +1,7 @@
 import logging
 
 from control_models.base import ControlModel
-from control_models.rectanglelabels import is_obb
+from control_models.rectangle_labels import is_obb
 from typing import List, Dict
 from label_studio_sdk.converter.utils import convert_yolo_obb_to_annotation
 

@@ -8,11 +8,11 @@ from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_lo
 
 from control_models.base import ControlModel
 from control_models.choices import ChoicesModel
-from control_models.rectanglelabels import RectangleLabelsModel
-from control_models.rectanglelabels_obb import RectangleLabelsObbModel
-from control_models.polygonlabels import PolygonLabelsModel
-from control_models.keypointlabels import KeypointLabelsModel
-from control_models.videorectangle import VideoRectangleModel
+from control_models.rectangle_labels import RectangleLabelsModel
+from control_models.rectangle_labels_obb import RectangleLabelsObbModel
+from control_models.polygon_labels import PolygonLabelsModel
+from control_models.keypoint_labels import KeypointLabelsModel
+from control_models.video_rectangle import VideoRectangleModel
 from typing import List, Dict, Optional
 
 
