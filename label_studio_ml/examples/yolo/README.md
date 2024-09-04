@@ -22,7 +22,7 @@ image: "/tutorials/yolo.png"
 The YOLO ML backend for Label Studio is designed to integrate advanced object detection, 
 segmentation, classification, and video object tracking capabilities directly into Label Studio. 
 
-This integration allows you to leverage powerful YOLO models for various machine learning tasks, 
+This integration allows you to leverage powerful YOLOv8 models for various machine learning tasks, 
 making it easier to annotate large datasets and ensure high-quality predictions. 
 
 **Supported Features**
@@ -156,7 +156,7 @@ By default, the YOLO ML backend will use the same (or lowercased) names as you s
 In this example the label "Jeep" will be mapped to "jeep" in the ML model:
 
 ```xml
-<Choice value="Jeep"> 
+<Choice value="Jeep"/> 
 ```
 
 For more precise control you can use the `predicted_values` attribute 

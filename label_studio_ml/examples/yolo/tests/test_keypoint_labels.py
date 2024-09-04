@@ -109,9 +109,9 @@ tasks = [
 
 expected = [
     # test 1
-    load_file(TEST_DIR + "/test_keypointlabels_1.json"),
+    load_file(TEST_DIR + "/test_keypoint_labels_1.json"),
     # test 2: no bbox
-    load_file(TEST_DIR + "/test_keypointlabels_2.json"),
+    load_file(TEST_DIR + "/test_keypoint_labels_2.json"),
 ]
 
 

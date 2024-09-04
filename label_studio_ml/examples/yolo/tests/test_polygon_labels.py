@@ -37,7 +37,7 @@ tasks = [
 
 expected = [
     # test 1: one control tag with rectangle labels
-    load_file(TEST_DIR + "/test_polygonlabels.json")
+    load_file(TEST_DIR + "/test_polygon_labels.json")
 ]
 
 
