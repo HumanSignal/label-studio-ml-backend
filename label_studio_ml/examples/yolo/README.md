@@ -275,10 +275,11 @@ For example:
 
 `yolov8n-cls.pt` is the default classification model.
 
-
+<br>
 
 -------------------
 
+<br>
 
 ## Object detection using `RectangleLabels`
 
@@ -333,11 +334,11 @@ Specify `model_obb="true"` in the `RectangleLabels` tag to enable this mode:
 
 More info: https://docs.ultralytics.com/tasks/obb/
 
-
+<br>
 
 -------------------
 
-
+<br>
 
 ## Segmentation using `PolygonLabels`
 
@@ -379,9 +380,11 @@ For example:
 
 `yolov8n-seg.pt` is the default segmentation model.
 
+<br>
 
 -------------------
 
+<br>
 
 ## Keypoint detection using `KeyPointLabels`
 
@@ -546,11 +549,11 @@ For pose detection models, the `model_index` attribute is used to map keypoints 
 - **Bounding Box Visualization**: Use the `model_add_bboxes` parameter to visualize the bounding box containing the keypoints, especially useful when dealing with multiple detected persons or objects.
 - **Threshold Adjustment**: Adjust the `model_score_threshold` and `model_point_threshold` parameters based on your dataset and the confidence level required for accurate keypoint detection.
 
-
+<br>
 
 -------------------
 
-
+<br>
 
 ## Video object tracking using `VideoRectangle` 
 
@@ -653,10 +656,11 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 
 * Or use the [CLI tool](#when-use-cli) to run predictions asynchronously.
 
-
+<br>
 
 -------------------
 
+<br>
 
 # Run YOLO ML backend
 
