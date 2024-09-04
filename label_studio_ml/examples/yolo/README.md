@@ -227,10 +227,13 @@ You can load your own YOLO labels using the following steps:
 Current Label Studio ML backend doesn't support training YOLO models. You have to do it manually on your side.
 Or you can contribute to this repository and add training support for this ML backend.
 
-
+<br>
+<br>
 
 -------------------
 
+<br>
+<br>
 
 
 ## Classification using `<Choices>`
