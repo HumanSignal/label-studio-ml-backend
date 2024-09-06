@@ -25,6 +25,15 @@ segmentation, classification, and video object tracking capabilities directly in
 This integration allows you to leverage powerful YOLOv8 models for various machine learning tasks, 
 making it easier to annotate large datasets and ensure high-quality predictions. 
 
+<div align="left">
+  <a href="http://www.youtube.com/watch?v=UyaecID1iG8" title="Integrating YOLO V8 with Label Studio">
+    <img src="http://img.youtube.com/vi/UyaecID1iG8/0.jpg" alt="YOLO Integration Video" style="width:50%;"/>
+      <br>
+    Check the video tutorial
+  </a>
+</div>
+<br/>
+
 **Supported Features**
 
 | YOLO Task Name                        | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
@@ -43,9 +52,6 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 * **LS Export Supported**: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter).
 * **Native**: Native means that only native Label Studio JSON format is supported.
 
-! TODO: insert video with demo:
-! there should be a video with all supported control tags: RectangleLabels, PolygonLabels, Choices, VideoRectangle. 
-! you are in quickview opening a task, loader is in progress, buuum! and you see prediction on your screen. 
 
 ## Before you begin 
 
