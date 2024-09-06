@@ -47,9 +47,9 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 | Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
 | Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | Native              | Native              |
 
-* **LS Control Tag**: Label Studio Control Tag from the labeling configuration.
-* **LS Import Supported**: If Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
-* **LS Export Supported**: If Label Studio supports Export from Label Studio to YOLO format (the "Export" button on the data manager and using the LS converter).
+* **LS Control Tag**: Label Studio [control tag](https://labelstud.io/tags/) from the labeling configuration. 
+* **LS Import Supported**: Indicates whether Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
+* **LS Export Supported**: Indicates whether Label Studio supports Export from Label Studio to YOLO format (the **Export** button on the Data Manager and using the LS converter).
 * **Native**: Native means that only native Label Studio JSON format is supported.
 
 
@@ -102,9 +102,9 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 - `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task
 - `<Choices>` - [Classification](https://labelstud.io/tags/choices)
 
-**How to skip control tag?**
+**How to skip the control tag?**
 
-If you don't want to use ML backend for some control tags, 
+If you don't want to use the ML backend for some control tags, 
 you can force skipping by adding the `model_skip="true"` attribute to the control tag:
     
 ```xml
@@ -157,8 +157,9 @@ graph TD
     A[Label Studio :: Labeling Config :: Labels or Choices] <--> B[ML Model :: Names]
 ```
 
-If you use a common YOLO model, you have to add mapping between your labels and ML model labels. 
-By default, the YOLO ML backend will use the same (or lowercased) names as you specified in `value` attribute. 
+If you use a common YOLO model, you have to add mapping between your labels and the ML model labels. 
+By default, the YOLO ML backend will use the same (or lowercased) names as you specified in the `value` attribute. 
+
 In this example the label "Jeep" will be mapped to "jeep" in the ML model:
 
 ```xml
@@ -166,7 +167,7 @@ In this example the label "Jeep" will be mapped to "jeep" in the ML model:
 ```
 
 For more precise control you can use the `predicted_values` attribute 
-to specify multiple and different labels from ML model:
+to specify multiple and different labels from the ML model:
 
 ```xml
 <Choice value="Car" predicted_values="jeep,cab,limousine"/>
@@ -183,7 +184,7 @@ Or you can find some labels in [YOLO_CLASSES.md](YOLO_CLASSES.md)
 <details>
 <summary>Tip: How to map my labels to YOLO names using an LLM?</summary>
 <br/>
-You can use an LLM model (e.g. GPT) to automatically build mapping between Label Studio labels and ML model labels. 
+You can use an LLM model (e.g. ChatGPT) to automatically build mapping between Label Studio labels and ML model labels. 
 Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 classification model (`yolov8n-cls`).
 
 ```
@@ -206,7 +207,7 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 3. **Mapping Instructions:**
    - Map the labels from the Label Studio config to the closest matching ML model labels as follows:
-     1. Use the value attribute from each `<Choice>` tag to identify the label.
+     1. Use the `value` attribute from each `<Choice>` tag to identify the label.
      2. Find all similar and relevant labels from the ML model corresponding to each `<Choice>` label.
      3. Add a `predicted_values="<relevant_label1_from_ml_model>,<relevant_label2_from_ml_model>"` attribute inside each `<Choice>` tag using only labels from the ML model.
 
@@ -238,7 +239,7 @@ You can load your own YOLO labels using the following steps:
 
 ## Training
 
-Current Label Studio ML backend doesn't support training YOLO models. You have to do it manually on your side.
+The current Label Studio ML backend doesn't support training YOLO models. You have to do it manually on your side.
 Or you can contribute to this repository and add training support for this ML backend.
 
 <br>
@@ -274,10 +275,8 @@ https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
 | Parameter               | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                               |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models".                                                                                                                                                                                                                                                                                         |
-| `choice`                | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. ML backend will return all labels with confidence above the `model_score_threshold`. |
-
-**Note about `choice` parameter**
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                                                                                                                                                                                                         |
+| `choice`                | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. The ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. The ML backend will return all labels with confidence above the `model_score_threshold`. |
 
 
 For example:
@@ -297,7 +296,7 @@ For example:
 
 ## Object detection using `RectangleLabels`
 
-YOLO models provide bounding box detection, also known as object detection. 
+YOLO models provide bounding box detection, also known as "object detection." 
 Label Studio supports this with the `RectangleLabels` control tag.
 
 YOLO OBB models are also supported.
@@ -324,7 +323,7 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 | Parameter               | Type   | Default | Description                                                                                                                                                                            |
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
 | `model_obb`             | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
@@ -356,7 +355,7 @@ More info: https://docs.ultralytics.com/tasks/obb/
 
 ## Segmentation using `PolygonLabels`
 
-YOLO models provide segmentation detection, also known as instance segmentation. 
+YOLO models provide segmentation detection, also known as "instance segmentation." 
 Label Studio supports this with the `PolygonLabels` control tag.
 
 More info: https://docs.ultralytics.com/tasks/segment/
@@ -383,7 +382,7 @@ https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
 | Parameter               | Type   | Default | Description                                                                                                                                                                            |
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
 
 For example:
 ```xml
@@ -402,7 +401,7 @@ For example:
 
 ## Keypoint detection using `KeyPointLabels`
 
-YOLO models provide keypoint detection, also known as pose estimation. 
+YOLO models provide keypoint detection, also known as "pose estimation." 
 Label Studio supports this with the `KeyPointLabels` control tag.
 
 More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.com/tasks/pose/)
@@ -460,12 +459,13 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 
 | Parameter               | Type   | Default | Description                                                                                                                                                                    |
 |-------------------------|--------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                       |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                       |
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
 | `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
 | `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be grouped by parent bounding boxes on the region panel. See details in the tip below.                          |
 | `model_point_size`      | float  | 1       | Size of the keypoints in pixels. Just a visual parameter.                                                                                                                      |
 | `model_index`           | int    | None    | Index of the keypoint in the YOLO model output. It's used in `Label` tags only to build mapping between a Label and an output point.                                           |
+
 For example:
 
 ```xml
@@ -482,20 +482,21 @@ For example:
 ### Grouping keypoints with bounding boxes
 
 When using keypoint detection, the ML backend groups keypoints by the bounding box (bbox) associated with each detected person or object. 
-You will see the grouping on the Region panel on the right side of Label Studio. Note that you can drag and drop region items as you need after.
-The bounding boxes are added to prediction results by default. You can enable or disable this behavior by setting `model_add_bboxes`:
+You will see the grouping under the **Regions** panel on the right side of Label Studio. Note that you can drag and drop region items as necessary.
+
+The bounding boxes are added to the prediction results by default. You can enable or disable this behavior by setting `model_add_bboxes`:
 
 ```xml
 <KeyPointLabels name="keypoints" toName="image" model_add_bboxes="false">
 ```
 
-<details><summary>Tip: How to keep Key Points only and get rid of Bounding Boxes?</summary>
+<details><summary>Tip: How to only keep keypoints and discard bounding boxes?</summary>
 
 To enable both keypoint detection and bounding box detection in the same task, you have to 
 1. set `model_add_bboxes="false"` in the `KeyPointLabels` tag,
 2. remove `RectangleLabels` tag.
 
-You can use this labeling configuration to get rid of bounding boxes and keep only key points:
+You can use this labeling configuration to get rid of bounding boxes and keep only keypoints:
 
 ```xml
 <View>
@@ -560,7 +561,7 @@ For pose detection models, the `model_index` attribute is used to map keypoints 
 
 ### Recommendations
 
-- **Bounding Box Visualization**: Use the `model_add_bboxes` parameter to visualize the bounding box containing the keypoints, especially useful when dealing with multiple detected persons or objects.
+- **Bounding Box Visualization**: Use the `model_add_bboxes` parameter to visualize the bounding box containing the keypoints. This is especially useful when dealing with multiple detected persons or objects.
 - **Threshold Adjustment**: Adjust the `model_score_threshold` and `model_point_threshold` parameters based on your dataset and the confidence level required for accurate keypoint detection.
 
 <br>
@@ -571,7 +572,7 @@ For pose detection models, the `model_index` attribute is used to map keypoints 
 
 ## Video object tracking using `VideoRectangle` 
 
-YOLO models provide object tracking, also known as multi-object tracking.
+YOLO models provide object tracking, also known as "multi-object tracking."
 Label Studio supports this with the `VideoRectangle` + `Labels` control tags.
 
 More info: https://docs.ultralytics.com/modes/track/
@@ -604,13 +605,15 @@ The best tracker to use with Ultralytics YOLO depends on your specific needs.
 
 
 The default tracker is [BoT-SORT](https://github.com/NirAharon/BoT-SORT), which is generally well-suited for most scenarios. 
+
 However, if you're looking for an alternative with different strengths, 
 [ByteTrack](https://github.com/ifzhang/ByteTrack) is another good choice that you can easily configure. 
 ByteTrack is known for its high performance in multi-object tracking, 
 especially in situations with varying object appearances and reappearances. 
+
 Both trackers can be customized using YAML configuration files to fit your specific use cases.
 
-You can specify tracker in the control tag: 
+You can specify the tracker in the control tag: 
 * `<VideoRectangle model_tracker="botsort">`
 * `<VideoRectangle model_tracker="bytetrack">`
 
@@ -618,8 +621,8 @@ You can specify tracker in the control tag:
 
 The tracker works with the object detection model (bounding boxes). 
 
-The first step is to detect bounding boxes, the second step is to track (find the same boxes among frames) them. 
-These parameters are addressed to the first step - bounding box detection.
+The first step is to detect bounding boxes, the second step is to track them (find the same boxes among frames). 
+These parameters are related to the first step - bounding box detection.
 
 Read more about these parameters: 
 https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
@@ -629,10 +632,10 @@ https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
 | `model_conf`    | float  | 0.25      | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_iou`     | float  | 0.7       | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.   |
 | `model_tracker` | string | `botsort` | Sets the tracker to use for multi-object tracking. Options include `botsort`, `bytetrack`, or a custom YAML file.                                                                      |
-| `model_path`    | string | None      | Path to the custom YOLO model. See more in section "Custom YOLO Models".                                                                                                               |
+| `model_path`    | string | None      | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
 
 For example: 
-```
+```xml
 <VideoRectangle name="label" toName="video" model_tracker="botsort" model_conf="0.25" model_iou="0.7" />  
 ```
 
@@ -643,9 +646,9 @@ For an example of tracker parameters, see https://github.com/ultralytics/ultraly
 The main parameter is `model_tracker` which can be set to 
 * `botsort` 
 * `bytetrack`
-* Or the name of any custom yaml file that you place into `models` directory (do not include the file extension `.yaml`).  
+* Or the name of any custom yaml file that you place into `models` directory (do not include the file extension `.yaml` when setting this parameter).  
 
-If they are available within the yaml file, you can specify tracker parameters directly from the labeling config. All parameters should be prefixed with `botsort_` or `bytetrack_`.
+As long as they are available within the yaml file, you can specify tracker parameters directly from the labeling config. All parameters should be prefixed with `botsort_` or `bytetrack_`.
 
 For example: 
 ```xml
@@ -666,9 +669,10 @@ For example:
 Small models like `yolov8n.pt` are recommended for real-time tracking, however, they may not be as accurate as larger models.
 
 * Label Studio has timeout limits for ML backend requests. You can adjust the timeout in the Label Studio backend settings.
-! TODO: https://github.com/HumanSignal/label-studio/pull/5414/files#diff-20432d8093df2c0400b0f41b004a6b772b856b985fa1f5fd1e1f909247c89fc6L30
 
-* Or use the [CLI tool](#when-use-cli) to run predictions asynchronously.
+<!-- TODO: https://github.com/HumanSignal/label-studio/pull/5414/files#diff-20432d8093df2c0400b0f41b004a6b772b856b985fa1f5fd1e1f909247c89fc6L30 -->
+
+* Or use the [CLI tool](#When-to-use-the-CLI) to run predictions asynchronously.
 
 <br>
 
@@ -676,7 +680,7 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 
 <br>
 
-# Run YOLO ML backend
+## Run the YOLO ML backend
 
 
 ### Running with Docker (recommended)
@@ -723,7 +727,7 @@ label-studio-ml start ./dir_with_your_model
 
 Also, you can check [Dockerfile](Dockerfile) for additional dependencies and install them manually. 
 
-## Parameters
+### Parameters
 
 Check the `environment` section in the [`docker-compose.yml`](docker-compose.yml) file before running the container. 
 All available parameters are listed there.
@@ -737,14 +741,16 @@ All available parameters are listed there.
 This Command Line Interface (CLI) tool facilitates the integration of YOLO models with Label Studio for machine learning predictions. 
 It provides an alternative method for running YOLO predictions on tasks managed by Label Studio, 
 particularly useful for processing long videos or large datasets. 
+
 Running the model predictions directly from the CLI helps to avoid issues 
 like connection timeouts between Label Studio and the ML backend, 
 which can occur during lengthy processing times.
 
-### When to use the CLI?
+### When to use the CLI
 
 When working with extensive media files such as long videos, processing times can be significant. 
 Label Studio may interrupt the connection with the ML backend if the request takes too long, resulting in incomplete predictions. 
+
 By running this CLI tool, you can execute model predictions asynchronously 
 without the need for Label Studio to maintain a constant connection to the backend. 
 This ensures that even large or complex tasks are processed fully, 
@@ -770,7 +776,7 @@ or
 python cli.py --ls-url http://localhost:8080 --ls-api-key YOUR_API_KEY --project 1 --tasks 1,2,3
 ```
 
-#### Parameters
+### Parameters
 
 - **`--ls-url`**: The URL of the Label Studio instance. Defaults to `http://localhost:8080`.
 - **`--ls-api-key`**: The API key for Label Studio. Used to authenticate the connection.
