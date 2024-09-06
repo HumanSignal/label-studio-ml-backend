@@ -12,12 +12,11 @@ class TimelineLabelsModel(ControlModel):
 
     type = "TimelineLabels"
     model_path = "yolov8n-cls.pt"
-    score_threshold = 0.5  # Define a probability threshold
 
     @classmethod
     def is_control_matched(cls, control) -> bool:
         # Check object tag type
-        if control.objects[0].tag != "Image":
+        if control.objects[0].tag != "Video":
             return False
         # Support TimelineLabels
         return control.tag == cls.type

@@ -210,6 +210,14 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 </details>
 
+## YOLOv5 and other YOLO models
+
+YOLOv8 models have been successfully tested with this ML backend.
+
+Attempts to run YOLOv5 were unsuccessful without modifications. 
+It may be possible to run it by applying some changes, such as installing additional dependencies. 
+The same applies to other YOLO models.
+
 ## Custom YOLO models
 
 You can load your own YOLO labels using the following steps:

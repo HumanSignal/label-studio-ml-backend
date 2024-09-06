@@ -40,13 +40,16 @@ label_configs = [
     """,
 ]
 
-yolo_results = [load_file(TEST_DIR + "/opossum_snow_short.pickle"), None]
-
 tasks = [
     # test 1: one control tag with rectangle labels
     {"data": {"video": "tests/opossum_snow_short.mp4"}},
     # test 2: one control tag with rectangle labels
     {"data": {"video": "tests/opossum_snow_short.mp4"}},
+]
+
+yolo_results = [
+    load_file(TEST_DIR + "/opossum_snow_short.pickle"),
+    None
 ]
 
 expected = [

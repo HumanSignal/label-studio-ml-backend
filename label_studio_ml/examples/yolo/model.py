@@ -13,7 +13,7 @@ from control_models.rectangle_labels_obb import RectangleLabelsObbModel
 from control_models.polygon_labels import PolygonLabelsModel
 from control_models.keypoint_labels import KeypointLabelsModel
 from control_models.video_rectangle import VideoRectangleModel
-from control_models.timeline_labels import TimelineLabelsModel
+# from control_models.timeline_labels import TimelineLabelsModel  # Not yet implemented completely
 from typing import List, Dict, Optional
 
 
@@ -29,7 +29,7 @@ available_model_classes = [
     PolygonLabelsModel,
     KeypointLabelsModel,
     VideoRectangleModel,
-    TimelineLabelsModel,
+    # TimelineLabelsModel, # Not yet implemented completely
 ]
 
 
