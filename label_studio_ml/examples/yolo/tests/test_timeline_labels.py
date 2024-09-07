@@ -39,7 +39,7 @@ expected = [
 ]
 
 
-@pytest.mark.skip(reason="Not yet implemented")
+# @pytest.mark.skip(reason="Not yet implemented")
 @pytest.mark.parametrize(
     "label_config, task, yolo_result, expect",
     zip(label_configs, tasks, yolo_results, expected),
