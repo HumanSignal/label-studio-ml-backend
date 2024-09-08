@@ -12,7 +12,7 @@ from label_studio_sdk.label_interface import LabelInterface
 
 # use matplotlib plots for debug
 DEBUG_PLOT = os.getenv("DEBUG_PLOT", "false").lower() in ["1", "true"]
-SCORE_THRESHOLD = float(os.getenv("SCORE_THRESHOLD", 0.5))
+MODEL_SCORE_THRESHOLD = float(os.getenv("MODEL_SCORE_THRESHOLD", 0.5))
 DEFAULT_MODEL_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 MODEL_ROOT = os.getenv("MODEL_ROOT", DEFAULT_MODEL_ROOT)
 os.makedirs(MODEL_ROOT, exist_ok=True)
@@ -40,7 +40,7 @@ class ControlModel(BaseModel):
         value (str): The value name from the object that this control operates on, e.g., an image or text field.
         model (object): The model instance (e.g., YOLO) used to generate predictions for this control.
         model_path (str): Path to the YOLO model file.
-        score_threshold (float): Threshold for prediction scores; predictions below this value will be ignored.
+        model_score_threshold (float): Threshold for prediction scores; predictions below this value will be ignored.
         label_map (Optional[Dict[str, str]]): A mapping of model labels to Label Studio labels.
     """
 
@@ -51,7 +51,7 @@ class ControlModel(BaseModel):
     value: str
     model: YOLO
     model_path: ClassVar[str]
-    score_threshold: float = 0.5
+    model_score_threshold: float = 0.5
     label_map: Optional[Dict[str, str]] = {}
     label_studio_ml_backend: LabelStudioMLBase
 
@@ -90,8 +90,8 @@ class ControlModel(BaseModel):
                 f"Skipping control tag '{control.tag}' with name '{from_name}', model_skip=true found"
             )
             return None
-        # read `score_threshold` attribute from the control tag, e.g.: <RectangleLabels score_threshold="0.5">
-        score_threshold = float(control.attr.get("score_threshold") or SCORE_THRESHOLD)
+        # read `model_score_threshold` attribute from the control tag, e.g.: <RectangleLabels model_score_threshold="0.5">
+        model_score_threshold = float(control.attr.get("model_score_threshold") or MODEL_SCORE_THRESHOLD)
         # read `model_path` attribute from the control tag
         model_path = (
             ALLOW_CUSTOM_MODEL_PATH and control.attr.get("model_path")
@@ -111,7 +111,7 @@ class ControlModel(BaseModel):
             to_name=to_name,
             value=value,
             model=model,
-            score_threshold=score_threshold,
+            model_score_threshold=model_score_threshold,
             label_map=label_map,
             label_studio_ml_backend=mlbackend,
         )
@@ -154,7 +154,7 @@ class ControlModel(BaseModel):
         """Return a string with full representation of the control tag."""
         return (
             f"{self.type} from_name={self.from_name}, "
-            f"label_map={self.label_map}, score_threshold={self.score_threshold}"
+            f"label_map={self.label_map}, model_score_threshold={self.model_score_threshold}"
         )
 
     class Config:

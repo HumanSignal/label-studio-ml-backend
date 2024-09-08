@@ -67,7 +67,7 @@ class RectangleLabelsObbModel(ControlModel):
             )
 
             # bbox score is too low
-            if score < self.score_threshold:
+            if score < self.model_score_threshold:
                 continue
 
             # there is no mapping between model label and LS label

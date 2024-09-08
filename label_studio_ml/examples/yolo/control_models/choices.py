@@ -48,8 +48,8 @@ class ChoicesModel(ControlModel):
             names = [model_names[index]]
         # multi
         else:
-            # get indexes of data where data >= self.score_threshold
-            indexes = np.where(data >= self.score_threshold)
+            # get indexes of data where data >= self.model_score_threshold
+            indexes = np.where(data >= self.model_score_threshold)
             probs = data[indexes].tolist()
             names = [self.model.names[int(i)] for i in indexes[0]]
 
@@ -67,7 +67,7 @@ class ChoicesModel(ControlModel):
             f"names > {names}\n"
         )
 
-        if score < self.score_threshold:
+        if score < self.model_score_threshold:
             logger.debug(f"Score is too low for single choice: {names[0]} = {probs[0]}")
             return []
 

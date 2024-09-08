@@ -18,7 +18,7 @@ label_configs = [
     """
     <View>
       <KeyPointLabels name="keypoints" toName="image" 
-        score_threshold="0.85" model_point_threshold="0.95" model_add_bboxes="true" model_point_size="1"  
+        model_score_threshold="0.85" model_point_threshold="0.95" model_add_bboxes="true" model_point_size="1"  
       >
         <Label value="nose" predicted_values="person" model_index="0" background="red" />
 
@@ -57,7 +57,7 @@ label_configs = [
     """
     <View>
       <KeyPointLabels name="keypoints" toName="image" 
-        score_threshold="0.85" model_point_threshold="0.96" model_add_bboxes="false" model_point_size="1"  
+        model_score_threshold="0.85" model_point_threshold="0.96" model_add_bboxes="false" model_point_size="1"  
       >
         <Label value="nose" predicted_values="person" model_index="0" background="red" />
 
