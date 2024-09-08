@@ -109,7 +109,7 @@ The EasyOCR model connection offers several configuration options that can be se
 - `THREADS`: Specifies the number of threads for the model server.
 - `MODEL_DIR`: Specifies the model directory.
 - `LANG_LIST`: Specifies the list of languages to be used by the OCR model, separated by commas (default: `mn,en`). 
-- `SCORE_THRESHOLD`: Sets the score threshold to filter out noisy results.
+- `MODEL_SCORE_THRESHOLD`: Sets the score threshold to filter out noisy results.
 - `LABEL_MAPPINGS_FILE`: Specifies the file with mappings from COCO labels to custom labels.
 - `DEVICE`: Specifies the device to be used (cpu, cuda:0, cuda:1, etc.).
 - `HEIGHT_THS`: Sets the maximum difference in box height. Boxes with very different text size should not be merged.

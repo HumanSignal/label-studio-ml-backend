@@ -22,7 +22,7 @@ class EasyOCR(LabelStudioMLBase):
     """
     LANG_LIST = list(os.getenv('LANG_LIST', 'mn,en').split(',') or ['mn', 'en'])
     # score threshold to wipe out noisy results
-    SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.3))
+    MODEL_SCORE_THRESHOLD = float(os.getenv('SCORE_THRESHOLD', 0.3))
     # file with mappings from COCO labels to custom labels {"airplane": "Boeing"}
     LABEL_MAPPINGS_FILE = os.getenv('LABEL_MAPPINGS_FILE', 'label_mappings.json')
     # device (cpu, cuda:0, cuda:1, ...)
@@ -118,7 +118,7 @@ class EasyOCR(LabelStudioMLBase):
                 logger.warning('Empty result from the model')
                 continue
             score = res[-1]
-            if score < self.SCORE_THRESHOLD:
+            if score < self.MODEL_SCORE_THRESHOLD:
                 logger.info(f'Skipping result with low score: {score}')
                 continue
 

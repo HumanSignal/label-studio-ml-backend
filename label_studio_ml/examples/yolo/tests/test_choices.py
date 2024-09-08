@@ -18,7 +18,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <Choices name="label" toName="image" score_threshold="0.53">
+      <Choices name="label" toName="image" model_score_threshold="0.53">
         <Choice value="Airplane" background="green"/>
         <Choice value="Car" background="blue" predicted_values="racer, cab"/>
       </Choices>
@@ -28,7 +28,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <Choices name="label" toName="image" choice="multiple" score_threshold="0.1">
+      <Choices name="label" toName="image" choice="multiple" model_score_threshold="0.1">
         <Choice value="Grille" background="green"/>
         <Choice value="Cab" background="blue" predicted_values="racer, cab"/>
       </Choices>
@@ -38,7 +38,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <Choices name="label" toName="image" choice="multiple" score_threshold="0.9">
+      <Choices name="label" toName="image" choice="multiple" model_score_threshold="0.9">
         <Choice value="Grille" background="green"/>
         <Choice value="Cab" background="blue" predicted_values="racer, cab"/>
       </Choices>
