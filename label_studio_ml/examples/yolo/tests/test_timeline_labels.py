@@ -17,7 +17,7 @@ label_configs = [
     <View>
        <TimelineLabels name="videoLabels" toName="video">
          <Label value="Car" predicted_values="racer, cab"/>
-         <Label value="Airplane" background="red"/>
+         <Label value="Person" background="red"/>
        </TimelineLabels>
        <Video name="video" value="$video" framerate="25.0" height="400"/>
     </View>

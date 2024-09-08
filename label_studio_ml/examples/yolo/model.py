@@ -13,7 +13,7 @@ from control_models.rectangle_labels_obb import RectangleLabelsObbModel
 from control_models.polygon_labels import PolygonLabelsModel
 from control_models.keypoint_labels import KeypointLabelsModel
 from control_models.video_rectangle import VideoRectangleModel
-# from control_models.timeline_labels import TimelineLabelsModel  # Not yet implemented completely
+from control_models.timeline_labels import TimelineLabelsModel
 from typing import List, Dict, Optional
 
 
@@ -29,7 +29,7 @@ available_model_classes = [
     PolygonLabelsModel,
     KeypointLabelsModel,
     VideoRectangleModel,
-    # TimelineLabelsModel, # Not yet implemented completely
+    TimelineLabelsModel,
 ]
 
 
@@ -89,7 +89,7 @@ class YOLO(LabelStudioMLBase):
             control_tags = ", ".join([c.type for c in available_model_classes])
             raise ValueError(
                 f"No suitable control tags (e.g. {control_tags} connected to Image or Video object tags) "
-                f"detected in the label config"
+                f"detected in the label config:\n{self.label_config}"
             )
 
         return control_models

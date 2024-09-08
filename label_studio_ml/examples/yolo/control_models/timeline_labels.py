@@ -29,66 +29,58 @@ class TimelineLabelsModel(ControlModel):
         return self.create_timelines(frame_results, video_path)
 
     def create_timelines(self, frame_results, video_path):
-        logger.debug(f"create_timelines: {self.from_name}")
+        logger.debug(f'create_timelinelabels: {self.from_name}')
 
-        # Initialize dictionary to keep track of ongoing segments for each label
-        ongoing_segments = {label: None for label in self.model.names}
+        # Initialize a dictionary to keep track of ongoing segments for each label
+        ongoing_segments = {label: None for label in self.label_map}
         timeline_labels = []
+        model_names = self.model.names
 
         for i, frame_result in enumerate(frame_results):
             # Get probabilities for all labels for the current frame
             probs = frame_result.probs.numpy().data
 
             for label_index, prob in enumerate(probs):
-                label = self.model.names[label_index]
+                label = model_names[label_index]
 
-                if prob >= self.score_threshold:
-                    # Start or continue a segment for this label
-                    if ongoing_segments[label] is None:
-                        # Start a new segment
-                        ongoing_segments[label] = {"start": i}
-                else:
-                    # If a segment was ongoing, close it
-                    if ongoing_segments[label] is not None:
-                        timeline_labels.append(
-                            {
+                # Only process labels that are in `self.label_map`
+                if label in self.label_map:
+                    if prob >= self.score_threshold:
+                        # Start or continue a segment for this label
+                        if ongoing_segments[label] is None:
+                            # Start a new segment
+                            ongoing_segments[label] = {"start": i}
+                    else:
+                        # If a segment was ongoing, close it
+                        if ongoing_segments[label] is not None:
+                            timeline_labels.append({
                                 "id": f"{video_path}_{label}_{ongoing_segments[label]['start']}_{i}",
                                 "type": "timelinelabels",
                                 "value": {
-                                    "ranges": [
-                                        {
-                                            "start": ongoing_segments[label]["start"],
-                                            "end": i,
-                                        }
-                                    ],
-                                    "timelinelabels": [label],
+                                    "ranges": [{"start": ongoing_segments[label]['start'], "end": i}],
+                                    "timelinelabels": [label]
                                 },
                                 "origin": "manual",
                                 "to_name": self.to_name,
-                                "from_name": self.from_name,
-                            }
-                        )
-                        # Reset the segment for this label
-                        ongoing_segments[label] = None
+                                "from_name": self.from_name
+                            })
+                            # Reset the segment for this label
+                            ongoing_segments[label] = None
 
         # Close any ongoing segments at the end of the video
         for label, segment in ongoing_segments.items():
             if segment is not None:
-                timeline_labels.append(
-                    {
-                        "id": f"{video_path}_{label}_{segment['start']}_{len(frame_results)}",
-                        "type": "timelinelabels",
-                        "value": {
-                            "ranges": [
-                                {"start": segment["start"], "end": len(frame_results)}
-                            ],
-                            "timelinelabels": [label],
-                        },
-                        "origin": "manual",
-                        "to_name": self.to_name,
-                        "from_name": self.from_name,
-                    }
-                )
+                timeline_labels.append({
+                    "id": f"{video_path}_{label}_{segment['start']}_{len(frame_results)}",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"start": segment['start'], "end": len(frame_results)}],
+                        "timelinelabels": [label]
+                    },
+                    "origin": "manual",
+                    "to_name": self.to_name,
+                    "from_name": self.from_name
+                })
 
         return timeline_labels
 
