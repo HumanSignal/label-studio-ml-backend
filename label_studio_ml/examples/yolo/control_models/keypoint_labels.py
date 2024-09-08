@@ -72,6 +72,7 @@ class KeypointLabelsModel(ControlModel):
         keypoints_data = results[0].keypoints  # Get keypoints from the first frame
         bbox_data = results[0].boxes
         image_width = results[0].orig_shape[1]
+        model_names = self.model.names
         regions = []
 
         for bbox_index in range(
@@ -81,7 +82,7 @@ class KeypointLabelsModel(ControlModel):
             point_xyn = (
                 keypoints_data.xyn[bbox_index] * 100
             )  # Convert normalized keypoints to percentages
-            model_label = self.model.names[int(results[0].boxes.cls[bbox_index])]
+            model_label = model_names[int(results[0].boxes.cls[bbox_index])]
 
             logger.debug(
                 "----------------------\n"

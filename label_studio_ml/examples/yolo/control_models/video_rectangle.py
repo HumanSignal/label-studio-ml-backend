@@ -86,6 +86,7 @@ class VideoRectangleModel(ControlModel):
     def create_video_rectangles(self, results, path):
         """Create regions of video rectangles from the yolo tracker results"""
         frames_count, duration = len(results), self.get_video_duration(path)
+        model_names = self.model.names
         logger.debug(
             f"create_video_rectangles: {self.from_name}, {frames_count} frames"
         )
@@ -101,7 +102,7 @@ class VideoRectangleModel(ControlModel):
                 score = float(data.conf[i])
                 x, y, w, h = data.xywhn[i].tolist()
                 # get label
-                model_label = self.model.names[int(data.cls[i])]
+                model_label = model_names[int(data.cls[i])]
                 if model_label not in self.label_map:
                     continue
                 output_label = self.label_map[model_label]

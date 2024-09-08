@@ -51,12 +51,13 @@ class RectangleLabelsModel(ControlModel):
         """Simple bounding boxes without rotation"""
         logger.debug(f"create_rectangles: {self.from_name}")
         data = results[0].boxes  # take bboxes from the first frame
+        model_names = self.model.names
         regions = []
 
         for i in range(data.shape[0]):  # iterate over items
             score = float(data.conf[i])  # tensor => float
             x, y, w, h = data.xywhn[i].tolist()
-            model_label = self.model.names[int(data.cls[i])]
+            model_label = model_names[int(data.cls[i])]
 
             logger.debug(
                 "----------------------\n"

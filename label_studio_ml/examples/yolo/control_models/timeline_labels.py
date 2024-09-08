@@ -45,7 +45,7 @@ class TimelineLabelsModel(ControlModel):
 
                 # Only process labels that are in `self.label_map`
                 if label in self.label_map:
-                    if prob >= self.score_threshold:
+                    if prob >= self.model_score_threshold:
                         # Start or continue a segment for this label
                         if ongoing_segments[label] is None:
                             # Start a new segment
@@ -54,7 +54,7 @@ class TimelineLabelsModel(ControlModel):
                         # If a segment was ongoing, close it
                         if ongoing_segments[label] is not None:
                             timeline_labels.append({
-                                "id": f"{video_path}_{label}_{ongoing_segments[label]['start']}_{i}",
+                                "id": f"{ongoing_segments[label]['start']}_{i}",
                                 "type": "timelinelabels",
                                 "value": {
                                     "ranges": [{"start": ongoing_segments[label]['start'], "end": i}],
