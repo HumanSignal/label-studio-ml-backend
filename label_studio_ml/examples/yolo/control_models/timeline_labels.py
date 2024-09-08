@@ -42,7 +42,7 @@ class TimelineLabelsModel(ControlModel):
             for label_index, prob in enumerate(probs):
                 label = self.model.names[label_index]
 
-                if prob >= self.score_threshold:
+                if prob >= self.model_score_threshold:
                     # Start or continue a segment for this label
                     if ongoing_segments[label] is None:
                         # Start a new segment

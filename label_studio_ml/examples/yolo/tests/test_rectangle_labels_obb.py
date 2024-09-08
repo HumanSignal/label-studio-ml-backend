@@ -21,7 +21,7 @@ label_configs = [
       <Image name="image" value="$image" zoom="true"/>
       
       <RectangleLabels name="rect" toName="image"
-                     score_threshold="0.1" model_obb="true">
+                     model_score_threshold="0.1" model_obb="true">
         <Label value="plane" background="red" 
             predicted_values="plane,helicopter"/>
         <Label value="vehicle" background="blue" 

@@ -18,7 +18,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image" score_threshold="0.25">
+      <RectangleLabels name="label" toName="image" model_score_threshold="0.25">
         <Label value="Airplane" background="green"/>
         <Label value="Car" background="blue" predicted_values="car, truck"/>
       </RectangleLabels>
@@ -28,13 +28,13 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image" score_threshold="0.30">
+      <RectangleLabels name="label" toName="image" model_score_threshold="0.30">
         <Label value="Airplane" background="green"/>
         <Label value="Car" background="blue" predicted_values="car, truck"/>
       </RectangleLabels>
       
       <Image name="image2" value="$image2"/>
-      <RectangleLabels name="label2" toName="image2" score_threshold="0.90">
+      <RectangleLabels name="label2" toName="image2" model_score_threshold="0.90">
         <Label value="Person" background="green"/>
         <Label value="Animal" background="blue" predicted_values="cat,dog"/>
       </RectangleLabels>

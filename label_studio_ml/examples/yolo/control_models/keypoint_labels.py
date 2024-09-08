@@ -93,7 +93,7 @@ class KeypointLabelsModel(ControlModel):
             )
 
             # bbox score is too low
-            if bbox_conf < self.score_threshold:
+            if bbox_conf < self.model_score_threshold:
                 continue
 
             # There is no mapping between model label and LS label

@@ -18,7 +18,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <PolygonLabels name="label" toName="image" score_threshold="0.6">
+      <PolygonLabels name="label" toName="image" model_score_threshold="0.6">
         <Label value="Person" background="green"/>
         <Label value="Truck" background="blue"/>
       </PolygonLabels>

@@ -40,7 +40,7 @@ label_configs = [
     """
     <View>
       <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image" score_threshold="0.25">
+      <RectangleLabels name="label" toName="image" model_score_threshold="0.25">
         <Label value="Airplane" background="green"/>
         <Label value="Car" background="blue" predicted_values="car, truck"/>
       </RectangleLabels>
