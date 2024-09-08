@@ -91,7 +91,7 @@ class ControlModel(BaseModel):
             )
             return None
         # read `score_threshold` attribute from the control tag, e.g.: <RectangleLabels score_threshold="0.5">
-        score_threshold = float(control.attr.get("score_threshold") or SCORE_THRESHOLD)
+        score_threshold = float(control.attr.get("model_score_threshold") or SCORE_THRESHOLD)
         # read `model_path` attribute from the control tag
         model_path = (
             ALLOW_CUSTOM_MODEL_PATH and control.attr.get("model_path")
