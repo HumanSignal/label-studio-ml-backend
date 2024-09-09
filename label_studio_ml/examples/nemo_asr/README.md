@@ -23,6 +23,12 @@ This example demonstrates how to use the [NeMo](https://github.com/NVIDIA/NeMo/b
 
 Use this model if you want to transcribe and fix your audio data.
 
+## Before you begin
+
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+
+This tutorial uses the [`nemo_asr` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/nemo_asr). 
+
 ## Labeling interface
 
 This example works with the Label Studio's pre-built **Audio Transcription** template (available under **Audio Processing > Audio Transcription**).  
