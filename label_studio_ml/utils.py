@@ -1,13 +1,15 @@
-import logging
 import difflib
+import logging
+import os
+import re
 
 from PIL import Image, ImageOps
 from collections import OrderedDict
 from typing import List
+from urllib.parse import urlparse
 
-from label_studio_tools.core.utils.params import get_env
-from label_studio_tools.core.utils.io import get_local_path
-from label_studio_sdk.label_interface import LabelInterface
+from label_studio_sdk._extensions.label_studio_tools.core.utils.params import get_env
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 
 DATA_UNDEFINED_NAME = '$undefined$'
 
@@ -131,8 +133,46 @@ def match_labels(input: str, labels: List[str]) -> List[str]:
     return matched_labels
 
 
-if __name__ == "__main__":
-    c = InMemoryLRUDictCache(2)
-    c.put(1, 1)
-    c.put(2,2)
-    print(c.cache)
+def is_valid_url(path):
+    # Check if the text is a valid URL
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+
+def is_preload_needed(url):
+    if url.startswith('upload') or url.startswith('/upload'):
+        url = '/data' + ('' if url.startswith('/') else '/') + url
+
+    is_uploaded_file = url.startswith('/data/upload')
+    is_local_storage_file = url.startswith('/data/') and '?d=' in url
+    is_cloud_storage_file = url.startswith('s3:') or url.startswith('gs:') or url.startswith('azure-blob:')
+    path_exists = os.path.exists(url)
+
+    return (
+        is_uploaded_file
+        or is_local_storage_file
+        or is_cloud_storage_file
+        or is_valid_url(url)
+        or path_exists
+    )
+
+
+def compare_nested_structures(a, b, path="", rel=1e-4):
+    from pytest import approx  # pytest is optional package, use it inside of this func
+
+    """Compare two dicts or list with approx() for float values"""
+    if isinstance(a, dict) and isinstance(b, dict):
+        assert a.keys() == b.keys(), f"Keys mismatch at {path}"
+        for key in a.keys():
+            compare_nested_structures(a[key], b[key], path + "." + str(key))
+    elif isinstance(a, list) and isinstance(b, list):
+        assert len(a) == len(b), f"List size mismatch at {path}"
+        for i, (act_item, exp_item) in enumerate(zip(a, b)):
+            compare_nested_structures(act_item, exp_item, path + f"[{i}]")
+    elif isinstance(a, float) and isinstance(b, float):
+        assert a == approx(b, rel=rel), f"Mismatch at {path}"
+    else:
+        assert a == b, f"Mismatch at {path}"

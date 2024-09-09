@@ -14,7 +14,7 @@ from label_studio_ml.utils import (
     get_single_tag_keys,
     DATA_UNDEFINED_NAME,
 )
-from label_studio_tools.core.utils.io import get_data_dir, get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_data_dir, get_local_path
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -100,6 +100,7 @@ class MMDetection(LabelStudioMLBase):
             for ls_label, label_attrs in self.labels_attrs.items():
                 predicted_values = label_attrs.get("predicted_values", "").split(",")
                 for predicted_value in predicted_values:
+                    predicted_value = predicted_value.strip()  # remove spaces at the beginning and at the end
                     if predicted_value:  # it shouldn't be empty (like '')
                         if predicted_value not in mmdet_labels:
                             print(

@@ -1,3 +1,4 @@
+import copy
 import os
 import logging
 import sys
@@ -23,9 +24,10 @@ from abc import ABC
 from colorama import Fore
 
 from label_studio_sdk.label_interface import LabelInterface
-from label_studio_tools.core.label_config import parse_config
-from label_studio_tools.core.utils.io import get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.label_config import parse_config
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from .response import ModelResponse
+from .utils import is_preload_needed
 from .cache import create_cache
 
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class LabelStudioMLBase(ABC):
         'ANNOTATION_CREATED',
         'ANNOTATION_UPDATED',
         'ANNOTATION_DELETED',
-        'PROJECT_UPDATED'
+        'START_TRAINING'
     )
 
     def __init__(self, project_id: Optional[str] = None, label_config=None):
@@ -76,7 +78,10 @@ class LabelStudioMLBase(ABC):
             project_id (str, optional): The project ID. Defaults to None.
         """
         self.project_id = project_id or ''
-        self.use_label_config(label_config)
+        if label_config is not None:
+            self.use_label_config(label_config)
+        else:
+            logger.warning('Label config is not provided')
 
         # set initial model version
         if not self.model_version:
@@ -254,6 +259,41 @@ class LabelStudioMLBase(ABC):
             **kwargs
         )
 
+    def preload_task_data(self, task: Dict, value=None, read_file=True):
+        """ Preload task_data values using get_local_path() if values are URI/URL/local path.
+
+        Args:
+            task: Task root.
+            value: task['data'] if it's None.
+            read_file: If True, read file content. Otherwise, return file path only.
+
+        Returns:
+            Any: Preloaded task data value.
+        """
+        # recursively preload dict
+        if isinstance(value, dict):
+            for key, item in value.items():
+                value[key] = self.preload_task_data(task=task, value=item, read_file=read_file)
+            return value
+
+        # recursively preload list
+        elif isinstance(value, list):
+            return [
+                self.preload_task_data(task=task, value=item, read_file=read_file)
+                for item in value
+            ]
+
+        # preload task data if value is URI/URL/local path
+        elif isinstance(value, str) and is_preload_needed(value):
+            filepath = self.get_local_path(url=value, task_id=task.get('id'))
+            if not read_file:
+                return filepath
+            with open(filepath, 'r') as f:
+                return f.read()
+
+        # keep value as is
+        return value
+
     ## TODO this should go into SDK
     def get_first_tag_occurence(
         self,
@@ -281,7 +321,88 @@ class LabelStudioMLBase(ABC):
             control_type=control_type,
             object_type=object_type,
             name_filter=name_filter,
-            to_name_filter=to_name_filter)        
+            to_name_filter=to_name_filter
+        )
+
+    def build_label_map(self, tag_name: str, names: List[str]) -> Dict[str, str]:
+        """Build a mapping between model label names and the label names defined in the Label Studio configuration.
+
+        This function creates a dictionary that maps predicted label names from a machine learning model
+        (e.g., "car", "truck") to the corresponding label names used in Label Studio (e.g., "Car").
+
+        The mapping is primarily based on the `predicted_values` attribute within each <Label> tag in the
+        Label Studio configuration. If a match is not found via `predicted_values`, the function attempts
+        to match the labels directly by name, either by exact match or by a case-insensitive comparison.
+
+        Args:
+            tag_name (str): The name of the Label Studio tag that contains the labels (<Label>).
+            names (List[str]): A list of label names used in the model, which need to be mapped
+                               to the corresponding labels in Label Studio.
+
+        Returns:
+            Dict[str, str]: A dictionary where the keys are the label names from the model,
+                            and the values are the corresponding label names from the Label Studio configuration.
+                            The resulting dictionary is intended to facilitate the integration of model predictions
+                            with Label Studio, ensuring that the labels used in predictions match the labels
+                            configured in the tool.
+
+        Example:
+            Given a Label Studio configuration like:
+
+            <View>
+              <Image name="image" value="$image"/>
+              <RectangleLabels name="label" toName="image" model_score_threshold="0.25">
+                <Label value="Airplane" background="green"/>
+                <Label value="Car" background="blue" predicted_values="car, truck"/>
+              </RectangleLabels>
+            </View>
+
+            And a list of model names like:
+            ["car", "truck", "airplane"]
+
+            The function would return:
+            {
+                'car': 'Car',
+                'truck': 'Car',
+                'airplane': 'Airplane'
+            }
+
+        Notes:
+            - If a label in `predicted_values` is not found in the model's labels, a warning is logged.
+            - If `predicted_values` are not present or are empty, the function will attempt to map the label
+              directly using the label's name, considering both case-sensitive and case-insensitive matches.
+        """
+        label_map = {}
+        labels_attrs = self.label_interface.get_control(tag_name).labels_attrs
+
+        model_labels = list(names)
+        model_labels_lower = [label.lower() for label in model_labels]
+        logger.debug(f"Labels supported by model for {tag_name}: {names}")
+
+        if labels_attrs:
+            for ls_label, label_tag in labels_attrs.items():
+                # try to find `predicted_values` in Label tags
+                predicted_values = label_tag.attr.get("predicted_values", "").split(",")
+                matched = False
+                for value in predicted_values:
+                    value = value.strip()  # remove spaces at the beginning and at the end
+                    if value and value in names:  # check if value is in model labels
+                        if value not in model_labels:
+                            logger.warning(f'Predicted value "{value}" is not in model labels')
+                        label_map[value] = ls_label
+                        matched = True
+
+                # no `predicted_values`, use common Label's `value` attribute
+                if not matched:
+                    # model has the same label
+                    if ls_label in model_labels:
+                        label_map[ls_label] = ls_label
+                    # model has the same lower name
+                    elif ls_label.lower() in model_labels_lower:
+                        label_map[ls_label.lower()] = ls_label
+
+        logger.debug(f"Model Labels <=> Label Studio Labels:\n{label_map}")
+        return label_map
 
 
 def get_all_classes_inherited_LabelStudioMLBase(script_file):

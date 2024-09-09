@@ -94,7 +94,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
         # The input texts are extracted from the tasks and stored in a list
         input_texts = []
         for task in tasks:
-            input_text = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+            value = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+            input_text = self.preload_task_data(task, value)
             input_texts.append(input_text)
 
         # Get model predictions
@@ -157,6 +158,9 @@ class SklearnTextClassifier(LabelStudioMLBase):
             event (str): The event that triggered the fitting of the model (e.g., 'ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
             data (Dict): The data that is used to fit the model.
         """
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
+            logger.info(f"Skip training: event {event} is not supported")
+            return
 
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
@@ -164,8 +168,11 @@ class SklearnTextClassifier(LabelStudioMLBase):
         # Get the labeling configuration parameters like labels and input / output annotation format names
         config = self.get_label_studio_parameters()
 
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
-            logger.info(f'Not starting training, {len(tasks)} tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}')
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
+            logger.info(
+                f'Not starting training, {len(tasks)} '
+                f'tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}'
+            )
             return
 
         input_texts = []
@@ -178,7 +185,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
                     continue
 
                 # collect input texts
-                input_text = task['data'][config['value']] or task['data'].get(DATA_UNDEFINED_NAME)
+                value = task['data'].get(config['value']) or task['data'].get(DATA_UNDEFINED_NAME)
+                input_text = self.preload_task_data(task, value)
                 input_texts.append(input_text)
 
                 # collect output labels

@@ -2,7 +2,7 @@ import requests
 
 from mmdetection import MMDetection
 
-from pytest import approx
+from label_studio_ml.utils import compare_nested_structures
 
 label_config = """
 <View>
@@ -39,22 +39,6 @@ expected = [
         "model_version": 'MMDetection-v0.0.1',
     }
 ]
-
-
-def compare_nested_structures(a, b, path=""):
-    """Compare two dicts or list with approx() for float values"""
-    if isinstance(a, dict) and isinstance(b, dict):
-        assert a.keys() == b.keys(), f"Keys mismatch at {path}"
-        for key in a.keys():
-            compare_nested_structures(a[key], b[key], path + "." + str(key))
-    elif isinstance(a, list) and isinstance(b, list):
-        assert len(a) == len(b), f"List size mismatch at {path}"
-        for i, (act_item, exp_item) in enumerate(zip(a, b)):
-            compare_nested_structures(act_item, exp_item, path + f"[{i}]")
-    elif isinstance(a, float) and isinstance(b, float):
-        assert a == approx(b), f"Mismatch at {path}"
-    else:
-        assert a == b, f"Mismatch at {path}"
 
 
 def test_mmdetection_model_predict():

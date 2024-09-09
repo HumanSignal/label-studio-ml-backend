@@ -1,0 +1,150 @@
+[
+  {
+    "model_version": "yolo",
+    "result": [
+      {
+        "from_name": "keypoints_bbox",
+        "hidden": true,
+        "id": "bbox-0",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "score": 0.8605291843414307,
+        "to_name": "image",
+        "type": "rectanglelabels",
+        "value": {
+          "height": 39.93055522441864,
+          "rectanglelabels": [
+            "person"
+          ],
+          "width": 10.546875,
+          "x": 89.453125,
+          "y": 6.77083283662796
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.9874914884567261,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "left_shoulder"
+          ],
+          "width": 0.13020833333333331,
+          "x": 98.1597900390625,
+          "y": 15.064401626586914
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.9673970937728882,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "right_shoulder"
+          ],
+          "width": 0.13020833333333331,
+          "x": 92.978515625,
+          "y": 14.892805099487305
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.9881816506385803,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "left_hip"
+          ],
+          "width": 0.13020833333333331,
+          "x": 96.12835693359375,
+          "y": 27.02771759033203
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.9819034337997437,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "right_hip"
+          ],
+          "width": 0.13020833333333331,
+          "x": 92.79766082763672,
+          "y": 26.574970245361328
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.9782900214195251,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "left_knee"
+          ],
+          "width": 0.13020833333333331,
+          "x": 96.00843048095703,
+          "y": 35.76639175415039
+        }
+      },
+      {
+        "from_name": "keypoints",
+        "meta": {
+          "text": [
+            "bbox-0"
+          ]
+        },
+        "parentID": "bbox-0",
+        "score": 0.969311535358429,
+        "to_name": "image",
+        "type": "keypointlabels",
+        "value": {
+          "keypointlabels": [
+            "right_knee"
+          ],
+          "width": 0.13020833333333331,
+          "x": 92.45714569091797,
+          "y": 34.812171936035156
+        }
+      }
+    ],
+    "score": 0.9618720582553318
+  }
+]

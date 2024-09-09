@@ -3,7 +3,7 @@ import logging
 
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase, ModelResponse
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 from flair.nn import Classifier
 from flair.data import Sentence
 
@@ -59,9 +59,11 @@ class Flair(LabelStudioMLBase):
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         # make predictions with currently set model
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
-
-        flair_sents = [Sentence(task['data'][value]) for task in
-                       tasks]  # collect text data for each task in a list and make flair sent
+        # collect text data for each task in a list and make flair sentences
+        flair_sents = [
+            Sentence(self.preload_task_data(task, task['data'][value]))
+            for task in tasks
+        ]
         # predict with ner model for each flair sentence
         for sent in flair_sents:
             _model.predict(sent)

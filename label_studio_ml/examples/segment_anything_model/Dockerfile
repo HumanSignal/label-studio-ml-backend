@@ -23,7 +23,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        wget git libopencv-dev python3-opencv; \
+        wget git libopencv-dev python3-opencv cmake protobuf-compiler; \
     apt-get autoremove -y
 
 # Copy and run the model download script

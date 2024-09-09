@@ -10,7 +10,7 @@ services:
         TEST_ENV: ${TEST_ENV}
     environment:
       - MODEL_DIR=/data/models
-      # Specify openai model provider: "openai" or "azure"
+      # Specify openai model provider: "openai", "azure", or "ollama"
       - OPENAI_PROVIDER=openai
       # Specify API key for openai or azure
       - OPENAI_API_KEY=
@@ -38,6 +38,9 @@ services:
       - AZURE_DEPLOYMENT_NAME=
       # Azure API version (in case OPENAI_PROVIDER=azure)
       - AZURE_API_VERSION=2023-05-15
+      # Ollama Endpoint (in case OPENAI_PROVIDER=ollama, OPENAI_MODEL=<your_ollama_model>)
+      # If running Ollama locally OLLAMA_ENDPOINT=http://host.docker.internal:11434/v1/
+      - OLLAMA_ENDPOINT=
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=

@@ -6,7 +6,7 @@ import os
 import requests
 import pytesseract
 
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
 from typing import Union, List, Dict, Optional, Any, Tuple
 from tenacity import retry, stop_after_attempt, wait_random
@@ -14,7 +14,7 @@ from openai import OpenAI, AzureOpenAI
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 from label_studio_sdk.label_interface.object_tags import ImageTag, ParagraphsTag
 from label_studio_sdk.label_interface.control_tags import ControlTag, ObjectTag
 
@@ -56,6 +56,12 @@ def chat_completion_call(messages, params, *args, **kwargs):
         )
         if not model:
             model = 'gpt-35-turbo'
+    elif provider == "ollama":
+        client = OpenAI(
+            base_url=params.get('base_url', OpenAIInteractive.OLLAMA_ENDPOINT),
+            # required but ignored
+            api_key='ollama',
+        )
     else:
         raise
 
@@ -103,6 +109,7 @@ class OpenAIInteractive(LabelStudioMLBase):
     AZURE_RESOURCE_ENDPOINT = os.getenv("AZURE_RESOURCE_ENDPOINT", '')
     AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
     AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2023-05-15")
+    OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT")
 
     def setup(self):
         if self.DEFAULT_PROMPT and os.path.isfile(self.DEFAULT_PROMPT):
@@ -114,6 +121,7 @@ class OpenAIInteractive(LabelStudioMLBase):
         # Open the image containing the text
         response = requests.get(image_url)
         image = Image.open(BytesIO(response.content))
+        image = ImageOps.exif_transpose(image)
 
         # Run OCR on the image
         text = pytesseract.image_to_string(image)
@@ -282,7 +290,8 @@ class OpenAIInteractive(LabelStudioMLBase):
             self._validate_tags(choices_tag, textarea_tag)
 
             for task in tasks:
-                task_data = task['data']
+                # preload all task data fields, they are needed for prompt
+                task_data = self.preload_task_data(task, task['data'])
                 pred = self._predict_single_task(task_data, prompt_tag, object_tag, prompt,
                                                  choices_tag, textarea_tag, prompts)
                 predictions.append(pred)

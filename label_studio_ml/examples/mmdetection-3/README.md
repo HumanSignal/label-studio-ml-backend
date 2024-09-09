@@ -1,9 +1,11 @@
 <!--
 ---
 title: Object detection with bounding boxes using MMDetection
-type: blog
+type: guide
 tier: all
 order: 65
+hide_menu: true
+hide_frontmatter_title: true
 meta_title: Object detection in images with Label Studio and MMDetection
 meta_description: This is a tutorial on how to use the example MMDetection model backend with Label Studio for image segmentation tasks.
 categories:
@@ -49,25 +51,25 @@ There are two possible variants of labeling configurations that can be used:
     This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
 
     ```
-<View>
-  <Image name="image" value="$image"/>
-  <RectangleLabels name="label" toName="image">
-    <Label value="Airplane" background="green"/>
-    <Label value="Car" background="blue"/>
-  </RectangleLabels>
-</View>
-```
+    <View>
+      <Image name="image" value="$image"/>
+      <RectangleLabels name="label" toName="image">
+        <Label value="Airplane" background="green"/>
+        <Label value="Car" background="blue"/>
+      </RectangleLabels>
+    </View>
+    ```
 
 2. More complex labeling config with `predicted_values`:
 
     ```
-<View>
-  <Image name="image" value="$image"/>
-  <RectangleLabels name="label" toName="image">
-    <Label value="Vehicle" predicted_values="airplane,car" background="green"/>
-  </RectangleLabels>
-</View>
-```
+    <View>
+      <Image name="image" value="$image"/>
+      <RectangleLabels name="label" toName="image">
+        <Label value="Vehicle" predicted_values="airplane,car" background="green"/>
+      </RectangleLabels>
+    </View>
+    ```
 
 In this example, you can combine multiple labels into one Label Studio annotation the. For example, Label Studio `Vehicle` maps to MMDetection "airplane" and "car".
 

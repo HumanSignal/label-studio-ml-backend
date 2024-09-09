@@ -68,7 +68,7 @@ class HuggingFaceNER(LabelStudioMLBase):
         """
         li = self.label_interface
         from_name, to_name, value = li.get_first_tag_occurence('Labels', 'Text')
-        texts = [task['data'][value] for task in tasks]
+        texts = [self.preload_task_data(task, task['data'][value]) for task in tasks]
 
         # run predictions
         model_predictions = _model(texts)
@@ -83,7 +83,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                 entities = list(group)
                 start = entities[0]['start']
                 end = entities[-1]['end']
-                score = sum([entity['score'] for entity in entities]) / len(entities)
+                score = float(sum([entity['score'] for entity in entities]) / len(entities))
                 results.append({
                     'from_name': from_name,
                     'to_name': to_name,
@@ -139,14 +139,14 @@ class HuggingFaceNER(LabelStudioMLBase):
     def fit(self, event, data, **kwargs):
         """Download dataset from Label Studio and prepare data for training in BERT
         """
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
 
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
 
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             logger.info(f"Skip training: {len(tasks)} tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}")
             return
 
@@ -168,7 +168,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     continue
                 spans = [{'label': r['value']['labels'][0], 'start': r['value']['start'], 'end': r['value']['end']} for r in annotation['result']]
                 spans = sorted(spans, key=lambda x: x['start'])
-                text = task['data'][value]
+                text = self.preload_task_data(task, task['data'][value])
 
                 # insert tokenizer.pad_token to the unlabeled chunks of the text in-between the labeled spans, as well as to the beginning and end of the text
                 last_end = 0

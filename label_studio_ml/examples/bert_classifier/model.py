@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
 from transformers import pipeline
-from label_studio_sdk.objects import PredictionValue
+from label_studio_sdk.label_interface.objects import PredictionValue
 from label_studio_ml.response import ModelResponse
 from datasets import Dataset
 
@@ -101,7 +101,7 @@ class BertClassifier(LabelStudioMLBase):
 
         li = self.label_interface
         from_name, to_name, value = li.get_first_tag_occurence('Choices', 'Text')
-        texts = [task['data'][value] for task in tasks]
+        texts = [self.preload_task_data(task, task['data'][value]) for task in tasks]
 
         model_predictions = self._model(texts)
         predictions = []
@@ -119,7 +119,7 @@ class BertClassifier(LabelStudioMLBase):
 
     def fit(self, event, data, **additional_params):
         """Download dataset from Label Studio and prepare data for training in BERT"""
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
         project_id = data['annotation']['project']
@@ -131,7 +131,7 @@ class BertClassifier(LabelStudioMLBase):
 
         logger.info(f"Downloaded {len(tasks)} labeled tasks from Label Studio")
         logger.debug(f"Tasks: {tasks}")
-        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0:
+        if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             # skip training if the number of tasks is not divisible by START_TRAINING_EACH_N_UPDATES
             logger.info(f"Skip training: the number of tasks is not divisible by {self.START_TRAINING_EACH_N_UPDATES}")
             return
@@ -149,7 +149,8 @@ class BertClassifier(LabelStudioMLBase):
                     for result in annotation['result']:
                         if 'choices' in result['value']:
                             ds_raw['id'].append(task['id'])
-                            ds_raw['text'].append(task['data'][value])
+                            text = self.preload_task_data(task, task['data'][value])
+                            ds_raw['text'].append(text)
                             ds_raw['label'].append(result['value']['choices'])
 
         hf_dataset = Dataset.from_dict(ds_raw)
