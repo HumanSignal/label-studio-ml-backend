@@ -4,7 +4,6 @@ import logging
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 
 from control_models.base import ControlModel
 from control_models.choices import ChoicesModel
@@ -115,24 +114,7 @@ class YOLO(LabelStudioMLBase):
 
             regions = []
             for model in control_models:
-                task_path = task["data"].get(model.value) or task["data"].get(
-                    DATA_UNDEFINED_NAME
-                )
-                if task_path is None:
-                    raise ValueError(
-                        f"Can't load path using key '{model.value}' from task {task}"
-                    )
-                if not isinstance(task_path, str):
-                    raise ValueError(f"Path should be a string, but got {task_path}")
-
-                # try path as local file or try to load it from Label Studio instance/download via http
-                path = (
-                    task_path
-                    if os.path.exists(task_path)
-                    else get_local_path(task_path, task_id=task.get("id"))
-                )
-                logger.debug(f"load_image: {task_path} => {path}")
-
+                path = model.get_path(task)
                 regions += model.predict_regions(path)
 
             # calculate final score
@@ -173,4 +155,7 @@ class YOLO(LabelStudioMLBase):
 
         print('fit() is not implemented!')
         """
-        raise NotImplementedError("Training is not implemented yet")
+
+        control_models = self.detect_control_models()
+        for model in control_models:
+            model.fit(event, data, **kwargs)

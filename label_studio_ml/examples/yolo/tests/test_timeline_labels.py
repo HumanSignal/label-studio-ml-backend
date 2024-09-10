@@ -4,11 +4,12 @@ This file contains tests for the API of your model. You can run these tests by i
 
 import pytest
 import json
+import numpy as np
 
 from label_studio_ml.utils import compare_nested_structures
-from model import YOLO
-from .test_common import client, load_file, TEST_DIR
 from unittest import mock
+from .test_common import client, load_file, TEST_DIR
+from ..utils.converter import convert_timelinelabels_to_probs, convert_probs_to_timelinelabels
 
 
 label_configs = [
@@ -72,3 +73,89 @@ def test_timelinelabels_predict(client, label_config, task, yolo_result, expect)
     data = response.json
     compare_nested_structures(data["results"], expect, rel=1e-3)
 
+
+def test_convert_timelinelabels_to_probs():
+    # Example usage:
+    regions = [
+        {
+            'from_name': 'videoLabels',
+            'id': '0_9',
+            'origin': 'prediction',
+            'to_name': 'video',
+            'type': 'timelinelabels',
+            'value': {
+                'ranges': [{'end': 9, 'start': 0}],
+                'timelinelabels': ['Snow']
+            }
+        },
+        {
+            'from_name': 'videoLabels',
+            'id': '10_15',
+            'origin': 'prediction',
+            'to_name': 'video',
+            'type': 'timelinelabels',
+            'value': {
+                'ranges': [{'end': 15, 'start': 10}],
+                'timelinelabels': ['Rain']
+            }
+        },
+        {
+            'from_name': 'videoLabels',
+            'id': '0_9x',
+            'origin': 'prediction',
+            'to_name': 'video',
+            'type': 'timelinelabels',
+            'value': {
+                'ranges': [{'end': 15, 'start': 14}],
+                'timelinelabels': ['Snow']
+            }
+        },
+    ]
+
+    labels_array, label_mapping = convert_timelinelabels_to_probs(regions)
+
+    # Label Mapping
+    expected_label_mapping = {'Rain': 0, 'Snow': 1}
+
+    # Labels Array
+    expected_labels_array = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 1]
+    ])
+
+    print("Labels Array:\n", labels_array)
+    print("Label Mapping:\n", label_mapping)
+
+    assert label_mapping == expected_label_mapping
+    assert np.array_equal(labels_array, expected_labels_array)
+
+
+def test_convert_probs_to_timelinelabels():
+    # Example usage
+    probs = [
+        [0.8, 0.2],  # Frame 0: 'Rain' has a high probability
+        [0.9, 0.1],  # Frame 1: 'Rain' is still active
+        [0.6, 0.4],  # Frame 2: Both probabilities are near threshold
+        [0.2, 0.7],  # Frame 3: 'Snow' becomes more active
+        [0.1, 0.9]  # Frame 4: 'Snow' has a high probability
+    ]
+    
+    label_mapping = {'Rain': 0, 'Snow': 1}
+    
+    timeline_regions = convert_probs_to_timelinelabels(probs, label_mapping, score_threshold=0.5)
+    
+    for region in timeline_regions:
+        print(region)

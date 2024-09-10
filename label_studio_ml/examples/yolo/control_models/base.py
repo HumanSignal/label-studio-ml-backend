@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, ClassVar
 from ultralytics import YOLO
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface.control_tags import ControlTag
 from label_studio_sdk.label_interface import LabelInterface
 
@@ -90,8 +91,12 @@ class ControlModel(BaseModel):
                 f"Skipping control tag '{control.tag}' with name '{from_name}', model_skip=true found"
             )
             return None
-        # read `model_score_threshold` attribute from the control tag, e.g.: <RectangleLabels model_score_threshold="0.5">
-        model_score_threshold = float(control.attr.get("model_score_threshold") or MODEL_SCORE_THRESHOLD)
+        # read threshold attribute from the control tag, e.g.: <RectangleLabels model_score_threshold="0.5">
+        model_score_threshold = float(
+            control.attr.get("model_score_threshold")
+            or control.attr.get("score_threshold")  # not recommended option, use `model_score_threshold`
+            or MODEL_SCORE_THRESHOLD
+        )
         # read `model_path` attribute from the control tag
         model_path = (
             ALLOW_CUSTOM_MODEL_PATH and control.attr.get("model_path")
@@ -149,6 +154,31 @@ class ControlModel(BaseModel):
             path (str): Path to the file with media
         """
         raise NotImplementedError("This method should be overridden in derived classes")
+
+    def fit(self, event, data, **kwargs):
+        """Fit the model."""
+        logger.warning("The fit method is not implemented for this control model")
+        return False
+
+    def get_path(self, task):
+        task_path = task["data"].get(self.value) or task["data"].get(
+            DATA_UNDEFINED_NAME
+        )
+        if task_path is None:
+            raise ValueError(
+                f"Can't load path using key '{self.value}' from task {task}"
+            )
+        if not isinstance(task_path, str):
+            raise ValueError(f"Path should be a string, but got {task_path}")
+
+        # try path as local file or try to load it from Label Studio instance/download via http
+        path = (
+            task_path
+            if os.path.exists(task_path)
+            else get_local_path(task_path, task_id=task.get("id"))
+        )
+        logger.debug(f"load_image: {task_path} => {path}")
+        return path
 
     def __str__(self):
         """Return a string with full representation of the control tag."""
