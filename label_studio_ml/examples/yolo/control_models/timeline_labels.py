@@ -2,7 +2,7 @@ import logging
 import os.path
 
 from control_models.base import ControlModel, MODEL_ROOT
-from typing import List, Dict, ClassVar
+from typing import List, Dict, ClassVar, Union
 from joblib import Memory
 from utils.neural_nets import MultiLabelNN
 from utils.converter import convert_timelinelabels_to_probs, convert_probs_to_timelinelabels
@@ -14,7 +14,6 @@ memory = Memory("./cache_dir", verbose=0)  # Set up disk-based caching for model
 
 @memory.cache(ignore=["self"])
 def cached_model_predict(self, video_path, cache_params):
-
     last_layer_output_per_frame = []  # Define and register the hook for yolo model to get last layer
 
     def get_last_layer_output(module, input, output):
@@ -38,6 +37,21 @@ def cached_model_predict(self, video_path, cache_params):
     return frame_results
 
 
+_classifiers = {}
+
+
+def get_classifier(model_path: str) -> Union[MultiLabelNN, None]:
+    global _classifiers
+
+    if not os.path.exists(model_path):
+        return None
+
+    if model_path not in _classifiers:
+        _classifiers[model_path] = MultiLabelNN.load(model_path)
+
+    return _classifiers[model_path]
+
+
 class TimelineLabelsModel(ControlModel):
     """
     Class representing a TimelineLabels control tag for YOLO model.
@@ -56,47 +70,45 @@ class TimelineLabelsModel(ControlModel):
         # Support TimelineLabels
         return control.tag == cls.type
 
+    @classmethod
+    def create(cls, *args, **kwargs):
+        instance = super().create(*args, **kwargs)
+        # TODO: check if model_trainable=true, then run this line to avoid skipping of this control model
+        instance.label_map = {label: label for label in instance.control.labels}
+        return instance
+
     def predict_regions(self, video_path) -> List[Dict]:
         frame_results = cached_model_predict(self, video_path, self.model.model_name)
-        return self.create_timelines(frame_results, video_path)
+        return self.create_timelines_active_learning(frame_results, video_path)
 
-    def create_timelines(self, frame_results, video_path):
-        logger.debug(f'create_timelinelabels: {self.from_name}')
+    def create_timelines_simple(self, frame_results, video_path):
+        logger.debug(f'create_timelines_simple: {self.from_name}')
 
         # Initialize a dictionary to keep track of ongoing segments for each label
-        timeline_regions = []
         model_names = self.model.names
-        ongoing_segments = {label: {} for label in self.label_map}
         needed_ids = [i for i, name in model_names.items() if name in self.label_map]
         needed_labels = [name for i, name in model_names.items() if name in self.label_map]
 
-        for i, frame_result in enumerate(frame_results):
-            # Get only needed probabilities for label config labels for the current frame
-            probs = frame_result.probs[needed_ids].data
+        probs = [frame.probs[needed_ids] for frame in frame_results]
+        label_map = {self.label_map[label]: idx for idx, label in enumerate(needed_labels)}
 
-            for index, prob in enumerate(probs):
-                name = needed_labels[index]
+        return convert_probs_to_timelinelabels(probs, label_map, self.model_score_threshold)
 
-                # Only process labels that are in `self.label_map`
-                if name in self.label_map:
-                    segment = ongoing_segments[name]
-                    if prob >= self.model_score_threshold:
-                        # Start a segment for this label
-                        if not segment:
-                            segment["start"] = i
-                    else:
-                        # If a segment was ongoing, close it
-                        if segment:
-                            self.add_timeline_region(i, self.label_map[name], segment, timeline_regions)
-                            # Reset the segment for this label
-                            segment.clear()
+    def create_timelines_active_learning(self, frame_results, video_path):
+        logger.debug(f'create_timelines_active_learning: {self.from_name}')
 
-        # Close any ongoing segments at the end of the video
-        for name, segment in ongoing_segments.items():
-            if segment:
-                self.add_timeline_region(len(frame_results), self.label_map[name], segment, timeline_regions)
+        yolo_probs = [frame.probs for frame in frame_results]
+        path = self.get_classifier_path(self.project_id)
+        classifier = get_classifier(path)
+        if not classifier:
+            logger.warning(f"Classifier model '{path}' not found for {self.control}, maybe it's not trained yet")
+            return []
 
-        return timeline_regions
+        # run MultiLabelNN.predict
+        probs = classifier.predict(yolo_probs)
+        regions = convert_probs_to_timelinelabels(probs, classifier.get_label_map(), self.model_score_threshold)
+
+        return regions
 
     def add_timeline_region(self, i, label, segment, timeline_labels):
         timeline_labels.append({
@@ -119,26 +131,36 @@ class TimelineLabelsModel(ControlModel):
             return False 
 
         if event in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+            # Get the task and regions
             project_id = data['task']['project']
             task = data['task']
             regions = data['annotation']['result']
-            
+
+            # Get the features and labels for training
             video_path = self.get_path(task)
             frame_results = cached_model_predict(self, video_path, self.model.model_name)
             features = [frame.probs for frame in frame_results]
-            labels, mapping = convert_timelinelabels_to_probs(regions, max_frame=len(frame_results))
-            if not label_mapping:
+            labels, label_map = convert_timelinelabels_to_probs(regions, max_frame=len(frame_results))
+            if not features:
+                logger.warning(f"No features or labels found for timelinelabels: {self.control}")
+                return False
+            if not label_map:
                 logger.warning(f"No labels found in regions for timelinelabels: {self.control}")
                 return False
 
-            classifier = MultiLabelNN(input_size=len(features[0]), output_size=len(labels[0]))
-            classifier.partial_fit(features, labels, epochs=3)
-            path = self.get_timeline_labels_model_path(project_id)
-
+            # Load and train the classifier
+            path = self.get_classifier_path(project_id)
+            classifier = get_classifier(path)
+            if not classifier:
+                input_size = len(features[0])
+                output_size = len(label_map)
+                classifier = MultiLabelNN(input_size, output_size)
+            classifier.set_label_map(label_map)
+            classifier.partial_fit(features, labels, epochs=int(self.control.attr.get('epochs', 10)))
             classifier.save(path)
             return True
 
-    def get_timeline_labels_model_path(self, project_id):
+    def get_classifier_path(self, project_id):
         yolo_base_name = os.path.splitext(os.path.basename(self.model.model_name))[0]
         path = f"{MODEL_ROOT}/timelinelabels-{project_id}-{yolo_base_name}-{self.from_name}.pkl"
         return path

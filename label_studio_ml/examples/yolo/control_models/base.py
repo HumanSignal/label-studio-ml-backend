@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, ClassVar
 from ultralytics import YOLO
 
 from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.utils import DATA_UNDEFINED_NAME
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface.control_tags import ControlTag
 from label_studio_sdk.label_interface import LabelInterface
@@ -55,6 +56,7 @@ class ControlModel(BaseModel):
     model_score_threshold: float = 0.5
     label_map: Optional[Dict[str, str]] = {}
     label_studio_ml_backend: LabelStudioMLBase
+    project_id: Optional[str] = None
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -119,6 +121,7 @@ class ControlModel(BaseModel):
             model_score_threshold=model_score_threshold,
             label_map=label_map,
             label_studio_ml_backend=mlbackend,
+            project_id=mlbackend.project_id,
         )
 
     @classmethod

@@ -3,7 +3,6 @@ import logging
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_ml.utils import DATA_UNDEFINED_NAME
 
 from control_models.base import ControlModel
 from control_models.choices import ChoicesModel

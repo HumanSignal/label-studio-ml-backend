@@ -84,7 +84,7 @@ def test_convert_timelinelabels_to_probs():
             'to_name': 'video',
             'type': 'timelinelabels',
             'value': {
-                'ranges': [{'end': 9, 'start': 0}],
+                'ranges': [{'end': 8, 'start': 0}],
                 'timelinelabels': ['Snow']
             }
         },
@@ -95,7 +95,7 @@ def test_convert_timelinelabels_to_probs():
             'to_name': 'video',
             'type': 'timelinelabels',
             'value': {
-                'ranges': [{'end': 15, 'start': 10}],
+                'ranges': [{'end': 14, 'start': 10}],
                 'timelinelabels': ['Rain']
             }
         },
@@ -106,7 +106,7 @@ def test_convert_timelinelabels_to_probs():
             'to_name': 'video',
             'type': 'timelinelabels',
             'value': {
-                'ranges': [{'end': 15, 'start': 14}],
+                'ranges': [{'end': 14, 'start': 14}],
                 'timelinelabels': ['Snow']
             }
         },

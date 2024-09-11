@@ -2,6 +2,7 @@ import pytest
 
 from ..utils.neural_nets import MultiLabelNN
 from label_studio_ml.utils import compare_nested_structures
+import torch
 
 
 def test_multi_label_nn():
@@ -11,7 +12,7 @@ def test_multi_label_nn():
     model = MultiLabelNN(input_size, output_size)
 
     # Replace with actual frame_results[i].probs and labels_array
-    new_data = [[0.9, 0.2, 0.1, 0.3, 0.7, 0.8, 0.5, 0.2, 0.4, 0.6]]  # Example frame_results[i].probs
+    new_data = [torch.tensor([0.9, 0.2, 0.1, 0.3, 0.7, 0.8, 0.5, 0.2, 0.4, 0.6])]  # Example frame_results[i].probs
     new_labels = [[1, 0]]  # Corresponding labels (from labels_array)
 
     # Incrementally train the model on this single new sample
@@ -21,5 +22,9 @@ def test_multi_label_nn():
 
     predictions = model.predict(new_data, threshold=0.5)
     compare_nested_structures(predictions.tolist(), [[1, 0]], abs=0.1)
+
+    model.save("test_model.pt")
+    new_model = MultiLabelNN.load("test_model.pt")
+    print(new_model)
 
 

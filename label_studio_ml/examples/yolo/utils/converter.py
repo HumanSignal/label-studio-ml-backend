@@ -28,7 +28,7 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
         max_frame = 0
         for region in regions:
             for r in region['value']['ranges']:
-                max_frame = max(max_frame, r['end'])
+                max_frame = max(max_frame, r['end']+1)
 
     # Step 3: Create a numpy array with shape (num_frames, num_labels)
     # Initialize it with zeros (no label assigned)
@@ -39,10 +39,12 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
     for region in regions:
         start_frame = region['value']['ranges'][0]['start']
         end_frame = region['value']['ranges'][0]['end']
+        end_frame = end_frame + (1 if end_frame <  max_frame else 0)  # close the gap
         label_name = region['value']['timelinelabels'][0]
         label_idx = label_mapping[label_name]
 
         # Set the corresponding frames to 1 for the given label
+
         labels_array[start_frame:end_frame, label_idx] = 1
 
     return labels_array, label_mapping
