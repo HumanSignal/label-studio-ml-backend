@@ -1,15 +1,16 @@
+import gc
 import logging
 import os.path
 
 from control_models.base import ControlModel, MODEL_ROOT
 from typing import List, Dict, ClassVar, Union
 from joblib import Memory
-from utils.neural_nets import MultiLabelNN
+from utils.neural_nets import MultiLabelNN, MultiLabelLSTM
 from utils.converter import convert_timelinelabels_to_probs, convert_probs_to_timelinelabels
 
 
 logger = logging.getLogger(__name__)
-memory = Memory("./cache_dir", verbose=0)  # Set up disk-based caching for model results
+memory = Memory("./cache_dir", verbose=1)  # Set up disk-based caching for model results
 
 
 @memory.cache(ignore=["self"])
@@ -28,12 +29,13 @@ def cached_model_predict(self, video_path, cache_params):
     
     # Replace probs with last layer outputs
     for i in range(len(frame_results)):
-        frame_results[i].probs = last_layer_output_per_frame[i][0]
+        frame_results[i].probs = last_layer_output_per_frame[i][0] # => tensor
+        # frame_results[i].probs = frame_results[i].probs.data  # convert to tensor
         frame_results[i].orig_img = None
 
     # Remove the hook
     hook_handle.remove()
-
+    gc.collect()
     return frame_results
 
 
@@ -104,25 +106,11 @@ class TimelineLabelsModel(ControlModel):
             logger.warning(f"Classifier model '{path}' not found for {self.control}, maybe it's not trained yet")
             return []
 
-        # run MultiLabelNN.predict
+        # run predict and convert to timelinelabels
         probs = classifier.predict(yolo_probs)
         regions = convert_probs_to_timelinelabels(probs, classifier.get_label_map(), self.model_score_threshold)
 
         return regions
-
-    def add_timeline_region(self, i, label, segment, timeline_labels):
-        timeline_labels.append({
-            "id": f"{segment['start']}_{i}",
-            "type": "timelinelabels",
-            "value": {
-                "ranges": [{"start": segment['start'], "end": i}],
-                "timelinelabels": [label]
-            },
-            "origin": "manual",
-            "to_name": self.to_name,
-            "from_name": self.from_name
-        })
-        return timeline_labels
 
     def fit(self, event, data, **kwargs):
         """Fit the model."""
@@ -135,6 +123,10 @@ class TimelineLabelsModel(ControlModel):
             project_id = data['task']['project']
             task = data['task']
             regions = data['annotation']['result']
+            epochs = int(self.control.attr.get('model_epochs', 50))
+            classifier_type = self.control.attr.get('model_classifier_type', 'MultiLabelLSTM')
+            assert classifier_type in ['MultiLabelNN', 'MultiLabelLSTM']
+            sequence_size = int(self.control.attr.get('model_sequence_size', 32))
 
             # Get the features and labels for training
             video_path = self.get_path(task)
@@ -148,15 +140,28 @@ class TimelineLabelsModel(ControlModel):
                 logger.warning(f"No labels found in regions for timelinelabels: {self.control}")
                 return False
 
-            # Load and train the classifier
+            # Load classifier
             path = self.get_classifier_path(project_id)
             classifier = get_classifier(path)
-            if not classifier:
+
+            # Create a new classifier instance if it doesn't exist
+            # or if labeling config has changed
+            if (
+                not classifier
+                or classifier.label_map != label_map
+                or classifier.__class__.__name__ != classifier_type
+            ):
                 input_size = len(features[0])
                 output_size = len(label_map)
-                classifier = MultiLabelNN(input_size, output_size)
-            classifier.set_label_map(label_map)
-            classifier.partial_fit(features, labels, epochs=int(self.control.attr.get('epochs', 10)))
+                classifier = (
+                    MultiLabelNN(input_size, output_size)
+                    if classifier_type == 'MultiLabelNN' else
+                    MultiLabelLSTM(input_size, output_size, sequence_size=sequence_size)
+                )
+                classifier.set_label_map(label_map)
+
+            # Train and save
+            classifier.partial_fit(features, labels, epochs=epochs)
             classifier.save(path)
             return True
 
