@@ -2,8 +2,10 @@ import numpy as np
 from typing import List, Dict
 
 
-def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.ndarray, Dict):
-    """ Generated numpy array with shape (num_frames, num_labels) and label mapping from timeline regions.
+def convert_timelinelabels_to_probs(
+    regions: List[Dict], max_frame=None
+) -> (np.ndarray, Dict):
+    """Generated numpy array with shape (num_frames, num_labels) and label mapping from timeline regions.
     Args:
         regions: List of timeline regions from annotation
         max_frame: Maximum frame number in video
@@ -16,7 +18,7 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
 
     # Identify all unique labels
     for region in regions:
-        labels = region['value']['timelinelabels']
+        labels = region["value"]["timelinelabels"]
         all_labels.update(labels)
 
     # Assign each label an index for the Y-axis in the output array
@@ -26,8 +28,8 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
     if max_frame is None:
         max_frame = 0
         for region in regions:
-            for r in region['value']['ranges']:
-                max_frame = max(max_frame, r['end']+1)
+            for r in region["value"]["ranges"]:
+                max_frame = max(max_frame, r["end"] + 1)
 
     # Step 3: Create a numpy array with shape (num_frames, num_labels)
     # Initialize it with zeros (no label assigned)
@@ -36,10 +38,10 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
 
     # Step 4: Populate the array with labels based on frame ranges
     for region in regions:
-        start_frame = region['value']['ranges'][0]['start']
-        end_frame = region['value']['ranges'][0]['end']
+        start_frame = region["value"]["ranges"][0]["start"]
+        end_frame = region["value"]["ranges"][0]["end"]
         end_frame = end_frame + (1 if end_frame < max_frame else 0)  # close the gap
-        label_name = region['value']['timelinelabels'][0]
+        label_name = region["value"]["timelinelabels"][0]
         label_idx = label_mapping[label_name]
 
         # Set the corresponding frames to 1 for the given label
@@ -48,7 +50,9 @@ def convert_timelinelabels_to_probs(regions: List[Dict], max_frame=None) -> (np.
     return labels_array, label_mapping
 
 
-def convert_probs_to_timelinelabels(probs, label_mapping, score_threshold=0.5) -> List[Dict]:
+def convert_probs_to_timelinelabels(
+    probs, label_mapping, score_threshold=0.5
+) -> List[Dict]:
     """
     Generate timeline labels regions based on the given probabilities and label mapping.
 
@@ -103,14 +107,16 @@ def add_timeline_region(i, label, segment, timeline_labels):
     """
     Helper function to add a timeline region to the timeline_labels list.
     """
-    timeline_labels.append({
-        "id": f"{segment['start']}_{i}",
-        "type": "timelinelabels",
-        "value": {
-            "ranges": [{"start": segment['start'], "end": i}],
-            "timelinelabels": [label]
-        },
-        "to_name": "video",  # Customize if needed
-        "from_name": "videoLabels"  # Customize if needed
-    })
+    timeline_labels.append(
+        {
+            "id": f"{segment['start']}_{i}",
+            "type": "timelinelabels",
+            "value": {
+                "ranges": [{"start": segment["start"], "end": i}],
+                "timelinelabels": [label],
+            },
+            "to_name": "video",  # Customize if needed
+            "from_name": "videoLabels",  # Customize if needed
+        }
+    )
     return timeline_labels

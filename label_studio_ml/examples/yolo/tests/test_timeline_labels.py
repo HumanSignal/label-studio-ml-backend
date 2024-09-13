@@ -9,7 +9,10 @@ import numpy as np
 from label_studio_ml.utils import compare_nested_structures
 from unittest import mock
 from .test_common import client, load_file, TEST_DIR
-from ..utils.converter import convert_timelinelabels_to_probs, convert_probs_to_timelinelabels
+from ..utils.converter import (
+    convert_timelinelabels_to_probs,
+    convert_probs_to_timelinelabels,
+)
 
 
 label_configs = [
@@ -30,13 +33,11 @@ tasks = [
     {"data": {"video": "tests/opossum_snow_short.mp4"}},
 ]
 
-yolo_results = [
-    None # load_file(TEST_DIR + "/timeline_labels.pickle")
-]
+yolo_results = [None]  # load_file(TEST_DIR + "/timeline_labels.pickle")
 
 expected = [
     # test 1: one control tag with rectangle labels
-    None # load_file(TEST_DIR + "/timeline_labels_1.json"),
+    None  # load_file(TEST_DIR + "/timeline_labels_1.json"),
 ]
 
 
@@ -78,63 +79,56 @@ def test_convert_timelinelabels_to_probs():
     # Example usage:
     regions = [
         {
-            'from_name': 'videoLabels',
-            'id': '0_9',
-            'origin': 'prediction',
-            'to_name': 'video',
-            'type': 'timelinelabels',
-            'value': {
-                'ranges': [{'end': 8, 'start': 0}],
-                'timelinelabels': ['Snow']
-            }
+            "from_name": "videoLabels",
+            "id": "0_9",
+            "origin": "prediction",
+            "to_name": "video",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"end": 8, "start": 0}], "timelinelabels": ["Snow"]},
         },
         {
-            'from_name': 'videoLabels',
-            'id': '10_15',
-            'origin': 'prediction',
-            'to_name': 'video',
-            'type': 'timelinelabels',
-            'value': {
-                'ranges': [{'end': 14, 'start': 10}],
-                'timelinelabels': ['Rain']
-            }
+            "from_name": "videoLabels",
+            "id": "10_15",
+            "origin": "prediction",
+            "to_name": "video",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"end": 14, "start": 10}], "timelinelabels": ["Rain"]},
         },
         {
-            'from_name': 'videoLabels',
-            'id': '0_9x',
-            'origin': 'prediction',
-            'to_name': 'video',
-            'type': 'timelinelabels',
-            'value': {
-                'ranges': [{'end': 14, 'start': 14}],
-                'timelinelabels': ['Snow']
-            }
+            "from_name": "videoLabels",
+            "id": "0_9x",
+            "origin": "prediction",
+            "to_name": "video",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"end": 14, "start": 14}], "timelinelabels": ["Snow"]},
         },
     ]
 
     labels_array, label_mapping = convert_timelinelabels_to_probs(regions)
 
     # Label Mapping
-    expected_label_mapping = {'Rain': 0, 'Snow': 1}
+    expected_label_mapping = {"Rain": 0, "Snow": 1}
 
     # Labels Array
-    expected_labels_array = np.array([
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-        [0, 0],
-        [1, 0],
-        [1, 0],
-        [1, 0],
-        [1, 0],
-        [1, 1]
-    ])
+    expected_labels_array = np.array(
+        [
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+            [0, 0],
+            [1, 0],
+            [1, 0],
+            [1, 0],
+            [1, 0],
+            [1, 1],
+        ]
+    )
 
     print("Labels Array:\n", labels_array)
     print("Label Mapping:\n", label_mapping)
@@ -150,12 +144,14 @@ def test_convert_probs_to_timelinelabels():
         [0.9, 0.1],  # Frame 1: 'Rain' is still active
         [0.6, 0.4],  # Frame 2: Both probabilities are near threshold
         [0.2, 0.7],  # Frame 3: 'Snow' becomes more active
-        [0.1, 0.9]  # Frame 4: 'Snow' has a high probability
+        [0.1, 0.9],  # Frame 4: 'Snow' has a high probability
     ]
-    
-    label_mapping = {'Rain': 0, 'Snow': 1}
-    
-    timeline_regions = convert_probs_to_timelinelabels(probs, label_mapping, score_threshold=0.5)
-    
+
+    label_mapping = {"Rain": 0, "Snow": 1}
+
+    timeline_regions = convert_probs_to_timelinelabels(
+        probs, label_mapping, score_threshold=0.5
+    )
+
     for region in timeline_regions:
         print(region)

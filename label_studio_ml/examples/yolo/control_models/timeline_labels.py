@@ -2,64 +2,21 @@ import logging
 import os.path
 
 from control_models.base import ControlModel, MODEL_ROOT
-from typing import List, Dict, ClassVar, Union
-from joblib import Memory
-from utils.neural_nets import MultiLabelNN, MultiLabelLSTM
-from utils.converter import convert_timelinelabels_to_probs, convert_probs_to_timelinelabels
+from typing import List, Dict
+from utils.neural_nets import BaseNN, MultiLabelLSTM, cached_feature_extraction
+from utils.converter import (
+    convert_timelinelabels_to_probs,
+    convert_probs_to_timelinelabels,
+)
 
 
 logger = logging.getLogger(__name__)
-memory = Memory("./cache_dir", verbose=1)  # Set up disk-based caching for model results
-
-
-@memory.cache(ignore=["self"])
-def cached_model_predict(self, video_path, cache_params):
-    layer_output = [None]
-
-    def get_last_layer_output(module, input, output):
-        layer_output[0] = input
-
-    # Register the hook on the last layer of the model
-    layer = self.model.model.model[-1].linear
-    hook_handle = layer.register_forward_hook(get_last_layer_output)
-
-    # Run model prediction
-    generator = self.model.predict(video_path, stream=True)
-    
-    # Replace probs with last layer outputs
-    frames = []
-    for frame in generator:
-        frame.orig_img = None
-        frame.probs = layer_output[0][0][0]  # => tensor, 1280 floats for yolov8n-cls
-        # frame.probs = frame.probs.data  # convert to tensor
-        frames.append(frame)
-
-    # Remove the hook
-    hook_handle.remove()
-    return frames
-
-
-_classifiers = {}
-
-
-def get_classifier(model_path: str) -> Union[MultiLabelNN, None]:
-    global _classifiers
-
-    if not os.path.exists(model_path):
-        return None
-
-    if model_path not in _classifiers:
-        _classifiers[model_path] = MultiLabelNN.load(model_path)
-
-    return _classifiers[model_path]
 
 
 class TimelineLabelsModel(ControlModel):
     """
     Class representing a TimelineLabels control tag for YOLO model.
     """
-    class Config:
-        arbitrary_types_allowed = True
 
     type = "TimelineLabels"
     model_path = "yolov8n-cls.pt"
@@ -80,88 +37,116 @@ class TimelineLabelsModel(ControlModel):
         return instance
 
     def predict_regions(self, video_path) -> List[Dict]:
-        frame_results = cached_model_predict(self, video_path, self.model.model_name)
+        frame_results = cached_feature_extraction(
+            self.model, video_path, self.model.model_name
+        )
         return self.create_timelines_active_learning(frame_results, video_path)
 
     def create_timelines_simple(self, frame_results, video_path):
-        logger.debug(f'create_timelines_simple: {self.from_name}')
+        logger.debug(f"create_timelines_simple: {self.from_name}")
 
         # Initialize a dictionary to keep track of ongoing segments for each label
         model_names = self.model.names
         needed_ids = [i for i, name in model_names.items() if name in self.label_map]
-        needed_labels = [name for i, name in model_names.items() if name in self.label_map]
+        needed_labels = [
+            name for i, name in model_names.items() if name in self.label_map
+        ]
 
         probs = [frame.probs[needed_ids] for frame in frame_results]
-        label_map = {self.label_map[label]: idx for idx, label in enumerate(needed_labels)}
+        label_map = {
+            self.label_map[label]: idx for idx, label in enumerate(needed_labels)
+        }
 
-        return convert_probs_to_timelinelabels(probs, label_map, self.model_score_threshold)
+        return convert_probs_to_timelinelabels(
+            probs, label_map, self.model_score_threshold
+        )
 
     def create_timelines_active_learning(self, frame_results, video_path):
-        logger.debug(f'create_timelines_active_learning: {self.from_name}')
+        logger.debug(f"create_timelines_active_learning: {self.from_name}")
 
         yolo_probs = [frame.probs for frame in frame_results]
         path = self.get_classifier_path(self.project_id)
-        classifier = get_classifier(path)
+        classifier = BaseNN.load_cached_model(path)
         if not classifier:
-            logger.warning(f"Classifier model '{path}' not found for {self.control}, maybe it's not trained yet")
-            return []
+            raise ValueError(
+                f"Classifier model '{path}' not found for {self.control}, maybe it's not trained yet"
+            )
 
         # run predict and convert to timelinelabels
         probs = classifier.predict(yolo_probs)
-        regions = convert_probs_to_timelinelabels(probs, classifier.get_label_map(), self.model_score_threshold)
+        regions = convert_probs_to_timelinelabels(
+            probs, classifier.get_label_map(), self.model_score_threshold
+        )
 
         return regions
 
     def fit(self, event, data, **kwargs):
         """Fit the model."""
-        if event == 'START_TRAINING':
-            logger.warning(f"The event START_TRAINING is not supported for this control model: {self.control.tag}")
-            return False 
+        if event == "START_TRAINING":
+            logger.warning(
+                f"The event START_TRAINING is not supported for this control model: {self.control.tag}"
+            )
+            return False
 
-        if event in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED'):
+        if event in ("ANNOTATION_CREATED", "ANNOTATION_UPDATED"):
             # Get the task and regions
-            project_id = data['task']['project']
-            task = data['task']
-            regions = data['annotation']['result']
-            epochs = int(self.control.attr.get('model_epochs', 50))
-            classifier_type = self.control.attr.get('model_classifier_type', 'MultiLabelLSTM')
-            assert classifier_type in ['MultiLabelNN', 'MultiLabelLSTM']
-            sequence_size = int(self.control.attr.get('model_sequence_size', 32))
+            task = data["task"]
+            project_id = task["project"]
+            regions = data["annotation"]["result"]
+
+            get = self.control.attr.get
+            # Maximum number of training epochs
+            epochs = int(get("model_classifier_epochs", 50))
+            # LSTM sequence size
+            sequence_size = int(get("model_classifier_sequence_size", 64))
+            # LSTM hidden state size
+            hidden_size = int(get("model_classifier_hidden_size", 16))
+            # Stop training when accuracy reaches this threshold, it helps to avoid overfitting
+            # because we partially train it on a small dataset from one annotation only
+            accuracy_threshold = float(get("model_classifier_accuracy_threshold", 0.95))
 
             # Get the features and labels for training
             video_path = self.get_path(task)
-            frame_results = cached_model_predict(self, video_path, self.model.model_name)
-            features = [frame.probs for frame in frame_results]
-            labels, label_map = convert_timelinelabels_to_probs(regions, max_frame=len(frame_results))
+            frames = cached_feature_extraction(
+                self.model, video_path, self.model.model_name
+            )
+            features = [frame.probs for frame in frames]
+            labels, label_map = convert_timelinelabels_to_probs(
+                regions, max_frame=len(frames)
+            )
             if not features:
-                logger.warning(f"No features or labels found for timelinelabels: {self.control}")
+                logger.warning(f"No features got for timelinelabels: {self.control}")
                 return False
             if not label_map:
-                logger.warning(f"No labels found in regions for timelinelabels: {self.control}")
+                logger.warning(f"No labels found for timelinelabels: {self.control}")
                 return False
 
             # Load classifier
             path = self.get_classifier_path(project_id)
-            classifier = get_classifier(path)
+            classifier = BaseNN.load_cached_model(path)
 
             # Create a new classifier instance if it doesn't exist
             # or if labeling config has changed
             if (
                 not classifier
                 or classifier.label_map != label_map
-                or classifier.__class__.__name__ != classifier_type
+                or classifier.sequence_size != sequence_size
+                or classifier.hidden_size != hidden_size
             ):
                 input_size = len(features[0])
                 output_size = len(label_map)
-                classifier = (
-                    MultiLabelNN(input_size, output_size)
-                    if classifier_type == 'MultiLabelNN' else
-                    MultiLabelLSTM(input_size, output_size, sequence_size=sequence_size)
+                classifier = MultiLabelLSTM(
+                    input_size,
+                    output_size,
+                    sequence_size=sequence_size,
+                    hidden_size=hidden_size,
                 )
                 classifier.set_label_map(label_map)
 
             # Train and save
-            classifier.partial_fit(features, labels, epochs=epochs)
+            classifier.partial_fit(
+                features, labels, epochs=epochs, accuracy_threshold=accuracy_threshold
+            )
             classifier.save(path)
             return True
 
@@ -171,5 +156,5 @@ class TimelineLabelsModel(ControlModel):
         return path
 
 
-# Preload and cache the default model at startup
+# Preload and cache the default yolo model at startup
 TimelineLabelsModel.get_cached_model(TimelineLabelsModel.model_path)
