@@ -1,4 +1,3 @@
-import gc
 import logging
 import os.path
 
@@ -15,28 +14,29 @@ memory = Memory("./cache_dir", verbose=1)  # Set up disk-based caching for model
 
 @memory.cache(ignore=["self"])
 def cached_model_predict(self, video_path, cache_params):
-    last_layer_output_per_frame = []  # Define and register the hook for yolo model to get last layer
+    layer_output = [None]
 
     def get_last_layer_output(module, input, output):
-        last_layer_output_per_frame.append(output)
+        layer_output[0] = input
 
     # Register the hook on the last layer of the model
-    last_layer = self.model.model.model[-1]  # Adjust depending on your model structure
-    hook_handle = last_layer.register_forward_hook(get_last_layer_output)
+    layer = self.model.model.model[-1].linear
+    hook_handle = layer.register_forward_hook(get_last_layer_output)
 
     # Run model prediction
-    frame_results = self.model.predict(video_path)
+    generator = self.model.predict(video_path, stream=True)
     
     # Replace probs with last layer outputs
-    for i in range(len(frame_results)):
-        frame_results[i].probs = last_layer_output_per_frame[i][0] # => tensor
-        # frame_results[i].probs = frame_results[i].probs.data  # convert to tensor
-        frame_results[i].orig_img = None
+    frames = []
+    for frame in generator:
+        frame.orig_img = None
+        frame.probs = layer_output[0][0][0]  # => tensor, 1280 floats for yolov8n-cls
+        # frame.probs = frame.probs.data  # convert to tensor
+        frames.append(frame)
 
     # Remove the hook
     hook_handle.remove()
-    gc.collect()
-    return frame_results
+    return frames
 
 
 _classifiers = {}
