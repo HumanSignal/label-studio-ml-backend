@@ -93,6 +93,7 @@ class MultiLabelLSTM(BaseNN):
         hidden_size=16,
         num_layers=1,
         sequence_size=64,
+        learning_rate=1e-4,
         device=None,
     ):
         super(MultiLabelLSTM, self).__init__()
@@ -100,6 +101,8 @@ class MultiLabelLSTM(BaseNN):
         # Split the input data into sequences of sequence_size
         self.sequence_size = sequence_size
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.learning_rate = learning_rate
 
         # Reduce dimensionality of input data
         self.fc_input = nn.Linear(input_size, fc_size)
@@ -118,7 +121,7 @@ class MultiLabelLSTM(BaseNN):
         self.criterion = (
             nn.BCELoss()
         )  # Binary cross-entropy for multi-label classification
-        self.optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
 
         # Initialize device (CPU or GPU)
         self.device = device if device else torch.device("cpu")
@@ -181,7 +184,7 @@ class MultiLabelLSTM(BaseNN):
         return correct / total
 
     def partial_fit(
-        self, sequence, labels, batch_size=32, epochs=100, accuracy_threshold=0.95
+        self, sequence, labels, batch_size=32, epochs=1000, accuracy_threshold=0.95
     ):
         """Train the model on the given sequence data.
         Args:
@@ -237,6 +240,7 @@ class MultiLabelLSTM(BaseNN):
             return torch.tensor([])
 
         batches, _ = self.preprocess_sequence(sequence, overlap=1)
+        self.eval()
         logits = self(batches)
 
         # Concatenate batches to sequence back

@@ -9,7 +9,7 @@ def test_multi_label_lstm():
     input_size = 50  # Number of features per time step
     output_size = 2  # Number of output classes (multi-label classification)
     seq_len = 72  # Sequence length (number of time steps)
-    hidden_size = 8  # LSTM hidden state size
+    hidden_size = 16  # LSTM hidden state size
 
     # Initialize device (CPU or GPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,7 +29,7 @@ def test_multi_label_lstm():
     ).tolist()  # Shape: (batch_size, seq_len, output_size)
 
     # Perform partial training with batch size of 16
-    model.partial_fit(data, labels, batch_size=16, epochs=500, accuracy_threshold=0.999)
+    model.partial_fit(data, labels, batch_size=16, epochs=1000, accuracy_threshold=0.999)
 
     # Example prediction
     predictions = model.predict(data)

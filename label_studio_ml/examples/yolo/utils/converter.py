@@ -62,17 +62,16 @@ def convert_probs_to_timelinelabels(
     - score_threshold: threshold above which a label is considered active for a frame
 
     Returns:
-    - timeline_regions: List of regions in Label Studio format
+    - regions: List of regions in Label Studio format
     """
 
     # Initialize a dictionary to keep track of ongoing segments for each label
-    timeline_regions = []
+    regions = []
     ongoing_segments = {label: {} for label in label_mapping}
 
     num_frames = len(probs)  # Number of frames
     if num_frames == 0:
-        return timeline_regions
-    num_labels = len(probs[0])  # Number of labels
+        return regions
 
     # Iterate through each frame
     for i in range(num_frames):
@@ -89,34 +88,40 @@ def convert_probs_to_timelinelabels(
                 # Start a new segment if none exists
                 if not segment:
                     segment["start"] = i
+                    segment["label"] = label
+                    segment["score"] = float(prob)
+                else:
+                    segment["score"] += float(prob)
             else:
                 # Close the ongoing segment if probability falls below the threshold
                 if segment:
-                    add_timeline_region(i, label, segment, timeline_regions)
+                    segment["end"] = i
+                    segment["score"] /= (i - segment["start"])
+                    regions.append(get_timeline_region(**segment))
                     segment.clear()
 
     # Close any ongoing segments at the end of the video
     for label, segment in ongoing_segments.items():
         if segment:
-            add_timeline_region(num_frames, label, segment, timeline_regions)
+            segment['end'] = num_frames
+            segment['score'] /= (num_frames - segment['start'])
+            regions.append(get_timeline_region(**segment))
 
-    return timeline_regions
+    return regions
 
 
-def add_timeline_region(i, label, segment, timeline_labels):
+def get_timeline_region(start, end, label, score):
     """
     Helper function to add a timeline region to the timeline_labels list.
     """
-    timeline_labels.append(
-        {
-            "id": f"{segment['start']}_{i}",
-            "type": "timelinelabels",
-            "value": {
-                "ranges": [{"start": segment["start"], "end": i}],
-                "timelinelabels": [label],
-            },
-            "to_name": "video",  # Customize if needed
-            "from_name": "videoLabels",  # Customize if needed
-        }
-    )
-    return timeline_labels
+    return {
+        "id": f"{start}_{end}",
+        "type": "timelinelabels",
+        "value": {
+            "ranges": [{"start": start, "end": end}],
+            "timelinelabels": [label],
+        },
+        "to_name": "video",  # Customize if needed
+        "from_name": "videoLabels",  # Customize if needed
+        "score": score,
+    }

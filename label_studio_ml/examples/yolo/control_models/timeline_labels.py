@@ -96,11 +96,13 @@ class TimelineLabelsModel(ControlModel):
 
             get = self.control.attr.get
             # Maximum number of training epochs
-            epochs = int(get("model_classifier_epochs", 50))
+            epochs = int(get("model_classifier_epochs", 1000))
             # LSTM sequence size
             sequence_size = int(get("model_classifier_sequence_size", 64))
             # LSTM hidden state size
-            hidden_size = int(get("model_classifier_hidden_size", 16))
+            hidden_size = int(get("model_classifier_hidden_size", 32))
+            # LSTM num layers
+            num_layers = int(get("model_classifier_num_layers", 1))
             # Stop training when accuracy reaches this threshold, it helps to avoid overfitting
             # because we partially train it on a small dataset from one annotation only
             accuracy_threshold = float(get("model_classifier_accuracy_threshold", 0.95))
@@ -132,6 +134,7 @@ class TimelineLabelsModel(ControlModel):
                 or classifier.label_map != label_map
                 or classifier.sequence_size != sequence_size
                 or classifier.hidden_size != hidden_size
+                or classifier.num_layers != num_layers
             ):
                 input_size = len(features[0])
                 output_size = len(label_map)
@@ -140,6 +143,7 @@ class TimelineLabelsModel(ControlModel):
                     output_size,
                     sequence_size=sequence_size,
                     hidden_size=hidden_size,
+                    num_layers=num_layers,
                 )
                 classifier.set_label_map(label_map)
 
