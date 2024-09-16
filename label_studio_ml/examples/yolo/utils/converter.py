@@ -1,28 +1,38 @@
 import numpy as np
+
 from typing import List, Dict
 
 
+def get_label_map(labels: List[str]) -> Dict:
+    """
+    Generate a label map from a list of labels.
+    Args:
+        labels: List of label names
+    Returns:
+        label_map: Dictionary mapping label names to indices
+    """
+    return {label: idx for idx, label in enumerate(sorted(labels))}
+
+
 def convert_timelinelabels_to_probs(
-    regions: List[Dict], max_frame=None
+    regions: List[Dict], label_map: Dict[str, int], max_frame=None
 ) -> (np.ndarray, Dict):
     """Generated numpy array with shape (num_frames, num_labels) and label mapping from timeline regions.
     Args:
         regions: List of timeline regions from annotation
+        label_map: Dictionary mapping label names to indices
         max_frame: Maximum frame number in video
     Returns:
         labels_array: Numpy array with shape (num_frames, num_labels)
-        label_mapping: Mapping of label names to indices
+        used_labels: Labels that were used in the regions
     """
     # Step 1: Collect all unique labels and map them to an index
-    all_labels = set()
+    used_labels = set()
 
-    # Identify all unique labels
+    # Step 1: Identify all unique labels
     for region in regions:
         labels = region["value"]["timelinelabels"]
-        all_labels.update(labels)
-
-    # Assign each label an index for the Y-axis in the output array
-    label_mapping = {label: idx for idx, label in enumerate(sorted(all_labels))}
+        used_labels.update(labels)
 
     # Step 2: Find the maximum frame index to define the array's X-axis size
     if max_frame is None:
@@ -33,21 +43,20 @@ def convert_timelinelabels_to_probs(
 
     # Step 3: Create a numpy array with shape (num_frames, num_labels)
     # Initialize it with zeros (no label assigned)
-    num_labels = len(label_mapping)
+    num_labels = len(label_map)
     labels_array = np.zeros((max_frame, num_labels), dtype=int)
 
     # Step 4: Populate the array with labels based on frame ranges
     for region in regions:
-        start_frame = region["value"]["ranges"][0]["start"]
+        start_frame = region["value"]["ranges"][0]["start"] - 1
         end_frame = region["value"]["ranges"][0]["end"]
-        end_frame = end_frame + (1 if end_frame < max_frame else 0)  # close the gap
         label_name = region["value"]["timelinelabels"][0]
-        label_idx = label_mapping[label_name]
+        label_idx = label_map[label_name]
 
         # Set the corresponding frames to 1 for the given label
         labels_array[start_frame:end_frame, label_idx] = 1
 
-    return labels_array, label_mapping
+    return labels_array, used_labels
 
 
 def convert_probs_to_timelinelabels(
@@ -66,7 +75,7 @@ def convert_probs_to_timelinelabels(
     """
 
     # Initialize a dictionary to keep track of ongoing segments for each label
-    regions = []
+    regions, added = [], 0
     ongoing_segments = {label: {} for label in label_mapping}
 
     num_frames = len(probs)  # Number of frames
@@ -87,16 +96,18 @@ def convert_probs_to_timelinelabels(
             if prob >= score_threshold:
                 # Start a new segment if none exists
                 if not segment:
-                    segment["start"] = i
+                    segment['idx'] = added
+                    segment["start"] = i + 1
                     segment["label"] = label
                     segment["score"] = float(prob)
+                    added += 1
                 else:
                     segment["score"] += float(prob)
             else:
                 # Close the ongoing segment if probability falls below the threshold
                 if segment:
                     segment["end"] = i
-                    segment["score"] /= (i - segment["start"])
+                    segment["score"] /= (i - (segment["start"]-1))
                     regions.append(get_timeline_region(**segment))
                     segment.clear()
 
@@ -104,18 +115,18 @@ def convert_probs_to_timelinelabels(
     for label, segment in ongoing_segments.items():
         if segment:
             segment['end'] = num_frames
-            segment['score'] /= (num_frames - segment['start'])
+            segment['score'] /= (num_frames - (segment['start']-1))
             regions.append(get_timeline_region(**segment))
 
     return regions
 
 
-def get_timeline_region(start, end, label, score):
+def get_timeline_region(idx, start, end, label, score):
     """
     Helper function to add a timeline region to the timeline_labels list.
     """
     return {
-        "id": f"{start}_{end}",
+        "id": f"{idx}_{start}_{end}",
         "type": "timelinelabels",
         "value": {
             "ranges": [{"start": start, "end": end}],

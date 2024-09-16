@@ -5,6 +5,7 @@ from control_models.base import ControlModel, MODEL_ROOT
 from typing import List, Dict
 from utils.neural_nets import BaseNN, MultiLabelLSTM, cached_feature_extraction
 from utils.converter import (
+    get_label_map,
     convert_timelinelabels_to_probs,
     convert_probs_to_timelinelabels,
 )
@@ -105,7 +106,7 @@ class TimelineLabelsModel(ControlModel):
             num_layers = int(get("model_classifier_num_layers", 1))
             # Stop training when accuracy reaches this threshold, it helps to avoid overfitting
             # because we partially train it on a small dataset from one annotation only
-            accuracy_threshold = float(get("model_classifier_accuracy_threshold", 0.95))
+            f1_score_threshold = float(get("model_classifier_f1_score_threshold", 0.95))
 
             # Get the features and labels for training
             video_path = self.get_path(task)
@@ -113,14 +114,14 @@ class TimelineLabelsModel(ControlModel):
                 self.model, video_path, self.model.model_name
             )
             features = [frame.probs for frame in frames]
-            labels, label_map = convert_timelinelabels_to_probs(
-                regions, max_frame=len(frames)
+            label_map = get_label_map(self.control.labels)
+            labels, used_labels = convert_timelinelabels_to_probs(
+                regions, label_map=label_map, max_frame=len(frames)
             )
-            if not features:
-                logger.warning(f"No features got for timelinelabels: {self.control}")
-                return False
-            if not label_map:
-                logger.warning(f"No labels found for timelinelabels: {self.control}")
+            # check if all labels from used_labels are in the label_map
+            if not used_labels.issubset(label_map.keys()):
+                logger.warning(f"Annotation labels ({used_labels}) are not subset "
+                               f"of labels from the labeling config: {self.control}")
                 return False
 
             # Load classifier
@@ -136,6 +137,7 @@ class TimelineLabelsModel(ControlModel):
                 or classifier.hidden_size != hidden_size
                 or classifier.num_layers != num_layers
             ):
+                logger.info("Creating a new classifier model for timelinelabels")
                 input_size = len(features[0])
                 output_size = len(label_map)
                 classifier = MultiLabelLSTM(
@@ -149,7 +151,7 @@ class TimelineLabelsModel(ControlModel):
 
             # Train and save
             classifier.partial_fit(
-                features, labels, epochs=epochs, accuracy_threshold=accuracy_threshold
+                features, labels, epochs=epochs, f1_score_threshold=f1_score_threshold
             )
             classifier.save(path)
             return True

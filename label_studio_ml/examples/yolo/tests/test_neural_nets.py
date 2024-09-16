@@ -19,6 +19,7 @@ def test_multi_label_lstm():
         input_size=input_size,
         output_size=output_size,
         hidden_size=hidden_size,
+        dropout_rate=0.05,
         device=device,
     )
 
@@ -29,7 +30,7 @@ def test_multi_label_lstm():
     ).tolist()  # Shape: (batch_size, seq_len, output_size)
 
     # Perform partial training with batch size of 16
-    model.partial_fit(data, labels, batch_size=16, epochs=1000, accuracy_threshold=0.999)
+    model.partial_fit(data, labels, batch_size=16, epochs=1000, accuracy_threshold=0.999, f1_score_threshold=0.999)
 
     # Example prediction
     predictions = model.predict(data)

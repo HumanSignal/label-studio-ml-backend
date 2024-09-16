@@ -103,11 +103,11 @@ def test_convert_timelinelabels_to_probs():
             "value": {"ranges": [{"end": 14, "start": 14}], "timelinelabels": ["Snow"]},
         },
     ]
-
-    labels_array, label_mapping = convert_timelinelabels_to_probs(regions)
+    label_map = {"Rain": 0, "Snow": 1}
+    labels_array, used_labels = convert_timelinelabels_to_probs(regions, label_map)
 
     # Label Mapping
-    expected_label_mapping = {"Rain": 0, "Snow": 1}
+    expected_used_labels = {"Rain", "Snow"}
 
     # Labels Array
     expected_labels_array = np.array(
@@ -131,27 +131,103 @@ def test_convert_timelinelabels_to_probs():
     )
 
     print("Labels Array:\n", labels_array)
-    print("Label Mapping:\n", label_mapping)
+    print("Label Mapping:\n", used_labels)
 
-    assert label_mapping == expected_label_mapping
+    assert used_labels == expected_used_labels
     assert np.array_equal(labels_array, expected_labels_array)
 
 
 def test_convert_probs_to_timelinelabels():
     # Example usage
     probs = [
-        [0.8, 0.2],  # Frame 0: 'Rain' has a high probability
-        [0.9, 0.1],  # Frame 1: 'Rain' is still active
-        [0.6, 0.4],  # Frame 2: Both probabilities are near threshold
-        [0.2, 0.7],  # Frame 3: 'Snow' becomes more active
-        [0.1, 0.9],  # Frame 4: 'Snow' has a high probability
+        [0.8, 0.2],  # Frame 1: 'Rain' has a high probability
+        [0.9, 0.1],  # Frame 2: 'Rain' is still active
+        [0.6, 0.4],  # Frame 3: Both probabilities are near threshold
+        [0.2, 0.7],  # Frame 4: 'Snow' becomes more active
+        [0.1, 0.9],  # Frame 5: 'Snow' has a high probability
+        [0.1, 0.1],  # Frame 6
+        [0.9, 0.9],  # Frame 7
     ]
+    # Regions => [1-3: Rain], [4-5: Snow], [7-7: Rain, Snow]
 
-    label_mapping = {"Rain": 0, "Snow": 1}
+    label_map = {"Rain": 0, "Snow": 1}
 
     timeline_regions = convert_probs_to_timelinelabels(
-        probs, label_mapping, score_threshold=0.5
+        probs, label_map, score_threshold=0.5
     )
 
-    for region in timeline_regions:
-        print(region)
+    assert timeline_regions == [
+      {
+        "id": "0_1_3",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "start": 1,
+              "end": 3
+            }
+          ],
+          "timelinelabels": ["Rain"]
+        },
+        "to_name": "video",
+        "from_name": "videoLabels",
+        "score": 0.7666666666666667
+      },
+      {
+        "id": "1_4_5",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "start": 4,
+              "end": 5
+            }
+          ],
+          "timelinelabels": ["Snow"]
+        },
+        "to_name": "video",
+        "from_name": "videoLabels",
+        "score": 0.8
+      },
+      {
+        "id": "2_7_7",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "start": 7,
+              "end": 7
+            }
+          ],
+          "timelinelabels": ["Rain"]
+        },
+        "to_name": "video",
+        "from_name": "videoLabels",
+        "score": 0.9
+      },
+      {
+        "id": "3_7_7",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "start": 7,
+              "end": 7
+            }
+          ],
+          "timelinelabels": ["Snow"]
+        },
+        "to_name": "video",
+        "from_name": "videoLabels",
+        "score": 0.9
+      }
+    ]
+
+    # invert conversion
+    labels_array, _ = convert_timelinelabels_to_probs(timeline_regions, label_map, max_frame=len(probs))
+
+    # convert probs to binary
+    probs = np.array(probs) > 0.5
+
+    # compare probs and labels_array
+    assert np.array_equal(probs, labels_array)
