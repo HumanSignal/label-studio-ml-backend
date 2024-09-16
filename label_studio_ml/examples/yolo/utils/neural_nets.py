@@ -19,6 +19,24 @@ _models = {}
 
 
 @memory.cache(ignore=["yolo_model"])
+def cached_yolo_predict(yolo_model, video_path, cache_params):
+    """Predict bounding boxes and labels using YOLO model and cache the results using joblib.
+    Args:
+        yolo_model (YOLO): YOLO model instance
+        video_path (str): Path to the video file
+        cache_params (str): Parameters for caching the results, they are used in @memory.cache decorator
+    """
+    frames = []
+    generator = yolo_model.predict(video_path, stream=True)
+
+    for frame in generator:
+        frame.orig_img = None  # remove image from cache to reduce size
+        frames.append(frame)
+
+    return frames
+
+
+@memory.cache(ignore=["yolo_model"])
 def cached_feature_extraction(yolo_model, video_path, cache_params):
     """Extract features from the last layer of the YOLO model and cache them using joblib.
     Args:
@@ -35,10 +53,8 @@ def cached_feature_extraction(yolo_model, video_path, cache_params):
     layer = yolo_model.model.model[-1].linear
     hook_handle = layer.register_forward_hook(get_last_layer_output)
 
-    # Run model prediction
-    generator = yolo_model.predict(
-        video_path, stream=True
-    )  # use stream to avoid out of memory
+    # Run model prediction, use stream to avoid out of memory
+    generator = yolo_model.predict(video_path, stream=True)
 
     # Replace probs with last layer outputs
     frames = []
@@ -68,14 +84,14 @@ class BaseNN(nn.Module):
         logger.info(f"Model saved to {path}")
 
     @classmethod
-    def load(cls, path):
+    def load(cls, path) -> "BaseNN":
         model = torch.load(path)
         model.eval()  # Set the model to evaluation mode
         logger.info(f"Model loaded from {path}")
         return model
 
-    @staticmethod
-    def load_cached_model(model_path: str):
+    @classmethod
+    def load_cached_model(cls, model_path: str) -> Union["BaseNN", None]:
         global _models
         if not os.path.exists(model_path):
             return None
@@ -146,7 +162,7 @@ class MultiLabelLSTM(BaseNN):
 
         # x shape: (batch_size, seq_len, input_size)
         # lstm_out contains outputs for all time steps
-        lstm_out, (hn, cn) = self.lstm(x)
+        lstm_out, (_, _) = self.lstm(x)
 
         # Apply fully connected layer at each time step to get output with final label number
         out = self.fc(lstm_out)
@@ -168,7 +184,7 @@ class MultiLabelLSTM(BaseNN):
         if labels is not None:
             labels = torch.tensor(labels, dtype=torch.float32)
             labels = [
-                labels[i : i + sequence_size]
+                labels[i: i + sequence_size]
                 for i in range(0, len(labels), sequence_size // overlap)
             ]
             labels = (
@@ -212,7 +228,7 @@ class MultiLabelLSTM(BaseNN):
         }
 
     def partial_fit(
-        self, sequence, labels, batch_size=32, epochs=1000, accuracy_threshold=1.0, f1_score_threshold=1.0
+        self, sequence, labels, batch_size=32, epochs=1000, accuracy_threshold=1.0, f1_threshold=1.0
     ):
         """Train the model on the given sequence data.
         Args:
@@ -221,7 +237,7 @@ class MultiLabelLSTM(BaseNN):
             batch_size (int): Batch size for training
             epochs (int): Number of training epochs
             accuracy_threshold (float): Stop training if accuracy exceeds this threshold
-            f1_score_threshold (float): Stop training if F1 score exceeds this threshold
+            f1_threshold (float): Stop training if F1 score exceeds this threshold
         """
         batches, label_batches = self.preprocess_sequence(sequence, labels)
 
@@ -254,8 +270,8 @@ class MultiLabelLSTM(BaseNN):
             if metrics['accuracy'] >= accuracy_threshold:
                 logger.info(f"Accuracy >= {accuracy_threshold} threshold, model training stopped.")
                 break
-            if metrics['f1_score'] >= f1_score_threshold:
-                logger.info(f"F1 score >= {f1_score_threshold} threshold, model training stopped.")
+            if metrics['f1_score'] >= f1_threshold:
+                logger.info(f"F1 score >= {f1_threshold} threshold, model training stopped.")
                 break
 
         return outputs

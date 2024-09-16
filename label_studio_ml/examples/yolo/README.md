@@ -45,7 +45,8 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 | Image Classification                  | `<Choices>`                          | ✅                    | Native              | Native              |
 | Pose Detection                        | `<KeyPoints>`                        | ✅                    | Native              | Native              |
 | Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
-| Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | Native              | Native              |
+| Video Temporal Classification         | `<TimelineLabels>`                   | ✅                    | Native              | Native              |
+
 
 * **LS Control Tag**: Label Studio [control tag](https://labelstud.io/tags/) from the labeling configuration. 
 * **LS Import Supported**: Indicates whether Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
@@ -97,10 +98,12 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 **Control tags**
 
+- `<Choices>` - [Classification](https://labelstud.io/tags/choices)
 - `<RectangleLabels>` - [Bounding boxes](https://labelstud.io/tags/rectanglelabels); object detection task
 - `<PolygonLabels>` - [Polygons](https://labelstud.io/tags/polygonlables); segmentation task
-- `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task
-- `<Choices>` - [Classification](https://labelstud.io/tags/choices)
+- `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task for videos
+- `<TimelineLabels>` - [Temporal labels for videos](https://labelstud.io/tags/timelinelabels); multi-label temporal classification task for videos
+
 
 **How to skip the control tag?**
 
@@ -679,6 +682,50 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 -------------------
 
 <br>
+
+
+## Video Temporal Classification using `TimelineLabels`
+
+This ML backend supports temporal multi-label video classification for the `TimelineLabels` control tag in Label Studio. 
+There are two modes available: **simple** and **trainable**.
+
+In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.
+In the trainable mode, the model can be trained on custom labels and annotations submitted in Label Studio like a few shot learning way
+when training is performed on a small number of annotations on the fly.  
+
+**Note**: For more advanced usage and to enable training, 
+please refer to [README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md).
+
+### Labeling Config
+
+```xml
+<View>
+  <Video name="video" value="$video"/>
+  <TimelineLabels 
+          name="label" toName="video" 
+          model_trainable="false" model_score_threshold="0.25">
+    <Label value="Ball" predicted_values="soccer_ball" />
+    <Label value="tiger_shark" />
+  </TimelineLabels>
+</View>
+```
+
+### Model training
+
+For more details on using the `TimelineLabels` ML backend, including training the model 
+and adjusting neural network classifier parameters, please refer to [README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md).
+
+### Default Model
+
+`yolov8n-cls.pt` is the default classification model for simple mode.
+
+
+<br>
+
+-------------------
+
+<br>
+
 
 ## Run the YOLO ML backend
 

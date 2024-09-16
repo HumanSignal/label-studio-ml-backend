@@ -46,3 +46,5 @@ services:
       - "9090:9090"
     volumes:
       - "./data/server:/data"
+      - "./models:/app/models"
+      - "./cache_dir:/app/cache_dir"

@@ -47,6 +47,11 @@ classDiagram
         +create_video_rectangles(results, path) List[Dict]
         +update_tracker_params(yaml_path: str, prefix: str) str | None
     }
+    
+    class TimelineLabelsModel {
+        +predict_regions(path: str) List[Dict]
+        +fit(event, data)
+    }
 
     ControlModel <|-- RectangleLabelsModel
     ControlModel <|-- RectangleLabelsObbModel
@@ -54,6 +59,7 @@ classDiagram
     ControlModel <|-- ChoicesModel
     ControlModel <|-- KeyPointLabelsModel
     ControlModel <|-- VideoRectangleModel
+    ControlModel <|-- TimelineLabelsModel
     
 ```
 
@@ -121,6 +127,12 @@ The architecture of the project is modular and is primarily centered around inte
      - `predict_regions()`: Runs YOLO’s tracking model on a video and converts the results into Label Studio’s video rectangle format.
      - `create_video_rectangles()`: Processes the output of the tracking model to create a sequence of bounding boxes across video frames.
      - `update_tracker_params()`: Customizes the tracking parameters based on settings in Label Studio’s configuration.
+
+8. **`control_models/timelinelabels.py` (TimelineLabelsModel)**:
+    - **Purpose**: Supports the training of a YOLO model on video data incrementally by updating the model with new annotations as they are submitted.
+    - **Key Functions**:
+      - `predict_regions()`: Runs YOLO on video frames and returns the predictions.
+      - `fit()`: Placeholder method for updating the model with new annotations.
 
 ### **Module Interaction**
 
