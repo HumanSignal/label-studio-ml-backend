@@ -1,7 +1,7 @@
 import logging
 import os.path
 
-from control_models.base import ControlModel, MODEL_ROOT
+from control_models.base import ControlModel, MODEL_ROOT, get_bool
 from typing import List, Dict
 from utils.neural_nets import (
     BaseNN,
