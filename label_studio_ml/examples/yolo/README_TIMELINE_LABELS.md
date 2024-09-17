@@ -250,6 +250,13 @@ This corresponds to the labels `[label3, label2, label1]` in the frames 1, 2, 3.
 
 See `tests/test_timeline_labels.py::test_convert_probs_to_timelinelabels()` for more examples.
 
+<br>
+<br>
+
+-----------
+
+<br>
+<br>
 
 # For developers
 
