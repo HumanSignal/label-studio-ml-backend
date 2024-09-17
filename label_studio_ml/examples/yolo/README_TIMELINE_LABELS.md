@@ -81,10 +81,13 @@ In the simple mode, the model uses pre-trained YOLO classes to generate predicti
 - **Example**:
 
   ```xml
-  <TimelineLabels name="label" toName="video" model_trainable="false">
-    <Label value="Ball" predicted_values="soccer_ball"/>
-    <Label value="tiger_shark" />
-  </TimelineLabels>
+  <View>
+    <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
+    <TimelineLabels name="label" toName="video" model_trainable="false">
+      <Label value="Ball" predicted_values="soccer_ball"/>
+      <Label value="tiger_shark" />
+    </TimelineLabels>
+  </View>
   ```
 
 ### Trainable Mode
@@ -107,18 +110,21 @@ so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) t
 **Example**:
 
 ```xml
-<TimelineLabels name="label" toName="video"
-                model_trainable="true"
-                model_classifier_epochs="1000"
-                model_classifier_sequence_size="16"
-                model_classifier_hidden_size="32"
-                model_classifier_num_layers="1"
-                model_classifier_f1_threshold="0.95"
-                model_classifier_accuracy_threshold="0.99"
-                model_score_threshold="0.5">
-  <Label value="Ball in frame"/>
-  <Label value="Ball touch"/>
-</TimelineLabels>
+<View>
+    <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
+    <TimelineLabels name="label" toName="video"
+                    model_trainable="true"
+                    model_classifier_epochs="1000"
+                    model_classifier_sequence_size="16"
+                    model_classifier_hidden_size="32"
+                    model_classifier_num_layers="1"
+                    model_classifier_f1_threshold="0.95"
+                    model_classifier_accuracy_threshold="0.99"
+                    model_score_threshold="0.5">
+      <Label value="Ball in frame"/>
+      <Label value="Ball touch"/>
+    </TimelineLabels>
+</View>
 ```
 
 ## How the trainable model works
