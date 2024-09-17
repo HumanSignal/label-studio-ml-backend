@@ -1,7 +1,7 @@
 ibm-watsonx-ai<0.2.0
 presto-python-client
 pydantic>=1.10.0
-langchain==0.1.8
+langchain==0.2.10
 langchain_ibm==0.1.0
 pytesseract==0.3.10
 label_studio_sdk==1.0.4
