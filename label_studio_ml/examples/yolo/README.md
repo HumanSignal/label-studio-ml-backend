@@ -687,11 +687,9 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 ## Video temporal classification using `TimelineLabels`
 
 This ML backend supports temporal multi-label video classification for the `TimelineLabels` control tag in Label Studio. 
-There are two modes available: **simple** and **trainable**.
-
-In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.
-
-In the trainable mode, the model can be trained on custom labels and annotations submitted in Label Studio like a few shot learning way
+There are two modes available:
+- **Simple:** In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.  
+- **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio like a few shot learning way
 when training is performed on a small number of annotations on the fly.  
 
 ### Labeling config
