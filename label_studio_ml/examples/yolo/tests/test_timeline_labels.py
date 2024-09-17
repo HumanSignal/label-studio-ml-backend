@@ -19,11 +19,11 @@ label_configs = [
     # test 1: one control tag with video timeline labels
     """
     <View>
-       <TimelineLabels name="videoLabels" toName="video">
-         <Label value="Car" predicted_values="racer, cab"/>
-         <Label value="Person" background="red"/>
+       <TimelineLabels name="videoLabels" toName="video" model_score_threshold="0.01">
+         <Label value="Car" predicted_values="snowmobile,racer,cab"/>
+         <Label value="croquet_ball" background="red"/>
        </TimelineLabels>
-       <Video name="video" value="$video" framerate="25.0" height="400"/>
+       <Video name="video" value="$video" framerate="25.0" />
     </View>
     """,
 ]
@@ -37,7 +37,20 @@ yolo_results = [None]  # load_file(TEST_DIR + "/timeline_labels.pickle")
 
 expected = [
     # test 1: one control tag with rectangle labels
-    None  # load_file(TEST_DIR + "/timeline_labels_1.json"),
+    [{'model_version': 'yolo',
+     'score': 0.10993397843318456,
+     'result': [
+        {'from_name': 'videoLabels', 'id': '0_1_15', 'score': 0.26830227896571157, 'to_name': 'video',
+         'type': 'timelinelabels', 'value': {'ranges': [{'end': 15, 'start': 1}], 'timelinelabels': ['Car']}},
+        {'from_name': 'videoLabels', 'id': '2_23_25', 'score': 0.044929164151350655, 'to_name': 'video',
+         'type': 'timelinelabels', 'value': {'ranges': [{'end': 25, 'start': 23}], 'timelinelabels': ['Car']}},
+        {'from_name': 'videoLabels', 'id': '1_19_29', 'score': 0.19226251965896649, 'to_name': 'video',
+         'type': 'timelinelabels', 'value': {'ranges': [{'end': 29, 'start': 19}], 'timelinelabels': ['croquet_ball']}},
+        {'from_name': 'videoLabels', 'id': '3_30_31', 'score': 0.01777686830610037, 'to_name': 'video',
+         'type': 'timelinelabels', 'value': {'ranges': [{'end': 31, 'start': 30}], 'timelinelabels': ['Car']}},
+        {'from_name': 'videoLabels', 'id': '4_34_34', 'score': 0.02639906108379364, 'to_name': 'video',
+         'type': 'timelinelabels', 'value': {'ranges': [{'end': 34, 'start': 34}], 'timelinelabels': ['Car']}}]
+    }]
 ]
 
 
@@ -46,7 +59,7 @@ expected = [
     "label_config, task, yolo_result, expect",
     zip(label_configs, tasks, yolo_results, expected),
 )
-def test_timelinelabels_predict(client, label_config, task, yolo_result, expect):
+def test_timelinelabels_simple(client, label_config, task, yolo_result, expect):
     data = {"schema": label_config, "project": "42"}
     response = client.post(
         "/setup", data=json.dumps(data), content_type="application/json"
