@@ -98,10 +98,11 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 **Control tags**
 
-- `<Choices>` - [Classification](https://labelstud.io/tags/choices)
+- `<Choices>` - [Classification](https://labelstud.io/tags/choices); image classification task
 - `<RectangleLabels>` - [Bounding boxes](https://labelstud.io/tags/rectanglelabels); object detection task
 - `<PolygonLabels>` - [Polygons](https://labelstud.io/tags/polygonlables); segmentation task
 - `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task for videos
+- `<KeyPointLabels>` - [Key points](https://labelstud.io/tags/keypointlabels); pose detection task
 - `<TimelineLabels>` - [Temporal labels for videos](https://labelstud.io/tags/timelinelabels); multi-label temporal classification task for videos
 
 

@@ -293,3 +293,14 @@ docker compose build --no-cache
 You might see these errors if you send multiple concurrent requests. 
 
 Note that the provided ML backend examples are offered in development mode, and do not support production-level inference serving. 
+
+## Troubleshooting the ML backend failing to make simple auto-annotations or unable to see predictions
+
+You must ensure that the ML backend can access your Label Studio data. If it can't, you might encounter the following issues:
+
+* `no such file or directory` errors in the server logs.
+* You are unable to see predictions when loading tasks in Label Studio.
+* Your ML backend appears to be connected properly, but cannot seem to complete any auto annotations within tasks. 
+
+To remedy this, ensure you have set the `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` environment variables. For more information, see [Allow the ML backend to access Label Studio data](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data).
+
