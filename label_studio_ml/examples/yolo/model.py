@@ -132,27 +132,8 @@ class YOLO(LabelStudioMLBase):
 
     def fit(self, event, data, **kwargs):
         """
-        This method is called each time an annotation is created or updated
-        You can run your logic here to update the model and persist it to the cache
-        It is not recommended to perform long-running operations here, as it will block the main thread
-        Instead, consider running a separate process or a thread (like RQ worker) to perform the training
-        :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING')
-        :param data: the payload received from the event
-        (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
-
-        # use cache to retrieve the data from the previous fit() runs
-        old_data = self.get('my_data')
-        old_model_version = self.get('model_version')
-        print(f'Old data: {old_data}')
-        print(f'Old model version: {old_model_version}')
-
-        # store new data to the cache
-        self.set('my_data', 'my_new_data_value')
-        self.set('model_version', 'my_new_model_version')
-        print(f'New data: {self.get("my_data")}')
-        print(f'New model version: {self.get("model_version")}')
-
-        print('fit() is not implemented!')
+        This method is called each time an annotation is created or updated.
+        Or it's called when "Start training" clicked on the model in the project settings.
         """
         results = {}
         control_models = self.detect_control_models()

@@ -91,7 +91,7 @@ jobs:
         run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml up -d --build
 
       - name: Wait for stack
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: |
           while [ "$(curl -s -o /dev/null -L -w ''%{http_code}'' "http://localhost:9090/health")" != "200" ]; do
             echo "=> Waiting for service to become available" && sleep 2s

@@ -49,13 +49,11 @@ WORKDIR /app
 
 COPY . ./
 
-WORKDIR /app/models
-
 # Download the YOLO models
-RUN yolo predict model=yolov8m.pt source=/app/tests/car.jpg \
-    && yolo predict model=yolov8n.pt source=/app/tests/car.jpg \
-    && yolo predict model=yolov8n-cls.pt source=/app/tests/car.jpg \
-    && yolo predict model=yolov8n-seg.pt source=/app/tests/car.jpg
+RUN yolo predict model=/app/models/yolov8m.pt source=/app/tests/car.jpg \
+    && yolo predict model=/app/models/yolov8n.pt source=/app/tests/car.jpg \
+    && yolo predict model=/app/models/yolov8n-cls.pt source=/app/tests/car.jpg \
+    && yolo predict model=/app/models/yolov8n-seg.pt source=/app/tests/car.jpg
 
 WORKDIR /app
 
