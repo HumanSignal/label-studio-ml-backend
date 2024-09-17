@@ -348,6 +348,6 @@ def test_timelinelabels_trainable(client):
         }
       ]
     }
-    compare_nested_structures(response.json, expected, abs=0.2)
+    compare_nested_structures(response.json['result'], expected, abs=0.2)
 
     

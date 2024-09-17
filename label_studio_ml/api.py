@@ -126,7 +126,7 @@ def webhook():
     result = model.fit(event, data)
 
     try:
-        response = jsonify(result)
+        response = jsonify({'result': result, 'status': 'ok'})
     except Exception as e:
         response = jsonify({'error': str(e), 'status': 'error'})
 
