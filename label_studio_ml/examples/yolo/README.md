@@ -36,16 +36,16 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 
 **Supported Features**
 
-| YOLO Task Name                        | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
-|---------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | Native              | Native              |
-| Image Classification                  | `<Choices>`                          | ✅                    | Native              | Native              |
-| Pose Detection                        | `<KeyPoints>`                        | ✅                    | Native              | Native              |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
-| Video Temporal Classification         | `<TimelineLabels>`                   | ✅                    | Native              | Native              |
+| YOLO Task Name                                               | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
+|--------------------------------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
+| Object Detection                                             | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
+| Oriented Bounding Boxes (OBB)                                | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
+| Image Instance Segmentation: Polygons                        | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
+| Image Semantic Segmentation: Masks                           | `<BrushLabels>`                      | ❌                    | Native              | Native              |
+| Image Classification                                         | `<Choices>`                          | ✅                    | Native              | Native              |
+| Pose Detection                                               | `<KeyPoints>`                        | ✅                    | Native              | Native              |
+| Video Object Tracking                                        | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
+| [Video Temporal Classification](./README_TIMELINE_LABELS.md) | `<TimelineLabels>`                   | ✅                    | Native              | Native              |
 
 
 * **LS Control Tag**: Label Studio [control tag](https://labelstud.io/tags/) from the labeling configuration. 
