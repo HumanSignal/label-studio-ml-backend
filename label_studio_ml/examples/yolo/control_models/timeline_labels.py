@@ -40,7 +40,7 @@ class TimelineLabelsModel(ControlModel):
         instance = super().create(*args, **kwargs)
 
         # timeline models can be trainable and based on YOLO trained classes directly
-        instance.trainable = instance.control.attr.get("model_trainable", instance.trainable)
+        instance.trainable = get_bool(self.control.attr, "model_trainable", "false")
         # if it's trainable, we need to use labels from the labeling config as is because we will train them
         if instance.trainable:
             instance.label_map = {label: label for label in instance.control.labels}
