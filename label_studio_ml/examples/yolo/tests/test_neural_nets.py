@@ -37,7 +37,7 @@ def test_multi_label_lstm():
     print(predictions)
 
     # Save the model
-    model.save("lstm_model.pth")
+    model.save_and_cache("lstm_model.pth")
 
     # Load the model
     loaded_model = MultiLabelLSTM.load("lstm_model.pth")

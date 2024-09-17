@@ -37,7 +37,7 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
     <TimelineLabels name="label" toName="video"
         model_trainable="true"
         model_classifier_epochs="1000"
-        model_classifier_sequence_size="64"
+        model_classifier_sequence_size="16"
         model_classifier_hidden_size="32"
         model_classifier_num_layers="1"
         model_classifier_f1_threshold="0.95"
@@ -60,11 +60,11 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
 |---------------------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------|
 | `model_trainable`                     | bool   | False   | Enables the trainable mode, allowing the model to learn from your annotations incrementally.                   |
 | `model_classifier_epochs`             | int    | 1000    | Number of training epochs for the LSTM neural network.                                                         |
-| `model_classifier_sequence_size`      | int    | 64      | Size of the LSTM sequence in frames. Adjust to capture longer or shorter temporal dependencies.                |
+| `model_classifier_sequence_size`      | int    | 16      | Size of the LSTM sequence in frames. Adjust to capture longer or shorter temporal dependencies.                |
 | `model_classifier_hidden_size`        | int    | 32      | Size of the LSTM hidden state. Modify to change the capacity of the LSTM.                                      |
 | `model_classifier_num_layers`         | int    | 1       | Number of LSTM layers. Increase for a deeper LSTM network.                                                     |
 | `model_classifier_f1_threshold`       | float  | 0.95    | F1 score threshold for early stopping during training. Set to prevent overfitting.                             |
-| `model_classifier_accuracy_threshold` | float  | 0.99    | Accuracy threshold for early stopping during training. Set to prevent overfitting.                             |
+| `model_classifier_accuracy_threshold` | float  | 1.00    | Accuracy threshold for early stopping during training. Set to prevent overfitting.                             |
 | `model_score_threshold`               | float  | 0.5     | Minimum confidence threshold for predictions. Labels with confidence below this threshold will be disregarded. |
 | `model_path`                          | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                   |
 
@@ -101,13 +101,16 @@ so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) t
   - After submitting the first annotation, the model begins training.
   - The `partial_fit()` method allows the model to train incrementally with each new annotation.
 - **Requirements**: Approximately 10-20 annotated tasks are needed to achieve reasonable performance.
-- **Example**:
+
+**Note**: The `predicted_values` attribute in the `<Label>` tag doesn't make sense for trainable models.
+
+**Example**:
 
 ```xml
 <TimelineLabels name="label" toName="video"
                 model_trainable="true"
                 model_classifier_epochs="1000"
-                model_classifier_sequence_size="64"
+                model_classifier_sequence_size="16"
                 model_classifier_hidden_size="32"
                 model_classifier_num_layers="1"
                 model_classifier_f1_threshold="0.95"
@@ -169,6 +172,7 @@ The cache is used for incremental training on the fly and prediction speedup.
 - **Parameter Sensitivity**: Adjusting neural network parameters may significantly impact performance.
 - **Early stop on training data**: The model uses early stopping based on the F1 score and accuracy on the training data. This may lead to overfitting on the training data. It was made because of the lack of validation data when updating on one annotation.
 - **YOLO model limitations**: The model uses a pre-trained YOLO model trained on object classification tasks for feature extraction, which may not be optimal for all use cases such as event detection. This approach doesn't tune the YOLO model, it trains only the LSTM part upon.
+- **Label balance**: The model may struggle with imbalanced labels. Ensure that the labels are well-distributed in the training data. Consider modifying the loss function (BCEWithLogitsLoss) and using class pos weights to address this issue.
 
 ## Example use case: detecting a ball in football videos
 
@@ -207,7 +211,7 @@ The cache is used for incremental training on the fly and prediction speedup.
    - The model suggests labels for unannotated videos.
    - Validate and correct predictions to further improve the model.
 
-## Adjusting training parameters
+## Adjusting training parameters and resetting the model
 
 If the model is not performing well, consider modifying the LSTM and classifier training parameters in the labeling config,
 they start with `model_classifier_` prefix.
@@ -221,6 +225,9 @@ The model will be **reset** after changing these parameters:
 So, you may need to re-update (click the "Update" button) on annotations to see improvements.
 
 If you want to modify more parameters, you can do it directly in the code in the `utils/neural_nets.py::MultiLabelLSTM`.
+
+If you need to reset the model completely, you can remove the model file from `/app/models` and restart the backend. 
+See `timeline_labels.py::get_classifier_path()` for the model path. Usually it starts with the `timelinelabels-` prefix.  
 
 ## Debug
 

@@ -14,7 +14,7 @@ from joblib import Memory
 
 
 logger = logging.getLogger(__name__)
-memory = Memory("./cache_dir", verbose=1)  # Set up disk-based caching for model results
+memory = Memory("./cache_dir", verbose=0)  # Set up disk-based caching for model results
 _models = {}
 
 
@@ -101,6 +101,10 @@ class BaseNN(nn.Module):
             _models[model_path] = BaseNN.load(model_path)
         return _models[model_path]
 
+    def save_and_cache(self, path):
+        self.save(path)
+        _models[path] = self
+
 
 class MultiLabelLSTM(BaseNN):
 
@@ -111,16 +115,28 @@ class MultiLabelLSTM(BaseNN):
         fc_size=128,
         hidden_size=16,
         num_layers=1,
-        sequence_size=64,
+        sequence_size=16,
         learning_rate=1e-4,
         weight_decay=1e-5,
         dropout_rate=0.2,
         device=None,
         **kwargs
     ):
+        """ Initialize the MultiLabelLSTM model.
+        Args:
+            input_size (int): Number of features in the input data
+            output_size (int): Number of labels in the output data
+            fc_size (int): Size of the fully connected layer
+            hidden_size (int): Size of the hidden state in the LSTM
+            num_layers (int): Number of layers in the LSTM
+            sequence_size (int): Size of the input sequence, used for chunking
+            learning_rate (float): Learning rate for the optimizer
+            weight_decay (float): Weight decay for the optimizer for L2 regularization
+            dropout_rate (float): Dropout rate for the fully connected layer
+            device (torch.device): Device to run the model on (CPU or GPU)
+        """
         super(MultiLabelLSTM, self).__init__()
 
-        # Split the input data into sequences of sequence_size
         self.input_size = input_size
         self.output_size = output_size
         self.fc_size = fc_size
@@ -187,17 +203,13 @@ class MultiLabelLSTM(BaseNN):
                 labels[i: i + sequence_size]
                 for i in range(0, len(labels), sequence_size // overlap)
             ]
-            labels = (
-                pad_sequence(labels, batch_first=True, padding_value=0)
-                if labels is not None
-                else None
-            )
+            labels = pad_sequence(labels, batch_first=True, padding_value=0)
 
         return chunks, labels
 
     def evaluate_metrics(self, dataloader, threshold=0.5):
         self.eval()
-        params = {'num_labels': self.output_size, 'average': 'macro', 'threshold': threshold}
+        params = {'num_labels': self.output_size, 'average': 'macro', 'threshold': threshold, 'zero_division': 1}
         precision_metric = MultilabelPrecision(**params).to(self.device)
         recall_metric = MultilabelRecall(**params).to(self.device)
         f1_metric = MultilabelF1Score(**params).to(self.device)
