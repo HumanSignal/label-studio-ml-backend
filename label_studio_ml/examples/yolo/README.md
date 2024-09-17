@@ -83,7 +83,7 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 4. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`. 
 
-5. Add images to Label Studio.
+5. Add images or video (depending on tasks you are going to solve) to Label Studio.
 
 6. Open any task in the Data Manager and see the predictions from the YOLO model.
 
@@ -684,19 +684,17 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 <br>
 
 
-## Video Temporal Classification using `TimelineLabels`
+## Video temporal classification using `TimelineLabels`
 
 This ML backend supports temporal multi-label video classification for the `TimelineLabels` control tag in Label Studio. 
 There are two modes available: **simple** and **trainable**.
 
 In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.
+
 In the trainable mode, the model can be trained on custom labels and annotations submitted in Label Studio like a few shot learning way
 when training is performed on a small number of annotations on the fly.  
 
-**Note**: For more advanced usage and to enable training, 
-please refer to [README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md).
-
-### Labeling Config
+### Labeling config
 
 ```xml
 <View>
@@ -713,9 +711,10 @@ please refer to [README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md).
 ### Model training
 
 For more details on using the `TimelineLabels` ML backend, including training the model 
-and adjusting neural network classifier parameters, please refer to [README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md).
+and adjusting neural network classifier parameters, please refer to 
+**[README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md)**.
 
-### Default Model
+### Default model
 
 `yolov8n-cls.pt` is the default classification model for simple mode.
 
