@@ -29,6 +29,10 @@ _model_cache = {}
 logger = logging.getLogger(__name__)
 
 
+def get_bool(attr, attr_name, default="false"):
+    return attr.get(attr_name, default).lower() in ["1", "true", "yes"]
+
+
 class ControlModel(BaseModel):
     """
     Represents a control tag in Label Studio, which is associated with a specific type of labeling task
@@ -88,7 +92,7 @@ class ControlModel(BaseModel):
         value = control.objects[0].value_name
 
         # if skip is true, don't process this control
-        if control.attr.get("model_skip", "false").lower() in ["1", "true", "yes"]:
+        if get_bool(control.attr, "model_skip", "false"):
             logger.info(
                 f"Skipping control tag '{control.tag}' with name '{from_name}', model_skip=true found"
             )

@@ -1,6 +1,6 @@
 import logging
 
-from control_models.base import ControlModel
+from control_models.base import ControlModel, get_bool
 from typing import List, Dict
 from label_studio_sdk.label_interface.control_tags import ControlTag
 
@@ -12,7 +12,7 @@ def is_obb(control: ControlTag) -> bool:
     """Check if the model should use oriented bounding boxes (OBB)
     based on the control tag attribute `model_obb` from the labeling config.
     """
-    return control.attr.get("model_obb", "false").lower() in ["true", "yes", "1"]
+    return get_bool(control.attr, "model_obb", "false")
 
 
 class RectangleLabelsModel(ControlModel):

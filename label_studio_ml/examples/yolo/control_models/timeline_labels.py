@@ -47,9 +47,9 @@ class TimelineLabelsModel(ControlModel):
         elif not instance.label_map:
             raise ValueError(
                 f"TimelinesLabels model works in simple mode (without training), "
-                f"but no labels from YOLO model names are matched:\n{instance.control}\n"
+                f"but no labels from YOLO model names are matched:\n{instance.control.name}\n"
                 f"Add labels from YOLO model names to the labeling config or use `predicted_values` to map them. "
-                f"As alternative option, you can set `model_trainable=true` in the TimelineLabels control tag "
+                f"As alternative option, you can set `model_trainable=\"true\"` in the TimelineLabels control tag "
                 f"to train the model on the labels from the labeling config."
             )
         return instance
