@@ -56,17 +56,17 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
 
 ## Parameters
 
-| Parameter                             | Type   | Default | Description                                                                                                    |
-|---------------------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------|
-| `model_trainable`                     | bool   | False   | Enables the trainable mode, allowing the model to learn from your annotations incrementally.                   |
-| `model_classifier_epochs`             | int    | 1000    | Number of training epochs for the LSTM neural network.                                                         |
-| `model_classifier_sequence_size`      | int    | 16      | Size of the LSTM sequence in frames. Adjust to capture longer or shorter temporal dependencies.                |
-| `model_classifier_hidden_size`        | int    | 32      | Size of the LSTM hidden state. Modify to change the capacity of the LSTM.                                      |
-| `model_classifier_num_layers`         | int    | 1       | Number of LSTM layers. Increase for a deeper LSTM network.                                                     |
-| `model_classifier_f1_threshold`       | float  | 0.95    | F1 score threshold for early stopping during training. Set to prevent overfitting.                             |
-| `model_classifier_accuracy_threshold` | float  | 1.00    | Accuracy threshold for early stopping during training. Set to prevent overfitting.                             |
-| `model_score_threshold`               | float  | 0.5     | Minimum confidence threshold for predictions. Labels with confidence below this threshold will be disregarded. |
-| `model_path`                          | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                   |
+| Parameter                             | Type   | Default | Description                                                                                                                                       |
+|---------------------------------------|--------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_trainable`                     | bool   | False   | Enables the trainable mode, allowing the model to learn from your annotations incrementally.                                                      |
+| `model_classifier_epochs`             | int    | 1000    | Number of training epochs for the LSTM neural network.                                                                                            |
+| `model_classifier_sequence_size`      | int    | 16      | Size of the LSTM sequence in frames. Adjust to capture longer or shorter temporal dependencies, 16 frames are about ~0.6 sec with 25 frame rate.  |
+| `model_classifier_hidden_size`        | int    | 32      | Size of the LSTM hidden state. Modify to change the capacity of the LSTM.                                                                         |
+| `model_classifier_num_layers`         | int    | 1       | Number of LSTM layers. Increase for a deeper LSTM network.                                                                                        |
+| `model_classifier_f1_threshold`       | float  | 0.95    | F1 score threshold for early stopping during training. Set to prevent overfitting.                                                                |
+| `model_classifier_accuracy_threshold` | float  | 1.00    | Accuracy threshold for early stopping during training. Set to prevent overfitting.                                                                |
+| `model_score_threshold`               | float  | 0.5     | Minimum confidence threshold for predictions. Labels with confidence below this threshold will be disregarded.                                    |
+| `model_path`                          | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                      |
 
 **Note:** You can customize the neural network parameters directly in the labeling configuration by adjusting the attributes in the `<TimelineLabels>` tag.
 
@@ -217,9 +217,9 @@ If the model is not performing well, consider modifying the LSTM and classifier 
 they start with `model_classifier_` prefix.
 
 The model will be **reset** after changing these parameters:
- - model_sequence_size,
- - model_hidden_size,
- - model_num_layers,
+ - model_classifier_sequence_size,
+ - model_classifier_hidden_size,
+ - model_classifier_num_layers,
  - new labels added or removed from the labeling config.
 
 So, you may need to re-update (click the "Update" button) on annotations to see improvements.
