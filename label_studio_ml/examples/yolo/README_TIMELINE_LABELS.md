@@ -21,22 +21,37 @@ image: "/tutorials/timelinelabels.png"
 
 This documentation provides a comprehensive guide on how to use the TimelineLabels model 
 for temporal video multi-label classification in Label Studio. 
-The model leverages YOLO's classification capabilities and integrates an LSTM neural network on the top
-for improved temporal labeling. 
+The model leverages YOLO's classification capabilities and integrates an LSTM neural network for temporal labeling. 
 Users can modify neural network parameters through the labeling configuration to tailor 
 the model to specific use cases, or they can use this model as a starting point for further development.
 
 ## Installation and quickstart
 
-See the [main README](./README.md) for detailed instructions on setting up the YOLO-models family in Label Studio.
+See the [main README](./README.md#quick-start) for detailed instructions on setting up the YOLO-models family in Label Studio.
 
+## Labeling configuration
 
-The TimelineLabels ML backend integrates temporal video multi-label classification capabilities into Label Studio. It allows you to annotate specific time intervals in videos with multiple labels using the `<TimelineLabels>` control tag. This integration leverages YOLO's classification features and enhances them with an LSTM neural network to capture temporal dependencies in video data.
+```xml
+<View>
+    <TimelineLabels name="label" toName="video"
+        model_trainable="true"
+        model_classifier_epochs="1000"
+        model_classifier_sequence_size="64"
+        model_classifier_hidden_size="32"
+        model_classifier_num_layers="1"
+        model_classifier_f1_threshold="0.95"
+        model_classifier_accuracy_threshold="0.99"
+        model_score_threshold="0.5"
+    >
+    <Label value="Ball touch" background="red"/>
+    <Label value="Ball in frame" background="blue"/>
+  </TimelineLabels>
+  <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
+</View>
+```
 
-
-## Quick Start
-
-
+**Note:** It's <span style="color:red">very important</span> to set **`frameRate`** attribute in the `Video` tag to the correct value, 
+<span style="color:red">all your videos should have the same frame rate</span>. Otherwise, the submitted annotations will be **misaligned** with videos.
 
 ## Parameters
 
@@ -53,23 +68,6 @@ The TimelineLabels ML backend integrates temporal video multi-label classificati
 | `model_path`                          | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                   |
 
 **Note:** You can customize the neural network parameters directly in the labeling configuration by adjusting the attributes in the `<TimelineLabels>` tag.
-
-**Example:**
-
-```xml
-<TimelineLabels name="label" toName="video"
-                model_trainable="true"
-                model_classifier_epochs="1000"
-                model_classifier_sequence_size="64"
-                model_classifier_hidden_size="32"
-                model_classifier_num_layers="1"
-                model_classifier_f1_threshold="0.95"
-                model_classifier_accuracy_threshold="0.99"
-                model_score_threshold="0.5">
-  <Label value="Ball in frame"/>
-  <Label value="Ball touch"/>
-</TimelineLabels>
-```
 
 ## Using the Model
 
@@ -104,12 +102,20 @@ so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) t
 - **Requirements**: Approximately 10-20 annotated tasks are needed to achieve reasonable performance.
 - **Example**:
 
-  ```xml
-  <TimelineLabels name="label" toName="video" model_trainable="true">
-    <Label value="Ball in frame"/>
-    <Label value="Ball touch"/>
-  </TimelineLabels>
-  ```
+```xml
+<TimelineLabels name="label" toName="video"
+                model_trainable="true"
+                model_classifier_epochs="1000"
+                model_classifier_sequence_size="64"
+                model_classifier_hidden_size="32"
+                model_classifier_num_layers="1"
+                model_classifier_f1_threshold="0.95"
+                model_classifier_accuracy_threshold="0.99"
+                model_score_threshold="0.5">
+  <Label value="Ball in frame"/>
+  <Label value="Ball touch"/>
+</TimelineLabels>
+```
 
 ## How the trainable model works
 
