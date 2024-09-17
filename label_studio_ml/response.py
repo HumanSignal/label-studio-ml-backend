@@ -10,8 +10,11 @@ SingleTaskPredictions = Union[List[PredictionValue], PredictionValue]
 
 
 class ModelResponse(BaseModel):
+    """ Model response with predictions for Label Studio, used in /predict API endpoint
     """
-    """
+    class Config:
+        protected_namespaces = ('__.*__', '_.*')  # Excludes 'model_'
+
     model_version: Optional[str] = None
     predictions: List[SingleTaskPredictions]
 

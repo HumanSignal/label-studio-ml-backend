@@ -194,3 +194,4 @@ class ControlModel(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        protected_namespaces = ('__.*__', '_.*')  # Excludes 'model_'
