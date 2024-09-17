@@ -263,8 +263,14 @@ The following diagram illustrates the class inheritance hierarchy in the Timelin
 
 ```mermaid
 classDiagram
+    class ControlModel
+    class TimelineLabelsModel
+    class TorchNNModule
+    class BaseNN
+    class MultiLabelLSTM
+
     ControlModel <|-- TimelineLabelsModel
-    torch.nn.Module <|-- BaseNN
+    TorchNNModule <|-- BaseNN
     BaseNN <|-- MultiLabelLSTM
 ```
 
@@ -284,20 +290,20 @@ The following flowchart depicts the method calls during the prediction process.
 
 ```mermaid
 flowchart TD
-    A[TimelineLabelsModel.predict_regions(video_path)]
+    A[TimelineLabelsModel.predict_regions]
     A --> B{Is self.trainable?}
-    B -->|Yes| C[create_timelines_trainable(video_path)]
-    B -->|No| D[create_timelines_simple(video_path)]
+    B -->|Yes| C[create_timelines_trainable]
+    B -->|No| D[create_timelines_simple]
     
-    C --> E[cached_feature_extraction(model, video_path, model_name)]
-    C --> F[Load classifier using BaseNN.load_cached_model(path)]
-    C --> G[classifier.predict(yolo_probs)]
-    C --> H[convert_probs_to_timelinelabels(probs, label_map, threshold)]
+    C --> E[cached_feature_extraction]
+    C --> F[Load classifier using BaseNN.load_cached_model]
+    C --> G[classifier.predict]
+    C --> H[convert_probs_to_timelinelabels]
     C --> I[Return predicted regions]
     
-    D --> J[cached_yolo_predict(model, video_path, model_name)]
-    D --> K[Process frame_results to extract probabilities]
-    D --> L[convert_probs_to_timelinelabels(probs, label_map, threshold)]
+    D --> J[cached_yolo_predict]
+    D --> K[Process frame results]
+    D --> L[convert_probs_to_timelinelabels]
     D --> M[Return predicted regions]
 ```
 
@@ -307,31 +313,31 @@ The following flowchart shows the method calls during the training process.
 
 ```mermaid
 flowchart TD
-    N[TimelineLabelsModel.fit(event, data, **kwargs)]
-    N --> O{Is event 'ANNOTATION_CREATED' or 'ANNOTATION_UPDATED'?}
+    N[TimelineLabelsModel.fit]
+    N --> O{Event is 'ANNOTATION_CREATED' or 'ANNOTATION_UPDATED'?}
     O -->|Yes| P[Extract task and regions]
-    P --> Q[Get model parameters from control attributes]
-    Q --> R[Get video_path]
-    R --> S[cached_feature_extraction(model, video_path, model_name)]
+    P --> Q[Get model parameters]
+    Q --> R[Get video path]
+    R --> S[cached_feature_extraction]
     S --> T[Prepare features and labels]
-    T --> U[Load or create classifier using BaseNN.load_cached_model(path)]
-    U --> V[classifier.partial_fit(features, labels, epochs, thresholds)]
-    V --> W[classifier.save(path)]
+    T --> U[Load or create classifier]
+    U --> V[classifier.partial_fit]
+    V --> W[classifier.save]
     W --> X[Return True]
     O -->|No| Y[Return False]
 ```
 
 ---
 
-## Code Structure and Explanations
+## Code structure and explanations
 
-### TimelineLabelsModel Class
+### TimelineLabelsModel class
 
 **File**: `timeline_labels.py`
 
 The `TimelineLabelsModel` class extends the `ControlModel` base class and implements functionality specific to the `<TimelineLabels>` control tag.
 
-#### Key Methods:
+#### Key methods:
 
 - **`is_control_matched(cls, control)`**: Class method that checks if the provided control tag matches the `<TimelineLabels>` tag.
 
@@ -362,15 +368,15 @@ The `TimelineLabelsModel` class extends the `ControlModel` base class and implem
 
 - **`get_classifier_path(self, project_id)`**: Generates the file path for storing the classifier model based on the project ID and model name.
 
-### Neural Network Classes
+### Neural network classes
 
-#### BaseNN Class
+#### BaseNN class
 
 **File**: `neural_nets.py`
 
 The `BaseNN` class serves as a base class for neural network models, providing common methods for saving, loading, and managing label mappings.
 
-#### Key Methods:
+#### Key methods:
 
 - **`set_label_map(self, label_map)`**: Stores the label mapping dictionary.
 
@@ -382,13 +388,13 @@ The `BaseNN` class serves as a base class for neural network models, providing c
 
 - **`load_cached_model(cls, model_path)`**: Loads a cached model if it exists, otherwise returns `None`.
 
-#### MultiLabelLSTM Class
+#### MultiLabelLSTM class
 
 **File**: `neural_nets.py`
 
 The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural network for multi-label classification.
 
-#### Key Methods:
+#### Key methods:
 
 - **`__init__(...)`**: Initializes the neural network layers and parameters, including input size, hidden layers, dropout, and optimizer settings.
 
@@ -415,9 +421,9 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
 
 ---
 
-## Starting Points and Execution Flow
+## Starting points and execution flow
 
-### Prediction Process
+### Prediction process
 
 1. **Prediction Request**: When a prediction is requested for a video, `TimelineLabelsModel.predict_regions(video_path)` is called.
 
@@ -438,7 +444,7 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
 
 3. **Return Predictions**: The method returns a list of predicted regions with labels and timestamps.
 
-### Training Process
+### Training process
 
 1. **Event Trigger**: The `fit(event, data, **kwargs)` method is called when an annotation event occurs (e.g., 'ANNOTATION_CREATED' or 'ANNOTATION_UPDATED').
 
@@ -469,7 +475,7 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
 
 ---
 
-## Utilities and Helper Functions
+## Utilities and helper functions
 
 **Cached Prediction and Feature Extraction**:
 
