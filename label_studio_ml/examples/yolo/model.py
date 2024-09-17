@@ -154,7 +154,10 @@ class YOLO(LabelStudioMLBase):
 
         print('fit() is not implemented!')
         """
-
+        results = {}
         control_models = self.detect_control_models()
         for model in control_models:
-            model.fit(event, data, **kwargs)
+            training_result = model.fit(event, data, **kwargs)
+            results[model.from_name] = training_result
+
+        return results

@@ -1,0 +1,56 @@
+{
+  "annotation": {
+    "id": 1478,
+    "result": [
+      {
+        "id": "1",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "end": 10,
+              "start": 1
+            }
+          ],
+          "timelinelabels": [
+            "Car"
+          ]
+        },
+        "origin": "manual",
+        "to_name": "video",
+        "from_name": "videoLabels"
+      },
+       {
+        "id": "2",
+        "type": "timelinelabels",
+        "value": {
+          "ranges": [
+            {
+              "end": 15,
+              "start": 5
+            }
+          ],
+          "timelinelabels": [
+            "croquet_ball"
+          ]
+        },
+        "origin": "manual",
+        "to_name": "video",
+        "from_name": "videoLabels"
+      }
+    ],
+    "task": 427616,
+    "project": 42
+  },
+  "project": {
+    "id": 42,
+    "label_config": "    <View>\n         <TimelineLabels name=\"videoLabels\" toName=\"video\" model_trainable=\"true\">\n              <Label value=\"Car\" predicted_values=\"snowmobile,racer,cab\"/>\n                <Label value=\"croquet_ball\" background=\"red\"/>\n        </TimelineLabels>\n        <Video name=\"video\" value=\"$video\" framerate=\"25.0\" />\n    </View>"
+  },
+  "task": {
+    "project": 42,
+    "id": 427616,
+    "data": {
+      "video": "tests/opossum_snow_short.mp4"
+    }
+  }
+}

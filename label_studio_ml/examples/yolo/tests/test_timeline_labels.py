@@ -1,9 +1,9 @@
 """
 This file contains tests for the API of your model. You can run these tests by installing test requirements:
 """
-
-import pytest
+import os
 import json
+import pytest
 import numpy as np
 
 from label_studio_ml.utils import compare_nested_structures
@@ -244,3 +244,110 @@ def test_convert_probs_to_timelinelabels():
 
     # compare probs and labels_array
     assert np.array_equal(probs, labels_array)
+
+
+def test_timelinelabels_trainable(client):
+    # rootdir is label_studio_ml/examples/yolo
+    path = "./models/timelinelabels-42-yolov8n-cls-videoLabels.pkl"
+    if os.path.exists(path):
+        os.remove(path)
+    
+    label_config = """
+    <View>
+         <TimelineLabels name="videoLabels" toName="video" 
+            model_trainable="true"
+            model_classifier_accuracy_threshold="1.0"
+            model_classifier_f1_threshold="1.0"
+            model_epoch="5000"
+          >
+            <Label value="Car"/>
+            <Label value="croquet_ball" background="red"/>
+        </TimelineLabels>
+        <Video name="video" value="$video" framerate="25.0" />
+    </View>
+    """
+
+    # setup
+    data = {"schema": label_config, "project": "42"}
+    response = client.post(
+        "/setup", data=json.dumps(data), content_type="application/json"
+    )
+    assert response.status_code == 200, "Error while setup: " + str(response.content)
+
+    # predict when model is not trained => 500 error is ok
+    task = {"data": {"video": "tests/opossum_snow_short.mp4"}}
+    data = {"tasks": [task], "label_config": label_config, "project": 42}
+    response = client.post(
+        "/predict", data=json.dumps(data), content_type="application/json"
+    )
+    assert response.status_code == 500, "It should be error because model is not yet trained"
+
+    # train model
+    data = load_file(TEST_DIR + "/test_timeline_labels_1.json")
+    data['project']['label_config'] = label_config
+    data['action'] = 'ANNOTATION_CREATED'
+    response = client.post(
+        "/webhook", data=json.dumps(data), content_type="application/json"
+    )
+
+    assert response.status_code == 201, "Error while fit: " + str(response.content)
+    assert response.json['videoLabels']['accuracy'] > 0.99 or response.json['videoLabels']['f1_score'] > 0.99
+    assert response.json['videoLabels']['epoch'] > 5
+
+    # predict again => 200
+    task = {"data": {"video": "tests/opossum_snow_short.mp4"}}
+    data = {"tasks": [task], "label_config": label_config, "project": 42}
+    response = client.post(
+        "/predict", data=json.dumps(data), content_type="application/json"
+    )
+    assert response.status_code == 200, "Error while predict: " + str(response.content)
+
+    expected = {
+      "results": [
+        {
+          "model_version": "yolo",
+          "result": [
+            {
+              "from_name": "videoLabels",
+              "id": "0_1_10",
+              "score": 0.7321293950080872,
+              "to_name": "video",
+              "type": "timelinelabels",
+              "value": {
+                "ranges": [
+                  {
+                    "end": 10,
+                    "start": 1
+                  }
+                ],
+                "timelinelabels": [
+                  "Car"
+                ]
+              }
+            },
+            {
+              "from_name": "videoLabels",
+              "id": "1_5_15",
+              "score": 0.7476321404630487,
+              "to_name": "video",
+              "type": "timelinelabels",
+              "value": {
+                "ranges": [
+                  {
+                    "end": 15,
+                    "start": 5
+                  }
+                ],
+                "timelinelabels": [
+                  "croquet_ball"
+                ]
+              }
+            }
+          ],
+          "score": 0.7398807677355679
+        }
+      ]
+    }
+    compare_nested_structures(response.json, expected, abs=0.2)
+
+    

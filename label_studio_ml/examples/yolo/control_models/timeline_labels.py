@@ -109,7 +109,7 @@ class TimelineLabelsModel(ControlModel):
         if event in ("ANNOTATION_CREATED", "ANNOTATION_UPDATED"):
             features, labels, label_map, project_id = self.load_features_and_labels(data)
             classifier, path = self.load_classifier(features, label_map, project_id)
-            self.train_classifier(classifier, features, labels, path)
+            return self.train_classifier(classifier, features, labels, path)
 
     def train_classifier(self, classifier, features, labels, path):
         """ Train the classifier model for timelinelabels using incremental partial learning.
@@ -122,7 +122,7 @@ class TimelineLabelsModel(ControlModel):
         accuracy_threshold = float(get("model_classifier_accuracy_threshold", 1.00))
 
         # Train and save
-        classifier.partial_fit(
+        result = classifier.partial_fit(
             features,
             labels,
             epochs=epochs,
@@ -130,6 +130,7 @@ class TimelineLabelsModel(ControlModel):
             accuracy_threshold=accuracy_threshold
         )
         classifier.save_and_cache(path)
+        return result
 
     def load_classifier(self, features, label_map, project_id):
         """ Load or create a classifier model for timelinelabels.

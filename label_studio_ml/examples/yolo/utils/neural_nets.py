@@ -254,7 +254,7 @@ class MultiLabelLSTM(BaseNN):
         batches, label_batches = self.preprocess_sequence(sequence, labels)
 
         # Create a DataLoader for batching the input data
-        outputs = None
+        metrics = {}
         dataset = TensorDataset(
             batches, torch.tensor(label_batches, dtype=torch.float32)
         )
@@ -278,6 +278,9 @@ class MultiLabelLSTM(BaseNN):
 
             # metrics and threshold stops to avoid overfitting
             metrics = self.evaluate_metrics(dataloader)
+            metrics['loss'] = epoch_loss / len(dataloader)
+            metrics['epoch'] = epoch + 1
+
             logger.info(f"Epoch {epoch + 1}, Loss: {epoch_loss / len(dataloader)}, {metrics}")
             if metrics['accuracy'] >= accuracy_threshold:
                 logger.info(f"Accuracy >= {accuracy_threshold} threshold, model training stopped.")
@@ -286,7 +289,7 @@ class MultiLabelLSTM(BaseNN):
                 logger.info(f"F1 score >= {f1_threshold} threshold, model training stopped.")
                 break
 
-        return outputs
+        return metrics
 
     def predict(self, sequence):
         """Split sequence into chunks with sequence_size and predict by chunks.
