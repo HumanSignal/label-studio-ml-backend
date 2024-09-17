@@ -280,8 +280,6 @@ classDiagram
 - **`BaseNN`**: Custom base class for neural networks, inherits from `torch.nn.Module`.
 - **`MultiLabelLSTM`**: Inherits from `BaseNN`, implements an LSTM neural network for multi-label classification.
 
----
-
 ## Method Call Flowcharts
 
 ### Prediction Workflow
@@ -326,8 +324,6 @@ flowchart TD
     W --> X[Return True]
     O -->|No| Y[Return False]
 ```
-
----
 
 ## Code structure and explanations
 
@@ -419,8 +415,6 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
   - Passes data through the model in evaluation mode.
   - Concatenates outputs to match the original sequence length.
 
----
-
 ## Starting points and execution flow
 
 ### Prediction process
@@ -473,8 +467,6 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
 
 7. **Model Saving**: Saves the trained model to disk using `classifier.save(path)`.
 
----
-
 ## Utilities and helper functions
 
 **Cached Prediction and Feature Extraction**:
@@ -495,4 +487,4 @@ The TimelineLabels ML backend integrates seamlessly with Label Studio to provide
 
 Understanding the class hierarchies and method flows is crucial for developers looking to extend or modify the backend. By following the starting points and execution flows outlined in this guide, developers can navigate the codebase more effectively and implement custom features or optimizations.
 
-**Note**: For further development or contributions, please refer to the `README_DEVELOP.md` file, which provides additional guidelines and architectural details.
+**Note**: For further development or contributions, please refer to the [`README_DEVELOP.md`](./README_DEVELOP.md) file, which provides additional guidelines and architectural details.
