@@ -19,10 +19,10 @@ image: "/tutorials/timelinelabels.png"
 
 # TimelineLabels Model for Temporal Video Multi-Label Classification in Label Studio
 
-This documentation provides a clear and comprehensive guide on how to use the **TimelineLabels** model 
+This documentation provides a clear and comprehensive guide on how to use the TimelineLabels model 
 for temporal multi-label classification of video data in Label Studio. 
-By integrating an LSTM neural network with YOLO's classification capabilities, 
-the model effectively handles temporal labeling tasks. 
+By integrating an LSTM neural network on top of YOLO's classification capabilities — 
+specifically utilizing features from YOLO's last layer — the model handles temporal labeling tasks. 
 Users can easily customize neural network parameters directly within the labeling configuration 
 to tailor the model to their specific use cases or use this model as a foundation for further development.
 
