@@ -39,7 +39,7 @@ def convert_timelinelabels_to_probs(
         max_frame = 0
         for region in regions:
             for r in region["value"]["ranges"]:
-                max_frame = max(max_frame, r["end"] + 1)
+                max_frame = max(max_frame, r["end"])
 
     # Step 3: Create a numpy array with shape (num_frames, num_labels)
     # Initialize it with zeros (no label assigned)

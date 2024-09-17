@@ -97,7 +97,7 @@ def test_convert_timelinelabels_to_probs():
             "origin": "prediction",
             "to_name": "video",
             "type": "timelinelabels",
-            "value": {"ranges": [{"end": 8, "start": 0}], "timelinelabels": ["Snow"]},
+            "value": {"ranges": [{"end": 8, "start": 1}], "timelinelabels": ["Snow"]},
         },
         {
             "from_name": "videoLabels",
@@ -125,21 +125,20 @@ def test_convert_timelinelabels_to_probs():
     # Labels Array
     expected_labels_array = np.array(
         [
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 1],
-            [0, 0],
-            [1, 0],
-            [1, 0],
-            [1, 0],
-            [1, 0],
-            [1, 1],
+            [0, 1],  # 1 frame
+            [0, 1],  # 2 frame
+            [0, 1],  # 3 frame
+            [0, 1],  # 4 frame
+            [0, 1],  # 5 frame
+            [0, 1],  # 6 frame
+            [0, 1],  # 7 frame
+            [0, 1],  # 8 frame
+            [0, 0],  # 9 frame
+            [1, 0],  # 10 frame
+            [1, 0],  # 11 frame
+            [1, 0],  # 12 frame
+            [1, 0],  # 13 frame
+            [1, 1],  # 14 frame
         ]
     )
 
@@ -291,8 +290,9 @@ def test_timelinelabels_trainable(client):
     )
 
     assert response.status_code == 201, "Error while fit: " + str(response.content)
-    assert response.json['videoLabels']['accuracy'] > 0.99 or response.json['videoLabels']['f1_score'] > 0.99
-    assert response.json['videoLabels']['epoch'] > 5
+    result = response.json['result']
+    assert result['videoLabels']['accuracy'] > 0.99 or result['videoLabels']['f1_score'] > 0.99
+    assert result['videoLabels']['epoch'] > 5
 
     # predict again => 200
     task = {"data": {"video": "tests/opossum_snow_short.mp4"}}
@@ -302,7 +302,7 @@ def test_timelinelabels_trainable(client):
     )
     assert response.status_code == 200, "Error while predict: " + str(response.content)
 
-    expected = {
+    expected_result = {
       "results": [
         {
           "model_version": "yolo",
@@ -348,6 +348,6 @@ def test_timelinelabels_trainable(client):
         }
       ]
     }
-    compare_nested_structures(response.json['result'], expected, abs=0.2)
+    compare_nested_structures(response.json, expected_result, abs=0.2)
 
     

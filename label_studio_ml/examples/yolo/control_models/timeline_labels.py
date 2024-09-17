@@ -87,7 +87,8 @@ class TimelineLabelsModel(ControlModel):
         classifier = BaseNN.load_cached_model(path)
         if not classifier:
             raise ValueError(
-                f"Classifier model '{path}' not found for {self.control}, maybe it's not trained yet"
+                f"Temporal classifier model '{path}' not found for "
+                f"'{self.control.name}', maybe it's not trained yet"
             )
 
         # run predict and convert to timelinelabels
