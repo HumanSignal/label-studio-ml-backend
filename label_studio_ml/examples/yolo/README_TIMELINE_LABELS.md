@@ -36,7 +36,7 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
 
 ```xml
 <View>
-    <TimelineLabels name="label" toName="video"
+    <TimelineLabels name="label" toName="video" timelineHeight="200" 
         model_trainable="true"
         model_classifier_epochs="1000"
         model_classifier_sequence_size="16"
@@ -49,7 +49,7 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
     <Label value="Ball touch" background="red"/>
     <Label value="Ball in frame" background="blue"/>
   </TimelineLabels>
-  <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
+  <Video name="video" value="$video" height="700" frameRate="25.0" />
 </View>
 ```
 
@@ -84,8 +84,8 @@ In the simple mode, the model uses pre-trained YOLO classes to generate predicti
 
   ```xml
   <View>
-    <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
-    <TimelineLabels name="label" toName="video" model_trainable="false">
+    <Video name="video" value="$video" height="700" frameRate="25.0" />
+    <TimelineLabels name="label" toName="video" timelineHeight="200" model_trainable="false">
       <Label value="Ball" predicted_values="soccer_ball"/>
       <Label value="tiger_shark" />
     </TimelineLabels>
@@ -113,8 +113,8 @@ so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) t
 
 ```xml
 <View>
-    <Video name="video" value="$video" height="700" timelineHeight="200" frameRate="25.0" />
-    <TimelineLabels name="label" toName="video"
+    <Video name="video" value="$video" height="700" frameRate="25.0" />
+    <TimelineLabels name="label" toName="video" timelineHeight="200" 
                     model_trainable="true"
                     model_classifier_epochs="1000"
                     model_classifier_sequence_size="16"
