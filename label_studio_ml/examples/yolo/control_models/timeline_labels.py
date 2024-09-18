@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class TimelineLabelsModel(ControlModel):
     """
     Class representing a TimelineLabels control tag for YOLO model.
+    See README_TIMELINE_LABELS.md for more details. 
     """
 
     type = "TimelineLabels"
@@ -74,7 +75,7 @@ class TimelineLabelsModel(ControlModel):
         label_map = {self.label_map[label]: idx for idx, label in enumerate(needed_labels)}
 
         return convert_probs_to_timelinelabels(
-            probs, label_map, self.model_score_threshold
+            probs, label_map, self.control.name, self.model_score_threshold
         )
 
     def create_timelines_trainable(self, video_path):
@@ -94,7 +95,7 @@ class TimelineLabelsModel(ControlModel):
         # run predict and convert to timelinelabels
         probs = classifier.predict(yolo_probs)
         regions = convert_probs_to_timelinelabels(
-            probs, classifier.get_label_map(), self.model_score_threshold
+            probs, classifier.get_label_map(), self.control.name, self.model_score_threshold
         )
 
         return regions

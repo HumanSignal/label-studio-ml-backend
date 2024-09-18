@@ -13,7 +13,10 @@ from ..utils.converter import (
     convert_timelinelabels_to_probs,
     convert_probs_to_timelinelabels,
 )
-
+from ..control_models.timeline_labels import TimelineLabelsModel
+from unittest.mock import MagicMock, patch
+from label_studio_sdk.label_interface import LabelInterface
+from label_studio_ml.model import LabelStudioMLBase
 
 label_configs = [
     # test 1: one control tag with video timeline labels
@@ -165,7 +168,7 @@ def test_convert_probs_to_timelinelabels():
     label_map = {"Rain": 0, "Snow": 1}
 
     timeline_regions = convert_probs_to_timelinelabels(
-        probs, label_map, score_threshold=0.5
+        probs, label_map, 'videoLabels', score_threshold=0.5
     )
 
     assert timeline_regions == [
@@ -350,4 +353,32 @@ def test_timelinelabels_trainable(client):
     }
     compare_nested_structures(response.json, expected_result, abs=0.2)
 
-    
+
+def test_timelinelabels_no_label_match():
+    """
+    Test that a ValueError is raised when the TimelineLabelsModel is in simple mode (model_trainable="false")
+    and none of the labels from the labeling config match the YOLO model's labels.
+    """
+
+    # Create a label config with labels that do not match any YOLO labels
+    label_config = """
+    <View>
+        <TimelineLabels name="videoLabels" toName="video">
+            <Label value="NonexistentLabel1"/>
+            <Label value="NonexistentLabel2"/>
+        </TimelineLabels>
+        <Video name="video" value="$video" />
+    </View>
+    """
+    ml = LabelStudioMLBase(label_config=label_config)
+    label_interface = ml.label_interface
+    control = list(label_interface.controls)[0]
+
+    # Attempt to create the TimelineLabelsModel
+    # Expect a ValueError because no labels match and model_trainable is False by default
+    with pytest.raises(ValueError) as excinfo:
+        model = TimelineLabelsModel.create(ml, control=control)
+
+    # Assert that the exception message contains the expected text
+    assert ("TimelinesLabels model works in simple mode (without training), "
+            "but no labels from YOLO model names are matched") in str(excinfo.value)

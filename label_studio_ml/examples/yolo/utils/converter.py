@@ -60,7 +60,7 @@ def convert_timelinelabels_to_probs(
 
 
 def convert_probs_to_timelinelabels(
-    probs, label_mapping, score_threshold=0.5
+    probs, label_mapping, from_name, score_threshold=0.5
 ) -> List[Dict]:
     """
     Generate timeline labels regions based on the given probabilities and label mapping.
@@ -100,6 +100,7 @@ def convert_probs_to_timelinelabels(
                     segment["start"] = i + 1
                     segment["label"] = label
                     segment["score"] = float(prob)
+                    segment["from_name"] = from_name
                     added += 1
                 else:
                     segment["score"] += float(prob)
@@ -108,7 +109,7 @@ def convert_probs_to_timelinelabels(
                 if segment:
                     segment["end"] = i
                     segment["score"] /= (i - (segment["start"]-1))
-                    regions.append(get_timeline_region(**segment))
+                    regions.append(create_timeline_region(**segment))
                     segment.clear()
 
     # Close any ongoing segments at the end of the video
@@ -116,12 +117,12 @@ def convert_probs_to_timelinelabels(
         if segment:
             segment['end'] = num_frames
             segment['score'] /= (num_frames - (segment['start']-1))
-            regions.append(get_timeline_region(**segment))
+            regions.append(create_timeline_region(**segment))
 
     return regions
 
 
-def get_timeline_region(idx, start, end, label, score):
+def create_timeline_region(idx, start, end, label, score, from_name):
     """
     Helper function to add a timeline region to the timeline_labels list.
     """
@@ -133,6 +134,6 @@ def get_timeline_region(idx, start, end, label, score):
             "timelinelabels": [label],
         },
         "to_name": "video",  # Customize if needed
-        "from_name": "videoLabels",  # Customize if needed
+        "from_name": from_name,  # Customize if needed
         "score": score,
     }
