@@ -203,7 +203,7 @@ The cache is used for incremental training on the fly and prediction speedup.
      1. navigate to the yolo folder in this repository in your terminal.
      2. Update your `docker-compose.yml` file
      3. Run `docker compose up` to run the backend
-     4. Connect this backend to your LabelStudio project in the project settings.
+     4. Connect this backend to your LabelStudio project in the project settings. Make sure that Interactive Preannotations is OFF (this is the default). 
 
 ### Annotation and training
 
