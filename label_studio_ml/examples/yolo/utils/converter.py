@@ -68,6 +68,7 @@ def convert_probs_to_timelinelabels(
     Args:
     - probs: 2D numpy array or tensor of probabilities (shape: [num_frames, num_labels])
     - label_mapping: dict mapping label names to indices in the probs array
+    - from_name: name of the control tag in the Label Studio configuration
     - score_threshold: threshold above which a label is considered active for a frame
 
     Returns:
