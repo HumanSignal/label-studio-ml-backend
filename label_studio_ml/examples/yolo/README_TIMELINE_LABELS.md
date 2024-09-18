@@ -13,7 +13,7 @@ categories:
     - Video Classification
     - Temporal Labeling
     - LSTM
-image: "/tutorials/timelinelabels.png"
+image: "/tutorials/yolo-video-classification.png"
 ---
 -->
 
@@ -26,11 +26,17 @@ specifically utilizing features from YOLO's last layer — the model handles tem
 Users can easily customize neural network parameters directly within the labeling configuration 
 to tailor the model to their specific use cases or use this model as a foundation for further development.
 
-In trainable mode, you'll begin by annotating a few samples by hand. Each time you click submit, the model will retrain on the new annotation that you've provided. Once the model begins predicting your trained labels on new tasks, it will automatically populate the timeline with the labels that it has predicted. You can vaildate or change these labels, and updating them will again retrain the model, helping you to iteratively improve.
+In trainable mode, you'll begin by annotating a few samples by hand. Each time you click **Submit**, the model will retrain on the new annotation that you've provided. Once the model begins predicting your trained labels on new tasks, it will automatically populate the timeline with the labels that it has predicted. You can validate or change these labels, and updating them will again retrain the model, helping you to iteratively improve.
+
+
+**Tip:** If you're looking for a more advanced approach to temporal classification, check out the [VideoMAE model](https://huggingface.co/docs/transformers/en/model_doc/videomae). While we don't provide an example backend for VideoMAE, you can [integrate it as your own ML backend](https://labelstud.io/guide/ml_create). 
 
 ## Installation and quickstart
 
-See the [main README](./README.md#quick-start) for detailed instructions on setting up the YOLO-models family in Label Studio.
+Before you begin, you need to install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+
+This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/yolo). See the [main README](./README.md#quick-start) for detailed instructions on setting up the YOLO-models family in Label Studio.
+
 
 ## Labeling configuration
 
@@ -53,8 +59,8 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
 </View>
 ```
 
-**Note:** It's <span style="color:red">very important</span> to set **`frameRate`** attribute in the `Video` tag to the correct value, 
-<span style="color:red">all your videos should have the same frame rate</span>. Otherwise, the submitted annotations will be **misaligned** with videos.
+<span style="color:red"><b>IMPORTANT:</b></span> You must set the **`frameRate`** attribute in the `Video` tag to the correct value. 
+<span style="color:red">All your videos should have the same frame rate.</span> Otherwise, the submitted annotations will be **misaligned** with videos.
 
 ## Parameters
 
@@ -72,9 +78,9 @@ See the [main README](./README.md#quick-start) for detailed instructions on sett
 
 **Note:** You can customize the neural network parameters directly in the labeling configuration by adjusting the attributes in the `<TimelineLabels>` tag.
 
-## Using the Model
+## Using the model
 
-### Simple Mode
+### Simple mode
 
 In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.
 
@@ -92,17 +98,18 @@ In the simple mode, the model uses pre-trained YOLO classes to generate predicti
   </View>
   ```
 
-### Trainable Mode
+### Trainable mode
 
 The trainable mode enables the model to learn from your annotations incrementally.
-It uses the pretrained YOLO classification model and a custom LSTM neural network on the top 
+
+It uses the pre-trained YOLO classification model and a custom LSTM neural network on the top 
 to capture temporal dependencies in video data. The LSTM model works from scratch, 
 so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) to start making meaningful predictions.
 
-- **When to Use**: When custom labels or improved accuracy are needed relatively to simple mode.
+- **When to Use**: When custom labels or improved accuracy are needed relative to simple mode.
 - **Configuration**: Set `model_trainable="true"` in the labeling config.
 - **Training Process**:
-  - Start annotating videos using the TimelineLabels tag.
+  - Start annotating videos using the `TimelineLabels` tag.
   - After submitting the first annotation, the model begins training.
   - The `partial_fit()` method allows the model to train incrementally with each new annotation.
 - **Requirements**: Approximately 10-20 annotated tasks are needed to achieve reasonable performance.
@@ -135,11 +142,11 @@ The trainable mode uses a custom implementation of the temporal LSTM classificat
 The model is trained incrementally with each new annotation submit or update, 
 and it generates predictions for each frame in the video.
 
-### 1. Feature Extraction with YOLO
+### 1. Feature extraction with YOLO
 
-- **Pre-trained YOLO Model**: Uses a YOLO classification model (e.g., `yolov8n-cls.pt`) to extract features from video frames.
-- **Layer Modification**: The model removes the last classification layer to use the feature representations from the penultimate layer (see `utils/neural_nets.py::cached_feature_extraction()`).
-- **Cached Predictions**: Uses caching to store YOLO intermediate feature extractions for efficiency and incremental training on the fly.
+- **Pre-trained YOLO model**: Uses a YOLO classification model (e.g. `yolov8n-cls.pt`) to extract features from video frames.
+- **Layer modification**: The model removes the last classification layer to use the feature representations from the penultimate layer (see `utils/neural_nets.py::cached_feature_extraction()`).
+- **Cached predictions**: Uses caching to store YOLO intermediate feature extractions for efficiency and incremental training on the fly.
 
 #### Custom YOLO models for feature extraction
 
@@ -155,39 +162,39 @@ The cache is used for incremental training on the fly and prediction speedup.
 
 - **Purpose**: Captures temporal dependencies in video data by processing sequences of feature vectors from the last layer of YOLO.
 - **Architecture**:
-  - **Input Layer**: Takes feature vectors from YOLO.
-  - **Fully Connected Layer**: Reduces dimensionality.
-  - **Layer Normalization and Dropout**: Improves training stability and prevents overfitting.
-  - **LSTM Layer**: Processes sequences to model temporal relationships.
-  - **Output Layer**: Generates multi-label predictions for each time step.
-- **Loss Function**: Uses binary cross-entropy loss with logits for multi-label classification and the weight decay for L2 regularization.
+  - **Input layer**: Takes feature vectors from YOLO.
+  - **Fully connected layer**: Reduces dimensionality.
+  - **Layer normalization and dropout**: Improves training stability and prevents overfitting.
+  - **LSTM layer**: Processes sequences to model temporal relationships.
+  - **Output layer**: Generates multi-label predictions for each time step.
+- **Loss function**: Uses binary cross-entropy loss with logits for multi-label classification and the weight decay for L2 regularization.
 
 ### 3. Incremental training with `partial_fit()`
 
 - **Functionality**: Allows the model to update its parameters with each new annotation.
 - **Process**:
   - Extracts features and labels from the annotated video using `utils/converter.py::convert_timelinelabels_to_probs()`.
-  - Preprocesses data into sequences suitable for LSTM input split by `model_classifier_sequence_size` chunks.
+  - Pre-processes data into sequences suitable for LSTM input split by `model_classifier_sequence_size` chunks.
   - Trains the model incrementally, using early stopping based on F1 score and accuracy thresholds.
 - **Advantages**:
-  - **Few-Shot Learning**: Capable of learning from a small number of examples.
-  - **Avoids Overfitting**: Early stopping using F1 score and accuracy prevents the model from overfitting on limited data.
+  - **Few-shot learning**: Capable of learning from a small number of examples.
+  - **Avoids overfitting**: Early stopping using F1 score and accuracy prevents the model from overfitting on limited data.
 
 ### Limitations and considerations
 
-- **Not a Final Production Model**: While promising, the model is primarily a demo and may require further validation for production use.
-- **Performance Depends on Data**: Requires sufficient and diverse annotations (at least 10-20 annotated tasks) to start performing.
-- **Parameter Sensitivity**: Adjusting neural network parameters may significantly impact performance.
+- **Not a final production model**: While promising, the model is primarily a demo and may require further validation for production use.
+- **Performance depends on data**: Requires sufficient and diverse annotations (at least 10-20 annotated tasks) to start performing.
+- **Parameter sensitivity**: Adjusting neural network parameters may significantly impact performance.
 - **Early stop on training data**: The model uses early stopping based on the F1 score and accuracy on the training data. This may lead to overfitting on the training data. It was made because of the lack of validation data when updating on one annotation.
-- **YOLO model limitations**: The model uses a pre-trained YOLO model trained on object classification tasks for feature extraction, which may not be optimal for all use cases such as event detection. This approach doesn't tune the YOLO model, it trains only the LSTM part upon.
-- **Label balance**: The model may struggle with imbalanced labels. Ensure that the labels are well-distributed in the training data. Consider modifying the loss function (BCEWithLogitsLoss) and using class pos weights to address this issue.
+- **YOLO model limitations**: The model uses a pre-trained YOLO model trained on object classification tasks for feature extraction, which may not be optimal for all use cases such as event detection. This approach doesn't tune the YOLO model, it trains only the LSTM piece upon the YOLO last layer.
+- **Label balance**: The model may struggle with imbalanced labels. Ensure that the labels are well-distributed in the training data. Consider modifying the loss function (`BCEWithLogitsLoss`) and using class pos weights to address this issue.
 - **Training on all daa**: Training on all data is not yet implemented, so the model trains only on the last annotation. See `timeline_labels.py::fit()` for more details. 
 
 ## Example use case: detecting a ball in football videos
 
 ### Setup
 
-1. **Labeling Configuration**:
+1. **Labeling configuration**:
 
    ```xml
    <View>
@@ -199,63 +206,63 @@ The cache is used for incremental training on the fly and prediction speedup.
     </View>
    ```
 
-2. **Connect the Model Backend**:
+2. **Connect the model Backend**:
 
-   - Create a new project, go to Project Settings > Model. Add the YOLO backend to your project.
-     1. navigate to the yolo folder in this repository in your terminal.
-     2. Update your `docker-compose.yml` file
-     3. Run `docker compose up` to run the backend
-     4. Connect this backend to your LabelStudio project in the project settings. Make sure that Interactive Preannotations is OFF (this is the default). 
+    Create a new project, go to **Settings > Model** and add the YOLO backend.
+     1. Navigate to the `yolo` folder in this repository in your terminal.
+     2. Update your `docker-compose.yml` file.
+     3. Execute `docker compose up` to run the backend. 
+     4. Connect this backend to your Label Studio project in the project settings. Make sure that **Interactive Preannotations** is OFF (this is the default). 
 
 ### Annotation and training
 
-1. **Annotate Videos**:
+1. **Annotate videos**:
 
    - Upload football videos to the project.
-   - Use the TimelineLabels control tag to label time intervals where the ball is visible in the frame.
+   - Use the [`<TimelineLabels>` control tag](https://labelstud.io/tags/timelinelabels) to label time intervals where the ball is visible in the frame.
 
-2. **Model Training**:
+2. **Model training**:
 
    - After submitting annotations, the model begins training incrementally.
    - Continue annotating until the model starts making accurate predictions.
 
-3. **Review Predictions**:
+3. **Review predictions**:
 
    - The model suggests labels for unannotated videos.
    - Validate and correct predictions to further improve the model.
 
 ## Adjusting training parameters and resetting the model
 
-If the model is not performing well, consider modifying the LSTM and classifier training parameters in the labeling config,
-they start with `model_classifier_` prefix.
+If the model is not performing well, consider modifying the LSTM and classifier training parameters in the labeling config. These parameters
+start with the `model_classifier_` prefix.
 
 The model will be **reset** after changing these parameters:
- - model_classifier_sequence_size,
- - model_classifier_hidden_size,
- - model_classifier_num_layers,
- - new labels added or removed from the labeling config.
+ - `model_classifier_sequence_size`
+ - `model_classifier_hidden_size`
+ - `model_classifier_num_layers`
+ - New labels added or removed from the labeling config
 
-So, you may need to re-update (click the "Update" button) on annotations to see improvements.
+So you may need to update (click **Update**) on annotations to see improvements.
 
-If you want to modify more parameters, you can do it directly in the code in the `utils/neural_nets.py::MultiLabelLSTM`.
+If you want to modify more parameters, you can do it directly in the code in `utils/neural_nets.py::MultiLabelLSTM`.
 
 If you need to reset the model completely, you can remove the model file from `/app/models`. 
 See `timeline_labels.py::get_classifier_path()` for the model path. Usually it starts with the `timelinelabels-` prefix.  
 
 ## Debug
 
-To debug the model, you should run it with `LOG_LEVEL=DEBUG` environment variable (see `docker-compose.yml`),
-then you need to check the logs in the (docker) console. 
+To debug the model, you should run it with the `LOG_LEVEL=DEBUG` environment variable (see `docker-compose.yml`),
+then check the logs in the (docker) console. 
 
-## Conversion TimelineLabels regions to label arrays and back
+## Convert TimelineLabels regions to label arrays and back
 
 There are two main functions to convert the TimelineLabels regions to label arrays and back:
-- `utils/converter.py::convert_timelinelabels_to_probs()` - converts TimelineLabels regions to label arrays.
-- `utils/converter.py::convert_probs_to_timelinelabels()` - converts label arrays to TimelineLabels regions.
+- `utils/converter.py::convert_timelinelabels_to_probs()` - Converts TimelineLabels regions to label arrays
+- `utils/converter.py::convert_probs_to_timelinelabels()` - Converts label arrays to TimelineLabels regions
 
 Each row in the label array corresponds to a frame in the video. 
 The label array is a binary matrix where each column corresponds to a label. 
-If the label is present in the frame, the corresponding cell is set to 1, otherwise 0.
+If the label is present in the frame, the corresponding cell is set to `1`, otherwise `0`.
 
 For example: 
 ```
@@ -278,13 +285,11 @@ See `tests/test_timeline_labels.py::test_convert_probs_to_timelinelabels()` for 
 <br>
 <br>
 
-# For developers
-
-*[autogenerated by o1-preview model]*
+## For developers
 
 This guide provides an in-depth look at the architecture and code flow of the TimelineLabels ML backend for Label Studio. It includes class inheritance diagrams and method call flowcharts to help developers understand how the components interact. Additionally, it offers explanations of key methods and classes, highlighting starting points and their roles in the overall workflow.
 
-## Class Inheritance Diagram
+### Class inheritance diagram
 
 The following diagram illustrates the class inheritance hierarchy in the TimelineLabels ML backend.
 
@@ -307,9 +312,9 @@ classDiagram
 - **`BaseNN`**: Custom base class for neural networks, inherits from `torch.nn.Module`.
 - **`MultiLabelLSTM`**: Inherits from `BaseNN`, implements an LSTM neural network for multi-label classification.
 
-## Method Call Flowcharts
+### Method call flowcharts
 
-### Prediction Workflow
+#### Prediction workflow
 
 The following flowchart depicts the method calls during the prediction process.
 
@@ -332,7 +337,7 @@ flowchart TD
     D --> M[Return predicted regions]
 ```
 
-### Training Workflow
+#### Training workflow
 
 The following flowchart shows the method calls during the training process.
 
@@ -352,15 +357,15 @@ flowchart TD
     O -->|No| Y[Return False]
 ```
 
-## Code structure and explanations
+### Code structure and explanations
 
-### TimelineLabelsModel class
+#### TimelineLabelsModel class
 
 **File**: `timeline_labels.py`
 
 The `TimelineLabelsModel` class extends the `ControlModel` base class and implements functionality specific to the `<TimelineLabels>` control tag.
 
-#### Key methods:
+**Key methods:**
 
 - **`is_control_matched(cls, control)`**: Class method that checks if the provided control tag matches the `<TimelineLabels>` tag.
 
@@ -391,15 +396,15 @@ The `TimelineLabelsModel` class extends the `ControlModel` base class and implem
 
 - **`get_classifier_path(self, project_id)`**: Generates the file path for storing the classifier model based on the project ID and model name.
 
-### Neural network classes
+#### Neural network classes
 
-#### BaseNN class
+##### BaseNN class
 
 **File**: `neural_nets.py`
 
 The `BaseNN` class serves as a base class for neural network models, providing common methods for saving, loading, and managing label mappings.
 
-#### Key methods:
+**Key methods:**
 
 - **`set_label_map(self, label_map)`**: Stores the label mapping dictionary.
 
@@ -411,13 +416,13 @@ The `BaseNN` class serves as a base class for neural network models, providing c
 
 - **`load_cached_model(cls, model_path)`**: Loads a cached model if it exists, otherwise returns `None`.
 
-#### MultiLabelLSTM class
+##### MultiLabelLSTM class
 
 **File**: `neural_nets.py`
 
 The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural network for multi-label classification.
 
-#### Key methods:
+**Key methods:**
 
 - **`__init__(...)`**: Initializes the neural network layers and parameters, including input size, hidden layers, dropout, and optimizer settings.
 
@@ -432,7 +437,7 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
 
 - **`partial_fit(self, sequence, labels, ...)`**: Trains the model incrementally on new data.
 
-  - Preprocesses the input sequence.
+  - Pre-processes the input sequence.
   - Creates a DataLoader for batching.
   - Runs the training loop with early stopping based on accuracy and F1 score thresholds.
 
@@ -442,30 +447,30 @@ The `MultiLabelLSTM` class inherits from `BaseNN` and implements an LSTM neural 
   - Passes data through the model in evaluation mode.
   - Concatenates outputs to match the original sequence length.
 
-## Starting points and execution flow
+### Starting points and execution flow
 
-### Prediction process
+#### Prediction process
 
-1. **Prediction Request**: When a prediction is requested for a video, `TimelineLabelsModel.predict_regions(video_path)` is called.
+1. **Prediction request**: When a prediction is requested for a video, `TimelineLabelsModel.predict_regions(video_path)` is called.
 
-2. **Determine Mode**:
+2. **Determine mode**:
 
-   - **Trainable Mode** (`self.trainable == True`): Calls `create_timelines_trainable(video_path)`.
+   - **Trainable mode** (`self.trainable == True`): Calls `create_timelines_trainable(video_path)`.
 
      - Extracts features using `cached_feature_extraction`.
      - Loads the trained classifier model using `BaseNN.load_cached_model`.
      - Predicts probabilities with `classifier.predict(yolo_probs)`.
      - Converts probabilities to timeline labels using `convert_probs_to_timelinelabels`.
 
-   - **Simple Mode** (`self.trainable == False`): Calls `create_timelines_simple(video_path)`.
+   - **Simple mode** (`self.trainable == False`): Calls `create_timelines_simple(video_path)`.
 
      - Gets YOLO predictions using `cached_yolo_predict`.
      - Processes frame results to extract probabilities.
      - Converts probabilities to timeline labels using `convert_probs_to_timelinelabels`.
 
-3. **Return Predictions**: The method returns a list of predicted regions with labels and timestamps.
+3. **Return predictions**: The method returns a list of predicted regions with labels and timestamps.
 
-### Training process
+#### Training process
 
 1. **Event Trigger**: The `fit(event, data, **kwargs)` method is called when an annotation event occurs (e.g., 'ANNOTATION_CREATED' or 'ANNOTATION_UPDATED').
 

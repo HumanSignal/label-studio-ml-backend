@@ -687,11 +687,10 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 
 ## Video temporal classification using `TimelineLabels`
 
-This ML backend supports temporal multi-label video classification for the `TimelineLabels` control tag in Label Studio. 
+This ML backend supports temporal multi-label video classification for the [`<TimelineLabels>` control tag](https://labelstud.io/tags/timelinelabels) in Label Studio. 
 There are two modes available:
 - **Simple:** In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.  
-- **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio like a few shot learning way
-when training is performed on a small number of annotations on the fly.  
+- **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio using few-shot learning as training is performed on a small number of annotations.  
 
 ### Labeling config
 
@@ -702,7 +701,7 @@ when training is performed on a small number of annotations on the fly.
           name="label" toName="video" 
           model_trainable="false" model_score_threshold="0.25">
     <Label value="Ball" predicted_values="soccer_ball" />
-    <Label value="tiger_shark" />
+    <Label value="hamster" />
   </TimelineLabels>
 </View>
 ```
