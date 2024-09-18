@@ -237,7 +237,7 @@ So, you may need to re-update (click the "Update" button) on annotations to see 
 
 If you want to modify more parameters, you can do it directly in the code in the `utils/neural_nets.py::MultiLabelLSTM`.
 
-If you need to reset the model completely, you can remove the model file from `/app/models` and restart the backend. 
+If you need to reset the model completely, you can remove the model file from `/app/models`. 
 See `timeline_labels.py::get_classifier_path()` for the model path. Usually it starts with the `timelinelabels-` prefix.  
 
 ## Debug
