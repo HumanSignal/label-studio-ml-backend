@@ -1,4 +1,4 @@
-<!--
+ <!--
 ---
 title: TimelineLabels ML Backend for Label Studio
 type: guide
@@ -25,6 +25,8 @@ By integrating an LSTM neural network on top of YOLO's classification capabiliti
 specifically utilizing features from YOLO's last layer — the model handles temporal labeling tasks. 
 Users can easily customize neural network parameters directly within the labeling configuration 
 to tailor the model to their specific use cases or use this model as a foundation for further development.
+
+In trainable mode, you'll begin by annotating a few samples by hand. Each time you click submit, the model will retrain on the new annotation that you've provided. Once the model begins predicting your trained labels on new tasks, it will automatically populate the timeline with the labels that it has predicted. You can vaildate or change these labels, and submitting them will again retrain the model, helping you to iteratively improve.
 
 ## Installation and quickstart
 
