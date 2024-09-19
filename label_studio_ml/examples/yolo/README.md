@@ -36,16 +36,17 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 
 **Supported Features**
 
-| YOLO Task Name                        | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
-|---------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
-| Object Detection                      | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
-| Oriented Bounding Boxes (OBB)         | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
-| Image Instance Segmentation: Polygons | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
-| Image Semantic Segmentation: Masks    | `<BrushLabels>`                      | ❌                    | Native              | Native              |
-| Image Classification                  | `<Choices>`                          | ✅                    | Native              | Native              |
-| Pose Detection                        | `<KeyPoints>`                        | ✅                    | Native              | Native              |
-| Video Object Tracking                 | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
-| Video Temporal Classification         | `<TimelineLabels>`                   | Coming soon          | Native              | Native              |
+| YOLO Task Name                                               | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
+|--------------------------------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
+| Object Detection                                             | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
+| Oriented Bounding Boxes (OBB)                                | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
+| Image Instance Segmentation: Polygons                        | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
+| Image Semantic Segmentation: Masks                           | `<BrushLabels>`                      | ❌                    | Native              | Native              |
+| Image Classification                                         | `<Choices>`                          | ✅                    | Native              | Native              |
+| Pose Detection                                               | `<KeyPoints>`                        | ✅                    | Native              | Native              |
+| Video Object Tracking                                        | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
+| [Video Temporal Classification](./README_TIMELINE_LABELS.md) | `<TimelineLabels>`                   | ✅                    | Native              | Native              |
+
 
 * **LS Control Tag**: Label Studio [control tag](https://labelstud.io/tags/) from the labeling configuration. 
 * **LS Import Supported**: Indicates whether Label Studio supports Import from YOLO format to Label Studio (using the LS converter).
@@ -82,7 +83,7 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 4. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`. 
 
-5. Add images to Label Studio.
+5. Add images or video (depending on tasks you are going to solve) to Label Studio.
 
 6. Open any task in the Data Manager and see the predictions from the YOLO model.
 
@@ -97,11 +98,13 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 **Control tags**
 
+- `<Choices>` - [Classification](https://labelstud.io/tags/choices); image classification task
 - `<RectangleLabels>` - [Bounding boxes](https://labelstud.io/tags/rectanglelabels); object detection task
 - `<PolygonLabels>` - [Polygons](https://labelstud.io/tags/polygonlables); segmentation task
-- `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); video object tracking task
+- `<VideoRectangle>` - [Video bounding boxes](https://labelstud.io/tags/videorectangle); object tracking task for videos
 - `<KeyPointLabels>` - [Key points](https://labelstud.io/tags/keypointlabels); pose detection task
-- `<Choices>` - [Classification](https://labelstud.io/tags/choices)
+- `<TimelineLabels>` - [Temporal labels for videos](https://labelstud.io/tags/timelinelabels); multi-label temporal classification task for videos
+
 
 **How to skip the control tag?**
 
@@ -680,6 +683,55 @@ Small models like `yolov8n.pt` are recommended for real-time tracking, however, 
 -------------------
 
 <br>
+
+
+## Video temporal classification using `TimelineLabels`
+
+This ML backend supports temporal multi-label video classification for the [`<TimelineLabels>` control tag](https://labelstud.io/tags/timelinelabels) in Label Studio. 
+There are two modes available:
+- **Simple:** In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.  
+- **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio using few-shot learning as training is performed on a small number of annotations.  
+
+<div align="left">
+  <a href="https://www.youtube.com/watch?v=tfMn5q1tqKI" title="Video Frame Classification with YOLOv8 and Label Studio">
+    <img src="http://img.youtube.com/vi/tfMn5q1tqKI/0.jpg" alt="Video Temporal Classification video" style="width:50%;"/>
+      <br>
+    Check the video tutorial
+  </a>
+</div>
+<br/>
+
+### Labeling config
+
+```xml
+<View>
+  <Video name="video" value="$video"/>
+  <TimelineLabels 
+          name="label" toName="video" 
+          model_trainable="false" model_score_threshold="0.25">
+    <Label value="Ball" predicted_values="soccer_ball" />
+    <Label value="hamster" />
+  </TimelineLabels>
+</View>
+```
+
+### Model training
+
+For more details on using the `TimelineLabels` ML backend, including training the model 
+and adjusting neural network classifier parameters, please refer to 
+**[README_TIMELINE_LABELS.md](README_TIMELINE_LABELS.md)**.
+
+### Default model
+
+`yolov8n-cls.pt` is the default classification model for simple mode.
+
+
+<br>
+
+-------------------
+
+<br>
+
 
 ## Run the YOLO ML backend
 

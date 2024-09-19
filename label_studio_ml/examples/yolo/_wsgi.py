@@ -4,9 +4,13 @@ import json
 import logging
 import logging.config
 
+# Set a default log level if LOG_LEVEL is not defined
+log_level = os.getenv("LOG_LEVEL", "INFO")
+
 logging.config.dictConfig(
     {
         "version": 1,
+        "disable_existing_loggers": False,  # Prevent overriding existing loggers
         "formatters": {
             "standard": {
                 "format": "[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s"
@@ -15,13 +19,13 @@ logging.config.dictConfig(
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": os.getenv("LOG_LEVEL"),
+                "level": log_level,
                 "stream": "ext://sys.stdout",
                 "formatter": "standard",
             }
         },
         "root": {
-            "level": os.getenv("LOG_LEVEL"),
+            "level": log_level,
             "handlers": ["console"],
             "propagate": True,
         },
@@ -68,7 +72,7 @@ if __name__ == "__main__":
         "--log-level",
         dest="log_level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default=None,
+        default=log_level,
         help="Logging level",
     )
     parser.add_argument(

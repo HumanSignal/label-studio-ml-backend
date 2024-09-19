@@ -55,7 +55,7 @@ class VideoRectangleModel(ControlModel):
         logger.info(
             f"Video duration: {duration} seconds, {frame_count} frames, {fps} fps"
         )
-        return duration
+        return frame_count, duration
 
     def predict_regions(self, path) -> List[Dict]:
         # bounding box parameters
@@ -74,7 +74,7 @@ class VideoRectangleModel(ControlModel):
 
         # run model track
         try:
-            results = self.model.track(path, conf=conf, iou=iou, tracker=tracker)
+            results = self.model.track(path, conf=conf, iou=iou, tracker=tracker, stream=True)
         finally:
             # clean temporary file
             if tmp_yaml and os.path.exists(tmp_yaml):
@@ -85,14 +85,17 @@ class VideoRectangleModel(ControlModel):
 
     def create_video_rectangles(self, results, path):
         """Create regions of video rectangles from the yolo tracker results"""
-        frames_count, duration = len(results), self.get_video_duration(path)
+        frames_count, duration = self.get_video_duration(path)
+        model_names = self.model.names
         logger.debug(
             f"create_video_rectangles: {self.from_name}, {frames_count} frames"
         )
 
         tracks = defaultdict(list)
         track_labels = dict()
-        for frame, result in enumerate(results):
+        frame = -1
+        for result in results:
+            frame += 1
             data = result.boxes
             if not data.is_track:
                 continue
@@ -101,7 +104,7 @@ class VideoRectangleModel(ControlModel):
                 score = float(data.conf[i])
                 x, y, w, h = data.xywhn[i].tolist()
                 # get label
-                model_label = self.model.names[int(data.cls[i])]
+                model_label = model_names[int(data.cls[i])]
                 if model_label not in self.label_map:
                     continue
                 output_label = self.label_map[model_label]

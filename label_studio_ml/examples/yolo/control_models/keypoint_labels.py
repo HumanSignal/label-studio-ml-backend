@@ -1,5 +1,5 @@
 import logging
-from control_models.base import ControlModel
+from control_models.base import ControlModel, get_bool
 from typing import List, Dict
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,7 @@ class KeypointLabelsModel(ControlModel):
     def __init__(self, **data):
         super().__init__(**data)
 
-        self.add_bboxes = self.control.attr.get("model_add_bboxes", "true").lower() in [
-            "1",
-            "true",
-            "yes",
-        ]
+        self.add_bboxes = get_bool(self.control.attr, "model_add_bboxes", "true")
         self.point_size = float(self.control.attr.get("model_point_size", 1))
         self.point_threshold = float(self.control.attr.get("model_point_threshold", 0))
         self.point_map = self.build_point_mapping()
@@ -72,6 +68,7 @@ class KeypointLabelsModel(ControlModel):
         keypoints_data = results[0].keypoints  # Get keypoints from the first frame
         bbox_data = results[0].boxes
         image_width = results[0].orig_shape[1]
+        model_names = self.model.names
         regions = []
 
         for bbox_index in range(
@@ -81,7 +78,7 @@ class KeypointLabelsModel(ControlModel):
             point_xyn = (
                 keypoints_data.xyn[bbox_index] * 100
             )  # Convert normalized keypoints to percentages
-            model_label = self.model.names[int(results[0].boxes.cls[bbox_index])]
+            model_label = model_names[int(results[0].boxes.cls[bbox_index])]
 
             logger.debug(
                 "----------------------\n"

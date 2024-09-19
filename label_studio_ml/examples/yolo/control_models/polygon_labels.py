@@ -29,6 +29,7 @@ class PolygonLabelsModel(ControlModel):
     def create_polygons(self, results, path):
         logger.debug(f"create_polygons: {self.from_name}")
         data = results[0].masks  # take masks from the first frame
+        model_names = self.model.names
         regions = []
 
         for i in range(len(data)):
@@ -36,7 +37,7 @@ class PolygonLabelsModel(ControlModel):
             points = (
                 data.xyn[i] * 100
             )  # get the polygon points for the current instance
-            model_label = self.model.names[int(results[0].boxes.cls[i])]
+            model_label = model_names[int(results[0].boxes.cls[i])]
 
             logger.debug(
                 "----------------------\n"

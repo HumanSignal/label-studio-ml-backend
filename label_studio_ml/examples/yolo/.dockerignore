@@ -11,6 +11,7 @@
 !tests/*
 !control_models/*
 !models/*
+!utils/*
 
 # Include requirements files
 !requirements*.txt

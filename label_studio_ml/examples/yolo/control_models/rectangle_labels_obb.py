@@ -47,11 +47,12 @@ class RectangleLabelsObbModel(ControlModel):
         """YOLO OBB: oriented bounding boxes"""
         logger.debug(f"create_rotated_rectangles: {self.from_name}")
         data = results[0].obb  # take bboxes from the first frame
+        model_names = self.model.names
         regions = []
 
         for i in range(data.shape[0]):  # iterate over items
             score = float(data.conf[i])  # tensor => float
-            model_label = self.model.names[int(data.cls[i])]
+            model_label = model_names[int(data.cls[i])]
             original_height, original_width = data.orig_shape
             value = convert_yolo_obb_to_annotation(
                 data.xyxyxyxy[i].tolist(), original_width, original_height

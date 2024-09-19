@@ -32,7 +32,7 @@ class ChoicesModel(ControlModel):
     def create_choices(self, results, path):
         logger.debug(f"create_choices: {self.from_name}")
         mode = self.control.attr.get("choice", "single")
-        data = results[0].probs.numpy().data
+        data = results[0].probs.data.cpu().numpy()
 
         # single
         if mode in ["single", "single-radio"]:

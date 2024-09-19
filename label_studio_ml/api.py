@@ -56,7 +56,7 @@ def _predict():
     data = request.json
     tasks = data.get('tasks')
     label_config = data.get('label_config')
-    project = data.get('project')
+    project = str(data.get('project'))
     project_id = project.split('.', 1)[0] if project else None
     params = data.get('params', {})
     context = params.pop('context', {})
@@ -123,8 +123,14 @@ def webhook():
     project_id = str(data['project']['id'])
     label_config = data['project']['label_config']
     model = MODEL_CLASS(project_id, label_config=label_config)
-    model.fit(event, data)
-    return jsonify({}), 201
+    result = model.fit(event, data)
+
+    try:
+        response = jsonify({'result': result, 'status': 'ok'})
+    except Exception as e:
+        response = jsonify({'error': str(e), 'status': 'error'})
+
+    return response, 201
 
 
 @_server.route('/health', methods=['GET'])

@@ -1,6 +1,6 @@
 import logging
 
-from control_models.base import ControlModel
+from control_models.base import ControlModel, get_bool
 from typing import List, Dict
 from label_studio_sdk.label_interface.control_tags import ControlTag
 
@@ -12,7 +12,7 @@ def is_obb(control: ControlTag) -> bool:
     """Check if the model should use oriented bounding boxes (OBB)
     based on the control tag attribute `model_obb` from the labeling config.
     """
-    return control.attr.get("model_obb", "false").lower() in ["true", "yes", "1"]
+    return get_bool(control.attr, "model_obb", "false")
 
 
 class RectangleLabelsModel(ControlModel):
@@ -51,12 +51,13 @@ class RectangleLabelsModel(ControlModel):
         """Simple bounding boxes without rotation"""
         logger.debug(f"create_rectangles: {self.from_name}")
         data = results[0].boxes  # take bboxes from the first frame
+        model_names = self.model.names
         regions = []
 
         for i in range(data.shape[0]):  # iterate over items
             score = float(data.conf[i])  # tensor => float
             x, y, w, h = data.xywhn[i].tolist()
-            model_label = self.model.names[int(data.cls[i])]
+            model_label = model_names[int(data.cls[i])]
 
             logger.debug(
                 "----------------------\n"

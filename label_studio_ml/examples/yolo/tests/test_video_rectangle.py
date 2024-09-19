@@ -47,10 +47,7 @@ tasks = [
     {"data": {"video": "tests/opossum_snow_short.mp4"}},
 ]
 
-yolo_results = [
-    load_file(TEST_DIR + "/opossum_snow_short.pickle"),
-    None
-]
+yolo_results = [load_file(TEST_DIR + "/opossum_snow_short.pickle"), None]
 
 expected = [
     # test 1: one control tag with rectangle labels
