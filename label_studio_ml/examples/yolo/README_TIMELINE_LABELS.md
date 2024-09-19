@@ -29,8 +29,8 @@ to tailor the model to their specific use cases or use this model as a foundatio
 In trainable mode, you'll begin by annotating a few samples by hand. Each time you click **Submit**, the model will retrain on the new annotation that you've provided. Once the model begins predicting your trained labels on new tasks, it will automatically populate the timeline with the labels that it has predicted. You can validate or change these labels, and updating them will again retrain the model, helping you to iteratively improve.
 
 <div align="left">
-  <a href="[http://www.youtube.com/watch?v=UyaecID1iG8](https://www.youtube.com/watch?v=tfMn5q1tqKI)" title="Video Frame Classification with YOLOv8 and Label Studio">
-    <img src="http://img.youtube.com/vi/UyaecID1iG8]/0.jpg" alt="Video Temporal Classification video" style="width:50%;"/>
+  <a href="http://www.youtube.com/watch?v=tfMn5q1tqKI" title="Video Frame Classification with YOLOv8 and Label Studio">
+    <img src="http://img.youtube.com/vi/tfMn5q1tqKI/0.jpg" alt="Video Temporal Classification video" style="width:50%;"/>
       <br>
     Check the video tutorial!
   </a>
