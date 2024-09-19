@@ -693,8 +693,8 @@ There are two modes available:
 - **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio using few-shot learning as training is performed on a small number of annotations.  
 
 <div align="left">
-  <a href="http://www.youtube.com/watch?v=UyaecID1iG8" title="Video Frame Classification with YOLOv8 and Label Studio">
-    <img src="http://img.youtube.com/vi/UyaecID1iG8]/0.jpg" alt="Video Temporal Classification video" style="width:50%;"/>
+  <a href="https://www.youtube.com/watch?v=tfMn5q1tqKI" title="Video Frame Classification with YOLOv8 and Label Studio">
+    <img src="http://img.youtube.com/vi/tfMn5q1tqKI/0.jpg" alt="Video Temporal Classification video" style="width:50%;"/>
       <br>
     Check the video tutorial
   </a>
