@@ -692,6 +692,8 @@ There are two modes available:
 - **Simple:** In the simple mode, the model uses pre-trained YOLO classes to generate predictions without additional training.  
 - **Trainable:** In the [trainable mode](README_TIMELINE_LABELS.md), the model can be trained on custom labels and annotations submitted in Label Studio using few-shot learning as training is performed on a small number of annotations.  
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/tfMn5q1tqKI?si=MRBazDY8k41qoAl0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 ### Labeling config
 
 ```xml
