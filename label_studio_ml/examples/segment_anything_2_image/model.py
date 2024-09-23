@@ -73,14 +73,14 @@ class NewModel(LabelStudioMLBase):
             'score': total_prob / max(len(results), 1)
         }]
 
-    def set_image(self, image_url):
-        image_path = get_local_path(image_url)
+    def set_image(self, image_url, task_id):
+        image_path = get_local_path(image_url, task_id=task_id)
         image = Image.open(image_path)
         image = np.array(image.convert("RGB"))
         predictor.set_image(image)
 
     def _sam_predict(self, img_url, point_coords=None, point_labels=None, input_box=None, task=None):
-        self.set_image(img_url)
+        self.set_image(img_url, task.get('id'))
         point_coords = np.array(point_coords, dtype=np.float32) if point_coords else None
         point_labels = np.array(point_labels, dtype=np.float32) if point_labels else None
         input_box = np.array(input_box, dtype=np.float32) if input_box else None
