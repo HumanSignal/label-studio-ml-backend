@@ -142,10 +142,11 @@ def create_dir(args):
     wsgi_script_file = os.path.join(default_configs_dir, '_wsgi.py.tmpl')
     with open(wsgi_script_file) as f:
         wsgi_script = f.read()
-    wsgi_script = wsgi_script.format(
-        script=os.path.splitext(script_base_name)[0],
-        model_class=model_class
-    )
+    script=os.path.splitext(script_base_name)[0]
+    wsgi_script = f"""
+    {wsgi_script}
+    """
+    wsgi_script = wsgi_script.replace("{script}", script).replace("{model_class}", model_class)
     wsgi_name = os.path.basename(wsgi_script_file).split('.tmpl', 1)[0]
     with open(os.path.join(output_dir, wsgi_name), mode='w') as fout:
         fout.write(wsgi_script)
