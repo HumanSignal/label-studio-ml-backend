@@ -7,7 +7,7 @@ from utils.neural_nets import (
     BaseNN,
     MultiLabelLSTM,
     cached_feature_extraction,
-    cached_yolo_predict
+    cached_yolo_predict,
 )
 from utils.converter import (
     get_label_map,
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class TimelineLabelsModel(ControlModel):
     """
     Class representing a TimelineLabels control tag for YOLO model.
-    See README_TIMELINE_LABELS.md for more details. 
+    See README_TIMELINE_LABELS.md for more details.
     """
 
     type = "TimelineLabels"
@@ -50,7 +50,7 @@ class TimelineLabelsModel(ControlModel):
                 f"TimelinesLabels model works in simple mode (without training), "
                 f"but no labels from YOLO model names are matched:\n{instance.control.name}\n"
                 f"Add labels from YOLO model names to the labeling config or use `predicted_values` to map them. "
-                f"As alternative option, you can set `model_trainable=\"true\"` in the TimelineLabels control tag "
+                f'As alternative option, you can set `model_trainable="true"` in the TimelineLabels control tag '
                 f"to train the model on the labels from the labeling config."
             )
         return instance
@@ -64,15 +64,21 @@ class TimelineLabelsModel(ControlModel):
     def create_timelines_simple(self, video_path):
         logger.debug(f"create_timelines_simple: {self.from_name}")
         # get yolo predictions
-        frame_results = cached_yolo_predict(self.model, video_path, self.model.model_name)
+        frame_results = cached_yolo_predict(
+            self.model, video_path, self.model.model_name
+        )
 
         # Initialize a dictionary to keep track of ongoing segments for each label
         model_names = self.model.names
         needed_ids = [i for i, name in model_names.items() if name in self.label_map]
-        needed_labels = [name for i, name in model_names.items() if name in self.label_map]
+        needed_labels = [
+            name for i, name in model_names.items() if name in self.label_map
+        ]
 
         probs = [frame.probs.data[needed_ids].cpu().numpy() for frame in frame_results]
-        label_map = {self.label_map[label]: idx for idx, label in enumerate(needed_labels)}
+        label_map = {
+            self.label_map[label]: idx for idx, label in enumerate(needed_labels)
+        }
 
         return convert_probs_to_timelinelabels(
             probs, label_map, self.control.name, self.model_score_threshold
@@ -81,7 +87,9 @@ class TimelineLabelsModel(ControlModel):
     def create_timelines_trainable(self, video_path):
         logger.debug(f"create_timelines_trainable: {self.from_name}")
         # extract features based on pre-trained yolo classification model
-        frame_results = cached_feature_extraction(self.model, video_path, self.model.model_name)
+        frame_results = cached_feature_extraction(
+            self.model, video_path, self.model.model_name
+        )
 
         yolo_probs = [frame.probs for frame in frame_results]
         path = self.get_classifier_path(self.project_id)
@@ -95,7 +103,10 @@ class TimelineLabelsModel(ControlModel):
         # run predict and convert to timelinelabels
         probs = classifier.predict(yolo_probs)
         regions = convert_probs_to_timelinelabels(
-            probs, classifier.get_label_map(), self.control.name, self.model_score_threshold
+            probs,
+            classifier.get_label_map(),
+            self.control.name,
+            self.model_score_threshold,
         )
 
         return regions
@@ -109,17 +120,20 @@ class TimelineLabelsModel(ControlModel):
             )
 
         if event in ("ANNOTATION_CREATED", "ANNOTATION_UPDATED"):
-            features, labels, label_map, project_id = self.load_features_and_labels(data)
+            features, labels, label_map, project_id = self.load_features_and_labels(
+                data
+            )
             classifier, path = self.load_classifier(features, label_map, project_id)
             return self.train_classifier(classifier, features, labels, path)
 
     def train_classifier(self, classifier, features, labels, path):
-        """ Train the classifier model for timelinelabels using incremental partial learning.
-        """
+        """Train the classifier model for timelinelabels using incremental partial learning."""
         # Stop training when accuracy or f1 score reaches this threshold, it helps to avoid overfitting
         # because we partially train it on a small dataset from one annotation only
         get = self.control.attr.get
-        epochs = int(get("model_classifier_epochs", 1000))  # Maximum number of training epochs
+        epochs = int(
+            get("model_classifier_epochs", 1000)
+        )  # Maximum number of training epochs
         f1_threshold = float(get("model_classifier_f1_threshold", 0.95))
         accuracy_threshold = float(get("model_classifier_accuracy_threshold", 1.00))
 
@@ -129,13 +143,13 @@ class TimelineLabelsModel(ControlModel):
             labels,
             epochs=epochs,
             f1_threshold=f1_threshold,
-            accuracy_threshold=accuracy_threshold
+            accuracy_threshold=accuracy_threshold,
         )
         classifier.save_and_cache(path)
         return result
 
     def load_classifier(self, features, label_map, project_id):
-        """ Load or create a classifier model for timelinelabels.
+        """Load or create a classifier model for timelinelabels.
         1. Load neural network parameters from labeling config.
         2. Try loading classifier model from memory cache, then from disk.
         3. Or create a new classifier instance if there wasn't successful loading, or if parameters have changed.
@@ -155,11 +169,11 @@ class TimelineLabelsModel(ControlModel):
         # Create a new classifier instance if it doesn't exist
         # or if labeling config has changed
         if (
-                not classifier
-                or classifier.label_map != label_map
-                or classifier.sequence_size != sequence_size
-                or classifier.hidden_size != hidden_size
-                or classifier.num_layers != num_layers
+            not classifier
+            or classifier.label_map != label_map
+            or classifier.sequence_size != sequence_size
+            or classifier.hidden_size != hidden_size
+            or classifier.num_layers != num_layers
         ):
             logger.info("Creating a new classifier model for timelinelabels")
             input_size = len(features[0])
@@ -176,7 +190,7 @@ class TimelineLabelsModel(ControlModel):
         return classifier, path
 
     def load_features_and_labels(self, data):
-        """ Load features and labels from the annotation
+        """Load features and labels from the annotation
         Args:
             data: event data, dictionary with keys 'task' and 'annotation'
         Returns:

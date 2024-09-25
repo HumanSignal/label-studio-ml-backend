@@ -74,7 +74,9 @@ class VideoRectangleModel(ControlModel):
 
         # run model track
         try:
-            results = self.model.track(path, conf=conf, iou=iou, tracker=tracker, stream=True)
+            results = self.model.track(
+                path, conf=conf, iou=iou, tracker=tracker, stream=True
+            )
         finally:
             # clean temporary file
             if tmp_yaml and os.path.exists(tmp_yaml):
