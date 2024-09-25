@@ -36,7 +36,7 @@ class KeypointLabelsModel(ControlModel):
 
     def build_point_mapping(self):
         """Build a mapping between points and Label Studio labels, e.g.
-        <Label value="left_eye" predicted_values="person" model_index="2" /> => {"person::2": "left_eye"}
+        <Label value="nose" predicted_values="person" model_index="0" /> => {"person::0": "nose"}
         """
         mapping = {}
         for value, label_tag in self.control.labels_attrs.items():
@@ -80,12 +80,15 @@ class KeypointLabelsModel(ControlModel):
             )  # Convert normalized keypoints to percentages
             model_label = model_names[int(results[0].boxes.cls[bbox_index])]
 
+            point_logs = "\n".join(
+                [f' model_index="{i}", xy={xyn}' for i, xyn in enumerate(point_xyn)]
+            )
             logger.debug(
                 "----------------------\n"
                 f"task id > {path}\n"
                 f"type: {self.control}\n"
-                f"keypoints > {point_xyn}\n"
                 f"model label > {model_label}\n"
+                f"keypoints >\n{point_logs}\n"
                 f"confidences > {bbox_conf}\n"
             )
 
@@ -115,7 +118,7 @@ class KeypointLabelsModel(ControlModel):
                     logger.warning(
                         f"Point {index_name} not found in point map, "
                         f"you have to define it in the labeling config, e.g.:\n"
-                        f'<Label value="nose" predicted_values="person" index="1" />'
+                        f'<Label value="nose" predicted_values="person" model_index="0" />'
                     )
                     continue
                 point_label = self.point_map[index_name]
@@ -126,10 +129,10 @@ class KeypointLabelsModel(ControlModel):
                     "to_name": self.to_name,
                     "type": "keypointlabels",
                     "value": {
-                        "keypointlabels": [point_label],  # Keypoint label
-                        "width": self.point_size
-                        / image_width
-                        * 100,  # Keypoint width, just visual styling
+                        # point label
+                        "keypointlabels": [point_label],
+                        # point width, just visual styling
+                        "width": self.point_size / image_width * 100,
                         "x": x,
                         "y": y,
                     },
