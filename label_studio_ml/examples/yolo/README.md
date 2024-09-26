@@ -402,10 +402,10 @@ https://github.com/user-attachments/assets/30c5ce43-2c89-4ddf-a77d-9d1d75ac3419
 
 ### Parameters
 
-| Parameter               | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                          |
-|-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                               |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                                                                                                                                                                                                         |
+| Parameter               | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                                  |
+|-------------------------|--------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                                                                                                                                                                       |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                                                                                                                                                                                                                          |
 | `choice`                | string | single  | Possible values: `single`, `single-radio`, `multiple`. If you use `choice="single"` (default) you can select only one label. The ML backend will return the label with the highest confidence using argmax strategy. If you use `choice="multiple"` you can select multiple labels. The ML backend will return all labels with confidence above the `model_score_threshold`. |
 
 
@@ -453,7 +453,7 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 | Parameter               | Type   | Default | Description                                                                                                                                                                            |
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                                    |
 | `model_obb`             | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
@@ -512,7 +512,7 @@ https://github.com/user-attachments/assets/9b2447d3-392d-42be-bc7f-ef2b6c81d54c
 | Parameter               | Type   | Default | Description                                                                                                                                                                            |
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                                    |
 
 For example:
 ```xml
@@ -589,7 +589,7 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 
 | Parameter               | Type   | Default | Description                                                                                                                                                                    |
 |-------------------------|--------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                   |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                            |
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
 | `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
 | `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be grouped by parent bounding boxes on the region panel. See details in the tip below.                          |
@@ -762,7 +762,7 @@ https://docs.ultralytics.com/modes/track/?h=track#tracking-arguments
 | `model_conf`    | float  | 0.25      | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_iou`     | float  | 0.7       | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.   |
 | `model_tracker` | string | `botsort` | Sets the tracker to use for multi-object tracking. Options include `botsort`, `bytetrack`, or a custom YAML file.                                                                      |
-| `model_path`    | string | None      | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                               |
+| `model_path`    | string | None      | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                                    |
 
 For example: 
 ```xml
