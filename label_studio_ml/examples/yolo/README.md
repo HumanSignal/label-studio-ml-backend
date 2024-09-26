@@ -231,7 +231,7 @@ Attempts to run YOLOv5 were unsuccessful without modifications.
 It may be possible to run it by applying some changes, such as installing additional dependencies. 
 The same applies to other YOLO models.
 
-## Custom YOLO models
+## Your own custom YOLO models
 
 You can load your own YOLO labels using the following steps:
 
@@ -243,8 +243,8 @@ You can load your own YOLO labels using the following steps:
 ```
 
 <details>
-<summary>Step by step guide: Using your own custom YOLOv8 model</summary>
-
+<summary><b>Step by step guide</b>: Using your own custom YOLOv8 model</summary>
+<br/>
 You can integrate your own custom-trained YOLOv8 models with the YOLO ML backend for Label Studio. 
 Follow these detailed steps to set up your custom model in the ML backend docker:
 
