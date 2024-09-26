@@ -1,6 +1,7 @@
 """
 This file contains tests for the API of your model. You can run these tests by installing test requirements:
 """
+
 import os
 import json
 import pytest
@@ -40,20 +41,69 @@ yolo_results = [None]  # load_file(TEST_DIR + "/timeline_labels.pickle")
 
 expected = [
     # test 1: one control tag with rectangle labels
-    [{'model_version': 'yolo',
-     'score': 0.10993397843318456,
-     'result': [
-        {'from_name': 'videoLabels', 'id': '0_1_15', 'score': 0.26830227896571157, 'to_name': 'video',
-         'type': 'timelinelabels', 'value': {'ranges': [{'end': 15, 'start': 1}], 'timelinelabels': ['Car']}},
-        {'from_name': 'videoLabels', 'id': '2_23_25', 'score': 0.044929164151350655, 'to_name': 'video',
-         'type': 'timelinelabels', 'value': {'ranges': [{'end': 25, 'start': 23}], 'timelinelabels': ['Car']}},
-        {'from_name': 'videoLabels', 'id': '1_19_29', 'score': 0.19226251965896649, 'to_name': 'video',
-         'type': 'timelinelabels', 'value': {'ranges': [{'end': 29, 'start': 19}], 'timelinelabels': ['croquet_ball']}},
-        {'from_name': 'videoLabels', 'id': '3_30_31', 'score': 0.01777686830610037, 'to_name': 'video',
-         'type': 'timelinelabels', 'value': {'ranges': [{'end': 31, 'start': 30}], 'timelinelabels': ['Car']}},
-        {'from_name': 'videoLabels', 'id': '4_34_34', 'score': 0.02639906108379364, 'to_name': 'video',
-         'type': 'timelinelabels', 'value': {'ranges': [{'end': 34, 'start': 34}], 'timelinelabels': ['Car']}}]
-    }]
+    [
+        {
+            "model_version": "yolo",
+            "score": 0.10993397843318456,
+            "result": [
+                {
+                    "from_name": "videoLabels",
+                    "id": "0_1_15",
+                    "score": 0.26830227896571157,
+                    "to_name": "video",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"end": 15, "start": 1}],
+                        "timelinelabels": ["Car"],
+                    },
+                },
+                {
+                    "from_name": "videoLabels",
+                    "id": "2_23_25",
+                    "score": 0.044929164151350655,
+                    "to_name": "video",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"end": 25, "start": 23}],
+                        "timelinelabels": ["Car"],
+                    },
+                },
+                {
+                    "from_name": "videoLabels",
+                    "id": "1_19_29",
+                    "score": 0.19226251965896649,
+                    "to_name": "video",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"end": 29, "start": 19}],
+                        "timelinelabels": ["croquet_ball"],
+                    },
+                },
+                {
+                    "from_name": "videoLabels",
+                    "id": "3_30_31",
+                    "score": 0.01777686830610037,
+                    "to_name": "video",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"end": 31, "start": 30}],
+                        "timelinelabels": ["Car"],
+                    },
+                },
+                {
+                    "from_name": "videoLabels",
+                    "id": "4_34_34",
+                    "score": 0.02639906108379364,
+                    "to_name": "video",
+                    "type": "timelinelabels",
+                    "value": {
+                        "ranges": [{"end": 34, "start": 34}],
+                        "timelinelabels": ["Car"],
+                    },
+                },
+            ],
+        }
+    ]
 ]
 
 
@@ -168,78 +218,48 @@ def test_convert_probs_to_timelinelabels():
     label_map = {"Rain": 0, "Snow": 1}
 
     timeline_regions = convert_probs_to_timelinelabels(
-        probs, label_map, 'videoLabels', score_threshold=0.5
+        probs, label_map, "videoLabels", score_threshold=0.5
     )
 
     assert timeline_regions == [
-      {
-        "id": "0_1_3",
-        "type": "timelinelabels",
-        "value": {
-          "ranges": [
-            {
-              "start": 1,
-              "end": 3
-            }
-          ],
-          "timelinelabels": ["Rain"]
+        {
+            "id": "0_1_3",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"start": 1, "end": 3}], "timelinelabels": ["Rain"]},
+            "to_name": "video",
+            "from_name": "videoLabels",
+            "score": 0.7666666666666667,
         },
-        "to_name": "video",
-        "from_name": "videoLabels",
-        "score": 0.7666666666666667
-      },
-      {
-        "id": "1_4_5",
-        "type": "timelinelabels",
-        "value": {
-          "ranges": [
-            {
-              "start": 4,
-              "end": 5
-            }
-          ],
-          "timelinelabels": ["Snow"]
+        {
+            "id": "1_4_5",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"start": 4, "end": 5}], "timelinelabels": ["Snow"]},
+            "to_name": "video",
+            "from_name": "videoLabels",
+            "score": 0.8,
         },
-        "to_name": "video",
-        "from_name": "videoLabels",
-        "score": 0.8
-      },
-      {
-        "id": "2_7_7",
-        "type": "timelinelabels",
-        "value": {
-          "ranges": [
-            {
-              "start": 7,
-              "end": 7
-            }
-          ],
-          "timelinelabels": ["Rain"]
+        {
+            "id": "2_7_7",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"start": 7, "end": 7}], "timelinelabels": ["Rain"]},
+            "to_name": "video",
+            "from_name": "videoLabels",
+            "score": 0.9,
         },
-        "to_name": "video",
-        "from_name": "videoLabels",
-        "score": 0.9
-      },
-      {
-        "id": "3_7_7",
-        "type": "timelinelabels",
-        "value": {
-          "ranges": [
-            {
-              "start": 7,
-              "end": 7
-            }
-          ],
-          "timelinelabels": ["Snow"]
+        {
+            "id": "3_7_7",
+            "type": "timelinelabels",
+            "value": {"ranges": [{"start": 7, "end": 7}], "timelinelabels": ["Snow"]},
+            "to_name": "video",
+            "from_name": "videoLabels",
+            "score": 0.9,
         },
-        "to_name": "video",
-        "from_name": "videoLabels",
-        "score": 0.9
-      }
     ]
 
     # invert conversion
-    labels_array, _ = convert_timelinelabels_to_probs(timeline_regions, label_map, max_frame=len(probs))
+    labels_array, _ = convert_timelinelabels_to_probs(
+        timeline_regions, label_map, max_frame=len(probs)
+    )
 
     # convert probs to binary
     probs = np.array(probs) > 0.5
@@ -253,7 +273,7 @@ def test_timelinelabels_trainable(client):
     path = "./models/timelinelabels-42-yolov8n-cls-videoLabels.pkl"
     if os.path.exists(path):
         os.remove(path)
-    
+
     label_config = """
     <View>
          <TimelineLabels name="videoLabels" toName="video" 
@@ -282,20 +302,25 @@ def test_timelinelabels_trainable(client):
     response = client.post(
         "/predict", data=json.dumps(data), content_type="application/json"
     )
-    assert response.status_code == 500, "It should be error because model is not yet trained"
+    assert (
+        response.status_code == 500
+    ), "It should be error because model is not yet trained"
 
     # train model
     data = load_file(TEST_DIR + "/test_timeline_labels_1.json")
-    data['project']['label_config'] = label_config
-    data['action'] = 'ANNOTATION_CREATED'
+    data["project"]["label_config"] = label_config
+    data["action"] = "ANNOTATION_CREATED"
     response = client.post(
         "/webhook", data=json.dumps(data), content_type="application/json"
     )
 
     assert response.status_code == 201, "Error while fit: " + str(response.content)
-    result = response.json['result']
-    assert result['videoLabels']['accuracy'] > 0.99 or result['videoLabels']['f1_score'] > 0.99
-    assert result['videoLabels']['epoch'] > 5
+    result = response.json["result"]
+    assert (
+        result["videoLabels"]["accuracy"] > 0.99
+        or result["videoLabels"]["f1_score"] > 0.99
+    )
+    assert result["videoLabels"]["epoch"] > 5
 
     # predict again => 200
     task = {"data": {"video": "tests/opossum_snow_short.mp4"}}
@@ -306,50 +331,36 @@ def test_timelinelabels_trainable(client):
     assert response.status_code == 200, "Error while predict: " + str(response.content)
 
     expected_result = {
-      "results": [
-        {
-          "model_version": "yolo",
-          "result": [
+        "results": [
             {
-              "from_name": "videoLabels",
-              "id": "0_1_10",
-              "score": 0.7321293950080872,
-              "to_name": "video",
-              "type": "timelinelabels",
-              "value": {
-                "ranges": [
-                  {
-                    "end": 10,
-                    "start": 1
-                  }
+                "model_version": "yolo",
+                "result": [
+                    {
+                        "from_name": "videoLabels",
+                        "id": "0_1_10",
+                        "score": 0.7321293950080872,
+                        "to_name": "video",
+                        "type": "timelinelabels",
+                        "value": {
+                            "ranges": [{"end": 10, "start": 1}],
+                            "timelinelabels": ["Car"],
+                        },
+                    },
+                    {
+                        "from_name": "videoLabels",
+                        "id": "1_5_15",
+                        "score": 0.7476321404630487,
+                        "to_name": "video",
+                        "type": "timelinelabels",
+                        "value": {
+                            "ranges": [{"end": 15, "start": 5}],
+                            "timelinelabels": ["croquet_ball"],
+                        },
+                    },
                 ],
-                "timelinelabels": [
-                  "Car"
-                ]
-              }
-            },
-            {
-              "from_name": "videoLabels",
-              "id": "1_5_15",
-              "score": 0.7476321404630487,
-              "to_name": "video",
-              "type": "timelinelabels",
-              "value": {
-                "ranges": [
-                  {
-                    "end": 15,
-                    "start": 5
-                  }
-                ],
-                "timelinelabels": [
-                  "croquet_ball"
-                ]
-              }
+                "score": 0.7398807677355679,
             }
-          ],
-          "score": 0.7398807677355679
-        }
-      ]
+        ]
     }
     compare_nested_structures(response.json, expected_result, abs=0.2)
 
@@ -380,5 +391,7 @@ def test_timelinelabels_no_label_match():
         model = TimelineLabelsModel.create(ml, control=control)
 
     # Assert that the exception message contains the expected text
-    assert ("TimelinesLabels model works in simple mode (without training), "
-            "but no labels from YOLO model names are matched") in str(excinfo.value)
+    assert (
+        "TimelinesLabels model works in simple mode (without training), "
+        "but no labels from YOLO model names are matched"
+    ) in str(excinfo.value)

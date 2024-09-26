@@ -7,7 +7,10 @@ import logging
 from torch.utils.data import DataLoader, TensorDataset
 from torch.nn.utils.rnn import pad_sequence
 from torchmetrics.classification import (
-    MultilabelPrecision, MultilabelRecall, MultilabelF1Score, MultilabelAccuracy
+    MultilabelPrecision,
+    MultilabelRecall,
+    MultilabelF1Score,
+    MultilabelAccuracy,
 )
 from typing import List, Union
 from joblib import Memory
@@ -120,9 +123,9 @@ class MultiLabelLSTM(BaseNN):
         weight_decay=1e-5,
         dropout_rate=0.2,
         device=None,
-        **kwargs
+        **kwargs,
     ):
-        """ Initialize the MultiLabelLSTM model.
+        """Initialize the MultiLabelLSTM model.
         Args:
             input_size (int): Number of features in the input data
             output_size (int): Number of labels in the output data
@@ -162,8 +165,12 @@ class MultiLabelLSTM(BaseNN):
         self.fc = nn.Linear(2 * hidden_size, output_size)
 
         # Initialize the loss function and optimizer
-        self.criterion = nn.BCEWithLogitsLoss()  # Binary cross-entropy for multi-label classification
-        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        self.criterion = (
+            nn.BCEWithLogitsLoss()
+        )  # Binary cross-entropy for multi-label classification
+        self.optimizer = optim.Adam(
+            self.parameters(), lr=learning_rate, weight_decay=weight_decay
+        )
 
         # Initialize device (CPU or GPU)
         target_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -192,7 +199,7 @@ class MultiLabelLSTM(BaseNN):
 
         # Split the data into small sequences by sequence_size with overlap
         chunks = [
-            sequence[i: i + sequence_size]
+            sequence[i : i + sequence_size]
             for i in range(0, len(sequence), sequence_size // overlap)
         ]
         chunks = pad_sequence(chunks, batch_first=True, padding_value=0)
@@ -200,7 +207,7 @@ class MultiLabelLSTM(BaseNN):
         if labels is not None:
             labels = torch.tensor(labels, dtype=torch.float32)
             labels = [
-                labels[i: i + sequence_size]
+                labels[i : i + sequence_size]
                 for i in range(0, len(labels), sequence_size // overlap)
             ]
             labels = pad_sequence(labels, batch_first=True, padding_value=0)
@@ -209,7 +216,12 @@ class MultiLabelLSTM(BaseNN):
 
     def evaluate_metrics(self, dataloader, threshold=0.5):
         self.eval()
-        params = {'num_labels': self.output_size, 'average': 'macro', 'threshold': threshold, 'zero_division': 1}
+        params = {
+            "num_labels": self.output_size,
+            "average": "macro",
+            "threshold": threshold,
+            "zero_division": 1,
+        }
         precision_metric = MultilabelPrecision(**params).to(self.device)
         recall_metric = MultilabelRecall(**params).to(self.device)
         f1_metric = MultilabelF1Score(**params).to(self.device)
@@ -221,7 +233,7 @@ class MultiLabelLSTM(BaseNN):
                 labels = labels.to(self.device)
                 outputs = torch.sigmoid(self(data))
 
-                # Reshape outputs and labels from (batch_size, seq_len, num_labels) 
+                # Reshape outputs and labels from (batch_size, seq_len, num_labels)
                 # to (batch_size * seq_len, num_labels)
                 outputs = outputs.view(-1, self.output_size)
                 labels = labels.view(-1, self.output_size)
@@ -233,14 +245,20 @@ class MultiLabelLSTM(BaseNN):
                 accuracy_metric.update(outputs, labels)
 
         return {
-            'precision': precision_metric.compute().item(),
-            'recall': recall_metric.compute().item(),
-            'f1_score': f1_metric.compute().item(),
-            'accuracy': accuracy_metric.compute().item()
+            "precision": precision_metric.compute().item(),
+            "recall": recall_metric.compute().item(),
+            "f1_score": f1_metric.compute().item(),
+            "accuracy": accuracy_metric.compute().item(),
         }
 
     def partial_fit(
-        self, sequence, labels, batch_size=32, epochs=1000, accuracy_threshold=1.0, f1_threshold=1.0
+        self,
+        sequence,
+        labels,
+        batch_size=32,
+        epochs=1000,
+        accuracy_threshold=1.0,
+        f1_threshold=1.0,
     ):
         """Train the model on the given sequence data.
         Args:
@@ -278,15 +296,21 @@ class MultiLabelLSTM(BaseNN):
 
             # metrics and threshold stops to avoid overfitting
             metrics = self.evaluate_metrics(dataloader)
-            metrics['loss'] = epoch_loss / len(dataloader)
-            metrics['epoch'] = epoch + 1
+            metrics["loss"] = epoch_loss / len(dataloader)
+            metrics["epoch"] = epoch + 1
 
-            logger.info(f"Epoch {epoch + 1}, Loss: {epoch_loss / len(dataloader)}, {metrics}")
-            if metrics['accuracy'] >= accuracy_threshold:
-                logger.info(f"Accuracy >= {accuracy_threshold} threshold, model training stopped.")
+            logger.info(
+                f"Epoch {epoch + 1}, Loss: {epoch_loss / len(dataloader)}, {metrics}"
+            )
+            if metrics["accuracy"] >= accuracy_threshold:
+                logger.info(
+                    f"Accuracy >= {accuracy_threshold} threshold, model training stopped."
+                )
                 break
-            if metrics['f1_score'] >= f1_threshold:
-                logger.info(f"F1 score >= {f1_threshold} threshold, model training stopped.")
+            if metrics["f1_score"] >= f1_threshold:
+                logger.info(
+                    f"F1 score >= {f1_threshold} threshold, model training stopped."
+                )
                 break
 
         return metrics
