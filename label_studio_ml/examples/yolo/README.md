@@ -235,7 +235,7 @@ The same applies to other YOLO models.
 
 You can load your own YOLO labels using the following steps:
 
-1. Mount your model as `/app/models/<your-model>.pt` inside of your docker.
+1. Mount your model as `/app/models/<your-model>.pt` inside of your Docker.
 2. Add `model_path="<your-model>.pt"` to the control tag in the labeling configuration, e.g.:
 
 ```xml
@@ -246,7 +246,7 @@ You can load your own YOLO labels using the following steps:
 <summary><b>Step by step guide</b>: Using your own custom YOLOv8 model</summary>
 <br/>
 You can integrate your own custom-trained YOLOv8 models with the YOLO ML backend for Label Studio. 
-Follow these detailed steps to set up your custom model in the ML backend docker:
+Follow these detailed steps to set up your custom model in the ML backend Docker:
 
 ### Step 1: Prepare your custom YOLOv8 model
 
@@ -286,12 +286,11 @@ Let's assume your model file is named `my_custom_model.pt`.
 
 ### Step 3: Ensure environment variables are set correctly
 
-- **`ALLOW_CUSTOM_MODEL_PATH=true`**: Make sure the ML backend allows loading custom model paths by setting 
- in your Docker environment variables (it's `true` by default).
-- **`LABEL_STUDIO_URL`**: it's necessary to specify external IP or domain of your Label Studio instance. 
+- **`ALLOW_CUSTOM_MODEL_PATH=true`**: Ensure this is set in your Docker environment variables to allow the ML backend to load custom model paths (it's `true` by default).
+- **`LABEL_STUDIO_URL`**: This is necessary to specify the external IP or domain of your Label Studio instance. 
   If you run Label Studio and ML backend locally, you can try setting it to `LABEL_STUDIO_URL=http://host.docker.internal:8080`.
-- **`LABEL_STUDIO_API_KEY`**: it's necessary to specify the API key of your Label Studio instance. 
-  You can find it on the Label Studio > User Account page.
+- **`LABEL_STUDIO_API_KEY`**: This is necessary to specify the API key of your Label Studio instance. 
+  You can find it in Label Studio on the [User Account page](https://labelstud.io/guide/user_account#Access-token).
 - **`LOG_LEVEL`**: (optional) Set the logging level for the ML backend. You can use `DEBUG`, `INFO`, `WARNING`, `ERROR`.
 
 Example `docker-compose.yml`:
@@ -333,7 +332,7 @@ by adding the `model_path` parameter to the control tag you're using
   <Label value="Cat" predicted_values="feline"/>
   <Label value="Dog" predicted_values="canine"/>
   ```
-- **Where to find class names**: See ML backend logs **to know the exact class names** your model predicts, 
+- **Where to find class names**: See ML backend logs **to know the exact class names** your model predicts, and then 
 you can use these names in the `predicted_values` attribute and in the `value` of Label tags directly.
 
 ### Step 5: Restart the ML Backend
@@ -350,18 +349,18 @@ docker-compose up --build
 1. Open your Label Studio instance.
 2. Go to the **Settings** of your project.
 3. Navigate to the **Model** tab.
-4. Connect to the ML backend by entering the ML Backend URL 
-(if you run it locally, most likely, it's `http://localhost:9090`).
+4. Connect to the ML backend by entering the ML backend URL 
+(if you run it locally, it's most likely `http://localhost:9090`).
 
 ### Step 7: Test your setup
 
 Add some tasks (images or other data) to your Label Studio project and open a task in the labeling interface. 
 The ML backend should now use your custom model to generate predictions.
 
-### Common Pitfalls
+### Common pitfalls
 
 - **Incorrect model path:** Ensure that the `model_path` in your labeling configuration exactly matches the filename of your model inside `/app/models`.
-- **Label Mismatch:** Double-check that your labels in Label Studio match the classes your model predicts, or use `predicted_values` to map them.
+- **Label mismatch:** Double-check that your labels in Label Studio match the classes your model predicts, or use `predicted_values` to map them.
 - **Keypoints models and model_index:** If you use a keypoints model, you should specify the `model_index` parameter in each `Label` tag. 
 
 </details>
