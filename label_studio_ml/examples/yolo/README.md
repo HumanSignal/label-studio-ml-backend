@@ -62,7 +62,9 @@ This tutorial uses the [YOLO example](https://github.com/HumanSignal/label-studi
 
 ## Quick start
 
-1. Add `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` to the `docker-compose.yml` file. These variables should point to your Label Studio instance and its API key, respectively. For more information about finding your Label Studio API key, [see our documentation](https://labelstud.io/guide/user_account#Access-token).
+1. Add `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` to the `docker-compose.yml` file. 
+These variables should point to your Label Studio instance and its API key, respectively. 
+For more information about finding your Label Studio API key, [see our documentation](https://labelstud.io/guide/user_account#Access-token).
 
 2. Run docker compose
 
@@ -221,7 +223,7 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 </details>
 
-## YOLOv5 and other YOLO models
+## YOLOv5 and other YOLO versions
 
 YOLOv8 models have been successfully tested with this ML backend.
 
@@ -234,12 +236,136 @@ The same applies to other YOLO models.
 You can load your own YOLO labels using the following steps:
 
 1. Mount your model as `/app/models/<your-model>.pt` inside of your docker.
-2. Set `ALLOW_CUSTOM_MODEL_PATH=true` (it is true by default) in your Docker environment parameters ([`docker-compose.yml`](docker-compose.yml)).
-3. Add `model_path="<your-model>.pt"` to the control tag in the labeling configuration, e.g.:
+2. Add `model_path="<your-model>.pt"` to the control tag in the labeling configuration, e.g.:
 
 ```xml
 <RectangleLabels model_path="my_model.pt">
 ```
+
+<details>
+<summary>Step by step guide: Using your own custom YOLOv8 model</summary>
+
+You can integrate your own custom-trained YOLOv8 models with the YOLO ML backend for Label Studio. 
+Follow these detailed steps to set up your custom model in the ML backend docker:
+
+### Step 1: Prepare your custom YOLOv8 model
+
+Ensure that your custom YOLOv8 model is saved as a `.pt` file, which is the standard format for PyTorch models. 
+Let's assume your model file is named `my_custom_model.pt`.
+
+### Step 2: Place your model
+
+1. **Create a 'models' directory:**
+
+   In your project root directory `yolo` (the same directory where your `docker-compose.yml` is located), 
+   create a new folder named `models` and place your `my_custom_model.pt` file inside it.
+
+   ```
+   yolo/
+   ├── docker-compose.yml
+   ├── models/
+       └── my_custom_model.pt
+   ```
+
+2. **Modify `docker-compose.yml` to mount the 'models' directory:**
+
+   Update your `docker-compose.yml` file to include a volume that maps the local `models` directory 
+   to the `/app/models` directory inside the Docker container.
+
+   ```yaml
+   services:
+     yolo:
+       container_name: yolo
+       ...
+       volumes:
+         - ./models:/app/models  # Mount the local 'models' directory
+       environment:
+         - ALLOW_CUSTOM_MODEL_PATH=true
+       ...
+   ```
+
+### Step 3: Ensure environment variables are set correctly
+
+- **`ALLOW_CUSTOM_MODEL_PATH=true`**: Make sure the ML backend allows loading custom model paths by setting 
+ in your Docker environment variables (it's `true` by default).
+- **`LABEL_STUDIO_URL`**: it's necessary to specify external IP or domain of your Label Studio instance. 
+  If you run Label Studio and ML backend locally, you can try setting it to `LABEL_STUDIO_URL=http://host.docker.internal:8080`.
+- **`LABEL_STUDIO_API_KEY`**: it's necessary to specify the API key of your Label Studio instance. 
+  You can find it on the Label Studio > User Account page.
+- **`LOG_LEVEL`**: (optional) Set the logging level for the ML backend. You can use `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+
+Example `docker-compose.yml`:
+
+```yaml
+environment:
+  - ALLOW_CUSTOM_MODEL_PATH=true
+  - LABEL_STUDIO_URL=http://host.docker.internal:8080
+  - LABEL_STUDIO_API_KEY=your_api_key
+  - LOG_LEVEL=DEBUG  # optional 
+```
+
+### Step 4: Update your Labeling Configuration in Label Studio
+
+In your Label Studio project, specify the path to your custom model in the labeling configuration 
+by adding the `model_path` parameter to the control tag you're using 
+(e.g., `<RectangleLabels>`, `<PolygonLabels>`, `<Choices>`, etc.).
+
+**Example for Object Detection with `<RectangleLabels>`:**
+
+```xml
+<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels 
+          name="label" toName="image" 
+          model_path="my_custom_model.pt" 
+          model_score_threshold="0.25">
+    <Label value="Cat"/>
+    <Label value="Dog"/>
+  </RectangleLabels>
+</View>
+```
+
+**Important Notes:**
+
+- **`model_path`**: The **`model_path`** should match the filename of your custom model and must be located in the `/app/models` directory inside the Docker container.
+- **Class names mapping**: Ensure that the `value` attributes in your `<Label>` tags correspond to the **class names** your model predicts. If they differ, use the `predicted_values` attribute to map them. Example:
+  ```xml
+  <Label value="Cat" predicted_values="feline"/>
+  <Label value="Dog" predicted_values="canine"/>
+  ```
+- **Where to find class names**: See ML backend logs **to know the exact class names** your model predicts, 
+you can use these names in the `predicted_values` attribute and in the `value` of Label tags directly.
+
+### Step 5: Restart the ML Backend
+
+After making these changes, restart the ML backend to apply the new configuration.
+
+```bash
+docker-compose down
+docker-compose up --build
+```
+
+### Step 6: Connect the ML Backend to your Label Studio project
+
+1. Open your Label Studio instance.
+2. Go to the **Settings** of your project.
+3. Navigate to the **Model** tab.
+4. Connect to the ML backend by entering the ML Backend URL 
+(if you run it locally, most likely, it's `http://localhost:9090`).
+
+### Step 7: Test your setup
+
+Add some tasks (images or other data) to your Label Studio project and open a task in the labeling interface. 
+The ML backend should now use your custom model to generate predictions.
+
+### Common Pitfalls
+
+- **Incorrect model path:** Ensure that the `model_path` in your labeling configuration exactly matches the filename of your model inside `/app/models`.
+- **Label Mismatch:** Double-check that your labels in Label Studio match the classes your model predicts, or use `predicted_values` to map them.
+- **Keypoints models and model_index:** If you use a keypoints model, you should specify the `model_index` parameter in each `Label` tag. 
+
+</details>
+
 
 ## Training
 
@@ -426,32 +552,32 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
     model_add_bboxes="true" model_point_size="1"
     model_path="yolov8n-pose.pt"
   >
-    <Label value="nose" predicted_values="person" model_index="1" background="red" />
+    <Label value="nose" predicted_values="person" model_index="0" background="red" />
 
-    <Label value="left_eye" predicted_values="person" model_index="2" background="yellow" />
-    <Label value="right_eye" predicted_values="person" model_index="3" background="yellow" />
+    <Label value="left_eye" predicted_values="person" model_index="1" background="yellow" />
+    <Label value="right_eye" predicted_values="person" model_index="2" background="yellow" />
 
-    <Label value="left_ear" predicted_values="person" model_index="4" background="purple" />
-    <Label value="right_ear" predicted_values="person" model_index="5" background="purple" />
+    <Label value="left_ear" predicted_values="person" model_index="3" background="purple" />
+    <Label value="right_ear" predicted_values="person" model_index="4" background="purple" />
     
     <View>
-      <Label value="left_shoulder" predicted_values="person" model_index="6" background="green" />
-      <Label value="left_elbow" predicted_values="person" model_index="8" background="green" />
-      <Label value="left_wrist" predicted_values="person" model_index="10" background="green" />
+      <Label value="left_shoulder" predicted_values="person" model_index="5" background="green" />
+      <Label value="left_elbow" predicted_values="person" model_index="7" background="green" />
+      <Label value="left_wrist" predicted_values="person" model_index="9" background="green" />
 
-      <Label value="right_shoulder" predicted_values="person" model_index="7" background="blue" />
-      <Label value="right_elbow" predicted_values="person" model_index="9" background="blue" />
-      <Label value="right_wrist" predicted_values="person" model_index="11" background="blue" />
+      <Label value="right_shoulder" predicted_values="person" model_index="6" background="blue" />
+      <Label value="right_elbow" predicted_values="person" model_index="8" background="blue" />
+      <Label value="right_wrist" predicted_values="person" model_index="10" background="blue" />
     </View>
     
     <View>
-      <Label value="left_hip" predicted_values="person" model_index="12" background="brown" />
-      <Label value="left_knee" predicted_values="person" model_index="14" background="brown" />
-      <Label value="left_ankle" predicted_values="person" model_index="16" background="brown" />
+      <Label value="left_hip" predicted_values="person" model_index="11" background="brown" />
+      <Label value="left_knee" predicted_values="person" model_index="13" background="brown" />
+      <Label value="left_ankle" predicted_values="person" model_index="15" background="brown" />
 
-      <Label value="right_hip" predicted_values="person" model_index="13" background="orange" />
-      <Label value="right_knee" predicted_values="person" model_index="15" background="orange" />
-      <Label value="right_ankle" predicted_values="person" model_index="17" background="orange" />
+      <Label value="right_hip" predicted_values="person" model_index="12" background="orange" />
+      <Label value="right_knee" predicted_values="person" model_index="14" background="orange" />
+      <Label value="right_ankle" predicted_values="person" model_index="16" background="orange" />
     </View>
   </KeyPointLabels>
   
@@ -463,12 +589,12 @@ More info: [Ultralytics YOLO Keypoint Documentation](https://docs.ultralytics.co
 
 | Parameter               | Type   | Default | Description                                                                                                                                                                    |
 |-------------------------|--------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                       |
+| `model_path`            | string | None    | Path to the custom YOLO model. See more in the section "Custom YOLO Models."                                                                                                   |
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for bounding box detections. Keypoints that are related to the detected bbox with a confidence below this threshold will be disregarded. |
 | `model_point_threshold` | float  | 0.0     | Minimum confidence threshold for keypoints. Keypoints with confidence below this value will be ignored.                                                                        |
 | `model_add_bboxes`      | bool   | True    | Adds bounding boxes for detected keypoints. All keypoints will be grouped by parent bounding boxes on the region panel. See details in the tip below.                          |
 | `model_point_size`      | float  | 1       | Size of the keypoints in pixels. Just a visual parameter.                                                                                                                      |
-| `model_index`           | int    | None    | Index of the keypoint in the YOLO model output. It's used in `Label` tags only to build mapping between a Label and an output point.                                           |
+| `model_index`           | int    | None    | Index of the keypoint in the YOLO model output starting from 0. It's used in `Label` tags only to build mapping between a Label and an output point.                           |
 
 For example:
 
@@ -509,32 +635,32 @@ You can use this labeling configuration to get rid of bounding boxes and keep on
     model_path="yolov8n-pose.pt" model_point_size="1"
     model_add_bboxes="false"              
   >
-    <Label value="nose" predicted_values="person" model_index="1" background="red" />
+    <Label value="nose" predicted_values="person" model_index="0" background="red" />
 
-    <Label value="left_eye" predicted_values="person" model_index="2" background="yellow" />
-    <Label value="right_eye" predicted_values="person" model_index="3" background="yellow" />
+    <Label value="left_eye" predicted_values="person" model_index="1" background="yellow" />
+    <Label value="right_eye" predicted_values="person" model_index="2" background="yellow" />
 
-    <Label value="left_ear" predicted_values="person" model_index="4" background="purple" />
-    <Label value="right_ear" predicted_values="person" model_index="5" background="purple" />
+    <Label value="left_ear" predicted_values="person" model_index="3" background="purple" />
+    <Label value="right_ear" predicted_values="person" model_index="4" background="purple" />
     
     <View>
-      <Label value="left_shoulder" predicted_values="person" model_index="6" background="green" />
-      <Label value="left_elbow" predicted_values="person" model_index="8" background="green" />
-      <Label value="left_wrist" predicted_values="person" model_index="10" background="green" />
+      <Label value="left_shoulder" predicted_values="person" model_index="5" background="green" />
+      <Label value="left_elbow" predicted_values="person" model_index="7" background="green" />
+      <Label value="left_wrist" predicted_values="person" model_index="9" background="green" />
 
-      <Label value="right_shoulder" predicted_values="person" model_index="7" background="blue" />
-      <Label value="right_elbow" predicted_values="person" model_index="9" background="blue" />
-      <Label value="right_wrist" predicted_values="person" model_index="11" background="blue" />
+      <Label value="right_shoulder" predicted_values="person" model_index="6" background="blue" />
+      <Label value="right_elbow" predicted_values="person" model_index="8" background="blue" />
+      <Label value="right_wrist" predicted_values="person" model_index="10" background="blue" />
     </View>
     
     <View>
-      <Label value="left_hip" predicted_values="person" model_index="12" background="brown" />
-      <Label value="left_knee" predicted_values="person" model_index="14" background="brown" />
-      <Label value="left_ankle" predicted_values="person" model_index="16" background="brown" />
+      <Label value="left_hip" predicted_values="person" model_index="11" background="brown" />
+      <Label value="left_knee" predicted_values="person" model_index="13" background="brown" />
+      <Label value="left_ankle" predicted_values="person" model_index="15" background="brown" />
 
-      <Label value="right_hip" predicted_values="person" model_index="13" background="orange" />
-      <Label value="right_knee" predicted_values="person" model_index="15" background="orange" />
-      <Label value="right_ankle" predicted_values="person" model_index="17" background="orange" />
+      <Label value="right_hip" predicted_values="person" model_index="12" background="orange" />
+      <Label value="right_knee" predicted_values="person" model_index="14" background="orange" />
+      <Label value="right_ankle" predicted_values="person" model_index="16" background="orange" />
     </View>
   </KeyPointLabels>
   <Image name="image" value="$image" />
@@ -550,8 +676,8 @@ Each keypoint can be associated with a specific part of a person or object,
 and you can define this mapping using the `model_index` and `predicted_values` attributes.
 
 ```xml
-<Label value="left_eye" predicted_values="person" model_index="2" />
-<Label value="right_eye" predicted_values="person" model_index="3" />
+<Label value="left_eye" predicted_values="person" model_index="1" />
+<Label value="right_eye" predicted_values="person" model_index="2" />
 ```
 
 This configuration ensures that the keypoints detected by the YOLO model are correctly labeled in the Label Studio interface.
