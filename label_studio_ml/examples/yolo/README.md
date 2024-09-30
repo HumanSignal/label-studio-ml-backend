@@ -258,6 +258,22 @@ You can load your own YOLO labels using the following steps:
 You can integrate your own custom-trained YOLOv8 models with the YOLO ML backend for Label Studio. 
 Follow these detailed steps to set up your custom model in the ML backend Docker:
 
+### Step 0: Install Label Studio and clone this github repository
+
+1. Install and run Label Studio (or see [more ways here](https://labelstud.io/guide/install)). 
+
+```
+pip install label-studio
+label-studio
+```
+
+2. Clone Label Studio ML backend repository and go to `yolo` example folder:
+
+```
+git clone https://github.com/HumanSignal/label-studio-ml-backend.git
+cd label-studio-ml-backend/examples/yolo
+```
+
 ### Step 1: Prepare your custom YOLOv8 model
 
 Ensure that your custom YOLOv8 model is saved as a `.pt` file, which is the standard format for PyTorch models. 
