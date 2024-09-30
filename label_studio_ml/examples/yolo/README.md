@@ -227,9 +227,9 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 - **YOLOv5**: This model is supported for object detection tasks. Make sure to specify `model_path="yolov5nu.pt"` (don't forget the **`u`**) to use the YOLOv5 model.
 
-- **YOLOv8**: These models have been successfully tested with the current ML backend.
+- **YOLOv8**: These models have been successfully tested with the current ML backend. Check the full list of [v8 models here](https://docs.ultralytics.com/models/yolov8/#supported-tasks-and-modes).
 
-- **YOLO11**: YOLO11 models are also successfully tested with this ML backend.
+- **YOLO11**: YOLO11 models are also successfully tested with this ML backend. Check the full list of [v11 models here](https://docs.ultralytics.com/models/yolo11/#supported-tasks-and-modes).
 
     **Warning 1**: You must upgrade the `ultralytics` package to the latest version (`pip install -U ultralytics`) or rebuild the ML backend Docker from scratch (`docker-compose build --no-cache`) if you used it before the latest Ultralytics update on **Monday, September 30, 2024**.
 
