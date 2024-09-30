@@ -223,13 +223,23 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 </details>
 
-## YOLOv5 and other YOLO versions
+## Supported YOLO Versions: YOLOv5, YOLO11, and Others
 
-YOLOv8 models have been successfully tested with this ML backend.
+- **YOLOv5**: This model is supported for object detection tasks. Make sure to specify `model_path="yolov5nu.pt"` (don't forget the **`u`**) to use the YOLOv5 model.
 
-Attempts to run YOLOv5 were unsuccessful without modifications. 
-It may be possible to run it by applying some changes, such as installing additional dependencies. 
-The same applies to other YOLO models.
+- **YOLOv8**: These models have been successfully tested with the current ML backend.
+
+- **YOLO11**: YOLO11 models are also successfully tested with this ML backend.
+
+    **Warning 1**: You must upgrade the `ultralytics` package to the latest version (`pip install -U ultralytics`) or rebuild the ML backend Docker from scratch (`docker-compose build --no-cache`) if you used it before the latest Ultralytics update on **Monday, September 30, 2024**.
+
+    **Warning 2**: YOLO11 models do not use the `v` in their naming convention. For example, use **`yolo11n.pt`** instead of `yolov11n.pt`, unlike the naming convention in YOLOv8.
+
+- For a full list of supported YOLO versions and models, refer to the Ultralytics documentation:
+  [Ultralytics Supported YOLO Models](https://docs.ultralytics.com/models/)
+
+    **Note**: Some YOLO models listed in the Ultralytics documentation have not been tested with this ML backend, but they might still work.
+
 
 ## Your own custom YOLO models
 
