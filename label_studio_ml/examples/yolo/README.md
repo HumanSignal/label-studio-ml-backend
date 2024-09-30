@@ -223,13 +223,13 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
 
 </details>
 
-## Supported YOLO Versions: YOLOv5, YOLO11, and Others
+## Supported YOLO Versions: YOLOv5, YOLO11, and others
 
 - **YOLOv5**: This model is supported for object detection tasks. Make sure to specify `model_path="yolov5nu.pt"` (don't forget the **`u`**) to use the YOLOv5 model.
 
 - **YOLOv8**: These models have been successfully tested with the current ML backend. Check the full list of [v8 models here](https://docs.ultralytics.com/models/yolov8/#supported-tasks-and-modes).
 
-- **YOLO11**: YOLO11 models are also successfully tested with this ML backend. Check the full list of [v11 models here](https://docs.ultralytics.com/models/yolo11/#supported-tasks-and-modes).
+- **YOLO11**: YOLO11 models have also been successfully tested with this ML backend. Check the full list of [v11 models here](https://docs.ultralytics.com/models/yolo11/#supported-tasks-and-modes).
 
     **Warning 1**: You must upgrade the `ultralytics` package to the latest version (`pip install -U ultralytics`) or rebuild the ML backend Docker from scratch (`docker-compose build --no-cache`) if you used it before the latest Ultralytics update on **Monday, September 30, 2024**.
 
@@ -258,7 +258,7 @@ You can load your own YOLO labels using the following steps:
 You can integrate your own custom-trained YOLOv8 models with the YOLO ML backend for Label Studio. 
 Follow these detailed steps to set up your custom model in the ML backend Docker:
 
-### Step 0: Install Label Studio and clone this github repository
+### Step 0: Install Label Studio and clone this Github repository
 
 1. Install and run Label Studio (or see [more ways here](https://labelstud.io/guide/install)). 
 
@@ -267,7 +267,7 @@ pip install label-studio
 label-studio
 ```
 
-2. Clone Label Studio ML backend repository and go to `yolo` example folder:
+2. Clone the Label Studio ML backend repository and go to the `yolo` example folder:
 
 ```
 git clone https://github.com/HumanSignal/label-studio-ml-backend.git
