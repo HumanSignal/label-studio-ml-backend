@@ -83,7 +83,13 @@ class BaseNN(nn.Module):
         return self.label_map
 
     def save(self, path):
-        torch.save(self, path)
+        # ultralytics yolo11 patches torch.save to use dill,
+        # however it leads to serialization errors,
+        # so let's check for use_dill and disable it
+        if 'use_dill' in torch.save.__code__.co_varnames:
+            torch.save(self, path, use_dill=False)
+        else:
+            torch.save(self, path)
         logger.info(f"Model saved to {path}")
 
     @classmethod
