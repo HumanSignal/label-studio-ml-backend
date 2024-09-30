@@ -112,6 +112,13 @@ class TimelineLabelsModel(ControlModel):
         return regions
 
     def fit(self, event, data, **kwargs):
+        if not self.trainable:
+            logger.debug(
+                'TimelineLabels model is in not trainable mode. '
+                'Use model_trainable="true" to enable training.'
+            )
+            return
+
         """Fit the model."""
         if event == "START_TRAINING":
             # TODO: the full training makes a lot of sense here, but it's not implemented yet
