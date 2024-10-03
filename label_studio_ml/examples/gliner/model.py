@@ -239,9 +239,9 @@ class GLiNERModel(LabelStudioMLBase):
                 tokens, ner = self.process_training_data(task)
                 training_data.append({"tokenized_text": tokens, "ner": ner})
 
+            from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
             eval_data = {
-                "entity_types": sorted(self.label_interface.get_tag(from_name).labels)
-,
+                "entity_types": sorted(self.label_interface.get_tag(from_name).labels),
                 "samples": training_data[:10]
             }
 
