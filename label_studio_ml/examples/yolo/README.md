@@ -34,7 +34,34 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 </div>
 <br/>
 
-**Supported Features**
+## Table of Contents
+
+1. [YOLO ML backend for Label Studio](#yolo-ml-backend-for-label-studio)
+    1. [Supported Features](#supported-features)
+    1. [Before you begin](#before-you-begin)
+    1. [Quick start](#quick-start)
+    1. [Labeling configurations](#labeling-configurations)
+    1. [Supported YOLO Versions: YOLOv5, YOLO11, and others](#supported-yolo-versions-yolov5-yolo11-and-others)
+    1. [Your own custom YOLO models](#your-own-custom-yolo-models)
+    1. [Training](#training)
+    1. [Classification using `<Choices>`](#classification-using-choices)
+    1. [Object detection using `RectangleLabels`](#object-detection-using-rectanglelabels)
+    1. [Segmentation using `PolygonLabels`](#segmentation-using-polygonlabels)
+    1. [Keypoint detection using `KeyPointLabels`](#keypoint-detection-using-keypointlabels)
+    1. [Video object tracking using `VideoRectangle`](#video-object-tracking-using-videorectangle)
+    1. [Video temporal classification using `TimelineLabels`](#video-temporal-classification-using-timelinelabels)
+1. [Run the YOLO ML backend](#run-the-yolo-ml-backend)
+    1. [Running with Docker (recommended)](#running-with-docker-recommended)
+    1. [Building from source (advanced)](#building-from-source-advanced)
+    1. [Running without Docker (advanced)](#running-without-docker-advanced)
+    1. [Parameters](#parameters)
+    1. [Command line interface for the terminal](#command-line-interface-for-the-terminal)
+1. [For developers](#for-developers)
+
+For a more detailed table of contents, you can use GitHub's native menu located at the top-right corner <img src="https://github.com/user-attachments/assets/049b052b-da87-48bb-9c8c-53f7bce704f4" width="35px">.
+
+
+## Supported Features
 
 | YOLO Task Name                                               | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
 |--------------------------------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
