@@ -19,15 +19,15 @@ label_configs = [
     <View>
       <Header value="Select label and click the image to start"/>
       <Image name="image" value="$image" zoom="true"/>
-      
+
       <RectangleLabels name="rect" toName="image"
-                     model_score_threshold="0.1" model_obb="true">
-        <Label value="plane" background="red" 
+                     model_score_threshold="0.1" canRotate="true">
+        <Label value="plane" background="red"
             predicted_values="plane,helicopter"/>
-        <Label value="vehicle" background="blue" 
+        <Label value="vehicle" background="blue"
             predicted_values="ship,storage tank,bridge,large vehicle,small vehicle"/>
       </RectangleLabels>
-      
+
     </View>
     """,
 ]

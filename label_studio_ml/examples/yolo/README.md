@@ -39,7 +39,7 @@ making it easier to annotate large datasets and ensure high-quality predictions.
 | YOLO Task Name                                               | LS Control Tag                       | Prediction Supported | LS Import Supported | LS Export Supported |
 |--------------------------------------------------------------|--------------------------------------|----------------------|---------------------|---------------------|
 | Object Detection                                             | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
-| Oriented Bounding Boxes (OBB)                                | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
+| Oriented Bounding Boxes (OBB)                                | `<RectangleLabels canRotate="true">` | ✅                    | YOLO                | YOLO                |
 | Image Instance Segmentation: Polygons                        | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
 | Image Semantic Segmentation: Masks                           | `<BrushLabels>`                      | ❌                    | Native              | Native              |
 | Image Classification                                         | `<Choices>`                          | ✅                    | Native              | Native              |
@@ -479,7 +479,7 @@ https://github.com/user-attachments/assets/413b4650-422d-43dc-809d-51c08f0ad434
 |-------------------------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `model_score_threshold` | float  | 0.5     | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives. |
 | `model_path`            | string | None    | Path to the custom YOLO model. See more in the section [Your own custom YOLO models](#your-own-custom-yolo-models).                                                                    |
-| `model_obb`             | bool   | False   | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
+| `canRotate`             | bool   | true    | Enables Oriented Bounding Boxes (OBB) mode. Typically it uses `*-obb.pt` yolo models.                                                                                                  |
 
 For example:
 ```xml
@@ -493,11 +493,11 @@ For example:
 
 ### Oriented Bounding Boxes (YOLO OBB)
 
-Oriented (rotated) bounding boxes will be generated automatically if you use an OBB model. 
-Specify `model_obb="true"` in the `RectangleLabels` tag to enable this mode:
+Oriented (rotated) bounding boxes will be generated automatically if you use an OBB model.
+This mode is enabled by default since `canRotate="true"` is the default for the `RectangleLabels` but you can set it explicitly:
 
 ```xml
-<RectangleLabels name="label" toName="image" model_score_threshold="0.25" model_obb="true">
+<RectangleLabels name="label" toName="image" model_score_threshold="0.25" canRotate="true">
 ```
 
 More info: https://docs.ultralytics.com/tasks/obb/
