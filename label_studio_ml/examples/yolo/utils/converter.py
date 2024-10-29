@@ -97,7 +97,7 @@ def convert_probs_to_timelinelabels(
             if prob >= score_threshold:
                 # Start a new segment if none exists
                 if not segment:
-                    segment['idx'] = added
+                    segment["idx"] = added
                     segment["start"] = i + 1
                     segment["label"] = label
                     segment["score"] = float(prob)
@@ -109,15 +109,15 @@ def convert_probs_to_timelinelabels(
                 # Close the ongoing segment if probability falls below the threshold
                 if segment:
                     segment["end"] = i
-                    segment["score"] /= (i - (segment["start"]-1))
+                    segment["score"] /= i - (segment["start"] - 1)
                     regions.append(create_timeline_region(**segment))
                     segment.clear()
 
     # Close any ongoing segments at the end of the video
     for label, segment in ongoing_segments.items():
         if segment:
-            segment['end'] = num_frames
-            segment['score'] /= (num_frames - (segment['start']-1))
+            segment["end"] = num_frames
+            segment["score"] /= num_frames - (segment["start"] - 1)
             regions.append(create_timeline_region(**segment))
 
     return regions
