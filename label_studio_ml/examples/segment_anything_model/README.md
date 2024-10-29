@@ -282,6 +282,12 @@ to get a better understanding of the workflow when annotating with SAM.
 
 Use the `Alt` hotkey to alter keypoint positive and negative labels.
 
+First, select either the auto-keypoints or auto-rectangle tool, then choose a label. You can now draw keypoints or rectangles on the canvas.
+Watch this video:
+
+https://github.com/user-attachments/assets/28acf6ae-a83f-4919-9722-3c82a4b6dab6
+
+
 ### Notes for AdvancedSAM
 
 * _**Please watch [this video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) first**_
