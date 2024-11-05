@@ -18,8 +18,8 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
 DEVICE = os.getenv('DEVICE', 'cuda')
-SEGMENT_ANYTHING_2_REPO_PATH = os.getenv('SEGMENT_ANYTHING_2_REPO_PATH', 'segment-anything-2')
-MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'sam2.1_hiera_l.yaml')
+SSEGMENT_ANYTHING_2_REPO_PATH = os.getenv('SEGMENT_ANYTHING_2_REPO_PATH', 'sam2')
+MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'configs/sam2.1/sam2.1_hiera_l.yaml')
 MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2.1_hiera_large.pt')
 
 if DEVICE == 'cuda':
