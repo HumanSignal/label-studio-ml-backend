@@ -133,15 +133,29 @@ cd label_studio_ml/examples/segment_anything_2_image
 pip install -r requirements.txt
 ```
 
-2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation)
+2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the ROOT directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation)
 
+You should now have the following folder structure: 
+
+ROOT_DIR (i.e. ~)
+
+    | label-studio-ml-backend 
+        | label-studio-ml 
+            | examples 
+                | segment_anything_2_image
+    | sam2
+        | sam2 
+        | checkpoints 
 
 3. Then you can start the ML backend on the default port `9090`:
 
 ```bash
-cd ../
-label-studio-ml start ./segment_anything_2_image
+cd ~/sam2
+label-studio-ml start ../label-studio-ml-backend/label-studio-ml/examples/segement_anything_2_image
 ```
+Make sure that you run this code from the sam2 directory in your root directory, as Meta has added a check that makes other folder structures break. Additionally, we rely on a `os.getcwd()` command to get the rest of the code working properly. 
+
+To change the port that you're running on, simply add  `--p <port number>` to the end of the above command.
 
 4. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
 
