@@ -133,7 +133,7 @@ cd label_studio_ml/examples/segment_anything_2_image
 pip install -r requirements.txt
 ```
 
-2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the ROOT directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation)
+2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/sam2) into the ROOT directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation)
 
 You should now have the following folder structure: 
 
