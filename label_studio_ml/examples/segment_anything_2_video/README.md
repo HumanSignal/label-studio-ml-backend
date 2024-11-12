@@ -44,10 +44,14 @@ pip install -r requirements.txt
 ```
 
 2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/segment-anything-2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/segment-anything-2?tab=readme-ov-file#installation). Make sure that you complete the steps for downloadingn the checkpoint files! 
+   If you want to install segment-anything-2 repo in a different directory, you must the SEGMENT_ANYTHING_2_PATH environment variable to the path of the segment-anything-2 directory.
 
 3. Export the following environment variables (fill them in with your credentials!):
 - LABEL_STUDIO_URL: the http:// or https:// link to your label studio instance (include the prefix!) 
 - LABEL_STUDIO_API_KEY: your api key for label studio, available in your profile. 
+- MAX_FRAMES_TO_TRACK: the maximum number of frames to track in a video each time the model is called.
+- PROMPT_TYPE: the type of prompt you want to use: "box" or "point". By choosing "box", you will be able to draw a box around the object you want to track. By choosing "point", five key points will be automatically selected within the box to help identify the object.
+
 
 4. Then you can start the ML backend on the default port `9090`:
 
@@ -77,9 +81,9 @@ For your project, you can use any labeling config with video properties. Here's 
 
 ## Known limitations
 - As of 8/11/2024, SAM2 only runs on GPU servers. 
-- Currently, we only support the tracking of one object in video, although SAM2 can support multiple. 
 - Currently, we do not support video segmentation. 
-- No Docker support
+- Multi-object tracking is enabled, but due to a bug (https://github.com/HumanSignal/label-studio-ml-backend/issues/664), the UI shows the same label for all objects even though the predictions have different labels.
+- Be cautious of the UI, as due to a bug (https://github.com/HumanSignal/label-studio/issues/6593), frames are not displayed properly, causing a misalignment between labels and frames. Under the hood, the labels are still being applied to the correct frames but the UI may not display this correctly.
 
 If you want to contribute to this repository to help with some of these limitations, you can submit a PR. 
 
