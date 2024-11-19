@@ -256,7 +256,6 @@ class NewModel(LabelStudioMLBase):
             ModelResponse: Response containing predicted annotations for the video frames.
         """
         from_name, to_name, value = self.get_first_tag_occurence('VideoRectangle', 'Video')
-        # todo il problema è che label studio sbaglia la visualizzazione del primo frame: ho aperto una issue https://github.com/HumanSignal/label-studio/issues/6593 e anche una ocnversazione su slack
         try:
             drafts = tasks[0]['drafts'][0]
         except IndexError:
