@@ -26,8 +26,8 @@ from sam2.build_sam import build_sam2, build_sam2_video_predictor
 logger = logging.getLogger(__name__)
 
 DEVICE = os.getenv('DEVICE', 'cuda')
-MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'sam2_hiera_l.yaml')
-MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
+MODEL_CONFIG = os.getenv('MODEL_CONFIG', './configs/sam2.1/sam2.1_hiera_t.yaml')
+MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2.1_hiera_tiny.pt')
 MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 10))
 PROMPT_TYPE = cast(Literal["box", "point"], os.getenv('PROMPT_TYPE', 'box'))
 ANNOTATION_WORKAROUND = os.getenv('ANNOTATION_WORKAROUND', False)
