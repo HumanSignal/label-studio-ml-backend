@@ -51,7 +51,7 @@ pip install -r requirements.txt
 - LABEL_STUDIO_API_KEY: your api key for label studio, available in your profile. 
 - MAX_FRAMES_TO_TRACK: the maximum number of frames to track in a video each time the model is called.
 - PROMPT_TYPE: the type of prompt you want to use: "box" or "point". By choosing "box", you will be able to draw a box around the object you want to track. By choosing "point", five key points will be automatically selected within the box to help identify the object.
-
+- SEGMENT_ANYTHING_2_REPO_PATH: the path to the segment-anything-2 repo. Default is `segment-anything-2`, this means that the segment-anything-2 repo is in the same directory as the label-studio-ml-backend example folder.
 
 4. Then you can start the ML backend on the default port `9090`:
 
