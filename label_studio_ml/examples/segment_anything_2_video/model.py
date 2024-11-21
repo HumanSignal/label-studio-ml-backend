@@ -32,6 +32,7 @@ MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 10))
 PROMPT_TYPE = cast(Literal["box", "point"], os.getenv('PROMPT_TYPE', 'box'))
 ANNOTATION_WORKAROUND = os.getenv('ANNOTATION_WORKAROUND', False)
 DEBUG = os.getenv('DEBUG', False)
+LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY', '')
 
 if DEVICE == 'cuda':
     # use bfloat16 for the entire notebook
@@ -453,7 +454,7 @@ class NewModel(LabelStudioMLBase):
                 # this is a workaround to update the annotation in the Label Studio since using the model response shows all the objects with the same label
                 # also if the label is different for each object
                 client = LabelStudio(
-                    api_key="e89564826fd186964b1044cf6d13948fda91db09",
+                    api_key=LABEL_STUDIO_API_KEY,
                 )
                 if len(tasks[0]['annotations']) == 0:
                     logger.debug('Creating new annotation')
