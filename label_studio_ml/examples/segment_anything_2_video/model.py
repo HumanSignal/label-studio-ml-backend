@@ -260,7 +260,7 @@ class NewModel(LabelStudioMLBase):
         try:
             drafts = tasks[0]['drafts'][0]
         except IndexError:
-            logger.error('Drafts not found, using context')
+            logger.error('Drafts not found, using annotations')
             try:
                 drafts = tasks[0]['annotations'][0]
             except IndexError:
@@ -443,6 +443,8 @@ class NewModel(LabelStudioMLBase):
 
 
             prediction = PredictionValue(
+                model_version=MODEL_CHECKPOINT,
+                score=1.0,
                 result=result
             )
             logger.debug(f'Prediction: {prediction.model_dump()}')
