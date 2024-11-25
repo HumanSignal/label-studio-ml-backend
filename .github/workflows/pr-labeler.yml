@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: hmarr/debug-action@v3.0.0
-      - uses: thehanimo/pr-title-checker@v1.4.2
+      - uses: thehanimo/pr-title-checker@v1.4.3
         name: "Validate PR's title"
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
