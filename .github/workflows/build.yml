@@ -109,7 +109,7 @@ jobs:
             core.setOutput("tags", tags);
 
       - name: Push Docker image
-        uses: docker/build-push-action@v6.9.0
+        uses: docker/build-push-action@v6.10.0
         id: docker_build_and_push
         with:
           context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
