@@ -22,7 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=2 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda \
-    SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
+    SEGMENT_ANYTHING_2_REPO_PATH=/sam2
 
 RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
 ENV CUDA_HOME=/opt/conda \
@@ -38,8 +38,8 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -r requirements.txt
 
 # install segment-anything-2
-RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
-WORKDIR /segment-anything-2
+RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/sam2.git
+WORKDIR /sam2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
 RUN cd checkpoints && ./download_ckpts.sh
