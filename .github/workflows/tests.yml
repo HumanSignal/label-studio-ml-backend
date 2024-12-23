@@ -121,7 +121,7 @@ jobs:
 
       - name: "Upload general coverage to Codecov"
         if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v5.1.1
+        uses: codecov/codecov-action@v5.1.2
         with:
           name: codecov-general
           files: ./tests/${{ matrix.backend_dir_name }}_coverage.xml
@@ -129,7 +129,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
-        uses: codecov/codecov-action@v5.1.1
+        uses: codecov/codecov-action@v5.1.2
         with:
           name: codecov-${{ matrix.backend_dir_name }}
           files: ./label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
