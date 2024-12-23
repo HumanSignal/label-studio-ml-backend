@@ -61,8 +61,8 @@ jobs:
         run: |
           set -xueo pipefail
           MAX_TAG_LENGTH=50
-          pretty_branch_name="$(echo -n "${BRANCH_NAME#refs/heads/}" | sed 's#/#-#g' | sed 's#_#-#g'| sed 's#\.#-#g' | tr '[:upper:]' '[:lower:]')"
-          echo "pretty_branch_name=$pretty_branch_name" >> $GITHUB_OUTPUT
+          pretty_branch_name="$(echo -n "${BRANCH_NAME#refs/heads/}" | sed -E 's#[/_\.-]+#-#g' | tr '[:upper:]' '[:lower:]' | cut -c1-25 | sed -E 's#-$##g')"
+          echo "pretty_branch_name=${pretty_branch_name}" >> "${GITHUB_OUTPUT}"
           timestamp="$(date +'%Y%m%d.%H%M%S')"
           echo "timestamp=$timestamp" >> $GITHUB_OUTPUT
           short_sha="$(git rev-parse --short HEAD)"
