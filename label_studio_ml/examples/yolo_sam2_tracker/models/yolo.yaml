@@ -1,0 +1,4 @@
+# Inference configuration for YOLO
+conf: 0.5         # Confidence threshold
+iou: 0.45         # IoU threshold for NMS
+max_det: 50       # Maximum number of detections

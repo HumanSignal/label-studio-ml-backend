@@ -1,0 +1,5 @@
+ultralytics~=8.2.76
+tqdm
+torchmetrics~=1.4.2
+opencv-python
+cuda-python
