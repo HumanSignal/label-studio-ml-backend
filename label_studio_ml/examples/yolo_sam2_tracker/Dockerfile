@@ -29,9 +29,6 @@ ENV PYTHONUNBUFFERED=1 \
     SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2 \
     PYTHONPATH=/app
 
-# Install CUDA toolkit via Conda
-RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
-
 # Install Python dependencies
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
@@ -48,26 +45,38 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -e .
 RUN cd checkpoints && ./download_ckpts.sh
 
+# Clone and install label-studio-ml-backend
+WORKDIR /app
+RUN git clone https://github.com/HumanSignal/label-studio-ml-backend.git \
+    && cd label-studio-ml-backend/ \
+    && pip install -e .
+
 # Return to app working directory
 WORKDIR /app
 
 # Install test dependencies (optional)
 COPY requirements-test.txt .
-RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    if [ "$TEST_ENV" = "true" ]; then \
+RUN if [ "$TEST_ENV" = "true" ]; then \
       pip install -r requirements-test.txt; \
+    else \
+      echo "Skipping test dependencies installation"; \
     fi
 
-# Download YOLO models
-RUN /bin/sh -c 'if [ ! -f /app/models/yolov8m.pt ]; then \
+# Download YOLO models (only if the image exists)
+RUN /bin/sh -c 'if [ -f /app/tests/car.jpg ]; then \
     yolo predict model=/app/models/yolov8m.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n-cls.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n-seg.pt source=/app/tests/car.jpg; \
+    else \
+      echo "Image not found, skipping YOLO model tests"; \
     fi'
 
 # Copy app files
 COPY . ./
+
+# Ensure the script has executable permissions
+RUN chmod +x /app/start.sh
 
 # Default command
 CMD ["/app/start.sh"]

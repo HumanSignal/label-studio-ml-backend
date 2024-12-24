@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Export environment variables
-export LABEL_STUDIO_URL=
-export LABEL_STUDIO_API_KEY=
-export LOG_LEVEL="DEBUG"
 
 # Start the label-studio-ml backend
-label-studio-ml start ./../yolo_sam2_tracker
+exec gunicorn --bind :${PORT:-9090} --workers ${WORKERS:-1} --threads ${THREADS:-4} --timeout 0 _wsgi:app
