@@ -6,3 +6,4 @@ cuda-python
 av~=14.0.1
 numpy~=1.24.4
 pycocotools~=2.0.8
+lapx>=0.5.2
