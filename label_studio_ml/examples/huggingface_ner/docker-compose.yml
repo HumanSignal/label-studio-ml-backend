@@ -4,6 +4,7 @@ services:
   huggingface_ner:
     container_name: huggingface_ner
     image: heartexlabs/label-studio-ml-backend:huggingfacener-master
+    init: true
     build:
       context: .
       args:

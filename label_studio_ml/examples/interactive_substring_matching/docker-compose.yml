@@ -4,6 +4,7 @@ services:
   interactive_substring_matching:
     container_name: interactive_substring_matching
     image: heartexlabs/label-studio-ml-backend:interactsubstrmatch-master
+    init: true
     build:
       context: .
       args:

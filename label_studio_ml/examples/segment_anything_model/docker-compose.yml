@@ -4,6 +4,7 @@ services:
   segment_anything_model:
     container_name: segment_anything_model
     image: heartexlabs/label-studio-ml-backend:sam-master
+    init: true
     build:
       context: .
       shm_size: '4gb'

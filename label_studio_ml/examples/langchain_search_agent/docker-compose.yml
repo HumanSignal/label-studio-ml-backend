@@ -4,6 +4,7 @@ services:
   langchain_search_agent:
     container_name: langchain_search_agent
     image: heartexlabs/label-studio-ml-backend:langchainsearch-master
+    init: true
     build:
       context: .
       args:
