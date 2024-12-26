@@ -4,6 +4,7 @@ services:
   easyocr:
     container_name: easyocr
     image: heartexlabs/label-studio-ml-backend:easyocr-master
+    init: true
     build:
       context: .
       args:
