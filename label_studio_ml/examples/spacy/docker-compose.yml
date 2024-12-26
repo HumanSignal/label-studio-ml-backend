@@ -4,6 +4,7 @@ services:
   spacy:
     container_name: spacy
     image: heartexlabs/label-studio-ml-backend:spacy-master
+    init: true
     build: .
     environment:
       # specify the spacy model to use

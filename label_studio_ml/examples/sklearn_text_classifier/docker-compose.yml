@@ -4,6 +4,7 @@ services:
   sklearn_text_classifier:
     container_name: sklearn_text_classifier
     image: heartexlabs/label-studio-ml-backend:sklearntxtclass-master
+    init: true
     build:
       context: .
       args:

@@ -4,6 +4,7 @@ services:
   grounding_sam:
     container_name: grounding_sam
     image: heartexlabs/label-studio-ml-backend:grounding_sam-master
+    init: true
     build:
       context: .
       args:

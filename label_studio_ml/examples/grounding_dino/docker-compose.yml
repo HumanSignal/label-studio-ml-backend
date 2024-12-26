@@ -4,6 +4,7 @@ services:
   grounding_dino:
     container_name: grounding_dino
     image: heartexlabs/label-studio-ml-backend:grnddino-master
+    init: true
     build:
       context: .
       args:

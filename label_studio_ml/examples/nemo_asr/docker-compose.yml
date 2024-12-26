@@ -4,6 +4,7 @@ services:
   nemo_asr:
     container_name: nemo_asr
     image: heartexlabs/label-studio-ml-backend:nemoasr-master
+    init: true
     build:
       context: .
       args:
