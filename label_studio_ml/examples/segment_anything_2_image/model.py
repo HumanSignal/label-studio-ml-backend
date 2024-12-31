@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import os
+import sys
 import pathlib
 from typing import List, Dict, Optional
 from uuid import uuid4
@@ -9,14 +10,16 @@ from label_studio_ml.response import ModelResponse
 from label_studio_sdk.converter import brush
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from PIL import Image
+
+ROOT_DIR = os.getcwd()
+sys.path.insert(0, ROOT_DIR)
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
 DEVICE = os.getenv('DEVICE', 'cuda')
-SEGMENT_ANYTHING_2_REPO_PATH = os.getenv('SEGMENT_ANYTHING_2_REPO_PATH', 'segment-anything-2')
-MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'sam2_hiera_l.yaml')
-MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
+MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'configs/sam2.1/sam2.1_hiera_l.yaml')
+MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2.1_hiera_large.pt')
 
 if DEVICE == 'cuda':
     # use bfloat16 for the entire notebook
@@ -29,7 +32,7 @@ if DEVICE == 'cuda':
 
 
 # build path to the model checkpoint
-sam2_checkpoint = str(pathlib.Path(__file__).parent / SEGMENT_ANYTHING_2_REPO_PATH / "checkpoints" / MODEL_CHECKPOINT)
+sam2_checkpoint = str(os.path.join(ROOT_DIR, "checkpoints", MODEL_CHECKPOINT))
 
 sam2_model = build_sam2(MODEL_CONFIG, sam2_checkpoint, device=DEVICE)
 
