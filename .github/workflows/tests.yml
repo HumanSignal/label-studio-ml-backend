@@ -20,6 +20,7 @@ on:
       - '**/*.md'  # Ignore changes to all .md files
   schedule:
     - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 env:
   CACHE_NAME_PREFIX: v1
@@ -178,7 +179,7 @@ jobs:
             const docker_build_config = yaml.load(docker_build_config_content);
             
             let backends = [];
-            if (event_name === 'schedule') {
+            if (event_name === 'schedule' || event_name === 'workflow_dispatch') { 
               const {data: examples} = await github.rest.repos.getContent({
                 owner: owner,
                 repo: repo,
