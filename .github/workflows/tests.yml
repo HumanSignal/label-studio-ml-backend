@@ -91,9 +91,10 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           TEST_ENV: "true"
-        run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml up -d --build
+        run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml up ${{ matrix.skip_pytests != 'true' && '' || '-d' }} --build
 
       - name: Wait for stack
+        if: ${{ matrix.skip_pytests != 'true' }}
         timeout-minutes: 20
         run: |
           while [ "$(curl -s -o /dev/null -L -w ''%{http_code}'' "http://localhost:9090/health")" != "200" ]; do
@@ -101,23 +102,26 @@ jobs:
           done
 
       - name: Run general functional tests
+        if: ${{ matrix.skip_pytests != 'true' }}
         env:
           ML_BACKEND: ${{ matrix.backend_dir_name }}
         run: |
           pytest tests/ -vvv --ignore-glob='**/logs/*' --ignore-glob='**/data/*' --cov=. --cov-report=xml:tests/${{ matrix.backend_dir_name }}_coverage.xml
 
       - name: Run per-ml-backend tests
+        if: ${{ matrix.skip_pytests != 'true' }}
         env:
           ML_BACKEND: ${{ matrix.backend_dir_name }}
         run: |
           docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml exec -T ${{ matrix.backend_dir_name }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 
       - name: Copy per-ml-backend coverage.xml from the container
+        if: ${{ matrix.skip_pytests != 'true' }}
         run: |
           docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml cp ${{ matrix.backend_dir_name }}:/tmp/coverage.xml label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
 
       - name: Pull the logs
-        if: always()
+        if: always() && matrix.skip_pytests != 'true'
         env:
           DOCKER_BUILDKIT: 1
         run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml logs
@@ -132,6 +136,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
+        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
         uses: codecov/codecov-action@v5.1.2
         with:
           name: codecov-${{ matrix.backend_dir_name }}
@@ -201,19 +206,21 @@ jobs:
             for (const backend of backends) {
               const config = docker_build_config.find(e => e.backend_dir_name === backend)
               let runs_on = "ubuntu-latest";
+              let skip_pytests = "false";
               if (config) {
                 console.log(`Config for ${backend}:`);
                 console.log(config);
                 if ((config.bypass ?? []).includes("pytests")) {
                   console.log(`Skipping pytests for ${backend}`);
-                  continue;
+                  skip_pytests = "true";
                 }
                 runs_on = config.runs_on ?? "ubuntu-latest";
               } else {
                 console.log(`Could not find config for ${backend}`);
               }
-              matrixInclude.push({"backend_dir_name": backend, "runs_on": runs_on});
+              matrixInclude.push({"backend_dir_name": backend, "runs_on": runs_on, "skip_pytests": skip_pytests});
             }
+            console.log(`Matrix calculation result:`);
             console.log(matrixInclude);
             core.setOutput("matrix-include", matrixInclude);
 
