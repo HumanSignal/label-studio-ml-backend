@@ -94,6 +94,7 @@ jobs:
         run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml up ${{ matrix.skip_pytests != 'true' && '' || '-d' }} --build
 
       - name: Wait for stack
+        if: ${{ matrix.skip_pytests != 'true' }}
         timeout-minutes: 20
         run: |
           while [ "$(curl -s -o /dev/null -L -w ''%{http_code}'' "http://localhost:9090/health")" != "200" ]; do
@@ -126,7 +127,7 @@ jobs:
         run: docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml logs
 
       - name: "Upload general coverage to Codecov"
-        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' && matrix.skip_pytests != 'true' }}
+        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
         uses: codecov/codecov-action@v5.1.2
         with:
           name: codecov-general
@@ -135,7 +136,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
-        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' && matrix.skip_pytests != 'true' }}
+        if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
         uses: codecov/codecov-action@v5.1.2
         with:
           name: codecov-${{ matrix.backend_dir_name }}
