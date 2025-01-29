@@ -6,7 +6,8 @@ on:
       - master
     paths:
       - ".github/workflows/build.yml"
-      - "label_studio_ml/examples"
+      - "label_studio_ml/examples/**"
+  workflow_dispatch:
 
 env:
   DOCKER_BUILD_CONFIG_BRANCH: "master"
