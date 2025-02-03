@@ -8,7 +8,6 @@ from model import YOLO
 from label_studio_sdk.client import LabelStudio
 from label_studio_ml.response import ModelResponse
 
-
 LABEL_STUDIO_URL = os.getenv("LABEL_STUDIO_URL", "http://localhost:8080")
 LABEL_STUDIO_API_KEY = os.getenv("LABEL_STUDIO_API_KEY", "your_api_key")
 PROJECT_ID = os.getenv("LABEL_STUDIO_PROJECT_ID", "1")
@@ -36,8 +35,8 @@ def arg_parser():
         type=str,
         default="tasks.json",
         help="Path to tasks JSON file with list of ids or task datas. Example: tasks.json\n"
-        "String with ids separated by comma: if you provide task ids, "
-        "task data will be downloaded automatically from the Label Studio instance. Example: 1,2,3",
+             "String with ids separated by comma: if you provide task ids, "
+             "task data will be downloaded automatically from the Label Studio instance. Example: 1,2,3",
     )
     return parser.parse_args()
 
