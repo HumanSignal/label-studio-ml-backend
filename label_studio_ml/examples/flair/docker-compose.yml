@@ -14,6 +14,6 @@ services:
       - WORKERS=1
       - THREADS=8
       - LOG_LEVEL=DEBUG
-      - FLAIR_MODEL_NAME=ner
+      - FLAIR_MODEL_NAME=ner-multi
     ports:
       - "9090:9090"
