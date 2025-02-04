@@ -4,6 +4,7 @@ services:
   mmdetection-3:
     container_name: mmdetection-3
     image: heartexlabs/label-studio-ml-backend:mmdetection3-master
+    init: true
     build:
       context: .
       args:

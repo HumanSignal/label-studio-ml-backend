@@ -23,7 +23,6 @@ ENV PYTHONUNBUFFERED=1 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda
 
-RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 

@@ -43,3 +43,5 @@
   backend_tag_prefix: spacy-
 - backend_dir_name: tesseract
   backend_tag_prefix: tesseract-
+- backend_dir_name: yolo
+  backend_tag_prefix: yolo-

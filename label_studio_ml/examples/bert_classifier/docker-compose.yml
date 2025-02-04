@@ -4,6 +4,7 @@ services:
   bert_classifier:
     container_name: bert_classifier
     image: heartexlabs/label-studio-ml-backend:bertclass-master
+    init: true
     build:
       context: .
       args:

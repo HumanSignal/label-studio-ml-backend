@@ -25,10 +25,11 @@ services:
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
-      # Do not use 'localhost' as it does not work within Docker containers.
+      # Do not use 'localhost' or '127.0.0.1' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=
+      # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
+      - LABEL_STUDIO_URL=http://host.docker.internal:8080
       - LABEL_STUDIO_API_KEY=
 
       # YOLO parameters

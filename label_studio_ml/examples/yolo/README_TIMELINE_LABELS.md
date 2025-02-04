@@ -120,7 +120,9 @@ so it requires about 10-20 well-annotated videos 500 frames each (~20 seconds) t
   - Start annotating videos using the `TimelineLabels` tag.
   - After submitting the first annotation, the model begins training.
   - The `partial_fit()` method allows the model to train incrementally with each new annotation.
-- **Requirements**: Approximately 10-20 annotated tasks are needed to achieve reasonable performance.
+- **Requirements**:
+  - Approximately 10-20 annotated tasks are needed to achieve reasonable performance.
+  - There must be at least 2 labels in one video. Empty frames without labels are considered a separate label. This requirement is essential because training operates on a positive vs. negative paradigm.
 
 **Note**: The `predicted_values` attribute in the `<Label>` tag doesn't make sense for trainable models.
 

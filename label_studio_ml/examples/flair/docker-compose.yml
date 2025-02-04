@@ -4,6 +4,7 @@ services:
   flair:
     container_name: flair
     image: heartexlabs/label-studio-ml-backend:flair-master
+    init: true
     build:
       context: .
       args:

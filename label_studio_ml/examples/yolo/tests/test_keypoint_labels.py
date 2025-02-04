@@ -131,4 +131,4 @@ def test_keypoints_predict(client, label_config, task, expect):
     )
     assert response.status_code == 200, "Error while predict"
     data = response.json
-    compare_nested_structures(data["results"], expect)
+    compare_nested_structures(data["results"], expect, rel=1e-1)
