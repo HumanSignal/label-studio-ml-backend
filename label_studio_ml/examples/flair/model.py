@@ -9,7 +9,7 @@ from flair.data import Sentence
 
 logger = logging.getLogger(__name__)
 
-FLAIR_MODEL_NAME = os.getenv("FLAIR_MODEL_NAME", "ner")
+FLAIR_MODEL_NAME = os.getenv("FLAIR_MODEL_NAME", "ner-multi")
 logger.info(f"Loading Flair model {FLAIR_MODEL_NAME}")
 _model = Classifier.load(FLAIR_MODEL_NAME)
 
