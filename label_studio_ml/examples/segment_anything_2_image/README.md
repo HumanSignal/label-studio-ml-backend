@@ -136,14 +136,16 @@ pip install -r requirements.txt
 2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/sam2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/sam2?tab=readme-ov-file#installation)
 You should now have the following folder structure: 
 
+
     | root directory 
         | label-studio-ml-backend 
             | label-studio-ml
                 | examples 
-                    | segment_anythng_2_image
+                    | segment_anything_2_image
         | sam2
             | sam2
             | checkpoints
+
 
 3. Then you can start the ML backend on the default port `9090`:
 

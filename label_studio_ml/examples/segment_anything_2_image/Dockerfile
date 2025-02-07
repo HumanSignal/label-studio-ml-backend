@@ -22,7 +22,6 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=2 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda \
-    SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
 
 # this image is already built with cuda 12.1.1, so we don't need to install it again
 # RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y 
@@ -40,7 +39,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -r requirements.txt
 
 # install segment-anything-2
-RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
+RUN cd ~ && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
 WORKDIR /segment-anything-2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
