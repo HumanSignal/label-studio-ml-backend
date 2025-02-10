@@ -1,10 +1,10 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
 WORKDIR /app
 
-RUN conda update conda -y
+RUN mamba update conda -y
 
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
@@ -24,9 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
     CUDA_HOME=/usr/local/cuda \
     SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
 
-# this image is already built with cuda 12.1.1, so we don't need to install it again
-# RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y 
-
+RUN mamba install nvidia/label/cuda-12.4.0::cuda -y
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
