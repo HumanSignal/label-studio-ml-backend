@@ -57,4 +57,4 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 COPY . ./
 
 
-CMD ["/app/start.sh"]
+CMD ["~/app/start.sh"]
