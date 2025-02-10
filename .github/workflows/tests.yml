@@ -27,6 +27,7 @@ env:
   DOCKER_BUILD_CONFIG_BRANCH: "master"
   DOCKER_BUILD_CONFIG_PATH: ".github/docker-build-config.yml"
   DOCKER_EXAMPLES_DIRECTORY: "label_studio_ml/examples"
+  SLACK_NOTIFICATION_CHANNEL_ID: "CKL2D6D2P"
 
 jobs:
   run_pytest:
@@ -241,3 +242,24 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
+
+  notification:
+    name: "Send Slack Notification"
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    needs:
+      - run_pytest
+    steps:
+      - name: Send Slack Notification
+        if: always()
+        uses: slackapi/slack-github-action@v2.0.0
+        env:
+          WORKFLOW: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow>"
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_LSE_BOT_TOKEN }}
+          payload: |
+            channel: "${{ env.SLACK_NOTIFICATION_CHANNEL_ID }}"
+            text: >+
+              :x: Scheduled test workflow failed
+              [ ${{ env.WORKFLOW }} ]

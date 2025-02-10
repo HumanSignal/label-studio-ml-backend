@@ -17,6 +17,7 @@ services:
 #              count: 1
 #              capabilities: [ gpu ]
 
+
     environment:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
