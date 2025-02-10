@@ -158,7 +158,7 @@ Due to breaking changes from Meta [HERE](https://github.com/facebookresearch/sam
 
 4. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
 
-## Running with Docker (coming soon)
+## Running with Docker
 
 1. Start Machine Learning backend on `http://localhost:9090` with prebuilt image:
 
