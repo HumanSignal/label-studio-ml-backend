@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
 RUN cd checkpoints && ./download_ckpts.sh
 
-WORKDIR /app
+WORKDIR /sam2
 
 # install test requirements if needed
 COPY requirements-test.txt .
@@ -56,6 +56,5 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 COPY . ./
 
-WORKDIR ../sam2
 
 CMD ["../app/start.sh"]
