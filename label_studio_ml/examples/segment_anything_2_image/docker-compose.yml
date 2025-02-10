@@ -8,13 +8,13 @@ services:
       context: .
       args:
         TEST_ENV: ${TEST_ENV}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [gpu]
     environment:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
