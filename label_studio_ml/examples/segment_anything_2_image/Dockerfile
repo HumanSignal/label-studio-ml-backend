@@ -21,10 +21,10 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=9090 \
     WORKERS=2 \
     THREADS=4 \
-    CUDA_HOME=/usr/local/cuda \
-    SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
+    CUDA_HOME=/usr/local/cuda
 
 RUN mamba install nvidia/label/cuda-12.4.0::cuda -y
+
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
@@ -38,8 +38,8 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -r requirements.txt
 
 # install segment-anything-2
-RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
-WORKDIR /segment-anything-2
+RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/sam2.git
+WORKDIR /sam2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
 RUN cd checkpoints && ./download_ckpts.sh
@@ -56,4 +56,6 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 COPY . ./
 
-CMD ["/app/start.sh"]
+WORKDIR ../sam2
+
+CMD ["../app/start.sh"]
