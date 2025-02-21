@@ -85,3 +85,16 @@ The following common parameters are available:
 - `THREADS` - Specify the number of threads for the model server.
 - `LABEL_STUDIO_URL` - Specify the URL of your Label Studio instance. Note that this might need to be `http://host.docker.internal:8080` if you are running Label Studio on another Docker container.
 - `LABEL_STUDIO_API_KEY`- Specify the API key for authenticating your Label Studio instance. You can find this by logging into Label Studio and and [going to the **Account & Settings** page](https://labelstud.io/guide/user_account#Access-token). 
+
+## A Note on Model Training 
+
+If you plan to use a webhook to train this model on "Start Training", note that you do 
+not need to configure a separate webhook. Instead, go to the three dots next to your model
+on the Model tab in your project settings and click "start training". 
+
+Additionally, note that this container has been set for a **VERY SMALL** demo set, with only 1
+non-eval sample (we expect the first 10 data samples to be for evaluation.)
+
+If you're working with a larger dataset, be sure to: 
+1. update num_steps and batch size to the number of training steps you want and the batch size that works for your dataset. 
+2. change the uploaded model after training (line 239 of `model.py`) to the highest checkpoint that you have. 
