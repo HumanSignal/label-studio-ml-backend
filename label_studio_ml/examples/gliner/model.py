@@ -1,16 +1,16 @@
 import logging
 import os
-from types import SimpleNamespace
+from math import floor
 from typing import List, Dict, Optional
 
 import label_studio_sdk
-import torch
 from gliner import GLiNER
+from gliner.data_processing.collator import DataCollator
+from gliner.training import Trainer, TrainingArguments
+from label_studio_sdk.label_interface.objects import PredictionValue
+
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk.label_interface.objects import PredictionValue
-from tqdm import tqdm
-from transformers import get_cosine_schedule_with_warmup
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class GLiNERModel(LabelStudioMLBase):
 
         # make predictions with currently set model
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
-        
+
         # get labels from the labeling configuration
         labels = sorted(self.label_interface.get_tag(from_name).labels)
 
@@ -141,7 +141,7 @@ class GLiNERModel(LabelStudioMLBase):
                 ner.append([start_token, end_token, label])
         return tokens, ner
 
-    def train(self, model, config, train_data, eval_data=None):
+    def train(self, model, training_args, train_data, eval_data=None):
         """
         retrain the GLiNER model. Code adapted from the GLiNER finetuning notebook.
         :param model: the model to train
@@ -150,69 +150,23 @@ class GLiNERModel(LabelStudioMLBase):
         :param eval_data: the eval data
         """
         logger.info("Training Model")
-        model = model.to(config.device)
+        if training_args.use_cpu == True:
+            model = model.to('cpu')
+        else:
+            model = model.to("cuda")
 
-        # Set sampling parameters from config
-        model.set_sampling_params(
-            max_types=config.max_types,
-            shuffle_types=config.shuffle_types,
-            random_drop=config.random_drop,
-            max_neg_type_ratio=config.max_neg_type_ratio,
-            max_len=config.max_len
+        data_collator = DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_data,
+            eval_dataset=eval_data,
+            tokenizer=model.data_processor.transformer_tokenizer,
+            data_collator=data_collator,
         )
 
-        model.train()
-        train_loader = model.create_dataloader(train_data, batch_size=config.train_batch_size, shuffle=True)
-        optimizer = model.get_optimizer(config.lr_encoder, config.lr_others, config.freeze_token_rep)
-        pbar = tqdm(range(config.num_steps))
-        num_warmup_steps = int(config.num_steps * config.warmup_ratio) if config.warmup_ratio < 1 else int(
-            config.warmup_ratio)
-        scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, config.num_steps)
-        iter_train_loader = iter(train_loader)
-
-        for step in pbar:
-            try:
-                x = next(iter_train_loader)
-            except StopIteration:
-                iter_train_loader = iter(train_loader)
-                x = next(iter_train_loader)
-
-            for k, v in x.items():
-                if isinstance(v, torch.Tensor):
-                    x[k] = v.to(config.device)
-
-            try:
-                loss = model(x)  # Forward pass
-            except RuntimeError as e:
-                print(f"Error during forward pass at step {step}: {e}")
-                print(f"x: {x}")
-                continue
-
-            if torch.isnan(loss):
-                print("Loss is NaN, skipping...")
-                continue
-
-            loss.backward()  # Compute gradients
-            optimizer.step()  # Update parameters
-            scheduler.step()  # Update learning rate schedule
-            optimizer.zero_grad()  # Reset gradients
-
-            description = f"step: {step} | epoch: {step // len(train_loader)} | loss: {loss.item():.2f}"
-            pbar.set_description(description)
-
-            if (step + 1) % config.eval_every == 0:
-                model.eval()
-                if eval_data:
-                    results, f1 = model.evaluate(eval_data["samples"], flat_ner=True, threshold=0.5, batch_size=12,
-                                                 entity_types=eval_data["entity_types"])
-                    print(f"Step={step}\n{results}")
-
-                if not os.path.exists(config.save_directory):
-                    os.makedirs(config.save_directory)
-
-                model.save_pretrained(f"{config.save_directory}/finetuned_{step}")
-                model.train()
-
+        trainer.train()
 
     def fit(self, event, data, **kwargs):
         """
@@ -250,31 +204,38 @@ class GLiNERModel(LabelStudioMLBase):
 
             # Define the hyperparameters in a config variable
             # This comes from the pretraining example in the GLiNER repo
-            config = SimpleNamespace(
-                num_steps=10000,  # number of training iteration
-                train_batch_size=2,
-                eval_every=1000,  # evaluation/saving steps
-                save_directory="logs",  # where to save checkpoints
-                warmup_ratio=0.1,  # warmup steps
-                device='cpu',
-                lr_encoder=1e-5,  # learning rate for the backbone
-                lr_others=5e-5,  # learning rate for other parameters
-                freeze_token_rep=False,  # freeze of not the backbone
+            num_steps = 10
+            batch_size = 1
+            data_size = len(training_data)
+            num_batches = floor(data_size / batch_size)
+            num_epochs = max(1, floor(num_steps / num_batches))
 
-                # Parameters for set_sampling_params
-                max_types=25,  # maximum number of entity types during training
-                shuffle_types=True,  # if shuffle or not entity types
-                random_drop=True,  # randomly drop entity types
-                max_neg_type_ratio=1,
-                # ratio of positive/negative types, 1 mean 50%/50%, 2 mean 33%/66%, 3 mean 25%/75% ...
-                max_len=384  # maximum sentence length
+            training_args = TrainingArguments(
+                output_dir="models",
+                learning_rate=5e-6,
+                weight_decay=0.01,
+                others_lr=1e-5,
+                others_weight_decay=0.01,
+                lr_scheduler_type="linear",  # cosine
+                warmup_ratio=0.1,
+                per_device_train_batch_size=batch_size,
+                per_device_eval_batch_size=batch_size,
+                focal_loss_alpha=0.75,
+                focal_loss_gamma=2,
+                num_train_epochs=num_epochs,
+                evaluation_strategy="steps",
+                save_steps=100,
+                save_total_limit=10,
+                dataloader_num_workers=0,
+                use_cpu=True,
+                report_to="none",
             )
 
-            self.train(self.model, config, training_data, eval_data)
+            self.train(self.model, training_args, training_data, eval_data)
 
             logger.info("Saving new fine-tuned model as the default model")
-            self.model = GLiNERModel.from_pretrained("finetuned", local_files_only=True)
-            model_version = self.model_version[-1] + 1
+            self.model = GLiNER.from_pretrained(f"models/checkpoint-10", local_files_only=True)
+            model_version = int(self.model_version[-1]) + 1
             self.set("model_version", f'{self.__class__.__name__}-v{model_version}')
         else:
             logger.info("Model training not triggered")

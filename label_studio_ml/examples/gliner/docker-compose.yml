@@ -29,7 +29,6 @@ services:
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       - LABEL_STUDIO_URL=http://host.docker.internal:8080
       - LABEL_STUDIO_API_KEY=
-
     ports:
       - "9090:9090"
     volumes:

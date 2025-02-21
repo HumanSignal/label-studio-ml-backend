@@ -56,7 +56,7 @@ def test_predict(client):
     }
 
     expected_response = {"results": [{"model_version": "GLiNERModel-v0.0.1", "result": [
-        {"from_name": "label", "score": 0.9220, "to_name": "text", "type": "labels",
+        {"from_name": "label", "score": 0.922, "to_name": "text", "type": "labels",
          "value": {"end": 11, "labels": ["Medication/Vaccine"], "start": 0, "text": "atomoxetine"}},
         {"from_name": "label", "score": 0.7053, "to_name": "text", "type": "labels",
          "value": {"end": 65, "labels": ["Medication/Vaccine"], "start": 32,
