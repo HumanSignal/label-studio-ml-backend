@@ -14,7 +14,7 @@ from label_studio_ml.response import ModelResponse
 
 logger = logging.getLogger(__name__)
 
-GLINER_MODEL_NAME = os.getenv("GLINER_MODEL_NAME", "urchade/gliner_small-v2.1")
+GLINER_MODEL_NAME = os.getenv("GLINER_MODEL_NAME", "urchade/gliner_medium-v2.1")
 logger.info(f"Loading GLINER model {GLINER_MODEL_NAME}")
 MODEL = GLiNER.from_pretrained(GLINER_MODEL_NAME)
 
