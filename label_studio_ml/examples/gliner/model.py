@@ -1,18 +1,16 @@
-import label_studio_sdk
 import logging
 import os
-import torch
 from math import floor
+from typing import List, Dict, Optional
+
+import label_studio_sdk
 from gliner import GLiNER
-from gliner.data_processing.collator import  DataCollator
+from gliner.data_processing.collator import DataCollator
 from gliner.training import Trainer, TrainingArguments
+from label_studio_sdk.label_interface.objects import PredictionValue
+
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk.label_interface.objects import PredictionValue
-from tqdm import tqdm
-from transformers import get_cosine_schedule_with_warmup
-from types import SimpleNamespace
-from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
