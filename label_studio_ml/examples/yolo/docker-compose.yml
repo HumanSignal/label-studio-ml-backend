@@ -31,6 +31,7 @@ services:
       # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
       - LABEL_STUDIO_URL=http://host.docker.internal:8080
       - LABEL_STUDIO_API_KEY=
+
       # YOLO parameters
 
       # Allow to use custom `model_path` in labeling configurations
