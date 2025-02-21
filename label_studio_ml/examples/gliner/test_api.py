@@ -60,7 +60,7 @@ def test_predict(client):
          "value": {"end": 11, "labels": ["Medication/Vaccine"], "start": 0, "text": "atomoxetine"}},
         {"from_name": "label", "score": 0.8706, "to_name": "text", "type": "labels",
          "value": {"end": 65, "labels": ["Medication/Vaccine"], "start": 32,
-                   "text": "norepinephrine reuptake inhibitor"}}], "score": 0.7053}]}
+                   "text": "norepinephrine reuptake inhibitor"}}], "score": 0.8706}]}
 
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
