@@ -22,12 +22,15 @@ services:
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
 
+      #Path to your saved finetuned model
+      - FINETUNED_MODEL_PATH=finetuned_model
+
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_URL=http://app.docker.internal:8080
       - LABEL_STUDIO_API_KEY=
     ports:
       - "9090:9090"

@@ -2,6 +2,7 @@ import logging
 import os
 from math import floor
 from typing import List, Dict, Optional
+import pathlib
 
 import label_studio_sdk
 from gliner import GLiNER
@@ -15,8 +16,6 @@ from label_studio_ml.response import ModelResponse
 logger = logging.getLogger(__name__)
 
 GLINER_MODEL_NAME = os.getenv("GLINER_MODEL_NAME", "urchade/gliner_medium-v2.1")
-logger.info(f"Loading GLINER model {GLINER_MODEL_NAME}")
-MODEL = GLiNER.from_pretrained(GLINER_MODEL_NAME)
 
 
 class GLiNERModel(LabelStudioMLBase):
@@ -29,10 +28,23 @@ class GLiNERModel(LabelStudioMLBase):
         """
         self.LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_URL', 'http://localhost:8080')
         self.LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
-
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+        self.MODEL_DIR = os.getenv("MODEL_DIR", "/data/models")
+        self.finetuned_model_path = os.getenv("FINETUNED_MODEL_PATH", f"models/checkpoint-10")
         self.threshold = float(os.getenv('THRESHOLD', 0.5))
-        self.model = MODEL
+        self.model = None
+
+    def lazy_init(self):
+        if not self.model:
+            try:
+                logger.info(f"Loading Pretrained Model from {self.finetuned_model_path}")
+                self.model = GLiNER.from_pretrained(str(pathlib.Path(self.MODEL_DIR, self.finetuned_model_path)), local_files_only=True)
+                self.set("model_version", f'{self.__class__.__name__}-v0.0.2')
+
+            except:
+                # If no finetuned model, use default
+                logger.info(f"No Pretrained Model Found. Loading GLINER model {GLINER_MODEL_NAME}")
+                self.model = GLiNER.from_pretrained(GLINER_MODEL_NAME)
+                self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def convert_to_ls_annotation(self, prediction, from_name, to_name):
         """
@@ -107,6 +119,8 @@ class GLiNERModel(LabelStudioMLBase):
         Parsed JSON Label config: {self.parsed_label_config}
         Extra params: {self.extra_params}''')
 
+        # TODO: this may result in single-time timeout for large models - consider adjusting the timeout on Label Studio side
+        self.lazy_init()
         # make predictions with currently set model
         from_name, to_name, value = self.label_interface.get_first_tag_occurence('Labels', 'Text')
 
@@ -149,6 +163,8 @@ class GLiNERModel(LabelStudioMLBase):
         :param train_data: the training data, as a list of dictionaries
         :param eval_data: the eval data
         """
+        # TODO: this may result in single-time timeout for large models - consider adjusting the timeout on Label Studio side
+        self.lazy_init()
         logger.info("Training Model")
         if training_args.use_cpu == True:
             model = model.to('cpu')
@@ -168,6 +184,11 @@ class GLiNERModel(LabelStudioMLBase):
 
         trainer.train()
 
+        #Save model
+        ckpt = str(pathlib.Path(self.MODEL_DIR, self.finetuned_model_path))
+        logger.info(f"Model Trained, saving to {ckpt} ")
+        trainer.save_model(ckpt)
+
     def fit(self, event, data, **kwargs):
         """
         This method is called each time an annotation is created or updated
@@ -177,6 +198,7 @@ class GLiNERModel(LabelStudioMLBase):
         :param event: event type can be ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED')
         :param data: the payload received from the event (check [Webhook event reference](https://labelstud.io/guide/webhook_reference.html))
         """
+        self.lazy_init()
         # we only train the model if the "start training" button is pressed from settings.
         if event == "START_TRAINING":
             logger.info("Fitting model")
@@ -211,7 +233,7 @@ class GLiNERModel(LabelStudioMLBase):
             num_epochs = max(1, floor(num_steps / num_batches))
 
             training_args = TrainingArguments(
-                output_dir="models",
+                output_dir="models/training_output",
                 learning_rate=5e-6,
                 weight_decay=0.01,
                 others_lr=1e-5,
@@ -233,9 +255,5 @@ class GLiNERModel(LabelStudioMLBase):
 
             self.train(self.model, training_args, training_data, eval_data)
 
-            logger.info("Saving new fine-tuned model as the default model")
-            self.model = GLiNER.from_pretrained(f"models/checkpoint-10", local_files_only=True)
-            model_version = int(self.model_version[-1]) + 1
-            self.set("model_version", f'{self.__class__.__name__}-v{model_version}')
         else:
             logger.info("Model training not triggered")
