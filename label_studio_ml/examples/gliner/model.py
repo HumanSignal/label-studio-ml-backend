@@ -189,6 +189,7 @@ class GLiNERModel(LabelStudioMLBase):
         logger.info(f"Model Trained, saving to {ckpt} ")
         trainer.save_model(ckpt)
 
+
     def fit(self, event, data, **kwargs):
         """
         This method is called each time an annotation is created or updated
@@ -234,6 +235,7 @@ class GLiNERModel(LabelStudioMLBase):
 
             training_args = TrainingArguments(
                 output_dir="models/training_output",
+
                 learning_rate=5e-6,
                 weight_decay=0.01,
                 others_lr=1e-5,
