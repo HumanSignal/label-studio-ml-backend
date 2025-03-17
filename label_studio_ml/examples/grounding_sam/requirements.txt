@@ -7,3 +7,5 @@ mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 segment-anything==1.0
 olefile==0.47
 # networkx==2.8.8
+
+
