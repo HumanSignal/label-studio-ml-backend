@@ -14,6 +14,7 @@ services:
       - BASIC_AUTH_PASS=
       # set the log level for the model server
       - LOG_LEVEL=DEBUG
+      - DEBUG=true
       # any other parameters that you want to pass to the model server
       - ANY=PARAMETER
       # specify the number of workers and threads for the model server
