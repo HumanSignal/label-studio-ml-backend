@@ -1,4 +1,4 @@
-gunicorn==22.0.0
+gunicorn==23.0.0
 spacy~=3.6
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
 numpy~=1.26
