@@ -21,7 +21,7 @@ jobs:
     if: needs.calculate_matrix.outputs.matrix-include != '[]'
     needs: calculate_matrix
     runs-on: ${{ matrix.runs_on || 'ubuntu-latest' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +113,10 @@ jobs:
       - name: Push Docker image
         uses: docker/build-push-action@v6.15.0
         id: docker_build_and_push
+        env:
+          DOCKER_BUILD_CHECKS_ANNOTATIONS: "false"
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
           push: ${{ steps.actor-membership.outputs.active }}
