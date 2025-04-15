@@ -35,9 +35,10 @@ class RectangleLabelsObbModel(ControlModel):
         # simple bounding boxes without rotation
         if results[0].obb is None:
             raise ValueError(
-                "Simple bounding boxes are detected in the YOLO model results. "
-                'However, `model_obb="true"` is set at the RectangleLabels tag '
-                "in the labeling config. Set it to `false` to use simple bounding boxes."
+                'Simple bounding boxes are detected in the YOLO model results. '
+                'However, `canRotate` is not set or `canRotate="true"` is set '
+                'at the RectangleLabels tag in the labeling config. Set it to '
+                '`false` to use simple bounding boxes.'
             )
 
         # oriented bounding boxes with rotation (yolo obb model)
