@@ -1,4 +1,4 @@
-gunicorn==22.0.0
+gunicorn==23.0.0
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
 olefile==0.47
 accelerate==1.6.0
