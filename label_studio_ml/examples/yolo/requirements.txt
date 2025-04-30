@@ -1,6 +1,6 @@
 ultralytics~=8.3.120
 tqdm
 torchmetrics<1.8.0
-numpy
+numpy<2
 
 
