@@ -21,10 +21,12 @@ docker-compose up
 
 Replace `{MODEL_NAME}` with the name of the model you want to use (see below). 
 
-**Allow the ML backend to access Label Studio data**
+## Allow the ML backend to access Label Studio data
 
 In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` environment variables to allow the ML backend access to the media data in Label Studio.
 [Read more in the documentation](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data).
+
+**Warning:** Currently, ML backends support only Legacy Tokens and do not support Personal Tokens. You will encounter an `Unauthorized Error` if you use Personal Tokens.
 
 # Models
 
