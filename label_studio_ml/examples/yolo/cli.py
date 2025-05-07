@@ -56,7 +56,7 @@ class LabelStudioMLPredictor:
 
         # load YOLO model
         # TODO: use get_all_classes_inherited_LabelStudioMLBase to detect model classes
-        model = YOLO(project_id=project.id, label_config=project.label_config)
+        model = YOLO(project_id=str(project.id), label_config=project.label_config)
         logger.info(f"YOLO ML backend is created")
 
         # predict and send prediction to Label Studio
