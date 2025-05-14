@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 def is_obb(control: ControlTag) -> bool:
     """Check if the model should use oriented bounding boxes (OBB)
-    based on the control tag attribute `model_obb` from the labeling config.
+    based on the control tag attribute `canRotate` from the labeling config.
     """
-    return get_bool(control.attr, "model_obb", "false")
+    return get_bool(control.attr, "canRotate", "true")
 
 
 class RectangleLabelsModel(ControlModel):
@@ -40,7 +40,7 @@ class RectangleLabelsModel(ControlModel):
         if results[0].obb is not None and results[0].boxes is None:
             raise ValueError(
                 "Oriented bounding boxes are detected in the YOLO model results. "
-                'However, `model_obb="true"` is not set at the RectangleLabels tag '
+                'However, `canRotate="true"` is not set at the RectangleLabels tag '
                 "in the labeling config."
             )
 
