@@ -30,8 +30,8 @@ services:
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_URL=http:/app.heartex.com
-      - LABEL_STUDIO_API_KEY=490f74aabd7df86204025fbae3f2e94f1571f4ab
+      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_API_KEY=
     ports:
       - "9090:9090"
     volumes:
