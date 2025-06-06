@@ -13,7 +13,7 @@ services:
       # LABEL_STUDIO_HOST: This is the host URL for Label Studio, used for training.
       # It can be set via environment variable "LABEL_STUDIO_HOST".
       # If not set, it defaults to 'http://localhost:8080'.
-      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://localhost:8080}
+      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://host.docker.internal:8080}
       # LABEL_STUDIO_API_KEY: This is the API key for Label Studio, used for training.
       # It can be set via environment variable "LABEL_STUDIO_API_KEY".
       # There is no default value for this, so it must be set.
@@ -21,7 +21,7 @@ services:
       # START_TRAINING_EACH_N_UPDATES: This is the number of updates after which training starts.
       # It is an integer value and can be set via environment variable "START_TRAINING_EACH_N_UPDATES".
       # If not set, it defaults to 10.
-      - START_TRAINING_EACH_N_UPDATES=${START_TRAINING_EACH_N_UPDATES:-10}
+      - START_TRAINING_EACH_N_UPDATES=${START_TRAINING_EACH_N_UPDATES:-1}
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
@@ -34,6 +34,8 @@ services:
       - THREADS=8
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix
     ports:
       - "9090:9090"
     volumes:
