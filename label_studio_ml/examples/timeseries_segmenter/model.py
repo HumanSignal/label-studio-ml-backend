@@ -8,7 +8,6 @@ and predicts segments for new tasks.
 import os
 import io
 import logging
-import pickle
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -236,4 +235,5 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         self._save_model(model)
         global _model
         _model = None
+
         self._get_model(len(params["channels"]), len(params["labels"]))
