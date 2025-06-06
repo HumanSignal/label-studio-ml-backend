@@ -2,7 +2,7 @@
 
 This example shows a very small yet functional ML backend that trains a
 classifier on labeled time series CSV files and predicts segments for new
-tasks.  The logic is intentionally simple so that it can serve as a starting
+tasks. The logic is intentionally simple so that it can serve as a starting
 point for your own experiments.
 """
 
@@ -46,6 +46,7 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         global _model
         if _model is not None and not blank:
             return _model
+        
         model_path = os.path.join(self.MODEL_DIR, "model.pkl")
         if not blank and os.path.exists(model_path):
             with open(model_path, "rb") as f:
@@ -158,7 +159,9 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
             df = self._read_csv(task, task['data'][params['value']])
             if df.empty:
                 continue
+
             annotations = [a for a in task['annotations'] if a.get('result')]
+
             for ann in annotations:
                 for r in ann['result']:
                     if r['from_name'] != params['from_name']:
@@ -209,12 +212,14 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         ):
             logger.info("Skip training: event %s is not supported", event)
             return
+        
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
         if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
             logger.info(
                 f'Skip training: {len(tasks)} tasks are not multiple of {self.START_TRAINING_EACH_N_UPDATES}')
             return
+        
         params = self._get_labeling_params()
         label2idx = {l: i for i, l in enumerate(params['labels'])}
 
