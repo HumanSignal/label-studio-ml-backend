@@ -4,30 +4,30 @@ import json
 import logging
 import logging.config
 
-logging.config.dictConfig({
-  "version": 1,
-  "disable_existing_loggers": False,
-  "formatters": {
-    "standard": {
-      "format": "[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s"
+logging.config.dictConfig(
+    {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'standard': {
+                'format': '[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s'
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': os.getenv('LOG_LEVEL'),
+                'stream': 'ext://sys.stdout',
+                'formatter': 'standard',
+            }
+        },
+        'root': {
+            'level': os.getenv('LOG_LEVEL'),
+            'handlers': ['console'],
+            'propagate': True,
+        },
     }
-  },
-  "handlers": {
-    "console": {
-      "class": "logging.StreamHandler",
-      "level": os.getenv('LOG_LEVEL'),
-      "stream": "ext://sys.stdout",
-      "formatter": "standard"
-    }
-  },
-  "root": {
-    "level": os.getenv('LOG_LEVEL'),
-    "handlers": [
-      "console"
-    ],
-    "propagate": True
-  }
-})
+)
 
 from label_studio_ml.api import init_app
 from model import TimeSeriesSegmenter
@@ -45,37 +45,61 @@ def get_kwargs_from_config(config_path=_DEFAULT_CONFIG_PATH):
     return config
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Label studio')
     parser.add_argument(
-        '-p', '--port', dest='port', type=int, default=9090,
-        help='Server port')
+        '-p', '--port', dest='port', type=int, default=9090, help='Server port'
+    )
     parser.add_argument(
-        '--host', dest='host', type=str, default='0.0.0.0',
-        help='Server host')
+        '--host', dest='host', type=str, default='0.0.0.0', help='Server host'
+    )
     parser.add_argument(
-        '--kwargs', '--with', dest='kwargs', metavar='KEY=VAL', nargs='+', type=lambda kv: kv.split('='),
-        help='Additional LabelStudioMLBase model initialization kwargs')
+        '--kwargs',
+        '--with',
+        dest='kwargs',
+        metavar='KEY=VAL',
+        nargs='+',
+        type=lambda kv: kv.split('='),
+        help='Additional LabelStudioMLBase model initialization kwargs',
+    )
     parser.add_argument(
-        '-d', '--debug', dest='debug', action='store_true',
-        help='Switch debug mode')
+        '-d',
+        '--debug',
+        dest='debug',
+        action='store_true',
+        help='Switch debug mode',
+    )
     parser.add_argument(
-        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=None,
-        help='Logging level')
+        '--log-level',
+        dest='log_level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default=None,
+        help='Logging level',
+    )
     parser.add_argument(
-        '--model-dir', dest='model_dir', default=os.path.dirname(__file__),
-        help='Directory where models are stored (relative to the project directory)')
+        '--model-dir',
+        dest='model_dir',
+        default=os.path.dirname(__file__),
+        help='Directory where models are stored (relative to the project directory)',
+    )
     parser.add_argument(
-        '--check', dest='check', action='store_true',
-        help='Validate model instance before launching server')
-    parser.add_argument('--basic-auth-user',
-                        default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
-                        help='Basic auth user')
-    
-    parser.add_argument('--basic-auth-pass',
-                        default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
-                        help='Basic auth pass')    
-    
+        '--check',
+        dest='check',
+        action='store_true',
+        help='Validate model instance before launching server',
+    )
+    parser.add_argument(
+        '--basic-auth-user',
+        default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
+        help='Basic auth user',
+    )
+
+    parser.add_argument(
+        '--basic-auth-pass',
+        default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
+        help='Basic auth pass',
+    )
+
     args = parser.parse_args()
 
     # setup logging level
@@ -110,10 +134,16 @@ if __name__ == "__main__":
         kwargs.update(parse_kwargs())
 
     if args.check:
-        print('Check "' + TimeSeriesSegmenter.__name__ + '" instance creation..')
+        print(
+            'Check "' + TimeSeriesSegmenter.__name__ + '" instance creation..'
+        )
         model = TimeSeriesSegmenter(**kwargs)
 
-    app = init_app(model_class=TimeSeriesSegmenter, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
+    app = init_app(
+        model_class=TimeSeriesSegmenter,
+        basic_auth_user=args.basic_auth_user,
+        basic_auth_pass=args.basic_auth_pass,
+    )
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
