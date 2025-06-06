@@ -1,23 +1,27 @@
+"""Logistic regression based time series segmenter."""
+
 import os
 import io
 import pickle
 import logging
+from typing import List, Dict, Optional
+
 import pandas as pd
 import numpy as np
 import label_studio_sdk
 
-from typing import List, Dict, Optional
 from sklearn.linear_model import LogisticRegression
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 
 logger = logging.getLogger(__name__)
 
+# Cached model instance to avoid reloading the pickle on each request.
 _model: Optional[LogisticRegression] = None
 
 
 class TimeSeriesSegmenter(LabelStudioMLBase):
-    """Simple time series segmentation using logistic regression."""
+    """Simple logistic regression based segmenter for time series."""
 
     LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST', 'http://localhost:8080')
     LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
@@ -25,33 +29,38 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
     MODEL_DIR = os.getenv('MODEL_DIR', '.')
 
     def setup(self):
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+        """Initialize model metadata."""
+        self.set("model_version", f"{self.__class__.__name__}-v0.0.1")
 
     # util functions
     def _get_model(self, blank: bool = False) -> LogisticRegression:
+        """Return a trained model or create a new one."""
         global _model
         if _model is not None and not blank:
             return _model
-        model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
+        model_path = os.path.join(self.MODEL_DIR, "model.pkl")
         if not blank and os.path.exists(model_path):
-            with open(model_path, 'rb') as f:
+            with open(model_path, "rb") as f:
                 _model = pickle.load(f)
         else:
             _model = LogisticRegression(max_iter=1000)
         return _model
 
     def _get_labeling_params(self) -> Dict:
+        """Extract tag names and channel info from the labeling config."""
         from_name, to_name, value = self.label_interface.get_first_tag_occurence(
-            'TimeSeriesLabels', 'TimeSeries')
+            "TimeSeriesLabels", "TimeSeries"
+        )
         tag = self.label_interface.get_tag(from_name)
         labels = list(tag.labels)
         ts_tag = self.label_interface.get_tag(to_name)
-        time_col = ts_tag.attr.get('timeColumn')
-        # parse channel names from the original config since tag doesn't expose children
+        time_col = ts_tag.attr.get("timeColumn")
+        # Parse channels from the original XML because the tag does not expose its children
         import xml.etree.ElementTree as ET
+
         root = ET.fromstring(self.label_config)
         ts_elem = root.find(f".//TimeSeries[@name='{to_name}']")
-        channels = [ch.attrib['column'] for ch in ts_elem.findall('Channel')]
+        channels = [ch.attrib["column"] for ch in ts_elem.findall("Channel")]
         return {
             'from_name': from_name,
             'to_name': to_name,
@@ -62,23 +71,30 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         }
 
     def _read_csv(self, task: Dict, path: str) -> pd.DataFrame:
+        """Load CSV associated with the task from Label Studio."""
         csv_str = self.preload_task_data(task, path)
         return pd.read_csv(io.StringIO(csv_str))
 
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
+    def predict(
+        self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs
+    ) -> ModelResponse:
+        """Return time series segments predicted for the given tasks."""
         params = self._get_labeling_params()
         model = self._get_model()
         predictions = []
         for task in tasks:
-            df = self._read_csv(task, task['data'][params['value']])
+            df = self._read_csv(task, task["data"][params["value"]])
+            # each row is described by the selected channels
             X = df[params['channels']].values
             if len(X) == 0:
                 predictions.append({})
                 continue
+            # predict probabilities for each label
             probs = model.predict_proba(X)
             labels_idx = np.argmax(probs, axis=1)
             df['pred_label'] = [params['labels'][i] for i in labels_idx]
             df['score'] = probs[np.arange(len(probs)), labels_idx]
+            # group consecutive rows with the same predicted label
             segments = []
             current = None
             for _, row in df.iterrows():
@@ -123,13 +139,21 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         return ModelResponse(predictions=predictions, model_version=self.get('model_version'))
 
     def _get_tasks(self, project_id: int) -> List[Dict]:
-        ls = label_studio_sdk.Client(self.LABEL_STUDIO_HOST, self.LABEL_STUDIO_API_KEY)
+        """Fetch labeled tasks from Label Studio."""
+        ls = label_studio_sdk.Client(
+            self.LABEL_STUDIO_HOST, self.LABEL_STUDIO_API_KEY
+        )
         project = ls.get_project(id=project_id)
         return project.get_labeled_tasks()
 
     def fit(self, event, data, **kwargs):
-        if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
-            logger.info(f"Skip training: event {event} is not supported")
+        """Train the model on all labeled segments."""
+        if event not in (
+            "ANNOTATION_CREATED",
+            "ANNOTATION_UPDATED",
+            "START_TRAINING",
+        ):
+            logger.info("Skip training: event %s is not supported", event)
             return
         project_id = data['annotation']['project']
         tasks = self._get_tasks(project_id)
@@ -139,11 +163,12 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
             return
         params = self._get_labeling_params()
         label2idx = {l: i for i, l in enumerate(params['labels'])}
-        X, y = [], []
+        X, y = [], []  # features and labels for classifier
         for task in tasks:
             df = self._read_csv(task, task['data'][params['value']])
             if df.empty:
                 continue
+            # convert labeled segments into per-row samples
             annotations = [a for a in task['annotations'] if a.get('result')]
             for ann in annotations:
                 for r in ann['result']:
@@ -152,8 +177,12 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
                     start = r['value']['start']
                     end = r['value']['end']
                     label = r['value']['timeserieslabels'][0]
-                    mask = (df[params['time_col']] >= start) & (df[params['time_col']] <= end)
+                    mask = (
+                        (df[params['time_col']] >= start)
+                        & (df[params['time_col']] <= end)
+                    )
                     seg = df.loc[mask, params['channels']].values
+                    # each row inside the labeled range belongs to the segment
                     X.extend(seg)
                     y.extend([label2idx[label]] * len(seg))
         if not X:
@@ -163,9 +192,11 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         model.fit(np.array(X), np.array(y))
         os.makedirs(self.MODEL_DIR, exist_ok=True)
         model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
+        # save trained model to disk
         with open(model_path, 'wb') as f:
             pickle.dump(model, f)
         global _model
+        # reload the cached model on next prediction
         _model = None
         self._get_model()
 

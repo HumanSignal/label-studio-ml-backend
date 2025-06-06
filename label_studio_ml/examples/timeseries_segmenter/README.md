@@ -18,6 +18,8 @@ for new tasks. The backend expects the labeling configuration to use
 docker-compose up --build
 ```
 
+A small example CSV is available in `tests/time_series.csv`.
+
 Connect the model from the **Model** page in your project settings. The default
 URL is `http://localhost:9090`.
 
@@ -38,9 +40,9 @@ Use a configuration similar to the following:
 </View>
 ```
 
-The backend reads the time column and channels to build feature vectors for
-training and prediction. Each CSV referenced by `csv_url` is expected to contain
-at least the time column and the listed channels.
+The backend reads the time column and channels to build feature vectors. Each
+CSV referenced by `csv_url` must contain the time column and the channel
+columns.
 
 ## Training
 
@@ -54,3 +56,9 @@ fits a logistic regression classifier. Model artifacts are stored in the
 For each task, the backend loads the CSV, applies the trained classifier to each
 row and groups consecutive predictions into labeled segments. Prediction scores
 are averaged per segment and returned to Label Studio.
+
+## Customize
+
+Edit `docker-compose.yml` to set environment variables such as `LABEL_STUDIO_HOST`
+or `MODEL_DIR`. You can also adjust `START_TRAINING_EACH_N_UPDATES` to control
+how often training runs.
