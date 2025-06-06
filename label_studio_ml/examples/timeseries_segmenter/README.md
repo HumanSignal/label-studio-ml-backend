@@ -1,7 +1,7 @@
 # Time Series Segmenter for Label Studio
 
 This example demonstrates a minimal ML backend that performs time series segmentation.
-It trains a random forest classifier on labeled CSV data and predicts segments
+It trains a small LSTM neural network on labeled CSV data and predicts segments
 for new tasks. The backend expects the labeling configuration to use
 `<TimeSeries>` and `<TimeSeriesLabels>` tags.
 
@@ -48,14 +48,14 @@ columns.
 
 Training starts automatically when annotations are created or updated. The model
 collects all labeled segments, extracts sensor values inside each segment and
-fits a random forest classifier. Model artifacts are stored in the
+fits an LSTM classifier. Model artifacts are stored in the
 `MODEL_DIR` (defaults to the current directory).
 
 Steps performed by `fit()`:
 
 1. Fetch all labeled tasks from Label Studio.
 2. Convert labeled ranges to per-row training samples.
-3. Fit a random forest classifier.
+3. Fit a small LSTM network.
 4. Save the trained model to disk.
 
 ## Prediction
@@ -82,7 +82,7 @@ flowchart TD
   B -- no --> C[Skip]
   B -- yes --> D[Load labeled tasks]
   D --> E[Collect per-row samples]
-  E --> F[Fit random forest]
+  E --> F[Fit LSTM]
   F --> G[Save model]
 ```
 
