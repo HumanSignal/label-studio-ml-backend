@@ -3,12 +3,24 @@ import json
 import sys
 from unittest.mock import patch
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
-
 import pytest
 
-from label_studio_ml.examples.timeseries_segmenter.model import TimeSeriesSegmenter
-from label_studio_ml.examples.timeseries_segmenter._wsgi import init_app
+# Skip tests if scikit-learn isn't available
+pytest.importorskip("sklearn")
+
+TEST_DIR = os.path.dirname(__file__)
+EXAMPLE_DIR = os.path.abspath(os.path.join(TEST_DIR, ".."))
+REPO_ROOT = os.path.abspath(os.path.join(TEST_DIR, "../../../.."))
+for path in (EXAMPLE_DIR, REPO_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+try:
+    from label_studio_ml.examples.timeseries_segmenter.model import TimeSeriesSegmenter
+    from label_studio_ml.examples.timeseries_segmenter._wsgi import init_app
+except ImportError:  # running inside example Docker image
+    from model import TimeSeriesSegmenter
+    from _wsgi import init_app
 
 TEST_DIR = os.path.dirname(__file__)
 CSV_PATH = os.path.join(TEST_DIR, "time_series.csv")
