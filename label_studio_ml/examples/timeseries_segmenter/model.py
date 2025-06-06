@@ -47,7 +47,11 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         labels = list(tag.labels)
         ts_tag = self.label_interface.get_tag(to_name)
         time_col = ts_tag.attr.get('timeColumn')
-        channels = [ch.attr['column'] for ch in ts_tag.children if ch.tag == 'Channel']
+        # parse channel names from the original config since tag doesn't expose children
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(self.label_config)
+        ts_elem = root.find(f".//TimeSeries[@name='{to_name}']")
+        channels = [ch.attrib['column'] for ch in ts_elem.findall('Channel')]
         return {
             'from_name': from_name,
             'to_name': to_name,
