@@ -1,14 +1,14 @@
-"""Logistic regression based time series segmenter.
+"""Random forest based time series segmenter.
 
-This example shows a very small yet functional ML backend that trains a
+This example demonstrates a small yet functional ML backend that trains a
 classifier on labeled time series CSV files and predicts segments for new
-tasks. The logic is intentionally simple so that it can serve as a starting
-point for your own experiments.
-"""
+from sklearn.ensemble import RandomForestClassifier
+_model: Optional[RandomForestClassifier] = None
+    """Simple random forest based segmenter for time series."""
 
-import os
-import io
-import pickle
+    def _get_model(self, blank: bool = False) -> RandomForestClassifier:
+            _model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+    def _predict_task(self, task: Dict, model: RandomForestClassifier, params: Dict) -> Dict:
 import logging
 from typing import List, Dict, Optional, Tuple
 
@@ -150,7 +150,7 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
                 current['end'] = row[time_col]
                 current['scores'].append(row['score'])
             else:
-                if current:
+    def _save_model(self, model: RandomForestClassifier) -> None:
                     segments.append(current)
                 current = {
                     'label': label,

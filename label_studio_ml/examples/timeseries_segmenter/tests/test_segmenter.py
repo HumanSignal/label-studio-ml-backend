@@ -71,7 +71,13 @@ def make_task():
                         'from_name': 'label',
                         'to_name': 'ts',
                         'type': 'timeserieslabels',
-                        'value': {
+        segs = results[0]["result"]
+        assert len(segs) == 2
+        assert segs[0]["value"]["start"] == 0
+        assert segs[0]["value"]["timeserieslabels"] == ["Run"]
+        assert segs[1]["value"]["timeserieslabels"] == ["Walk"]
+        assert 80 <= segs[1]["value"]["start"] <= 90
+        assert segs[1]["value"]["end"] == 99
                             'start': 85,
                             'end': 99,
                             'instant': False,
