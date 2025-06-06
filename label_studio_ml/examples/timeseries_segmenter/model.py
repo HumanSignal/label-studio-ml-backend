@@ -31,7 +31,9 @@ _model: Optional[models.Model] = None
         )
         return model
 
-    def _get_model(self, n_channels: int, n_labels: int, blank: bool = False) -> models.Model:
+    def _get_model(
+        self, n_channels: int, n_labels: int, blank: bool = False
+    ) -> models.Model:
         model_path = os.path.join(self.MODEL_DIR, "model.keras")
             _model = models.load_model(model_path)
             _model = self._build_model(n_channels, n_labels)
@@ -135,11 +137,22 @@ _model: Optional[models.Model] = None
         }
 
     def _group_rows(self, df: pd.DataFrame, time_col: str) -> List[Dict]:
-        """Group consecutive rows with the same predicted label."""
-        segments = []
-        current = None
-        for _, row in df.iterrows():
-            label = row['pred_label']
+    def _collect_samples(
+        self, tasks: List[Dict], params: Dict, label2idx: Dict[str, int]
+    ) -> Tuple[List, List]:
+    def predict(
+        self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs
+    ) -> ModelResponse:
+        return ModelResponse(
+            predictions=predictions, model_version=self.get("model_version")
+        )
+        if (
+            len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0
+            and event != "START_TRAINING"
+        ):
+        model = self._get_model(
+            len(params["channels"]), len(params["labels"]), blank=True
+        )
             if current and current['label'] == label:
                 current['end'] = row[time_col]
                 current['scores'].append(row['score'])
