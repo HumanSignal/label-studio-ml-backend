@@ -1,10 +1,16 @@
-"""Logistic regression based time series segmenter."""
+"""Logistic regression based time series segmenter.
+
+This example shows a very small yet functional ML backend that trains a
+classifier on labeled time series CSV files and predicts segments for new
+tasks.  The logic is intentionally simple so that it can serve as a starting
+point for your own experiments.
+"""
 
 import os
 import io
 import pickle
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 import pandas as pd
 import numpy as np
@@ -32,9 +38,11 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         """Initialize model metadata."""
         self.set("model_version", f"{self.__class__.__name__}-v0.0.1")
 
-    # util functions
+    # ------------------------------------------------------------------
+    # Utility helpers
+
     def _get_model(self, blank: bool = False) -> LogisticRegression:
-        """Return a trained model or create a new one."""
+        """Return a trained model or create a fresh one if needed."""
         global _model
         if _model is not None and not blank:
             return _model
@@ -47,7 +55,7 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         return _model
 
     def _get_labeling_params(self) -> Dict:
-        """Extract tag names and channel info from the labeling config."""
+        """Return tag names and channel information from the labeling config."""
         from_name, to_name, value = self.label_interface.get_first_tag_occurence(
             "TimeSeriesLabels", "TimeSeries"
         )
@@ -55,12 +63,14 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         labels = list(tag.labels)
         ts_tag = self.label_interface.get_tag(to_name)
         time_col = ts_tag.attr.get("timeColumn")
-        # Parse channels from the original XML because the tag does not expose its children
+        # Parse channel names from the original XML because TimeSeries tag
+        # does not expose its children via label-studio's interface
         import xml.etree.ElementTree as ET
 
         root = ET.fromstring(self.label_config)
         ts_elem = root.find(f".//TimeSeries[@name='{to_name}']")
         channels = [ch.attrib["column"] for ch in ts_elem.findall("Channel")]
+
         return {
             'from_name': from_name,
             'to_name': to_name,
@@ -71,9 +81,106 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         }
 
     def _read_csv(self, task: Dict, path: str) -> pd.DataFrame:
-        """Load CSV associated with the task from Label Studio."""
+        """Load a CSV referenced by the task using Label Studio utilities."""
         csv_str = self.preload_task_data(task, path)
         return pd.read_csv(io.StringIO(csv_str))
+
+    def _predict_task(self, task: Dict, model: LogisticRegression, params: Dict) -> Dict:
+        """Return Label Studio-style prediction for a single task."""
+        df = self._read_csv(task, task["data"][params["value"]])
+
+        # Vector of sensor values per row
+        X = df[params['channels']].values
+        if len(X) == 0:
+            return {}
+
+        # Predict label probabilities for each row
+        probs = model.predict_proba(X)
+        labels_idx = np.argmax(probs, axis=1)
+        df['pred_label'] = [params['labels'][i] for i in labels_idx]
+        df['score'] = probs[np.arange(len(probs)), labels_idx]
+
+        segments = self._group_rows(df, params['time_col'])
+
+        results = []
+        avg_score = 0
+        for seg in segments:
+            score = float(np.mean(seg['scores']))
+            avg_score += score
+            results.append({
+                'from_name': params['from_name'],
+                'to_name': params['to_name'],
+                'type': 'timeserieslabels',
+                'value': {
+                    'start': seg['start'],
+                    'end': seg['end'],
+                    'instant': False,
+                    'timeserieslabels': [seg['label']]
+                },
+                'score': score
+            })
+
+        if not results:
+            return {}
+
+        return {
+            'result': results,
+            'score': avg_score / len(results),
+            'model_version': self.get('model_version')
+        }
+
+    def _group_rows(self, df: pd.DataFrame, time_col: str) -> List[Dict]:
+        """Group consecutive rows with the same predicted label."""
+        segments = []
+        current = None
+        for _, row in df.iterrows():
+            label = row['pred_label']
+            if current and current['label'] == label:
+                current['end'] = row[time_col]
+                current['scores'].append(row['score'])
+            else:
+                if current:
+                    segments.append(current)
+                current = {
+                    'label': label,
+                    'start': row[time_col],
+                    'end': row[time_col],
+                    'scores': [row['score']]
+                }
+        if current:
+            segments.append(current)
+        return segments
+
+    def _collect_samples(self, tasks: List[Dict], params: Dict, label2idx: Dict[str, int]) -> Tuple[List, List]:
+        """Return feature matrix and label vector built from all labeled tasks."""
+        X, y = [], []
+        for task in tasks:
+            df = self._read_csv(task, task['data'][params['value']])
+            if df.empty:
+                continue
+            annotations = [a for a in task['annotations'] if a.get('result')]
+            for ann in annotations:
+                for r in ann['result']:
+                    if r['from_name'] != params['from_name']:
+                        continue
+                    start = r['value']['start']
+                    end = r['value']['end']
+                    label = r['value']['timeserieslabels'][0]
+                    mask = (
+                        (df[params['time_col']] >= start)
+                        & (df[params['time_col']] <= end)
+                    )
+                    seg = df.loc[mask, params['channels']].values
+                    X.extend(seg)
+                    y.extend([label2idx[label]] * len(seg))
+        return X, y
+
+    def _save_model(self, model: LogisticRegression) -> None:
+        """Persist trained model to disk."""
+        os.makedirs(self.MODEL_DIR, exist_ok=True)
+        model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
 
     def predict(
         self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs
@@ -81,61 +188,8 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         """Return time series segments predicted for the given tasks."""
         params = self._get_labeling_params()
         model = self._get_model()
-        predictions = []
-        for task in tasks:
-            df = self._read_csv(task, task["data"][params["value"]])
-            # each row is described by the selected channels
-            X = df[params['channels']].values
-            if len(X) == 0:
-                predictions.append({})
-                continue
-            # predict probabilities for each label
-            probs = model.predict_proba(X)
-            labels_idx = np.argmax(probs, axis=1)
-            df['pred_label'] = [params['labels'][i] for i in labels_idx]
-            df['score'] = probs[np.arange(len(probs)), labels_idx]
-            # group consecutive rows with the same predicted label
-            segments = []
-            current = None
-            for _, row in df.iterrows():
-                label = row['pred_label']
-                if current and current['label'] == label:
-                    current['end'] = row[params['time_col']]
-                    current['scores'].append(row['score'])
-                else:
-                    if current:
-                        segments.append(current)
-                    current = {
-                        'label': label,
-                        'start': row[params['time_col']],
-                        'end': row[params['time_col']],
-                        'scores': [row['score']]
-                    }
-            if current:
-                segments.append(current)
-            results = []
-            avg_score = 0
-            for seg in segments:
-                score = float(np.mean(seg['scores']))
-                avg_score += score
-                results.append({
-                    'from_name': params['from_name'],
-                    'to_name': params['to_name'],
-                    'type': 'timeserieslabels',
-                    'value': {
-                        'start': seg['start'],
-                        'end': seg['end'],
-                        'instant': False,
-                        'timeserieslabels': [seg['label']]
-                    },
-                    'score': score
-                })
-            if results:
-                predictions.append({
-                    'result': results,
-                    'score': avg_score / len(results),
-                    'model_version': self.get('model_version')
-                })
+        predictions = [self._predict_task(task, model, params) for task in tasks]
+
         return ModelResponse(predictions=predictions, model_version=self.get('model_version'))
 
     def _get_tasks(self, project_id: int) -> List[Dict]:
@@ -163,40 +217,16 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
             return
         params = self._get_labeling_params()
         label2idx = {l: i for i, l in enumerate(params['labels'])}
-        X, y = [], []  # features and labels for classifier
-        for task in tasks:
-            df = self._read_csv(task, task['data'][params['value']])
-            if df.empty:
-                continue
-            # convert labeled segments into per-row samples
-            annotations = [a for a in task['annotations'] if a.get('result')]
-            for ann in annotations:
-                for r in ann['result']:
-                    if r['from_name'] != params['from_name']:
-                        continue
-                    start = r['value']['start']
-                    end = r['value']['end']
-                    label = r['value']['timeserieslabels'][0]
-                    mask = (
-                        (df[params['time_col']] >= start)
-                        & (df[params['time_col']] <= end)
-                    )
-                    seg = df.loc[mask, params['channels']].values
-                    # each row inside the labeled range belongs to the segment
-                    X.extend(seg)
-                    y.extend([label2idx[label]] * len(seg))
+
+        X, y = self._collect_samples(tasks, params, label2idx)
         if not X:
             logger.warning('No data collected for training')
             return
+
         model = self._get_model(blank=True)
         model.fit(np.array(X), np.array(y))
-        os.makedirs(self.MODEL_DIR, exist_ok=True)
-        model_path = os.path.join(self.MODEL_DIR, 'model.pkl')
-        # save trained model to disk
-        with open(model_path, 'wb') as f:
-            pickle.dump(model, f)
+        self._save_model(model)
         global _model
-        # reload the cached model on next prediction
-        _model = None
+        _model = None  # reload on next predict
         self._get_model()
 

@@ -51,11 +51,51 @@ collects all labeled segments, extracts sensor values inside each segment and
 fits a logistic regression classifier. Model artifacts are stored in the
 `MODEL_DIR` (defaults to the current directory).
 
+Steps performed by `fit()`:
+
+1. Fetch all labeled tasks from Label Studio.
+2. Convert labeled ranges to per-row training samples.
+3. Fit a logistic regression model.
+4. Save the trained model to disk.
+
 ## Prediction
 
 For each task, the backend loads the CSV, applies the trained classifier to each
 row and groups consecutive predictions into labeled segments. Prediction scores
 are averaged per segment and returned to Label Studio.
+
+The `predict()` method:
+
+1. Loads the stored model.
+2. Reads the task CSV and builds a feature matrix.
+3. Predicts a label for each row.
+4. Merges consecutive rows with the same label into a segment.
+5. Returns the segments in Label Studio JSON format.
+
+## How it works
+
+### Training pipeline
+
+```mermaid
+flowchart TD
+  A[Webhook event] --> B{Enough tasks?}
+  B -- no --> C[Skip]
+  B -- yes --> D[Load labeled tasks]
+  D --> E[Collect per-row samples]
+  E --> F[Fit logistic regression]
+  F --> G[Save model]
+```
+
+### Prediction pipeline
+
+```mermaid
+flowchart TD
+  T[Predict request] --> U[Load model]
+  U --> V[Read task CSV]
+  V --> W[Predict label per row]
+  W --> X[Group consecutive labels]
+  X --> Y[Return segments]
+```
 
 ## Customize
 
