@@ -74,9 +74,7 @@ def segmenter_instance(temp_model_dir):
     logger.info("Creating TimeSeriesSegmenter instance for testing")
     with patch.dict(os.environ, {'MODEL_DIR': temp_model_dir, 'TRAIN_EPOCHS': '10', 'SEQUENCE_SIZE': '10'}):
         segmenter = TimeSeriesSegmenter(
-            label_config=LABEL_CONFIG,
-            parsed_label_config={},
-            train_output={}
+            label_config=LABEL_CONFIG
         )
         segmenter.setup()
         logger.info("TimeSeriesSegmenter instance created and set up")
@@ -472,9 +470,7 @@ class TestTimeSeriesSegmenter:
             logger.info(f"Testing configuration {i+1}/{len(configs)}: {config}")
             with patch.dict(os.environ, {**config, 'MODEL_DIR': temp_model_dir}):
                 segmenter = TimeSeriesSegmenter(
-                    label_config=LABEL_CONFIG,
-                    parsed_label_config={},
-                    train_output={}
+                    label_config=LABEL_CONFIG
                 )
                 segmenter.setup()
                 

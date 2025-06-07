@@ -269,15 +269,36 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
                     end = r["value"]["end"]
                     label = r["value"]["timeserieslabels"][0]
                     
+                    # Convert start/end to same type as time column for comparison
+                    time_dtype = df[params["time_col"]].dtype
+                    logger.debug(f"Task {task_id}: Converting time range [{start}, {end}] to match column dtype {time_dtype}")
+                    try:
+                        if 'int' in str(time_dtype):
+                            start = int(float(start))
+                            end = int(float(end))
+                        elif 'float' in str(time_dtype):
+                            start = float(start)
+                            end = float(end)
+                        # For string/datetime, keep as is
+                        logger.debug(f"Task {task_id}: Converted to [{start}, {end}]")
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Could not convert start={start}, end={end} to {time_dtype}: {e}, using original values")
+                    
                     # Find rows in this time range
-                    mask = (df[params["time_col"]] >= start) & (
-                        df[params["time_col"]] <= end
-                    )
+                    try:
+                        mask = (df[params["time_col"]] >= start) & (
+                            df[params["time_col"]] <= end
+                        )
+                    except TypeError as e:
+                        logger.error(f"Task {task_id}: Type error comparing times - start={start} ({type(start)}), end={end} ({type(end)}), time_col dtype={time_dtype}: {e}")
+                        # Skip this annotation if we can't compare
+                        continue
                     
                     # Set the appropriate label index
                     label_idx = label2idx[label]
                     row_labels[mask] = label_idx
                     labeled_rows += mask.sum()
+                    logger.debug(f"Task {task_id}: Labeled {mask.sum()} rows with '{label}' (index {label_idx})")
             
             # Add ALL rows to training data
             X_list.append(df[params["channels"]].values.astype(np.float32))
