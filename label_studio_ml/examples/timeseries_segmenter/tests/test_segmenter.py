@@ -72,10 +72,22 @@ def temp_model_dir():
 def segmenter_instance(temp_model_dir):
     """Create a TimeSeriesSegmenter instance with test configuration."""
     logger.info("Creating TimeSeriesSegmenter instance for testing")
-    with patch.dict(os.environ, {'MODEL_DIR': temp_model_dir, 'TRAIN_EPOCHS': '10', 'SEQUENCE_SIZE': '10'}):
+    # Patch environment variables for the entire fixture scope
+    with patch.dict(os.environ, {
+        'MODEL_DIR': temp_model_dir, 
+        'TRAIN_EPOCHS': '10', 
+        'SEQUENCE_SIZE': '10',
+        'HIDDEN_SIZE': '32'
+    }):
         segmenter = TimeSeriesSegmenter(
             label_config=LABEL_CONFIG
         )
+        # Override class attributes with test values
+        segmenter.MODEL_DIR = temp_model_dir
+        segmenter.TRAIN_EPOCHS = 10
+        segmenter.SEQUENCE_SIZE = 10
+        segmenter.HIDDEN_SIZE = 32
+        
         segmenter.setup()
         logger.info("TimeSeriesSegmenter instance created and set up")
         yield segmenter
@@ -115,10 +127,10 @@ def make_task_no_annotations():
         "annotations": [],
     }
 
-def fake_preload(self, task, value=None, read_file=True):
+def fake_preload(self, task, path, read_file=True):
     """Mock function to preload CSV data."""
-    logger.debug(f"Mock preload called with value: {value}")
-    return open(value).read()
+    logger.debug(f"Mock preload called with path: {path}")
+    return open(path).read()
 
 class TestTimeSeriesSegmenter:
     """Test suite for TimeSeriesSegmenter with PyTorch LSTM implementation."""
@@ -461,21 +473,25 @@ class TestTimeSeriesSegmenter:
         """Test different model parameter configurations."""
         logger.info("=== Testing model parameters configuration ===")
         configs = [
-            {"SEQUENCE_SIZE": "5", "HIDDEN_SIZE": "16"},
-            {"SEQUENCE_SIZE": "20", "HIDDEN_SIZE": "32"},
-            {"SEQUENCE_SIZE": "50", "HIDDEN_SIZE": "64"},
+            {"SEQUENCE_SIZE": 5, "HIDDEN_SIZE": 16},
+            {"SEQUENCE_SIZE": 20, "HIDDEN_SIZE": 32},
+            {"SEQUENCE_SIZE": 50, "HIDDEN_SIZE": 64},
         ]
         
         for i, config in enumerate(configs):
             logger.info(f"Testing configuration {i+1}/{len(configs)}: {config}")
-            with patch.dict(os.environ, {**config, 'MODEL_DIR': temp_model_dir}):
-                segmenter = TimeSeriesSegmenter(
-                    label_config=LABEL_CONFIG
-                )
-                segmenter.setup()
-                
-                model = segmenter._build_model(n_channels=2, n_labels=3)
-                logger.info(f"Created model with sequence_size={model.sequence_size}, hidden_size={model.hidden_size}")
-                assert model.sequence_size == int(config["SEQUENCE_SIZE"])
-                assert model.hidden_size == int(config["HIDDEN_SIZE"])
+            segmenter = TimeSeriesSegmenter(
+                label_config=LABEL_CONFIG
+            )
+            # Override instance attributes with test values
+            segmenter.MODEL_DIR = temp_model_dir
+            segmenter.SEQUENCE_SIZE = config["SEQUENCE_SIZE"]
+            segmenter.HIDDEN_SIZE = config["HIDDEN_SIZE"]
+            
+            segmenter.setup()
+            
+            model = segmenter._build_model(n_channels=2, n_labels=3)
+            logger.info(f"Created model with sequence_size={model.sequence_size}, hidden_size={model.hidden_size}")
+            assert model.sequence_size == config["SEQUENCE_SIZE"]
+            assert model.hidden_size == config["HIDDEN_SIZE"]
         logger.info("✓ Model parameters configuration test passed")
