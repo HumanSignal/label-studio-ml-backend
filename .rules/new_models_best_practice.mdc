@@ -1,0 +1,48 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Best Practices for Creating Label Studio ML Backends
+
+This document outlines guidelines for building new ML backend examples in the `label-studio-ml-backend` repository. Follow these steps when creating a new model under `label_studio_ml/examples/<model>`.
+
+## 1. Folder Layout
+
+Each example should contain the following files:
+
+- **README.md** – overview of the model, instructions for running the backend, and description of the labeling configuration. Include quick-start commands and environment variables.
+- **model.py** – implementation of `LabelStudioMLBase` with `predict()` and `fit()` methods. Keep functions short and well commented. Reuse helper methods when possible.
+- **_wsgi.py** – minimal entry point exposing the `app` for gunicorn. Import the model and define `app` via `make_wsgi_app()`.
+- **Dockerfile** – builds an image with only the dependencies required to run the model. Install packages from `requirements.txt`.
+- **docker-compose.yml** – example service definition for running the backend locally. Expose `9090` by default.
+- **requirements.txt** – pinned dependencies for the model. Optional files `requirements-base.txt` and `requirements-test.txt` may list shared and test deps.
+- **tests/** – pytest suite. Provide at least one test that runs `fit()` on labeled tasks and verifies `predict()` returns expected results. Use small fixtures under `tests/` to avoid relying on network access.
+
+## 2. Implementation Tips
+
+- Use environment variables like `LABEL_STUDIO_HOST`, `LABEL_STUDIO_API_KEY`, and `MODEL_DIR` to make the backend configurable.
+- Parse the labeling configuration with `self.label_interface` to get tag names, label values and data fields. This ensures the backend works with custom configs.
+- Save trained artifacts inside `MODEL_DIR`. Use a stable file name such as `model.pkl` or `model.keras`.
+- When training, gather all labeled tasks via the Label Studio SDK and convert each annotation to training samples. Keep network requests minimal and log useful information.
+- When predicting, load data referenced in the task (e.g., download the CSV) and return results in Label Studio JSON format.
+- Handle missing data gracefully and skip tasks without required inputs.
+- Keep the code style consistent with `black` and `flake8` where applicable.
+
+## 3. Documentation
+
+- Reference the main repository README to help users understand how to install and run the ML backend.
+- Include labeling configuration examples in the example README so users can quickly reproduce training and inference.
+- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](mdc:https:/labelstud.io/guide/ml_create): https://labelstud.io/guide/ml_create. 
+
+## 4. Testing
+
+- Tests should be runnable with `pytest` directly from the repository root or inside the example’s Docker container.
+- Mock Label Studio API interactions whenever possible to avoid requiring a running server during tests.
+- Aim for good coverage of `fit()` and `predict()` logic to catch regressions.
+
+## 5. Examples
+
+- You can use as an implementation example `label_studio_ml/examples/yolo/`. It's well written and can be a model to follow.
+
+Following these conventions helps maintain consistency across examples and makes it easier for contributors and automation tools to understand each backend.

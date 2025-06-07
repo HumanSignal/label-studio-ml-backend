@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  timeseries_segmenter:
+    container_name: timeseries_segmenter
+    image: heartexlabs/label-studio-ml-backend:timeseries-segmenter
+    init: true
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # LABEL_STUDIO_HOST: This is the host URL for Label Studio, used for training.
+      # It can be set via environment variable "LABEL_STUDIO_HOST".
+      # If not set, it defaults to 'http://localhost:8080'.
+      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://host.docker.internal:8080}
+      # LABEL_STUDIO_API_KEY: This is the API key for Label Studio, used for training.
+      # It can be set via environment variable "LABEL_STUDIO_API_KEY".
+      # There is no default value for this, so it must be set.
+      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
+      # START_TRAINING_EACH_N_UPDATES: This is the number of updates after which training starts.
+      # It is an integer value and can be set via environment variable "START_TRAINING_EACH_N_UPDATES".
+      # If not set, it defaults to 10.
+      - START_TRAINING_EACH_N_UPDATES=${START_TRAINING_EACH_N_UPDATES:-1}
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
