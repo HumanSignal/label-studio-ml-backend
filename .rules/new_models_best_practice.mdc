@@ -33,7 +33,154 @@ Each example should contain the following files:
 
 - Reference the main repository README to help users understand how to install and run the ML backend.
 - Include labeling configuration examples in the example README so users can quickly reproduce training and inference.
-- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](mdc:https:/labelstud.io/guide/ml_create): https://labelstud.io/guide/ml_create. 
+- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](https://labelstud.io/guide/ml_create).
+
+## 3.1. Security Best Practices
+
+When implementing ML backends, follow these security guidelines:
+
+- **Model Serialization**: Use secure serialization methods (e.g., PyTorch `state_dict` with `weights_only=True` for PyTorch 2.6+)
+- **Input Validation**: Validate all user inputs, file formats, and data types before processing
+- **Environment Variables**: Never hardcode sensitive information like API keys; use environment variables
+- **File Access**: Restrict file system access to designated directories (`MODEL_DIR`, temp directories)
+- **Dependencies**: Pin dependency versions and regularly update for security patches
+
+Example secure model loading:
+```python
+# Secure PyTorch model loading (PyTorch 2.6+)
+try:
+    state_dict = torch.load(model_path, weights_only=True)
+    model.load_state_dict(state_dict)
+except Exception as e:
+    logger.error(f"Failed to load model securely: {e}")
+    # Fallback or error handling
+```
+
+## 3.2. Error Handling and Logging
+
+Implement comprehensive error handling and logging:
+
+- **Structured Logging**: Use consistent log levels and structured messages
+- **Graceful Degradation**: Handle missing data, corrupted files, and network issues
+- **User-Friendly Errors**: Return meaningful error messages to Label Studio
+- **Debug Information**: Log sufficient detail for troubleshooting without exposing sensitive data
+
+Example logging pattern:
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+def predict(self, tasks):
+    logger.info(f"Starting prediction for {len(tasks)} tasks")
+    try:
+        # Prediction logic
+        logger.debug(f"Processed task {task_id} successfully")
+    except Exception as e:
+        logger.error(f"Prediction failed for task {task_id}: {e}")
+        return {}  # Return empty result gracefully
+```
+
+## 3.3. Performance and Scalability
+
+Consider performance implications for production deployment:
+
+- **Memory Management**: Use generators for large datasets, clear unused variables, handle memory leaks
+- **Batch Processing**: Process multiple tasks together when possible to improve throughput
+- **Model Loading**: Cache models in memory to avoid repeated loading from disk
+- **Resource Monitoring**: Log memory and CPU usage for monitoring and optimization
+- **Async Operations**: Use async/await for I/O operations when appropriate
+
+Example efficient model caching:
+```python
+_model_cache = {}
+
+def get_model(self, model_path):
+    if model_path not in _model_cache:
+        logger.info(f"Loading model from {model_path}")
+        _model_cache[model_path] = self._load_model(model_path)
+    return _model_cache[model_path]
+```
+
+## 3.4. Model Versioning and Compatibility
+
+Implement proper model versioning for production systems:
+
+- **Version Tracking**: Include model version in predictions and logs
+- **Backwards Compatibility**: Handle multiple model versions gracefully
+- **Migration Strategies**: Provide clear upgrade paths for model updates
+- **Rollback Support**: Maintain ability to revert to previous model versions
+
+Example versioning pattern:
+```python
+def setup(self):
+    self.set("model_version", f"{self.__class__.__name__}-v1.2.3")
+    
+def predict(self, tasks):
+    return ModelResponse(
+        predictions=predictions,
+        model_version=self.get("model_version")
+    )
+```
+
+## 3.5. CI/CD Integration
+
+Design backends for automated testing and deployment:
+
+- **Containerization**: Ensure Docker containers build consistently across environments
+- **Test Automation**: Include comprehensive test suites that run in CI pipelines
+- **Health Checks**: Implement `/health` endpoints for deployment monitoring
+- **Configuration Management**: Use environment variables for all configuration
+- **Dependency Management**: Pin all dependencies with specific versions
+
+Example health check endpoint:
+```python
+@app.route('/health')
+def health():
+    return {"status": "healthy", "model_loaded": _model is not None}
+```
+
+## 3.6. Data Handling Patterns
+
+Implement robust data processing for different scenarios:
+
+- **File Format Support**: Handle multiple data formats (CSV, JSON, images, audio) with proper validation
+- **Data Preprocessing**: Implement consistent preprocessing pipelines for training and prediction
+- **Type Safety**: Use proper type conversion and validation for different data types
+- **Streaming Data**: Support large files that don't fit in memory using streaming approaches
+- **Data Caching**: Cache preprocessed data when appropriate to improve performance
+
+Example robust data loading:
+```python
+def _read_data(self, task, path):
+    """Load data with format detection and error handling."""
+    try:
+        if path.endswith('.csv'):
+            csv_str = self.preload_task_data(task, value=path)
+            return pd.read_csv(io.StringIO(csv_str))
+        elif path.endswith('.json'):
+            json_str = self.preload_task_data(task, value=path)
+            return json.loads(json_str)
+        else:
+            raise ValueError(f"Unsupported file format: {path}")
+    except Exception as e:
+        logger.error(f"Failed to load data from {path}: {e}")
+        return None
+```
+
+Common data validation pattern:
+```python
+def _validate_data(self, df, required_columns):
+    """Validate DataFrame has required structure."""
+    if df is None or df.empty:
+        return False
+    
+    missing_cols = set(required_columns) - set(df.columns)
+    if missing_cols:
+        logger.error(f"Missing required columns: {missing_cols}")
+        return False
+    
+    return True
+```
 
 ## 4. Testing
 
