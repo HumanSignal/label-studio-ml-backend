@@ -127,16 +127,28 @@ def make_task_no_annotations():
         "annotations": [],
     }
 
-def fake_preload(self, task, path, read_file=True):
+def fake_preload(task, value=None, read_file=True):
     """Mock function to preload CSV data."""
-    logger.debug(f"Mock preload called with path: {path}")
-    return open(path).read()
+    logger.debug(f"Mock preload called with value: {value}")
+    return open(value).read()
 
 class TestTimeSeriesSegmenter:
     """Test suite for TimeSeriesSegmenter with PyTorch LSTM implementation."""
 
     def test_setup_and_configuration(self, segmenter_instance):
-        """Test basic setup and parameter extraction."""
+        """Test basic setup and parameter extraction from Label Studio configuration.
+        
+        This test validates:
+        - Correct parsing of the Label Studio XML configuration
+        - Extraction of label names (Run, Walk) and creation of background class
+        - Identification of sensor channels (sensorone, sensortwo) 
+        - Time column configuration (time)
+        - Proper mapping of from_name and to_name attributes
+        - Ensures the model understands the labeling interface structure
+        
+        Critical validation: The model correctly identifies that it needs to handle 
+        3 classes (background + 2 labels) and 2 input channels.
+        """
         logger.info("=== Testing setup and configuration ===")
         params = segmenter_instance._get_labeling_params()
         logger.info(f"Extracted parameters: {params}")
@@ -150,7 +162,17 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Setup and configuration test passed")
 
     def test_model_building(self, segmenter_instance):
-        """Test model creation with correct parameters."""
+        """Test PyTorch LSTM neural network creation with correct architecture.
+        
+        This test validates:
+        - TimeSeriesLSTM object creation with specified parameters
+        - Correct input size (2 channels) and output size (3 classes including background)
+        - Proper sequence size configuration from environment variables
+        - Model architecture validation (LSTM layers, dropout, etc.)
+        
+        Critical validation: The neural network is built with the right dimensions 
+        for the time series data and matches the test configuration.
+        """
         logger.info("=== Testing model building ===")
         model = segmenter_instance._build_model(n_channels=2, n_labels=3)
         logger.info(f"Built model: input_size={model.input_size}, output_size={model.output_size}, sequence_size={model.sequence_size}")
@@ -162,7 +184,18 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Model building test passed")
         
     def test_csv_reading(self, segmenter_instance):
-        """Test CSV data reading and processing."""
+        """Test CSV data loading and preprocessing functionality.
+        
+        This test validates:
+        - CSV file reading through the preload_task_data method
+        - Data shape validation (100 rows × 3 columns)
+        - Column name verification (time, sensorone, sensortwo)
+        - Data type validation for time column
+        - Mock function integration for file loading
+        
+        Critical validation: The model can correctly load and parse time series 
+        data files with the expected structure and data types.
+        """
         logger.info("=== Testing CSV reading ===")
         task = make_task()
         
@@ -177,7 +210,19 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ CSV reading test passed")
 
     def test_sample_collection_with_background(self, segmenter_instance):
-        """Test training sample collection including background class."""
+        """Test core training data collection with background class handling.
+        
+        This test validates:
+        - Collection of ALL CSV rows (not just annotated segments)
+        - Proper background class assignment for unlabeled time periods
+        - Label mapping for annotated segments (Run: rows 0-40, Walk: rows 60-85)
+        - Correct label distribution counting (41 Run, 26 Walk, 33 Background)
+        - Training data format validation (features + labels)
+        
+        Critical validation: The model correctly handles the three-class problem 
+        with background regions, ensuring all time periods are properly labeled 
+        for training including unlabeled background periods.
+        """
         logger.info("=== Testing sample collection with background class ===")
         params = segmenter_instance._get_labeling_params()
         label2idx = {l: i for i, l in enumerate(params["all_labels"])}
@@ -203,13 +248,26 @@ class TestTimeSeriesSegmenter:
         assert 1 in label_dist  # Run (rows 0-40)
         assert 2 in label_dist  # Walk (rows 60-85)
         
-        # Background should be the majority (unlabeled regions)
-        assert label_dist[0] > label_dist[1]
-        assert label_dist[0] > label_dist[2]
+        # Check that we have the expected distribution (Run: 41, Walk: 26, Background: 33)
+        assert label_dist[1] == 41  # Run (rows 0-40 inclusive)
+        assert label_dist[2] == 26  # Walk (rows 60-85 inclusive)
+        assert label_dist[0] == 33  # Background (remaining rows)
+        
         logger.info("✓ Sample collection with background test passed")
 
     def test_model_save_load(self, segmenter_instance, temp_model_dir):
-        """Test model saving and loading with new PyTorch state dict approach."""
+        """Test secure PyTorch model serialization and deserialization.
+        
+        This test validates:
+        - Model saving using PyTorch state dict approach (secure)
+        - Model loading with proper parameter restoration
+        - Label mapping preservation across save/load cycles
+        - Prediction consistency between original and loaded models
+        - File system integration and error handling
+        
+        Critical validation: Models can be persisted and restored without losing 
+        functionality, using the secure PyTorch 2.6+ approach with weights_only=True.
+        """
         logger.info("=== Testing model save/load functionality ===")
         # Create and configure a simple model
         model = segmenter_instance._build_model(n_channels=2, n_labels=3)
@@ -248,7 +306,19 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Model save/load test passed")
 
     def test_training_and_prediction_workflow(self, segmenter_instance):
-        """Test complete training and prediction workflow."""
+        """Test complete end-to-end machine learning pipeline.
+        
+        This test validates:
+        - Full training workflow with real data
+        - Training metrics generation (accuracy, F1-score, loss)
+        - Model convergence and learning validation
+        - Prediction generation on trained model
+        - Result format validation (segments, scores, model version)
+        - Background class filtering in predictions
+        
+        Critical validation: The complete ML pipeline works from training to prediction,
+        producing valid Label Studio annotations with proper scoring and metadata.
+        """
         logger.info("=== Testing training and prediction workflow ===")
         task = make_task()
         
@@ -280,12 +350,12 @@ class TestTimeSeriesSegmenter:
             logger.info(f"Prediction result: {pred}")
             
             if pred:  # If prediction is not empty
-                assert "result" in pred
-                assert "score" in pred
-                assert "model_version" in pred
+                assert hasattr(pred, 'result')
+                assert hasattr(pred, 'score')
+                assert hasattr(pred, 'model_version')
                 
                 # Check that segments are valid
-                for i, segment in enumerate(pred["result"]):
+                for i, segment in enumerate(pred.result):
                     logger.info(f"Segment {i}: {segment}")
                     assert segment["type"] == "timeserieslabels"
                     assert segment["value"]["timeserieslabels"][0] in ["Run", "Walk"]
@@ -296,7 +366,17 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Training and prediction workflow test passed")
 
     def test_background_class_filtering(self, segmenter_instance):
-        """Test that background predictions are properly filtered out."""
+        """Test background prediction filtering to exclude non-meaningful results.
+        
+        This test validates:
+        - Mock predictions with high background probability
+        - Filtering logic that removes background segments
+        - Retention of only meaningful (labeled) predictions
+        - Proper handling of mostly-background predictions
+        
+        Critical validation: The model doesn't return useless background predictions 
+        to Label Studio, ensuring only meaningful segments are annotated.
+        """
         logger.info("=== Testing background class filtering ===")
         # Create a minimal trained model
         model = segmenter_instance._build_model(n_channels=2, n_labels=3)
@@ -330,7 +410,17 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Background class filtering test passed")
 
     def test_short_sequence_handling(self, segmenter_instance, temp_model_dir):
-        """Test handling of sequences shorter than window size."""
+        """Test robustness with sequences shorter than the window size.
+        
+        This test validates:
+        - Model behavior with very short time series (3 data points)
+        - Padding or truncation strategies for short sequences
+        - Graceful degradation without crashes
+        - Valid result generation even with insufficient data
+        
+        Critical validation: The model handles edge cases with minimal data gracefully,
+        using appropriate padding strategies to avoid crashes or errors.
+        """
         logger.info("=== Testing short sequence handling ===")
         # Create a very short CSV
         short_csv_path = os.path.join(temp_model_dir, "short.csv")
@@ -361,7 +451,18 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Short sequence handling test passed")
 
     def test_windowing_functionality(self):
-        """Test the windowing and overlap functionality of TimeSeriesLSTM."""
+        """Test sliding window approach for temporal modeling.
+        
+        This test validates:
+        - Sequence chunking into overlapping windows
+        - Window size and overlap ratio validation
+        - Preprocessing of sequences longer than window size  
+        - Overlap averaging during prediction
+        - Proper handling of sequence boundaries
+        
+        Critical validation: The temporal modeling approach works correctly with 
+        sliding windows, providing proper temporal context for LSTM processing.
+        """
         logger.info("=== Testing windowing functionality ===")
         model = TimeSeriesLSTM(
             input_size=2,
@@ -394,7 +495,19 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Windowing functionality test passed")
 
     def test_api_integration(self, client, temp_model_dir):
-        """Test API endpoints with the new implementation."""
+        """Test Flask API endpoints and web service functionality.
+        
+        This test validates:
+        - /setup endpoint for model initialization
+        - /webhook endpoint for training triggers
+        - /predict endpoint for inference requests
+        - JSON request/response handling
+        - HTTP status code validation
+        - End-to-end API workflow
+        
+        Critical validation: The web service interface works correctly with Label Studio,
+        handling setup, training, and prediction requests through proper HTTP endpoints.
+        """
         logger.info("=== Testing API integration ===")
         with patch.dict(os.environ, {'MODEL_DIR': temp_model_dir, 'TRAIN_EPOCHS': '5'}):
             # Setup
@@ -407,7 +520,7 @@ class TestTimeSeriesSegmenter:
             task = make_task()
             
             with patch.object(TimeSeriesSegmenter, "_get_tasks", return_value=[task]), \
-                 patch.object(TimeSeriesSegmenter, "preload_task_data", new=fake_preload):
+                 patch.object(TimeSeriesSegmenter, "preload_task_data", side_effect=lambda task, value=None, read_file=True: open(value).read()):
                 
                 # Training
                 logger.info("Testing API training endpoint")
@@ -437,7 +550,18 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ API integration test passed")
 
     def test_empty_data_handling(self, segmenter_instance):
-        """Test handling of empty or invalid data."""
+        """Test robustness with missing or invalid data scenarios.
+        
+        This test validates:
+        - Empty task list handling
+        - Missing file error handling
+        - Graceful degradation with corrupted data
+        - Proper exception handling and logging
+        - Fallback behavior for edge cases
+        
+        Critical validation: The model doesn't crash when encountering bad data,
+        providing appropriate error handling and fallback mechanisms.
+        """
         logger.info("=== Testing empty data handling ===")
         params = segmenter_instance._get_labeling_params()
         label2idx = {l: i for i, l in enumerate(params["all_labels"])}
@@ -470,7 +594,18 @@ class TestTimeSeriesSegmenter:
         logger.info("✓ Empty data handling test passed")
 
     def test_model_parameters_configuration(self, temp_model_dir):
-        """Test different model parameter configurations."""
+        """Test different hyperparameter configurations for model flexibility.
+        
+        This test validates:
+        - Various sequence sizes (5, 20, 50) for different temporal contexts
+        - Different hidden layer sizes (16, 32, 64) for model capacity
+        - Model creation with custom parameters
+        - Parameter persistence and application
+        - Configuration flexibility for different use cases
+        
+        Critical validation: The model architecture can be tuned for different 
+        time series characteristics and computational requirements.
+        """
         logger.info("=== Testing model parameters configuration ===")
         configs = [
             {"SEQUENCE_SIZE": 5, "HIDDEN_SIZE": 16},

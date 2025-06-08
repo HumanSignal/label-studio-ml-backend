@@ -37,9 +37,117 @@ Each example should contain the following files:
 
 ## 4. Testing
 
-- Tests should be runnable with `pytest` directly from the repository root or inside the example’s Docker container.
+- Tests should be runnable with `pytest` directly from the repository root or inside the example's Docker container.
 - Mock Label Studio API interactions whenever possible to avoid requiring a running server during tests.
 - Aim for good coverage of `fit()` and `predict()` logic to catch regressions.
+
+### 4.1. Running Tests in Docker Containers
+
+For ML backends that require specific dependencies or environments, Docker containers provide consistent testing environments. Here's the recommended workflow:
+
+#### Setup and Build
+```bash
+# Navigate to your example directory
+cd label_studio_ml/examples/<your_example>
+
+# Build the Docker container (without --no-cache for faster builds)
+docker compose -f docker-compose.yml build
+
+# Start the container in background
+docker compose -f docker-compose.yml up -d
+```
+
+#### Install Test Dependencies
+Most containers won't have pytest installed by default. Install it:
+```bash
+# Install pytest and coverage tools
+docker compose -f docker-compose.yml exec -T <service_name> pip install pytest pytest-cov
+```
+
+#### Run Tests
+```bash
+# Run all tests with verbose output and coverage
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+
+# Run specific test files
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv tests/test_model.py
+
+# Run specific test methods
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv tests/test_model.py::TestClass::test_method
+
+# Collect available tests without running them
+docker compose -f docker-compose.yml exec -T <service_name> pytest --collect-only tests/
+```
+
+#### Example: TimeSeries Segmenter
+```bash
+# Complete testing workflow for timeseries_segmenter
+cd label_studio_ml/examples/timeseries_segmenter
+
+# Build and start container
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d
+
+# Install test dependencies
+docker compose -f docker-compose.yml exec -T timeseries_segmenter pip install pytest pytest-cov
+
+# Run full test suite
+docker compose -f docker-compose.yml exec -T timeseries_segmenter pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml tests/test_segmenter.py
+
+# Cleanup
+docker compose -f docker-compose.yml down
+```
+
+#### Troubleshooting Docker Tests
+
+**Issue: Test files not found or outdated**
+- Solution: Rebuild the container if test files were modified after the image was built
+- Use `docker compose build` (without `--no-cache` unless absolutely necessary)
+
+**Issue: Import errors in container**
+- Solution: Ensure all dependencies are in `requirements.txt` and properly installed
+- Check that the test file has correct import paths (relative vs absolute)
+
+**Issue: Environment variables not set**
+- Solution: Use `patch.dict(os.environ, {...})` in tests or set them in docker-compose.yml
+- Override instance attributes directly for test configurations
+
+**Issue: Mock function signature mismatches**
+- Solution: Check the actual method signatures and use `side_effect` with lambda functions when needed
+- Ensure mock functions match the expected parameter names and types
+
+#### Best Practices for Docker Testing
+
+1. **Consistent Environment**: Use the same base image for development and testing
+2. **Fast Iteration**: Avoid `--no-cache` unless dependencies changed
+3. **Test Isolation**: Use temporary directories and cleanup fixtures
+4. **Comprehensive Logging**: Enable verbose pytest output (`-vvv`) for debugging
+5. **Coverage Reports**: Generate coverage reports to ensure thorough testing
+6. **Service Names**: Use descriptive service names in docker-compose.yml for clarity
+
+#### Test Documentation in Code
+
+Each test method should include comprehensive docstrings explaining:
+- What functionality is being tested
+- Expected inputs and outputs
+- Critical validations being performed
+- Edge cases being handled
+
+Example:
+```python
+def test_model_training_workflow(self):
+    """Test complete end-to-end machine learning pipeline.
+    
+    This test validates:
+    - Full training workflow with real data
+    - Training metrics generation (accuracy, F1-score, loss)
+    - Model convergence and learning validation
+    - Prediction generation on trained model
+    
+    Critical validation: The complete ML pipeline works from training 
+    to prediction, producing valid Label Studio annotations.
+    """
+```
 
 ## 5. Examples
 

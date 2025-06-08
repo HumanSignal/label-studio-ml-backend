@@ -127,7 +127,7 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
 
     def _read_csv(self, task: Dict, path: str) -> pd.DataFrame:
         logger.debug(f"Reading CSV data from path: {path}")
-        csv_str = self.preload_task_data(task, path)
+        csv_str = self.preload_task_data(task, value=path)
         df = pd.read_csv(io.StringIO(csv_str))
         logger.debug(f"CSV loaded with shape: {df.shape}")
         return df
