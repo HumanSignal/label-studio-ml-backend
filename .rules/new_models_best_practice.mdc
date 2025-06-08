@@ -33,7 +33,7 @@ Each example should contain the following files:
 
 - Reference the main repository README to help users understand how to install and run the ML backend.
 - Include labeling configuration examples in the example README so users can quickly reproduce training and inference.
-- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](https://labelstud.io/guide/ml_create).
+- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](mdc:https:/labelstud.io/guide/ml_create).
 
 ## 3.1. Security Best Practices
 
@@ -106,8 +106,6 @@ def get_model(self, model_path):
 Implement proper model versioning for production systems:
 
 - **Version Tracking**: Include model version in predictions and logs
-- **Backwards Compatibility**: Handle multiple model versions gracefully
-- **Migration Strategies**: Provide clear upgrade paths for model updates
 - **Rollback Support**: Maintain ability to revert to previous model versions
 
 Example versioning pattern:
@@ -148,6 +146,7 @@ Implement robust data processing for different scenarios:
 - **Type Safety**: Use proper type conversion and validation for different data types
 - **Streaming Data**: Support large files that don't fit in memory using streaming approaches
 - **Data Caching**: Cache preprocessed data when appropriate to improve performance
+- **LabelStudioMLBackend::preload_task_data(path, task)**: Download all URLs from a task and stores them locally. It uses get_local_path() `from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path` and requires LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL to be able to download files through Label Studio instance.
 
 Example robust data loading:
 ```python

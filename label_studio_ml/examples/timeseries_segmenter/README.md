@@ -46,56 +46,113 @@ columns.
 
 ## Training
 
-Training starts automatically when annotations are created or updated. The model
-collects all labeled segments, extracts sensor values inside each segment and
-fits an LSTM classifier. Model artifacts are stored in the
-`MODEL_DIR` (defaults to the current directory).
+Training starts automatically when annotations are created or updated. The model uses a PyTorch-based LSTM neural network with proper temporal modeling to learn time series patterns.
 
-Steps performed by `fit()`:
+### Training Process
 
-1. Fetch all labeled tasks from Label Studio.
-2. Convert labeled ranges to per-row training samples.
-3. Fit a small LSTM network.
-4. Save the trained model to disk.
+The model follows these steps during training:
+
+1. **Data Collection**: Fetches all labeled tasks from your Label Studio project
+2. **Sample Generation**: Converts labeled time ranges into training samples:
+   - **Background Class**: Unlabeled time periods are treated as "background" (class 0)
+   - **Event Classes**: Your labeled segments (e.g., "Run", "Walk") become classes 1, 2, etc.
+   - **Ground Truth Priority**: If multiple annotations exist for a task, ground truth annotations take precedence
+3. **Model Training**: Fits a multi-layer LSTM network with:
+   - Configurable sequence windows (default: 50 timesteps)  
+   - Dropout regularization for better generalization
+   - Background class support for realistic time series modeling
+4. **Model Persistence**: Saves trained model artifacts to `MODEL_DIR`
+
+### Training Configuration
+
+You can customize training behavior with these environment variables:
+
+- `START_TRAINING_EACH_N_UPDATES`: How often to retrain (default: 1, trains on every annotation)
+- `TRAIN_EPOCHS`: Number of training epochs (default: 1000)
+- `SEQUENCE_SIZE`: Sliding window size for temporal context (default: 50)
+- `HIDDEN_SIZE`: LSTM hidden layer size (default: 64)
+
+### Ground Truth Handling
+
+When multiple annotations exist for the same task, the model prioritizes ground truth annotations:
+- Non-ground truth annotations are processed first
+- Ground truth annotations override previous labels and stop processing for that task
+- This ensures the highest quality labels are used for training
 
 ## Prediction
 
-For each task, the backend loads the CSV, applies the trained classifier to each
-row and groups consecutive predictions into labeled segments. Prediction scores
-are averaged per segment and returned to Label Studio.
+The model processes new time series data by applying the trained LSTM classifier with sliding window temporal context. Only meaningful event segments are returned to Label Studio, filtering out background periods automatically.
 
-The `predict()` method:
+### Prediction Process
 
-1. Loads the stored model.
-2. Reads the task CSV and builds a feature matrix.
-3. Predicts a label for each row.
-4. Merges consecutive rows with the same label into a segment.
-5. Returns the segments in Label Studio JSON format.
+For each task, the model performs these steps:
+
+1. **Model Loading**: Loads the trained PyTorch model from disk
+2. **Data Processing**: Reads the task CSV and creates feature vectors from sensor channels
+3. **Temporal Prediction**: Applies LSTM with sliding windows for temporal context:
+   - Uses overlapping windows with 50% overlap for smoother predictions
+   - Averages predictions across overlapping windows
+   - Maintains temporal dependencies between timesteps
+4. **Segment Extraction**: Groups consecutive predictions into meaningful segments:
+   - **Background Filtering**: Automatically filters out background (unlabeled) periods
+   - **Event Segmentation**: Only returns segments with actual event labels
+   - **Score Calculation**: Averages prediction confidence per segment
+5. **Result Formatting**: Returns segments in Label Studio JSON format
+
+### Prediction Quality
+
+The model provides several quality indicators:
+
+- **Per-segment Confidence**: Average prediction probability for each returned segment
+- **Temporal Consistency**: Sliding window approach reduces prediction noise
+- **Background Suppression**: Only returns segments where the model is confident about specific events
+
+This approach ensures that predictions focus on actual events rather than forcing labels on every timestep.
 
 ## How it works
 
-### Training pipeline
+### Training Pipeline
 
 ```mermaid
 flowchart TD
-  A[Webhook event] --> B{Enough tasks?}
-  B -- no --> C[Skip]
-  B -- yes --> D[Load labeled tasks]
-  D --> E[Collect per-row samples]
-  E --> F[Fit LSTM]
-  F --> G[Save model]
+  A[Annotation Event] --> B{Training Trigger?}
+  B -- no --> C[Skip Training]
+  B -- yes --> D[Fetch Labeled Tasks]
+  D --> E[Process Annotations]
+  E --> F{Ground Truth?}
+  F -- yes --> G[Priority Processing]
+  F -- no --> H[Standard Processing]
+  G --> I[Generate Samples]
+  H --> I
+  I --> J[Background + Event Labels]
+  J --> K[PyTorch LSTM Training]
+  K --> L[Model Validation]
+  L --> M[Save Model]
+  M --> N[Cache in Memory]
 ```
 
-### Prediction pipeline
+### Prediction Pipeline
 
 ```mermaid
 flowchart TD
-  T[Predict request] --> U[Load model]
-  U --> V[Read task CSV]
-  V --> W[Predict label per row]
-  W --> X[Group consecutive labels]
-  X --> Y[Return segments]
+  T[Prediction Request] --> U[Load PyTorch Model]
+  U --> V[Read Task CSV]
+  V --> W[Extract Features]
+  W --> X[Sliding Window LSTM]
+  X --> Y[Overlap Averaging]
+  Y --> Z[Filter Background]
+  Z --> AA[Group Event Segments]
+  AA --> BB[Calculate Confidence]
+  BB --> CC[Return Segments]
 ```
+
+### Key Technical Features
+
+- **PyTorch-based LSTM**: Modern deep learning framework with better performance and flexibility
+- **Temporal Modeling**: Sliding windows capture time dependencies (default 50 timesteps)
+- **Background Class**: Realistic modeling where unlabeled periods are explicit background
+- **Ground Truth Priority**: Ensures highest quality annotations are used for training
+- **Overlap Averaging**: Smoother predictions through overlapping window consensus
 
 ## Customize
 

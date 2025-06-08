@@ -236,6 +236,75 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
         logger.debug(f"Grouped into {len(segments)} segments")
         return segments
 
+    def _process_task_annotations(
+        self, task: Dict, df: pd.DataFrame, params: Dict, label2idx: Dict[str, int]
+    ) -> Tuple[np.ndarray, int]:
+        """Process annotations for a single task and return row labels.
+        
+        Args:
+            task: Label Studio task dictionary
+            df: DataFrame with time series data
+            params: Labeling parameters from label config
+            label2idx: Mapping from label names to indices
+            
+        Returns:
+            Tuple of (row_labels array, number of labeled rows)
+        """
+        task_id = task.get("id", "unknown")
+        
+        # Initialize all rows as background (index 0)
+        row_labels = np.zeros(len(df), dtype=np.int64)  # 0 = background
+        
+        annotations = [a for a in task["annotations"] if a.get("result")]
+        logger.debug(f"Task {task_id}: Found {len(annotations)} annotations")
+        
+        # Mark labeled regions
+        labeled_rows = 0
+        for ann in annotations:
+            for r in ann["result"]:
+                if r["from_name"] != params["from_name"]:
+                    continue
+                start = r["value"]["start"]
+                end = r["value"]["end"]
+                label = r["value"]["timeserieslabels"][0]
+                
+                # Convert start/end to same type as time column for comparison
+                time_dtype = df[params["time_col"]].dtype
+                logger.debug(f"Task {task_id}: Converting time range [{start}, {end}] to match column dtype {time_dtype}")
+                try:
+                    if 'int' in str(time_dtype):
+                        start = int(float(start))
+                        end = int(float(end))
+                    elif 'float' in str(time_dtype):
+                        start = float(start)
+                        end = float(end)
+                    # For string/datetime, keep as is
+                    logger.debug(f"Task {task_id}: Converted to [{start}, {end}]")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Could not convert start={start}, end={end} to {time_dtype}: {e}, using original values")
+                
+                # Find rows in this time range
+                try:
+                    mask = (df[params["time_col"]] >= start) & (
+                        df[params["time_col"]] <= end
+                    )
+                except TypeError as e:
+                    logger.error(f"Task {task_id}: Type error comparing times - start={start} ({type(start)}), end={end} ({type(end)}), time_col dtype={time_dtype}: {e}")
+                    # Skip this annotation if we can't compare
+                    continue
+                
+                # Set the appropriate label index
+                label_idx = label2idx[label]
+                row_labels[mask] = label_idx
+                labeled_rows += mask.sum()
+                logger.debug(f"Task {task_id}: Labeled {mask.sum()} rows with '{label}' (index {label_idx})")
+
+            if ann.get('ground_truth', False):
+                logger.info(f"Task {task_id}: Ground truth annotation found: {ann['ground_truth']}")
+                break
+                
+        return row_labels, labeled_rows
+
     def _collect_samples(
         self, tasks: List[Dict], params: Dict, label2idx: Dict[str, int]
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -253,52 +322,8 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
                 logger.warning(f"Task {task_id}: Empty dataframe, skipping")
                 continue
             
-            # Initialize all rows as background (index 0)
-            row_labels = np.zeros(len(df), dtype=np.int64)  # 0 = background
-            
-            annotations = [a for a in task["annotations"] if a.get("result")]
-            logger.debug(f"Task {task_id}: Found {len(annotations)} annotations")
-            
-            # Mark labeled regions
-            labeled_rows = 0
-            for ann in annotations:
-                for r in ann["result"]:
-                    if r["from_name"] != params["from_name"]:
-                        continue
-                    start = r["value"]["start"]
-                    end = r["value"]["end"]
-                    label = r["value"]["timeserieslabels"][0]
-                    
-                    # Convert start/end to same type as time column for comparison
-                    time_dtype = df[params["time_col"]].dtype
-                    logger.debug(f"Task {task_id}: Converting time range [{start}, {end}] to match column dtype {time_dtype}")
-                    try:
-                        if 'int' in str(time_dtype):
-                            start = int(float(start))
-                            end = int(float(end))
-                        elif 'float' in str(time_dtype):
-                            start = float(start)
-                            end = float(end)
-                        # For string/datetime, keep as is
-                        logger.debug(f"Task {task_id}: Converted to [{start}, {end}]")
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"Could not convert start={start}, end={end} to {time_dtype}: {e}, using original values")
-                    
-                    # Find rows in this time range
-                    try:
-                        mask = (df[params["time_col"]] >= start) & (
-                            df[params["time_col"]] <= end
-                        )
-                    except TypeError as e:
-                        logger.error(f"Task {task_id}: Type error comparing times - start={start} ({type(start)}), end={end} ({type(end)}), time_col dtype={time_dtype}: {e}")
-                        # Skip this annotation if we can't compare
-                        continue
-                    
-                    # Set the appropriate label index
-                    label_idx = label2idx[label]
-                    row_labels[mask] = label_idx
-                    labeled_rows += mask.sum()
-                    logger.debug(f"Task {task_id}: Labeled {mask.sum()} rows with '{label}' (index {label_idx})")
+            # Process annotations for this task
+            row_labels, labeled_rows = self._process_task_annotations(task, df, params, label2idx)
             
             # Add ALL rows to training data
             X_list.append(df[params["channels"]].values.astype(np.float32))
