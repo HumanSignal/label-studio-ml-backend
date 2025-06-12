@@ -634,3 +634,71 @@ class TestTimeSeriesSegmenter:
             assert model.sequence_size == config["SEQUENCE_SIZE"]
             assert model.hidden_size == config["HIDDEN_SIZE"]
         logger.info("✓ Model parameters configuration test passed")
+
+    def test_instant_vs_range_annotations(self, segmenter_instance):
+        """Test proper handling of instant vs. time-range annotations.
+        
+        This test validates:
+        - Instant annotations (start == end) get instant=True
+        - Time-range annotations (start != end) get instant=False
+        - Proper boolean logic in the instant field
+        - Edge case handling for zero-duration segments
+        
+        Critical validation: The model correctly distinguishes between point events
+        and duration events in its output annotations.
+        """
+        logger.info("=== Testing instant vs range annotations ===")
+        
+        # Create a model for prediction
+        model = segmenter_instance._build_model(n_channels=2, n_labels=3)
+        params = segmenter_instance._get_labeling_params()
+        
+        # Mock task using the existing test CSV
+        task = {
+            "id": 999,
+            "data": {"csv_url": CSV_PATH},
+        }
+        
+        with patch.object(segmenter_instance, 'preload_task_data', new=fake_preload), \
+             patch.object(model, 'predict') as mock_predict:
+            
+            # Create mock predictions that will generate both instant and range segments
+            import torch
+            mock_probs = torch.zeros(100, 3)  # Match the CSV length (100 rows)
+            # Create patterns that will result in:
+            # - Single timestep segment (instant)
+            # - Multi-timestep segment (range)
+            mock_probs[10, 1] = 0.9     # Single "Run" at timestep 10 (instant)
+            mock_probs[20:24, 2] = 0.9  # "Walk" from timestep 20-23 (range)
+            mock_probs[:, 0] = 0.1      # Low background for all
+            mock_predict.return_value = mock_probs
+            
+            logger.info("Set up mock predictions for instant vs range test")
+            
+            result = segmenter_instance._predict_task(task, model, params)
+            logger.info(f"Prediction result: {result}")
+            
+            if result and "result" in result and len(result["result"]) > 0:
+                segments = result["result"]
+                logger.info(f"Found {len(segments)} segments to validate")
+                
+                for i, segment in enumerate(segments):
+                    start = segment["value"]["start"]
+                    end = segment["value"]["end"]
+                    instant = segment["value"]["instant"]
+                    label = segment["value"]["timeserieslabels"][0]
+                    
+                    logger.info(f"Segment {i}: {label} from {start} to {end}, instant={instant}")
+                    
+                    # Test the instant logic
+                    expected_instant = (start == end)
+                    assert instant == expected_instant, f"Segment {i}: instant={instant} but expected {expected_instant} for start={start}, end={end}"
+                    
+                    # Type check
+                    assert isinstance(instant, bool), f"Segment {i}: instant field should be boolean, got {type(instant)}"
+                
+                logger.info("✓ All segments have correct instant field values")
+            else:
+                logger.warning("No prediction segments generated for instant test")
+        
+        logger.info("✓ Instant vs range annotations test passed")

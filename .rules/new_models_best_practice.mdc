@@ -181,13 +181,603 @@ def _validate_data(self, df, required_columns):
     return True
 ```
 
+## 3.7. Annotation Semantics and Field Handling
+
+Proper handling of annotation semantics is crucial for generating semantically correct Label Studio outputs. Different annotation types require different field values and validation.
+
+### Annotation Type Detection and Handling
+
+Different labeling interfaces create different annotation structures that need proper interpretation:
+
+```python
+def determine_annotation_type(self, start, end):
+    """Determine if annotation represents a point event or time range."""
+    if start == end:
+        return "instant"  # Point event (double-click annotation)
+    else:
+        return "range"    # Duration event (drag annotation)
+
+def format_prediction_result(self, segment, params):
+    """Format prediction with semantically correct fields."""
+    start = segment["start"]
+    end = segment["end"]
+    label = segment["label"]
+    score = segment["score"]
+    
+    # Determine annotation semantics
+    is_instant = (start == end)
+    
+    return {
+        "from_name": params["from_name"],
+        "to_name": params["to_name"],
+        "type": "timeserieslabels",  # Adjust based on labeling interface
+        "value": {
+            "start": start,
+            "end": end,
+            "instant": is_instant,  # Critical for UI rendering
+            "timeserieslabels": [label],
+        },
+        "score": score,
+    }
+```
+
+### Field Validation and Type Safety
+
+Ensure output fields match Label Studio's expected types:
+
+```python
+def validate_prediction_fields(self, prediction):
+    """Validate prediction fields match Label Studio expectations."""
+    value = prediction.get("value", {})
+    
+    # Validate required fields exist
+    required_fields = ["start", "end", "instant", "timeserieslabels"]
+    for field in required_fields:
+        if field not in value:
+            logger.error(f"Missing required field: {field}")
+            return False
+    
+    # Validate field types
+    start = value["start"]
+    end = value["end"]
+    instant = value["instant"]
+    labels = value["timeserieslabels"]
+    
+    # Type validation
+    if not isinstance(instant, bool):
+        logger.error(f"instant field must be boolean, got {type(instant)}")
+        return False
+        
+    if not isinstance(labels, list):
+        logger.error(f"timeserieslabels must be list, got {type(labels)}")
+        return False
+        
+    # Semantic validation
+    if instant and start != end:
+        logger.error(f"Instant annotation should have start==end, got start={start}, end={end}")
+        return False
+        
+    if not instant and start == end:
+        logger.warning(f"Range annotation has start==end, consider setting instant=True")
+    
+    return True
+```
+
+### Handling Different Labeling Interfaces
+
+Adapt output format based on the labeling configuration:
+
+```python
+def get_prediction_format(self, label_config):
+    """Determine output format based on labeling configuration."""
+    # Parse label config to understand expected format
+    from_name, to_name, value = self.label_interface.get_first_tag_occurence(
+        "TimeSeriesLabels", "TimeSeries"
+    )
+    
+    # Check for specific interface requirements
+    ts_tag = self.label_interface.get_tag(to_name)
+    time_column = ts_tag.attr.get("timeColumn")
+    
+    return {
+        "from_name": from_name,
+        "to_name": to_name,
+        "value_field": value,
+        "time_column": time_column,
+        "output_type": "timeserieslabels",  # Could be different for other interfaces
+    }
+
+def adapt_to_interface(self, raw_prediction, interface_config):
+    """Adapt raw prediction to specific labeling interface."""
+    if interface_config["output_type"] == "timeserieslabels":
+        return self.format_timeseries_prediction(raw_prediction, interface_config)
+    elif interface_config["output_type"] == "choices":
+        return self.format_choice_prediction(raw_prediction, interface_config)
+    # Add more interface types as needed
+    else:
+        raise ValueError(f"Unsupported interface type: {interface_config['output_type']}")
+```
+
+### Time Data Type Consistency
+
+Handle different time data formats consistently:
+
+```python
+def normalize_time_values(self, start, end, time_dtype):
+    """Ensure time values match the expected data type."""
+    try:
+        if 'int' in str(time_dtype):
+            return int(float(start)), int(float(end))
+        elif 'float' in str(time_dtype):
+            return float(start), float(end)
+        else:
+            # String or datetime - keep as is
+            return start, end
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Could not convert times to {time_dtype}: {e}")
+        return start, end  # Return original values as fallback
+```
+
+### Confidence Score Validation
+
+Ensure prediction confidence scores are valid and meaningful:
+
+```python
+def validate_confidence_scores(self, scores):
+    """Validate and normalize confidence scores."""
+    validated_scores = []
+    
+    for score in scores:
+        # Ensure score is numeric
+        try:
+            score = float(score)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid score type: {type(score)}, defaulting to 0.0")
+            score = 0.0
+        
+        # Ensure score is in valid range [0, 1]
+        if score < 0:
+            logger.warning(f"Score {score} below 0, clamping to 0")
+            score = 0.0
+        elif score > 1:
+            logger.warning(f"Score {score} above 1, clamping to 1")
+            score = 1.0
+        
+        # Check for NaN/Inf
+        if not np.isfinite(score):
+            logger.warning(f"Non-finite score {score}, defaulting to 0.0")
+            score = 0.0
+            
+        validated_scores.append(score)
+    
+    return validated_scores
+```
+
+### Label Mapping and Consistency
+
+Maintain consistent label mapping between training and prediction:
+
+```python
+def ensure_label_consistency(self, predicted_labels, training_labels):
+    """Ensure predicted labels are consistent with training labels."""
+    valid_labels = set(training_labels)
+    
+    filtered_predictions = []
+    for pred_label in predicted_labels:
+        if pred_label in valid_labels:
+            filtered_predictions.append(pred_label)
+        else:
+            logger.warning(f"Predicted label '{pred_label}' not in training set: {valid_labels}")
+            # Could map to closest valid label or skip
+    
+    return filtered_predictions
+
+def map_label_indices_to_names(self, label_indices, label_map):
+    """Convert numeric label indices to human-readable names."""
+    if not hasattr(self, 'index_to_label'):
+        # Create reverse mapping
+        self.index_to_label = {idx: name for name, idx in label_map.items()}
+    
+    label_names = []
+    for idx in label_indices:
+        if idx in self.index_to_label:
+            label_names.append(self.index_to_label[idx])
+        else:
+            logger.warning(f"Unknown label index: {idx}")
+            label_names.append(f"unknown_{idx}")
+    
+    return label_names
+```
+
+
+## 3.8. Handling Imbalanced Data in ML Backends
+
+Many real-world annotation tasks result in highly imbalanced datasets, especially for time series, object detection, and rare event classification. This is critical to handle properly to avoid models that achieve high accuracy by simply predicting the majority class.
+
+### Common Imbalanced Data Scenarios
+
+**Time Series Instant Labels**: Double-click annotations create point events within long sequences
+- Background: 95%+ of timesteps
+- Events: <5% of timesteps (Run, Walk, etc.)
+
+**Object Detection**: Rare objects in images
+- Background regions: 90%+ of image area  
+- Target objects: <10% of image area
+
+**Text Classification**: Rare categories or sentiment
+- Common classes: 80%+ of documents
+- Rare classes: <20% of documents
+
+### Detection and Measurement
+
+Always measure class imbalance in your training data:
+
+```python
+def analyze_class_distribution(self, labels):
+    """Analyze and log class distribution in training data."""
+    unique, counts = np.unique(labels, return_counts=True)
+    total = len(labels)
+    
+    class_info = {}
+    for label_idx, count in zip(unique, counts):
+        percentage = (count / total) * 100
+        class_name = self.label_map.get(label_idx, f"class_{label_idx}")
+        class_info[class_name] = {
+            "count": count,
+            "percentage": percentage
+        }
+        
+    logger.info(f"Class distribution: {class_info}")
+    
+    # Detect severe imbalance
+    max_percentage = max(info["percentage"] for info in class_info.values())
+    if max_percentage > 80:
+        logger.warning(f"Severe class imbalance detected: {max_percentage:.1f}% majority class")
+        Right now we need to design architecture and write all points about it down. Your thoughts?
+
+
+    return class_info
+```
+
+### Class-Weighted Loss Functions
+
+Implement automatic class weighting to penalize minority class misclassification:
+
+```python
+def calculate_class_weights(self, labels, method="inverse_frequency"):
+    """Calculate class weights for imbalanced data."""
+    unique_classes, class_counts = torch.unique(labels, return_counts=True)
+    total_samples = len(labels)
+    num_classes = len(unique_classes)
+    
+    if method == "inverse_frequency":
+        # Weight = total_samples / (num_classes * class_count)
+        weights = torch.zeros(self.output_size, dtype=torch.float32)
+        for i, class_idx in enumerate(unique_classes):
+            weights[class_idx] = total_samples / (num_classes * class_counts[i])
+            
+    elif method == "balanced":
+        # sklearn-style balanced weights
+        weights = torch.zeros(self.output_size, dtype=torch.float32)
+        for i, class_idx in enumerate(unique_classes):
+            weights[class_idx] = total_samples / (2.0 * class_counts[i])
+            
+    return weights
+
+# Usage in model training
+def setup_weighted_loss(self, labels):
+    """Setup class-weighted loss function."""
+    if self.use_class_weights:
+        class_weights = self.calculate_class_weights(labels)
+        self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+        logger.info(f"Using class weights: {class_weights}")
+    else:
+        self.criterion = nn.CrossEntropyLoss()
+```
+
+### Balanced Evaluation Metrics
+
+Use evaluation metrics that don't favor the majority class:
+
+```python
+def evaluate_balanced_metrics(self, predictions, true_labels):
+    """Evaluate using balanced metrics suitable for imbalanced data."""
+    from sklearn.metrics import balanced_accuracy_score, classification_report
+    
+    # Balanced accuracy (macro-averaged recall)
+    balanced_acc = balanced_accuracy_score(true_labels, predictions)
+    
+    # Per-class F1 scores
+    report = classification_report(true_labels, predictions, output_dict=True)
+    
+    # Extract per-class F1 scores
+    per_class_f1 = {}
+    min_f1 = 1.0
+    for class_name, metrics in report.items():
+        if isinstance(metrics, dict) and "f1-score" in metrics:
+            f1 = metrics["f1-score"]
+            per_class_f1[class_name] = f1
+            min_f1 = min(min_f1, f1)
+    
+    return {
+        "balanced_accuracy": balanced_acc,
+        "macro_f1": report["macro avg"]["f1-score"],
+        "per_class_f1": per_class_f1,
+        "min_class_f1": min_f1,
+    }
+```
+
+### Smart Early Stopping for Imbalanced Data
+
+Prevent early stopping when the model only learned the majority class:
+
+```python
+def should_stop_training(self, metrics, thresholds):
+    """Determine if training should stop using balanced criteria."""
+    balanced_acc = metrics.get("balanced_accuracy", 0)
+    min_class_f1 = metrics.get("min_class_f1", 0)
+    
+    # Require BOTH criteria to be met
+    balanced_threshold = thresholds.get("balanced_accuracy", 0.85)
+    min_f1_threshold = thresholds.get("min_class_f1", 0.70)
+    
+    if (balanced_acc >= balanced_threshold and 
+        min_class_f1 >= min_f1_threshold):
+        logger.info(f"Early stopping: Balanced accuracy {balanced_acc:.3f} >= {balanced_threshold} "
+                   f"and min class F1 {min_class_f1:.3f} >= {min_f1_threshold}")
+        return True
+        
+    return False
+```
+
+### Configuration for Imbalanced Data
+
+Provide environment variables to control imbalanced data handling:
+
+```python
+# Environment variables
+BALANCED_ACCURACY_THRESHOLD = float(os.getenv("BALANCED_ACCURACY_THRESHOLD", 0.85))
+MIN_CLASS_F1_THRESHOLD = float(os.getenv("MIN_CLASS_F1_THRESHOLD", 0.70))
+USE_CLASS_WEIGHTS = os.getenv("USE_CLASS_WEIGHTS", "true").lower() == "true"
+
+# Usage in model setup
+def setup(self):
+    """Configure model for imbalanced data handling."""
+    logger.info(f"Imbalanced data handling: Class weights={self.USE_CLASS_WEIGHTS}, "
+               f"Balanced accuracy threshold={self.BALANCED_ACCURACY_THRESHOLD}, "
+               f"Min class F1 threshold={self.MIN_CLASS_F1_THRESHOLD}")
+```
+
+### Special Considerations for Instant Labels
+
+When dealing with instant labels (point annotations), imbalance is often extreme:
+
+```python
+def handle_instant_label_imbalance(self, annotations):
+    """Special handling for instant labels which create extreme imbalance."""
+    instant_count = 0
+    range_count = 0
+    
+    for ann in annotations:
+        if ann.get("value", {}).get("instant", False):
+            instant_count += 1
+        else:
+            range_count += 1
+    
+    if instant_count > 0:
+        logger.warning(f"Instant labels detected ({instant_count} instant, {range_count} range). "
+                      f"Using aggressive class weighting for extreme imbalance.")
+        
+        # Use more aggressive thresholds for instant labels
+        return {
+            "min_class_f1_threshold": max(0.50, self.MIN_CLASS_F1_THRESHOLD - 0.2),
+            "balanced_accuracy_threshold": max(0.75, self.BALANCED_ACCURACY_THRESHOLD - 0.1),
+            "use_class_weights": True,
+        }
+    
+    return {
+        "min_class_f1_threshold": self.MIN_CLASS_F1_THRESHOLD,
+        "balanced_accuracy_threshold": self.BALANCED_ACCURACY_THRESHOLD,
+        "use_class_weights": self.USE_CLASS_WEIGHTS,
+    }
+```
+
+### Testing Imbalanced Data Handling
+
+Include specific tests for imbalanced scenarios:
+
+```python
+def test_extreme_imbalance_handling(self):
+    """Test model behavior with 99% majority class."""
+    # Create extremely imbalanced data
+    background_samples = 9900
+    event_samples = 100
+    
+    labels = ([0] * background_samples + 
+             [1] * event_samples + 
+             [2] * event_samples)
+    
+    # Train with class weights
+    metrics = model.partial_fit(data, labels, use_class_weights=True)
+    
+    # Verify minority classes still achieve reasonable performance
+    assert metrics["min_class_f1"] > 0.3, "Even with extreme imbalance, minority classes should learn"
+    assert metrics["balanced_accuracy"] > 0.5, "Balanced accuracy should exceed random chance"
+```
+
 ## 4. Testing
 
 - Tests should be runnable with `pytest` directly from the repository root or inside the example's Docker container.
 - Mock Label Studio API interactions whenever possible to avoid requiring a running server during tests.
 - Aim for good coverage of `fit()` and `predict()` logic to catch regressions.
 
-### 4.1. Running Tests in Docker Containers
+## 4.1. ML-Specific Testing Patterns
+
+When testing ML backends, follow these specialized patterns beyond standard software testing:
+
+### Model Training and Evaluation Testing
+```python
+def test_training_workflow(self):
+    """Test complete training pipeline including metrics validation."""
+    # Test with small synthetic dataset
+    result = model.fit("START_TRAINING", data)
+    
+    # Validate training metrics are returned
+    assert isinstance(result, dict)
+    assert "f1_score" in result or "balanced_accuracy" in result
+    assert "loss" in result
+    assert result["loss"] > 0  # Sanity check
+    
+    # Ensure model learns something (loss decreases)
+    initial_loss = result.get("initial_loss", float('inf'))
+    final_loss = result["loss"]
+    assert final_loss < initial_loss or result["epoch"] == 1
+```
+
+### Imbalanced Data Testing
+```python
+def test_imbalanced_data_handling(self):
+    """Test model behavior with highly imbalanced datasets."""
+    # Create imbalanced test data (90% background, 10% events)
+    imbalanced_labels = [0] * 900 + [1] * 50 + [2] * 50
+    
+    # Verify class weights are calculated
+    model.partial_fit(data, imbalanced_labels, use_class_weights=True)
+    
+    # Check that minority classes get higher weights
+    if hasattr(model, 'criterion') and hasattr(model.criterion, 'weight'):
+        weights = model.criterion.weight
+        assert weights[1] > weights[0]  # Minority class weighted higher
+        assert weights[2] > weights[0]
+```
+
+### Model Serialization Testing
+```python
+def test_model_save_load_consistency(self):
+    """Test model serialization preserves functionality."""
+    # Train a simple model
+    original_model = self._create_and_train_model()
+    original_prediction = original_model.predict(test_data)
+    
+    # Save and reload
+    model_path = os.path.join(temp_dir, "test_model.pt")
+    original_model.save(model_path)
+    loaded_model = ModelClass.load_model(model_path)
+    
+    # Verify predictions are consistent
+    loaded_prediction = loaded_model.predict(test_data)
+    assert loaded_prediction.shape == original_prediction.shape
+    
+    # Check model parameters are preserved
+    assert loaded_model.input_size == original_model.input_size
+    assert loaded_model.output_size == original_model.output_size
+```
+
+### Prediction Quality Testing
+```python
+def test_prediction_quality_metrics(self):
+    """Test prediction quality and confidence scoring."""
+    predictions = model.predict(test_tasks)
+    
+    for pred in predictions.predictions:
+        if pred.get("result"):  # Skip empty predictions
+            # Verify confidence scores are valid
+            for segment in pred["result"]:
+                score = segment.get("score", 0)
+                assert 0 <= score <= 1, f"Score {score} should be between 0 and 1"
+                
+            # Verify model version is included
+            assert "model_version" in pred
+            assert pred["model_version"].startswith(model.__class__.__name__)
+```
+
+### Mock ML Predictions
+```python
+def test_with_controlled_ml_output(self):
+    """Test business logic with controlled ML predictions."""
+    with patch.object(model, 'predict') as mock_predict:
+        # Create deterministic mock predictions
+        mock_probs = torch.zeros(100, 3)
+        mock_probs[10:20, 1] = 0.9  # High confidence "Run" segment
+        mock_probs[50:60, 2] = 0.8  # Medium confidence "Walk" segment
+        mock_predict.return_value = mock_probs
+        
+        result = model._predict_task(task, mock_model, params)
+        
+        # Test segmentation logic with known inputs
+        assert len(result["result"]) == 2  # Should find 2 segments
+        assert result["result"][0]["value"]["timeserieslabels"][0] == "Run"
+        assert result["result"][1]["value"]["timeserieslabels"][0] == "Walk"
+```
+
+### Performance and Memory Testing
+```python
+def test_memory_efficiency(self):
+    """Test model handles large datasets without memory issues."""
+    import psutil
+    import gc
+    
+    process = psutil.Process()
+    initial_memory = process.memory_info().rss
+    
+    # Process large synthetic dataset
+    large_data = np.random.randn(10000, model.input_size)
+    predictions = model.predict(large_data)
+    
+    # Force garbage collection
+    del large_data, predictions
+    gc.collect()
+    
+    final_memory = process.memory_info().rss
+    memory_growth = final_memory - initial_memory
+    
+    # Memory growth should be reasonable (less than 100MB for this test)
+    assert memory_growth < 100 * 1024 * 1024, f"Memory grew by {memory_growth / 1024 / 1024:.1f}MB"
+```
+
+### Error Resilience Testing
+```python
+def test_handles_corrupted_data(self):
+    """Test graceful handling of corrupted or malformed inputs."""
+    # Test with various bad inputs
+    bad_inputs = [
+        np.array([]),  # Empty data
+        np.array([[np.nan, np.inf]]),  # NaN/Inf values
+        np.random.randn(5, wrong_input_size),  # Wrong input dimensions
+        "not_an_array",  # Wrong data type
+    ]
+    
+    for bad_input in bad_inputs:
+        try:
+            result = model.predict(bad_input)
+            # Should return empty result or handle gracefully
+            assert isinstance(result, (dict, list, type(None)))
+        except Exception as e:
+            # If exception is raised, it should be informative
+            assert len(str(e)) > 0, "Exception should have descriptive message"
+```
+
+### Training Convergence Testing
+```python
+def test_training_convergence_patterns(self):
+    """Test training exhibits expected convergence behavior."""
+    metrics_history = []
+    
+    # Run training with metric tracking
+    for epoch in range(10):
+        metrics = model.partial_fit(train_data, train_labels, epochs=1)
+        metrics_history.append(metrics)
+    
+    # Verify loss generally decreases (allowing for some fluctuation)
+    losses = [m["loss"] for m in metrics_history]
+    assert losses[-1] < losses[0], "Loss should decrease over training"
+    
+    # Verify metrics improve
+    f1_scores = [m.get("f1_score", 0) for m in metrics_history]
+    assert f1_scores[-1] >= f1_scores[0], "F1 score should not degrade"
+```
+
+## 4.2. Running Tests in Docker Containers
 
 For ML backends that require specific dependencies or environments, Docker containers provide consistent testing environments. Here's the recommended workflow:
 
@@ -297,6 +887,23 @@ def test_model_training_workflow(self):
 
 ## 5. Examples
 
-- You can use as an implementation example `label_studio_ml/examples/yolo/`. It's well written and can be a model to follow.
+### Reference Implementations
+
+- **`label_studio_ml/examples/yolo/`** - Well-structured computer vision backend with good Docker integration
+- **`label_studio_ml/examples/timeseries_segmenter/`** - Comprehensive ML backend demonstrating:
+  - Advanced imbalanced data handling with class weights and balanced metrics
+  - Proper PyTorch model serialization and loading
+  - ML-specific testing patterns with comprehensive test suite
+  - Annotation semantics handling (instant vs range annotations)
+  - Smart early stopping and training convergence monitoring
+  - Background class modeling for realistic time series scenarios
+
+### Choosing the Right Example
+
+**For Computer Vision backends**: Use `yolo/` as a reference for image processing, object detection patterns, and Docker best practices.
+
+**For ML backends with imbalanced data**: Use `timeseries_segmenter/` as a reference for balanced learning approaches, advanced training patterns, and comprehensive testing.
+
+**For any ML backend**: Both examples demonstrate solid project structure, error handling, and documentation practices.
 
 Following these conventions helps maintain consistency across examples and makes it easier for contributors and automation tools to understand each backend.

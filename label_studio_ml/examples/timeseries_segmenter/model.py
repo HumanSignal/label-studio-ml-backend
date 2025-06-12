@@ -208,7 +208,7 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
                     "value": {
                         "start": seg["start"],
                         "end": seg["end"],
-                        "instant": False,
+                        "instant": True if seg["start"] == seg["end"] else False,
                         "timeserieslabels": [seg["label"]],
                     },
                     "score": score,

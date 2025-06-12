@@ -44,9 +44,25 @@ The backend reads the time column and channels to build feature vectors. Each
 CSV referenced by `csv_url` must contain the time column and the channel
 columns.
 
+## Annotation Types
+
+The backend supports two types of time series annotations:
+
+### Range Annotations
+- **Created by**: Dragging across time series to select a time range
+- **Behavior**: `start` ≠ `end`, `instant` = `false`
+- **Use case**: Events that have duration (e.g., "Running from 10s to 30s")
+
+### Instant Annotations  
+- **Created by**: Double-clicking on a specific point in the time series
+- **Behavior**: `start` = `end`, `instant` = `true`
+- **Use case**: Point events or moments in time (e.g., "Fall detected at 15s")
+
+**Important**: Instant labels often create highly imbalanced datasets since they represent brief moments within long time series. The model's **balanced learning approach** is specifically designed to handle this challenge effectively.
+
 ## Training
 
-Training starts automatically when annotations are created or updated. The model uses a PyTorch-based LSTM neural network with proper temporal modeling to learn time series patterns.
+Training starts automatically when annotations are created or updated. The model uses a PyTorch-based LSTM neural network with proper temporal modeling and **balanced learning** to handle imbalanced time series data effectively.
 
 ### Training Process
 
@@ -57,7 +73,10 @@ The model follows these steps during training:
    - **Background Class**: Unlabeled time periods are treated as "background" (class 0)
    - **Event Classes**: Your labeled segments (e.g., "Run", "Walk") become classes 1, 2, etc.
    - **Ground Truth Priority**: If multiple annotations exist for a task, ground truth annotations take precedence
-3. **Model Training**: Fits a multi-layer LSTM network with:
+3. **Balanced Model Training**: Fits a multi-layer LSTM network with:
+   - **Class-weighted loss function** to handle imbalanced data (important for instant labels)
+   - **Balanced accuracy monitoring** instead of regular accuracy
+   - **Per-class F1 score tracking** to ensure all classes learn properly
    - Configurable sequence windows (default: 50 timesteps)  
    - Dropout regularization for better generalization
    - Background class support for realistic time series modeling
@@ -67,10 +86,47 @@ The model follows these steps during training:
 
 You can customize training behavior with these environment variables:
 
+**Basic Configuration:**
 - `START_TRAINING_EACH_N_UPDATES`: How often to retrain (default: 1, trains on every annotation)
 - `TRAIN_EPOCHS`: Number of training epochs (default: 1000)
 - `SEQUENCE_SIZE`: Sliding window size for temporal context (default: 50)
 - `HIDDEN_SIZE`: LSTM hidden layer size (default: 64)
+
+**Balanced Learning (for Imbalanced Data):**
+- `BALANCED_ACCURACY_THRESHOLD`: Stop training when balanced accuracy exceeds this (default: 0.85)
+- `MIN_CLASS_F1_THRESHOLD`: Stop training when minimum per-class F1 exceeds this (default: 0.70)
+- `USE_CLASS_WEIGHTS`: Enable class-weighted loss function (default: true)
+
+The balanced learning approach is **especially important when using instant labels** (created by double-clicking on the time series), as these often create highly imbalanced datasets where background periods vastly outnumber event instances.
+
+### Handling Imbalanced Data
+
+Time series data is often highly imbalanced, especially when using instant labels:
+
+**The Problem:**
+- Background periods typically constitute 90%+ of the data
+- Event instances (Run, Walk, etc.) are rare and brief
+- Standard training approaches achieve high accuracy by simply predicting "background" everywhere
+- Models fail to learn actual event patterns
+
+**Our Solution:**
+```
+Class Weights: Automatically calculated inverse frequency weights
+├── Background (Class 0): Low weight (e.g., 0.1x)
+├── Run (Class 1): High weight (e.g., 5.0x) 
+└── Walk (Class 2): High weight (e.g., 4.0x)
+
+Early Stopping: Dual criteria prevent premature stopping
+├── Balanced Accuracy ≥ 85% (macro-averaged across classes)
+└── Minimum Class F1 ≥ 70% (worst-performing class must be decent)
+
+Metrics: Focus on per-class performance
+├── Balanced Accuracy: Equal weight to each class
+├── Macro F1: Average F1 across all classes  
+└── Per-class F1: Individual class performance tracking
+```
+
+This ensures the model learns to detect actual events rather than just predicting background.
 
 ### Ground Truth Handling
 
@@ -96,8 +152,9 @@ For each task, the model performs these steps:
 4. **Segment Extraction**: Groups consecutive predictions into meaningful segments:
    - **Background Filtering**: Automatically filters out background (unlabeled) periods
    - **Event Segmentation**: Only returns segments with actual event labels
+   - **Instant Detection**: Automatically sets `instant=true` for point events (start=end, one sample events that you can label using double click) and `instant=false` for ranges
    - **Score Calculation**: Averages prediction confidence per segment
-5. **Result Formatting**: Returns segments in Label Studio JSON format
+5. **Result Formatting**: Returns segments in Label Studio JSON format with proper instant field values
 
 ### Prediction Quality
 
@@ -151,11 +208,48 @@ flowchart TD
 - **PyTorch-based LSTM**: Modern deep learning framework with better performance and flexibility
 - **Temporal Modeling**: Sliding windows capture time dependencies (default 50 timesteps)
 - **Background Class**: Realistic modeling where unlabeled periods are explicit background
+- **Balanced Learning**: Class-weighted loss function and balanced metrics for imbalanced data
+- **Instant Label Support**: Proper handling of point events (`instant=true`) vs. duration events (`instant=false`)
+- **Smart Early Stopping**: Dual criteria (balanced accuracy + minimum per-class F1) prevent premature stopping
 - **Ground Truth Priority**: Ensures highest quality annotations are used for training
 - **Overlap Averaging**: Smoother predictions through overlapping window consensus
 
 ## Customize
 
-Edit `docker-compose.yml` to set environment variables such as `LABEL_STUDIO_HOST`
-or `MODEL_DIR`. You can also adjust `START_TRAINING_EACH_N_UPDATES` to control
-how often training runs.
+Edit `docker-compose.yml` to set environment variables for your specific use case:
+
+### Basic Configuration
+```yaml
+environment:
+  - LABEL_STUDIO_HOST=http://localhost:8080
+  - LABEL_STUDIO_API_KEY=your_api_key_here
+  - MODEL_DIR=/app/models
+  - START_TRAINING_EACH_N_UPDATES=1
+  - TRAIN_EPOCHS=1000
+  - SEQUENCE_SIZE=50
+  - HIDDEN_SIZE=64
+```
+
+### Balanced Learning (Recommended for Instant Labels)
+```yaml
+environment:
+  # ... basic config above ...
+  - BALANCED_ACCURACY_THRESHOLD=0.85
+  - MIN_CLASS_F1_THRESHOLD=0.70  
+  - USE_CLASS_WEIGHTS=true
+```
+
+### Common Scenarios
+
+**For instant labels (point events):**
+- Keep balanced learning enabled (`USE_CLASS_WEIGHTS=true`)
+- Consider lower thresholds (`MIN_CLASS_F1_THRESHOLD=0.60`) for very rare events
+- Increase epochs (`TRAIN_EPOCHS=2000`) for better minority class learning
+
+**For range annotations with balanced data:**
+- Can disable class weights (`USE_CLASS_WEIGHTS=false`) if classes are roughly equal
+- Use standard accuracy thresholds
+
+**For short time series:**
+- Reduce sequence size (`SEQUENCE_SIZE=20`) for sequences shorter than 50 timesteps
+- Reduce hidden size (`HIDDEN_SIZE=32`) to prevent overfitting
