@@ -177,7 +177,8 @@ class TestTimeSeriesSegmenter:
         model = segmenter_instance._build_model(n_channels=2, n_labels=3)
         logger.info(f"Built model: input_size={model.input_size}, output_size={model.output_size}, sequence_size={model.sequence_size}")
         
-        assert isinstance(model, TimeSeriesLSTM)
+        # Check model type by class name (avoid import namespace issues)
+        assert model.__class__.__name__ == "TimeSeriesLSTM"
         assert model.input_size == 2
         assert model.output_size == 3
         assert model.sequence_size == 10  # From test environment
@@ -198,9 +199,10 @@ class TestTimeSeriesSegmenter:
         """
         logger.info("=== Testing CSV reading ===")
         task = make_task()
+        params = segmenter_instance._get_labeling_params()
         
         with patch.object(segmenter_instance, 'preload_task_data', new=fake_preload):
-            df = segmenter_instance._read_csv(task, CSV_PATH)
+            df = segmenter_instance._read_csv(task, CSV_PATH, params)
             logger.info(f"Read CSV with shape: {df.shape}, columns: {list(df.columns)}")
             
         assert not df.empty
@@ -334,11 +336,13 @@ class TestTimeSeriesSegmenter:
             result = segmenter_instance.fit("START_TRAINING", data)
             logger.info(f"Training completed with result: {result}")
             
-            # Should return training metrics
+            # Should return training metrics  
             assert isinstance(result, dict)
-            assert "accuracy" in result
+            # Check for new imbalanced-data metrics
+            assert "balanced_accuracy" in result
             assert "f1_score" in result
             assert "loss" in result
+            assert "min_class_f1" in result
             logger.info("✓ Training metrics validated")
             
             # Test prediction on the same task

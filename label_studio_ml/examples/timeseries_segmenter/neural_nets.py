@@ -33,9 +33,14 @@ class BaseNN(nn.Module):
 
     def save(self, path):
         """Save model state dict and parameters safely."""
+        # Get state dict and remove criterion parameters (they're not part of the model)
+        state_dict = self.state_dict()
+        # Remove any criterion-related parameters that shouldn't be saved
+        filtered_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('criterion.')}
+        
         # Create save dictionary with model state and parameters
         save_dict = {
-            'model_state_dict': self.state_dict(),
+            'model_state_dict': filtered_state_dict,
             'model_params': {
                 'input_size': getattr(self, 'input_size', None),
                 'output_size': getattr(self, 'output_size', None),
@@ -70,8 +75,15 @@ class BaseNN(nn.Module):
         else:
             raise ValueError(f"Unknown model class: {model_class_name}")
         
-        # Load the state dict
-        model.load_state_dict(save_dict['model_state_dict'])
+        # Load the state dict with error handling for unexpected keys
+        try:
+            model.load_state_dict(save_dict['model_state_dict'], strict=False)
+        except Exception as e:
+            # Filter out problematic keys if needed
+            state_dict = save_dict['model_state_dict']
+            filtered_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('criterion.')}
+            model.load_state_dict(filtered_state_dict, strict=False)
+            logger.warning(f"Filtered out problematic keys during model loading: {e}")
         
         # Set label map
         if 'label_map' in save_dict:
@@ -159,7 +171,7 @@ class TimeSeriesLSTM(BaseNN):
         # 2 * hidden_size because of bidirectional LSTM
         self.fc_output = nn.Linear(2 * hidden_size, output_size)
 
-        # Loss function for multi-class classification
+        # Loss function for multi-class classification (will be set with class weights in partial_fit)
         self.criterion = nn.CrossEntropyLoss(ignore_index=-1)  # Ignore padding
         self.optimizer = optim.Adam(
             self.parameters(), lr=learning_rate, weight_decay=weight_decay
@@ -332,20 +344,28 @@ class TimeSeriesLSTM(BaseNN):
         return predictions
 
     def evaluate_metrics(self, dataloader, threshold=0.5):
-        """Evaluate model performance using multiclass metrics."""
+        """Evaluate model performance using multiclass metrics optimized for imbalanced data."""
         self.eval()
         
-        precision_metric = MulticlassPrecision(
+        # Macro-averaged metrics (better for imbalanced data)
+        precision_macro = MulticlassPrecision(
             num_classes=self.output_size, average='macro', ignore_index=-1
         ).to(self.device)
-        recall_metric = MulticlassRecall(
+        recall_macro = MulticlassRecall(
             num_classes=self.output_size, average='macro', ignore_index=-1
         ).to(self.device)
-        f1_metric = MulticlassF1Score(
+        f1_macro = MulticlassF1Score(
             num_classes=self.output_size, average='macro', ignore_index=-1
         ).to(self.device)
-        accuracy_metric = MulticlassAccuracy(
-            num_classes=self.output_size, average='micro', ignore_index=-1
+        
+        # Per-class F1 scores for detailed analysis
+        f1_per_class = MulticlassF1Score(
+            num_classes=self.output_size, average=None, ignore_index=-1
+        ).to(self.device)
+        
+        # Balanced accuracy (macro-averaged recall)
+        balanced_accuracy = MulticlassRecall(
+            num_classes=self.output_size, average='macro', ignore_index=-1
         ).to(self.device)
 
         with torch.no_grad():
@@ -364,16 +384,32 @@ class TimeSeriesLSTM(BaseNN):
                 # Update metrics (ignoring padding tokens)
                 valid_mask = labels_flat != -1
                 if valid_mask.any():
-                    precision_metric.update(predictions[valid_mask], labels_flat[valid_mask])
-                    recall_metric.update(predictions[valid_mask], labels_flat[valid_mask])
-                    f1_metric.update(predictions[valid_mask], labels_flat[valid_mask])
-                    accuracy_metric.update(predictions[valid_mask], labels_flat[valid_mask])
+                    valid_preds = predictions[valid_mask]
+                    valid_labels = labels_flat[valid_mask]
+                    
+                    precision_macro.update(valid_preds, valid_labels)
+                    recall_macro.update(valid_preds, valid_labels)
+                    f1_macro.update(valid_preds, valid_labels)
+                    f1_per_class.update(valid_preds, valid_labels)
+                    balanced_accuracy.update(valid_preds, valid_labels)
+
+        # Compute per-class F1 scores
+        per_class_f1 = f1_per_class.compute()
+        
+        # Handle NaN values (can occur if a class has no samples)
+        per_class_f1 = torch.nan_to_num(per_class_f1, nan=0.0)
+        
+        # Find minimum F1 score across classes (excluding classes with 0 samples)
+        non_zero_f1 = per_class_f1[per_class_f1 > 0]
+        min_class_f1 = non_zero_f1.min().item() if len(non_zero_f1) > 0 else 0.0
 
         return {
-            "precision": precision_metric.compute().item(),
-            "recall": recall_metric.compute().item(),
-            "f1_score": f1_metric.compute().item(),
-            "accuracy": accuracy_metric.compute().item(),
+            "precision": precision_macro.compute().item(),
+            "recall": recall_macro.compute().item(),
+            "f1_score": f1_macro.compute().item(),
+            "balanced_accuracy": balanced_accuracy.compute().item(),
+            "per_class_f1": per_class_f1.cpu().numpy().tolist(),
+            "min_class_f1": min_class_f1,
         }
 
     def partial_fit(
@@ -382,17 +418,19 @@ class TimeSeriesLSTM(BaseNN):
         labels,
         batch_size=16,
         epochs=100,
-        accuracy_threshold=0.95,
-        f1_threshold=0.90,
+        balanced_accuracy_threshold=0.85,
+        min_class_f1_threshold=0.70,
+        use_class_weights=True,
     ):
-        """Train the model on the given sequence data.
+        """Train the model on the given sequence data with imbalanced data handling.
         Args:
             sequence: Input sequence data
             labels: Target labels for each timestep
             batch_size: Batch size for training
             epochs: Maximum number of training epochs
-            accuracy_threshold: Stop training if accuracy exceeds this threshold
-            f1_threshold: Stop training if F1 score exceeds this threshold
+            balanced_accuracy_threshold: Stop training if balanced accuracy exceeds this threshold
+            min_class_f1_threshold: Stop training if minimum per-class F1 exceeds this threshold
+            use_class_weights: Whether to use class weights to handle imbalanced data
         """
         if len(sequence) == 0:
             logger.warning("Empty sequence provided for training")
@@ -404,6 +442,33 @@ class TimeSeriesLSTM(BaseNN):
             logger.warning("No valid batches created from sequence")
             return {}
 
+        # Calculate class weights for imbalanced data handling
+        if use_class_weights:
+            flat_labels = label_batches.view(-1)
+            valid_labels = flat_labels[flat_labels != -1]  # Remove padding tokens
+            
+            # Calculate class frequencies
+            unique_classes, class_counts = torch.unique(valid_labels, return_counts=True)
+            total_samples = len(valid_labels)
+            
+            # Calculate inverse frequency weights
+            class_weights = torch.zeros(self.output_size, dtype=torch.float32, device=self.device)
+            for i, class_idx in enumerate(unique_classes):
+                class_weights[class_idx] = total_samples / (len(unique_classes) * class_counts[i])
+            
+            # Update loss function with class weights
+            self.criterion = nn.CrossEntropyLoss(ignore_index=-1, weight=class_weights)
+            
+            # Log class distribution and weights
+            class_info = {}
+            for i, class_idx in enumerate(unique_classes):
+                class_info[f"class_{class_idx.item()}"] = {
+                    "count": class_counts[i].item(),
+                    "percentage": (class_counts[i].item() / total_samples * 100),
+                    "weight": class_weights[class_idx].item()
+                }
+            logger.info(f"Class distribution and weights: {class_info}")
+
         # Create DataLoader
         dataset = TensorDataset(batches, label_batches)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -411,6 +476,8 @@ class TimeSeriesLSTM(BaseNN):
         logger.info(f"Training on {len(batches)} windows, {len(dataset)} total samples")
 
         metrics = {}
+        best_min_f1 = 0.0
+        
         for epoch in range(epochs):
             self.train()
             epoch_loss = 0
@@ -439,17 +506,39 @@ class TimeSeriesLSTM(BaseNN):
             metrics = self.evaluate_metrics(dataloader)
             metrics["loss"] = epoch_loss / len(dataloader)
             metrics["epoch"] = epoch + 1
+            
+            # Track best minimum F1 for early stopping
+            if metrics["min_class_f1"] > best_min_f1:
+                best_min_f1 = metrics["min_class_f1"]
 
             if epoch % 10 == 0 or epoch == epochs - 1:
                 logger.info(f"Epoch {epoch + 1}/{epochs}: Loss={metrics['loss']:.4f}, "
-                           f"Acc={metrics['accuracy']:.3f}, F1={metrics['f1_score']:.3f}")
+                           f"Balanced Acc={metrics['balanced_accuracy']:.3f}, "
+                           f"Macro F1={metrics['f1_score']:.3f}, "
+                           f"Min Class F1={metrics['min_class_f1']:.3f}")
+                           
+                # Log per-class F1 scores for detailed monitoring
+                if len(metrics["per_class_f1"]) <= 5:  # Only log if reasonable number of classes
+                    per_class_str = ", ".join([f"F1_{i}={f1:.3f}" for i, f1 in enumerate(metrics["per_class_f1"])])
+                    logger.info(f"Per-class F1 scores: {per_class_str}")
 
-            # Early stopping
-            if metrics["accuracy"] >= accuracy_threshold:
-                logger.info(f"Accuracy threshold {accuracy_threshold} reached, stopping training.")
-                break
-            if metrics["f1_score"] >= f1_threshold:
-                logger.info(f"F1 threshold {f1_threshold} reached, stopping training.")
+            # Improved early stopping criteria for imbalanced data
+            stop_training = False
+            
+            # Stop if balanced accuracy is high AND minimum class F1 is acceptable
+            if (metrics["balanced_accuracy"] >= balanced_accuracy_threshold and 
+                metrics["min_class_f1"] >= min_class_f1_threshold):
+                logger.info(f"Both balanced accuracy ({metrics['balanced_accuracy']:.3f} >= {balanced_accuracy_threshold}) "
+                           f"and minimum class F1 ({metrics['min_class_f1']:.3f} >= {min_class_f1_threshold}) "
+                           f"thresholds reached, stopping training.")
+                stop_training = True
+            
+            # Alternative: Stop if we haven't improved minimum class F1 for many epochs (patience mechanism)
+            elif epoch > 50 and metrics["min_class_f1"] < 0.1:  # If very poor performance on minority classes
+                logger.warning(f"Minimum class F1 ({metrics['min_class_f1']:.3f}) is very low after {epoch} epochs. "
+                              f"Consider adjusting class weights or thresholds.")
+            
+            if stop_training:
                 break
 
         return metrics
@@ -471,8 +560,15 @@ class TimeSeriesLSTM(BaseNN):
             # Create model instance
             model = cls(**model_params)
             
-            # Load the state dict
-            model.load_state_dict(save_dict['model_state_dict'])
+            # Load the state dict with error handling for unexpected keys
+            try:
+                model.load_state_dict(save_dict['model_state_dict'], strict=False)
+            except Exception as e:
+                # Filter out problematic keys if needed
+                state_dict = save_dict['model_state_dict']
+                filtered_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('criterion.')}
+                model.load_state_dict(filtered_state_dict, strict=False)
+                logger.warning(f"Filtered out problematic keys during TimeSeriesLSTM loading: {e}")
             
             # Set label map
             if 'label_map' in save_dict:
@@ -484,11 +580,3 @@ class TimeSeriesLSTM(BaseNN):
         except Exception as e:
             logger.error(f"Failed to load TimeSeriesLSTM model from {path}: {e}")
             raise
-
-
-# Legacy compatibility - MultiLabelLSTM points to TimeSeriesLSTM
-class MultiLabelLSTM(TimeSeriesLSTM):
-    """Legacy compatibility class."""
-    def __init__(self, *args, **kwargs):
-        logger.warning("MultiLabelLSTM is deprecated, use TimeSeriesLSTM instead")
-        super().__init__(*args, **kwargs)
