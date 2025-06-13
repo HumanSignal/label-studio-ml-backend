@@ -1,5 +1,7 @@
 # Time Series Segmenter for Label Studio
 
+https://github.com/user-attachments/assets/9f6a7ebb-bf3e-42d5-bde9-087719494f2d
+
 This example demonstrates a minimal ML backend that performs time series segmentation.
 It trains a small LSTM neural network on labeled CSV data and predicts segments
 for new tasks. The backend expects the labeling configuration to use
