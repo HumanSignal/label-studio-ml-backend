@@ -45,6 +45,8 @@ services:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix
     ports:
       - 9090:9090
     volumes:
