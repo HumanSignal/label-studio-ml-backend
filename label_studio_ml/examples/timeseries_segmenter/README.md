@@ -45,7 +45,7 @@ The backend reads the time column and channels to build feature vectors. Each
 CSV referenced by `csv_url` must contain the time column and the channel
 columns.
 
-You can use [the following data](https://raw.githubusercontent.com/HumanSignal/label-studio-ml-backend/refs/heads/master/label_studio_ml/examples/timeseries_segmenter/tests/test_from_video_tutorial.csv) for tests with this labeling configuration
+You can use [the following data](https://raw.githubusercontent.com/HumanSignal/label-studio-ml-backend/refs/heads/master/label_studio_ml/examples/timeseries_segmenter/tests/test_from_video_tutorial.csv) for tests with this labeling configuration.
 
 ## Annotation Types
 
