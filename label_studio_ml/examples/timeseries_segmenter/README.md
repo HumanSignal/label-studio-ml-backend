@@ -35,9 +35,8 @@ Use a configuration similar to the following:
     <Label value="Run"/>
     <Label value="Walk"/>
   </TimeSeriesLabels>
-  <TimeSeries name="ts" valueType="url" value="$csv_url" timeColumn="time">
-    <Channel column="sensorone" />
-    <Channel column="sensortwo" />
+  <TimeSeries name="ts" valueType="url" value="$csv_url">
+    <Channel column="value" />
   </TimeSeries>
 </View>
 ```
