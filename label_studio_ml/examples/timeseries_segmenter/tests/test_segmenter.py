@@ -761,7 +761,12 @@ class TestTimeSeriesSegmenter:
         logger.info("Testing model loading for different projects")
         
         # Clear the model cache
-        from label_studio_ml.examples.timeseries_segmenter.model import _models
+        try:
+            # Try absolute import first (works in some environments)
+            from label_studio_ml.examples.timeseries_segmenter.model import _models
+        except ImportError:
+            # Fall back to relative import (works in CI/Docker)
+            from model import _models
         _models.clear()
         
         # Load models from disk

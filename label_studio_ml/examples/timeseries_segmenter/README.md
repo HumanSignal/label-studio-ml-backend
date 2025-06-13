@@ -46,19 +46,19 @@ columns.
 
 ## Annotation Types
 
-The backend supports two types of time series annotations:
+The backend supports two types of the time series segmentation:
 
-### Range Annotations
+**Range Annotations**
+- **Use case**: Events that have duration (e.g., "Running from 10s to 30s")
 - **Created by**: Dragging across time series to select a time range
 - **Behavior**: `start` ≠ `end`, `instant` = `false`
-- **Use case**: Events that have duration (e.g., "Running from 10s to 30s")
 
-### Instant Annotations  
+**Instant Annotations**
+- **Use case**: Point events or moments in time (e.g., "Fall detected at 15s")
 - **Created by**: Double-clicking on a specific point in the time series
 - **Behavior**: `start` = `end`, `instant` = `true`
-- **Use case**: Point events or moments in time (e.g., "Fall detected at 15s")
 
-**Important**: Instant labels often create highly imbalanced datasets since they represent brief moments within long time series. The model's **balanced learning approach** is specifically designed to handle this challenge effectively.
+**Note**: Instant labels often create highly imbalanced datasets since they represent brief moments within long time series. The model's **balanced learning approach** is specifically designed to handle this challenge effectively.
 
 ## Training
 
