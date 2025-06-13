@@ -87,7 +87,12 @@ class TimeSeriesSegmenter(LabelStudioMLBase):
             return _models[project_id]
         
         # Try to load from disk
-        model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+        raw_model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+        model_path = os.path.normpath(raw_model_path)
+        
+        # Ensure the normalized path is within the intended directory
+        if not model_path.startswith(os.path.abspath(self.MODEL_DIR)):
+            raise ValueError(f"Invalid model path: {model_path}")
         
         if not blank and os.path.exists(model_path):
             logger.info(f"Loading saved model for project {project_id} from {model_path}")
