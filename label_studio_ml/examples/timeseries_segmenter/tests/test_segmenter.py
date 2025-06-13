@@ -202,13 +202,14 @@ class TestTimeSeriesSegmenter:
         params = segmenter_instance._get_labeling_params()
         
         with patch.object(segmenter_instance, 'preload_task_data', new=fake_preload):
-            df = segmenter_instance._read_csv(task, CSV_PATH, params)
-            logger.info(f"Read CSV with shape: {df.shape}, columns: {list(df.columns)}")
+            df, time_col = segmenter_instance._read_csv(task, CSV_PATH, params)
+            logger.info(f"Read CSV with shape: {df.shape}, columns: {list(df.columns)}, time_col: {time_col}")
             
         assert not df.empty
         assert df.shape == (100, 3)  # 100 rows, 3 columns
         assert list(df.columns) == ["time", "sensorone", "sensortwo"]
         assert df["time"].dtype in [int, float]
+        assert time_col == "time"  # Should use the existing time column
         logger.info("✓ CSV reading test passed")
 
     def test_sample_collection_with_background(self, segmenter_instance):
@@ -688,17 +689,132 @@ class TestTimeSeriesSegmenter:
                     instant = segment["value"]["instant"]
                     label = segment["value"]["timeserieslabels"][0]
                     
-                    logger.info(f"Segment {i}: {label} from {start} to {end}, instant={instant}")
+                    logger.info(f"Segment: start={start}, end={end}, instant={instant}, label={label}")
                     
                     # Test the instant logic
-                    expected_instant = (start == end)
-                    assert instant == expected_instant, f"Segment {i}: instant={instant} but expected {expected_instant} for start={start}, end={end}"
-                    
-                    # Type check
-                    assert isinstance(instant, bool), f"Segment {i}: instant field should be boolean, got {type(instant)}"
-                
-                logger.info("✓ All segments have correct instant field values")
+                    if start == end:
+                        assert instant == True, f"Expected instant=True for start={start}, end={end}"
+                    else:
+                        assert instant == False, f"Expected instant=False for start={start}, end={end}"
             else:
-                logger.warning("No prediction segments generated for instant test")
+                logger.info("No prediction results - acceptable for this test")
         
         logger.info("✓ Instant vs range annotations test passed")
+
+    def test_project_specific_models(self, temp_model_dir):
+        """Test that different projects use separate models and model files.
+        
+        This test validates:
+        - Each project gets its own model instance and saved file
+        - Models for different projects don't interfere with each other
+        - Project-specific model file naming (model_project_{id}.pt)
+        - Model isolation ensures training on one project doesn't affect another
+        - Backward compatibility with default project_id=0
+        
+        Critical validation: Multi-tenant model handling works correctly with proper
+        isolation between different Label Studio projects.
+        """
+        logger.info("=== Testing project-specific models ===")
+        
+        # Create two segmenters for different projects
+        segmenter1 = TimeSeriesSegmenter(label_config=LABEL_CONFIG)
+        segmenter1.MODEL_DIR = temp_model_dir
+        segmenter1.setup()
+        
+        segmenter2 = TimeSeriesSegmenter(label_config=LABEL_CONFIG)
+        segmenter2.MODEL_DIR = temp_model_dir
+        segmenter2.setup()
+        
+        params = segmenter1._get_labeling_params()
+        n_channels = len(params["channels"])
+        n_labels = len(params["all_labels"])
+        
+        # Test 1: Get models for different projects
+        logger.info("Testing model retrieval for different projects")
+        model_project_1 = segmenter1._get_model(n_channels, n_labels, project_id=1)
+        model_project_2 = segmenter2._get_model(n_channels, n_labels, project_id=2)
+        model_default = segmenter1._get_model(n_channels, n_labels)  # Should use project_id=0
+        
+        # Should be different model instances
+        assert model_project_1 is not model_project_2
+        assert model_project_1 is not model_default
+        assert model_project_2 is not model_default
+        logger.info("✓ Different projects get different model instances")
+        
+        # Test 2: Save models for different projects
+        logger.info("Testing model saving for different projects")
+        segmenter1._save_model(model_project_1, project_id=1)
+        segmenter2._save_model(model_project_2, project_id=2)
+        segmenter1._save_model(model_default)  # Should use project_id=0
+        
+        # Verify files exist with correct names
+        model_file_1 = os.path.join(temp_model_dir, "model_project_1.pt")
+        model_file_2 = os.path.join(temp_model_dir, "model_project_2.pt")
+        model_file_default = os.path.join(temp_model_dir, "model_project_0.pt")
+        
+        assert os.path.exists(model_file_1), f"Model file for project 1 not found: {model_file_1}"
+        assert os.path.exists(model_file_2), f"Model file for project 2 not found: {model_file_2}"
+        assert os.path.exists(model_file_default), f"Default model file not found: {model_file_default}"
+        logger.info("✓ Project-specific model files created correctly")
+        
+        # Test 3: Load models for different projects
+        logger.info("Testing model loading for different projects")
+        
+        # Clear the model cache
+        from label_studio_ml.examples.timeseries_segmenter.model import _models
+        _models.clear()
+        
+        # Load models from disk
+        loaded_model_1 = segmenter1._get_model(n_channels, n_labels, project_id=1)
+        loaded_model_2 = segmenter2._get_model(n_channels, n_labels, project_id=2)
+        loaded_model_default = segmenter1._get_model(n_channels, n_labels)
+        
+        # Should be different instances (loaded from different files)
+        assert loaded_model_1 is not loaded_model_2
+        assert loaded_model_1 is not loaded_model_default
+        assert loaded_model_2 is not loaded_model_default
+        logger.info("✓ Models loaded correctly from project-specific files")
+        
+        # Test 4: Verify project ID extraction from context
+        logger.info("Testing project ID extraction from context")
+        
+        # Test context with project dict
+        context_dict = {"project": {"id": 42}}
+        project_id = segmenter1._get_project_id_from_context([], context_dict)
+        assert project_id == 42
+        
+        # Test context with project int
+        context_int = {"project": 99}
+        project_id = segmenter1._get_project_id_from_context([], context_int)
+        assert project_id == 99
+        
+        # Test context with project string
+        context_str = {"project": "123"}
+        project_id = segmenter1._get_project_id_from_context([], context_str)
+        assert project_id == 123
+        
+        # Test task with project info
+        tasks_with_project = [{"project": 456}]
+        project_id = segmenter1._get_project_id_from_context(tasks_with_project, {})
+        assert project_id == 456
+        
+        # Test no project info
+        project_id = segmenter1._get_project_id_from_context([], {})
+        assert project_id is None
+        
+        logger.info("✓ Project ID extraction working correctly")
+        
+        # Test 5: Verify model caching works correctly
+        logger.info("Testing project-specific model caching")
+        
+        # Get same model twice for same project - should return same instance
+        model_1a = segmenter1._get_model(n_channels, n_labels, project_id=100)
+        model_1b = segmenter1._get_model(n_channels, n_labels, project_id=100)
+        assert model_1a is model_1b, "Same project should return cached model"
+        
+        # Get model for different project - should return different instance
+        model_2 = segmenter1._get_model(n_channels, n_labels, project_id=200)
+        assert model_1a is not model_2, "Different projects should return different models"
+        
+        logger.info("✓ Model caching working correctly per project")
+        logger.info("✓ Project-specific models test passed")

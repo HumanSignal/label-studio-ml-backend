@@ -166,6 +166,56 @@ The model provides several quality indicators:
 
 This approach ensures that predictions focus on actual events rather than forcing labels on every timestep.
 
+## Project-Specific Models
+
+The backend automatically handles multiple Label Studio projects by maintaining separate trained models for each project. This ensures proper isolation and prevents cross-project interference.
+
+### How Project Isolation Works
+
+**Model Storage:**
+- Each project gets its own model file: `model_project_{project_id}.pt`
+- Example: Project 47 → `model_project_47.pt`, Project 123 → `model_project_123.pt`
+- Default fallback for backward compatibility: `model_project_0.pt`
+
+**Model Training:**
+- Training events automatically identify the source project ID
+- Models are trained and saved with project-specific names
+- Each project's model only learns from that project's annotations
+
+**Model Prediction:**
+- The backend automatically detects which project's model to use
+- Project ID is extracted from task context or prediction request
+- Falls back to default model (project_id=0) if no project information is available
+
+### Multi-Tenant Benefits
+
+This architecture provides several key advantages:
+
+**Data Isolation:**
+- Project A's sensitive medical data never trains Project B's financial model
+- Each project can have completely different labeling configurations
+- Models can't accidentally predict wrong label types from other projects
+
+**Performance Independence:**
+- Training on one project doesn't affect prediction quality for other projects
+- Each project's model optimizes specifically for that project's data characteristics
+- Poor annotations in one project won't degrade other projects' models
+
+**Scalability:**
+- Backend can serve multiple Label Studio projects simultaneously
+- Memory management keeps frequently used models cached
+- Inactive project models are loaded on-demand
+
+### Configuration
+
+No additional configuration is required - project isolation works automatically. The backend determines project context from:
+
+1. **Training**: Project ID from annotation webhook events
+2. **Prediction**: Project ID from task context or request metadata
+3. **Fallback**: Uses default project_id=0 for backward compatibility
+
+This seamless multi-tenant support makes the backend suitable for enterprise Label Studio deployments where multiple teams or clients need isolated ML models.
+
 ## How it works
 
 ### Training Pipeline
@@ -213,6 +263,7 @@ flowchart TD
 - **Smart Early Stopping**: Dual criteria (balanced accuracy + minimum per-class F1) prevent premature stopping
 - **Ground Truth Priority**: Ensures highest quality annotations are used for training
 - **Overlap Averaging**: Smoother predictions through overlapping window consensus
+- **Project-Specific Models**: Each Label Studio project gets its own trained model for proper multi-tenant isolation
 
 ## Customize
 

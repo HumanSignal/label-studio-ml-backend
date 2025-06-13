@@ -433,8 +433,6 @@ def analyze_class_distribution(self, labels):
     max_percentage = max(info["percentage"] for info in class_info.values())
     if max_percentage > 80:
         logger.warning(f"Severe class imbalance detected: {max_percentage:.1f}% majority class")
-        Right now we need to design architecture and write all points about it down. Your thoughts?
-
 
     return class_info
 ```
@@ -604,6 +602,313 @@ def test_extreme_imbalance_handling(self):
     assert metrics["min_class_f1"] > 0.3, "Even with extreme imbalance, minority classes should learn"
     assert metrics["balanced_accuracy"] > 0.5, "Balanced accuracy should exceed random chance"
 ```
+
+## 3.9. Project-Specific Model Isolation for Multi-Tenancy
+
+Enterprise Label Studio deployments often serve multiple projects simultaneously, each requiring isolated models to prevent cross-project interference. Implementing proper project isolation ensures data security, performance independence, and scalability.
+
+### Why Project Isolation Matters
+
+**Data Security and Privacy:**
+- Project A's sensitive medical data never trains Project B's financial model
+- Each project can have completely different labeling configurations  
+- Models can't accidentally predict wrong label types from other projects
+- Compliance with data governance and privacy requirements
+
+**Performance Independence:**
+- Training on one project doesn't affect prediction quality for other projects
+- Each project's model optimizes specifically for that project's data characteristics
+- Poor annotations in one project won't degrade other projects' models
+- Independent model performance metrics and monitoring
+
+**Enterprise Scalability:**
+- Memory management keeps frequently used models cached
+- Inactive project models are loaded on-demand
+- Horizontal scaling across different project workloads
+
+### Implementation Architecture
+
+**Project-Aware Model Storage:**
+```python
+# Global model cache - project-specific
+_models: Dict[int, ModelType] = {}
+
+def _get_model(self, n_channels: int, n_labels: int, project_id: Optional[int] = None, blank: bool = False) -> ModelType:
+    """Get or create model for specific project."""
+    global _models
+    
+    # Use default project_id if not provided (backward compatibility)
+    if project_id is None:
+        project_id = 0
+        logger.warning("No project_id provided, using default project_id=0")
+    
+    # Check memory cache first
+    if project_id in _models and not blank:
+        logger.info(f"Using existing model for project {project_id} from memory")
+        return _models[project_id]
+    
+    # Try loading from project-specific file
+    model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+    
+    if not blank and os.path.exists(model_path):
+        logger.info(f"Loading saved model for project {project_id} from {model_path}")
+        try:
+            model = ModelType.load_model(model_path)
+            _models[project_id] = model
+            return model
+        except Exception as e:
+            logger.warning(f"Failed to load model from {model_path}: {e}. Creating new model.")
+            # Clean up corrupted file
+            os.remove(model_path)
+    
+    # Create new model for this project
+    logger.info(f"Creating new model for project {project_id}")
+    model = self._build_model(n_channels, n_labels)
+    _models[project_id] = model
+    
+    return model
+```
+
+**Project-Specific File Management:**
+```python
+def _save_model(self, model: ModelType, project_id: Optional[int] = None) -> None:
+    """Save model with project-specific naming."""
+    if project_id is None:
+        project_id = 0
+        logger.warning("No project_id provided for model save, using default project_id=0")
+        
+    logger.info(f"Saving model for project {project_id} to {self.MODEL_DIR}")
+    os.makedirs(self.MODEL_DIR, exist_ok=True)
+    
+    # Project-specific file naming
+    model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+    model.save(model_path)
+    logger.info(f"Model for project {project_id} saved successfully to {model_path}")
+
+def _clear_project_cache(self, project_id: int) -> None:
+    """Clear specific project from memory cache."""
+    global _models
+    if project_id in _models:
+        del _models[project_id]
+        logger.info(f"Model cache cleared for project {project_id}")
+```
+
+### Project ID Detection and Context Handling
+
+**Automatic Project ID Extraction:**
+```python
+def _get_project_id_from_context(self, tasks: List[Dict], context: Optional[Dict] = None) -> Optional[int]:
+    """Extract project ID from tasks or context for model selection."""
+    # Try context first - most reliable source
+    if context and "project" in context:
+        if isinstance(context["project"], dict) and "id" in context["project"]:
+            project_id = context["project"]["id"]
+            logger.debug(f"Found project_id {project_id} from context dict")
+            return project_id
+        elif isinstance(context["project"], (int, str)):
+            project_id = int(context["project"])
+            logger.debug(f"Found project_id {project_id} from context value")
+            return project_id
+    
+    # Fall back to task metadata
+    for task in tasks:
+        if "project" in task:
+            project_id = int(task["project"])
+            logger.debug(f"Found project_id {project_id} from task")
+            return project_id
+    
+    logger.debug("No project_id found in tasks or context")
+    return None
+```
+
+**Training with Project Awareness:**
+```python
+def fit(self, event, data, **kwargs):
+    """Train model with project isolation."""
+    logger.info(f"Training event received: {event}")
+    
+    # Extract project ID from training event
+    project_id = data["annotation"]["project"]
+    logger.info(f"Training triggered for project {project_id}")
+    
+    # Get project-specific model
+    model = self._get_model(
+        n_channels=len(params["channels"]), 
+        n_labels=len(params["all_labels"]), 
+        project_id=project_id, 
+        blank=True  # Create fresh model for training
+    )
+    
+    # Train model with project-specific data
+    metrics = model.partial_fit(X, y, epochs=self.TRAIN_EPOCHS)
+    
+    # Save with project-specific naming
+    self._save_model(model, project_id=project_id)
+    
+    # Clear cache to force reload
+    self._clear_project_cache(project_id)
+    
+    return metrics
+```
+
+**Prediction with Project Awareness:**
+```python
+def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
+    """Predict using project-specific model."""
+    logger.info(f"Starting prediction for {len(tasks)} tasks")
+    
+    # Determine which project's model to use
+    project_id = self._get_project_id_from_context(tasks, context)
+    if project_id is not None:
+        logger.info(f"Using model for project {project_id}")
+    else:
+        logger.info("No project_id found, using default model")
+    
+    # Load project-specific model
+    params = self._get_labeling_params()
+    model = self._get_model(
+        n_channels=len(params["channels"]), 
+        n_labels=len(params["all_labels"]), 
+        project_id=project_id
+    )
+    
+    # Generate predictions with project-specific model
+    predictions = []
+    for task in tasks:
+        pred = self._predict_task(task, model, params)
+        predictions.append(pred)
+        
+    return ModelResponse(predictions=predictions, model_version=self.get("model_version"))
+```
+
+### Memory Management and Performance
+
+**Efficient Caching Strategy:**
+```python
+# Cache frequently used models in memory
+MAX_CACHED_MODELS = int(os.getenv("MAX_CACHED_MODELS", 5))
+
+def _manage_model_cache(self, project_id: int, model: ModelType) -> None:
+    """Manage memory cache with LRU eviction."""
+    global _models
+    
+    # Add to cache
+    _models[project_id] = model
+    
+    # Implement simple LRU eviction if cache is full
+    if len(_models) > MAX_CACHED_MODELS:
+        # Remove oldest model (simple FIFO for now)
+        oldest_project = next(iter(_models))
+        del _models[oldest_project]
+        logger.info(f"Evicted model for project {oldest_project} from cache")
+```
+
+**Resource Monitoring:**
+```python
+def log_model_cache_status(self):
+    """Log current model cache status for monitoring."""
+    global _models
+    cached_projects = list(_models.keys())
+    logger.info(f"Model cache status: {len(cached_projects)} projects cached: {cached_projects}")
+```
+
+
+### Configuration and Environment Variables
+
+**Project Isolation Settings:**
+```python
+# Environment variables for project isolation
+MAX_CACHED_MODELS = int(os.getenv("MAX_CACHED_MODELS", 5))
+ENABLE_PROJECT_ISOLATION = os.getenv("ENABLE_PROJECT_ISOLATION", "true").lower() == "true"
+DEFAULT_PROJECT_ID = int(os.getenv("DEFAULT_PROJECT_ID", 0))
+
+def setup(self):
+    """Setup with project isolation configuration."""
+    logger.info(f"Project isolation: enabled={self.ENABLE_PROJECT_ISOLATION}, "
+               f"max_cached_models={self.MAX_CACHED_MODELS}, "
+               f"default_project_id={self.DEFAULT_PROJECT_ID}")
+```
+
+### Testing Project Isolation
+
+**Comprehensive Project Isolation Tests:**
+```python
+def test_project_specific_models(self):
+    """Test that different projects use separate models and model files."""
+    # Create models for different projects
+    model_project_1 = segmenter._get_model(n_channels=2, n_labels=3, project_id=1)
+    model_project_2 = segmenter._get_model(n_channels=2, n_labels=3, project_id=2)
+    model_default = segmenter._get_model(n_channels=2, n_labels=3)  # project_id=0
+    
+    # Verify different instances
+    assert model_project_1 is not model_project_2
+    assert model_project_1 is not model_default
+    assert model_project_2 is not model_default
+    
+    # Test project-specific file naming
+    segmenter._save_model(model_project_1, project_id=1)
+    segmenter._save_model(model_project_2, project_id=2)
+    
+    assert os.path.exists(os.path.join(temp_dir, "model_project_1.pt"))
+    assert os.path.exists(os.path.join(temp_dir, "model_project_2.pt"))
+    
+    # Test project ID extraction from context
+    context_dict = {"project": {"id": 42}}
+    project_id = segmenter._get_project_id_from_context([], context_dict)
+    assert project_id == 42
+    
+    context_int = {"project": 99}
+    project_id = segmenter._get_project_id_from_context([], context_int)
+    assert project_id == 99
+
+def test_project_isolation_prevents_cross_contamination(self):
+    """Test that training one project doesn't affect another."""
+    # Train model for project 1
+    task_p1 = create_task_with_project(project_id=1, labels=["ClassA", "ClassB"])
+    segmenter.fit("START_TRAINING", {"annotation": {"project": 1}}, tasks=[task_p1])
+    
+    # Train different model for project 2
+    task_p2 = create_task_with_project(project_id=2, labels=["ClassX", "ClassY"])
+    segmenter.fit("START_TRAINING", {"annotation": {"project": 2}}, tasks=[task_p2])
+    
+    # Verify predictions use correct project models
+    pred_p1 = segmenter.predict([task_p1], context={"project": 1})
+    pred_p2 = segmenter.predict([task_p2], context={"project": 2})
+    
+    # Models should predict different label sets
+    assert_different_label_predictions(pred_p1, pred_p2)
+```
+
+### Production Deployment Considerations
+
+**Docker Configuration:**
+```yaml
+# docker-compose.yml for multi-tenant deployment
+services:
+  ml-backend:
+    environment:
+      - MAX_CACHED_MODELS=10  # Adjust based on memory
+      - ENABLE_PROJECT_ISOLATION=true
+      - MODEL_DIR=/app/models
+    volumes:
+      - ./models:/app/models  # Persistent model storage
+```
+
+**Monitoring and Alerting:**
+```python
+def health_check_with_project_info(self):
+    """Health check endpoint with project isolation status."""
+    global _models
+    return {
+        "status": "healthy",
+        "project_isolation_enabled": self.ENABLE_PROJECT_ISOLATION,
+        "cached_projects": list(_models.keys()),
+        "max_cache_size": self.MAX_CACHED_MODELS,
+        "cache_utilization": len(_models) / self.MAX_CACHED_MODELS
+    }
+```
+
+This project isolation pattern ensures enterprise-grade multi-tenancy while maintaining backward compatibility and providing the scalability needed for production Label Studio deployments serving multiple teams or clients.
 
 ## 4. Testing
 
@@ -892,6 +1197,7 @@ def test_model_training_workflow(self):
 - **`label_studio_ml/examples/yolo/`** - Well-structured computer vision backend with good Docker integration
 - **`label_studio_ml/examples/timeseries_segmenter/`** - Comprehensive ML backend demonstrating:
   - Advanced imbalanced data handling with class weights and balanced metrics
+  - Project-specific model isolation for multi-tenant deployments
   - Proper PyTorch model serialization and loading
   - ML-specific testing patterns with comprehensive test suite
   - Annotation semantics handling (instant vs range annotations)
@@ -903,6 +1209,8 @@ def test_model_training_workflow(self):
 **For Computer Vision backends**: Use `yolo/` as a reference for image processing, object detection patterns, and Docker best practices.
 
 **For ML backends with imbalanced data**: Use `timeseries_segmenter/` as a reference for balanced learning approaches, advanced training patterns, and comprehensive testing.
+
+**For enterprise/multi-tenant deployments**: Use `timeseries_segmenter/` as a reference for project-specific model isolation, ensuring proper data security and performance independence across multiple Label Studio projects.
 
 **For any ML backend**: Both examples demonstrate solid project structure, error handling, and documentation practices.
 
