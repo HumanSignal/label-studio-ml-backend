@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  doclayout-yolo: # Changed service name
+    container_name: doclayout-yolo-ml-backend # Changed container name
+    # Build from the Dockerfile in the current directory
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV} # Pass build-time args if needed
+    # Define image name (optional but good practice)
+    image: my-doclayout-yolo-backend:latest
+    environment:
+      # --- Basic Auth (Optional) ---
+      # BASIC_AUTH_USER: <your_user>
+      # BASIC_AUTH_PASS: <your_password>
+
+      # --- Logging ---
+      - LOG_LEVEL=INFO # Or DEBUG
+
+      # --- Label Studio Connection (Required if accessing LS data) ---
+      # Use host.docker.internal for LS running on the host, or the actual IP/hostname
+      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_API_KEY=f8853c950962bb6b7774436b575d85c9a85388b6 # !! Replace with your API key !!
+
+      # --- DocLayout-YOLO Model Configuration ---
+      # Specify the directory inside the container where models are stored
+      - MODEL_ROOT=/app/models
+      # Specify the default model name to load (relative to MODEL_ROOT)
+      # This can be overridden by model_path attribute in the labeling config
+      - MODEL_NAME=doclayout_yolo_docstructbench_imgsz1024.pt # !! Adjust to your downloaded model !!
+      # Allow specifying `model_path` in the labeling config?
+      - ALLOW_CUSTOM_MODEL_PATH=true
+      # Default confidence threshold (can be overridden by model_score_threshold in config)
+      - MODEL_SCORE_THRESHOLD=0.2 # Adjust default threshold as needed
+      # Default image size (can be overridden by model_imgsz in config)
+      - DEFAULT_IMGSZ=1024
+      # Show matplotlib debug plot (requires matplotlib installed, might need adjustments in Dockerfile)
+      - DEBUG_PLOT=false
+
+      # --- Server Configuration ---
+      - WORKERS=1 # Adjust based on your server resources
+      - THREADS=4 # Adjust based on your server resources
+      - PYTHONPATH=/app # Ensure Python can find the modules
+
+    ports:
+      - "9090:9090" # Map container port 9090 to host port 9090
+    volumes:
+      # Mount local ./models directory (where you downloaded models) to /app/models in the container
+      - "./models:/app/models:ro" # Mount read-only is safer if models aren't modified
+      # Mount a cache directory (optional but recommended for joblib/hf cache)
+      - "./cache_dir:/app/cache_dir"
+      # Mount local data directory (if needed for testing or accessing local files directly)
+      # - "./data:/data"
