@@ -122,7 +122,8 @@ class BertClassifier(LabelStudioMLBase):
         if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
             logger.info(f"Skip training: event {event} is not supported")
             return
-        project_id = data['annotation']['project']
+        logger.debug(f"Project details payload for training: {data}")
+        project_id = data['project']['id']
 
         # dowload annotated tasks from Label Studio
         ls = label_studio_sdk.Client(self.LABEL_STUDIO_HOST, self.LABEL_STUDIO_API_KEY)
