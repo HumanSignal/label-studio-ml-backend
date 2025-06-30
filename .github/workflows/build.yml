@@ -21,7 +21,7 @@ jobs:
     if: needs.calculate_matrix.outputs.matrix-include != '[]'
     needs: calculate_matrix
     runs-on: ${{ matrix.runs_on || 'ubuntu-latest' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -82,11 +82,11 @@ jobs:
           echo "image_branch_version=$image_branch_version" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v3.11.1
 
       - name: Login to DockerHub
         if: ${{ !github.event.pull_request.head.repo.fork }}
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3.4.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -111,8 +111,12 @@ jobs:
             core.setOutput("tags", tags);
 
       - name: Push Docker image
-        uses: docker/build-push-action@v6.13.0
+        uses: docker/build-push-action@v6.18.0
         id: docker_build_and_push
+        env:
+          DOCKER_BUILD_CHECKS_ANNOTATIONS: "false"
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
           push: ${{ steps.actor-membership.outputs.active }}

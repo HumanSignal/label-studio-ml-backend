@@ -11,3 +11,5 @@ timm==0.4.12
 segment_anything @ git+https://github.com/facebookresearch/segment-anything.git
 mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git
+
+numpy<2

@@ -1,3 +1,6 @@
-ultralytics~=8.3.58
+ultralytics~=8.3.120
 tqdm
-torchmetrics~=1.4.2
+torchmetrics<1.8.0
+numpy<2
+lap==0.5.12
+

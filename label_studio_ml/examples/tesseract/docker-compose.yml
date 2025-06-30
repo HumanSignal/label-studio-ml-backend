@@ -29,6 +29,8 @@ services:
       - AWS_ACCESS_KEY_ID=your-MINIO_ROOT_USER
       - AWS_SECRET_ACCESS_KEY=your-MINIO_ROOT_PASSWORD
       - AWS_ENDPOINT=http://host.docker.internal:9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix
 
   minio:
     container_name: minio

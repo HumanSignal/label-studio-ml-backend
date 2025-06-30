@@ -21,10 +21,12 @@ docker-compose up
 
 Replace `{MODEL_NAME}` with the name of the model you want to use (see below). 
 
-**Allow the ML backend to access Label Studio data**
+## Allow the ML backend to access Label Studio data
 
 In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` environment variables to allow the ML backend access to the media data in Label Studio.
 [Read more in the documentation](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data).
+
+**Warning:** Currently, ML backends support only Legacy Tokens and do not support Personal Tokens. You will encounter an `Unauthorized Error` if you use Personal Tokens.
 
 # Models
 
@@ -60,6 +62,7 @@ Check the **Required parameters** column to see if you need to set any additiona
 | [sklearn_text_classifier](/label_studio_ml/examples/sklearn_text_classifier)               | Text classification with [scikit-learn](https://scikit-learn.org/stable/)                                                                            | ✅              | ❌                | ✅        | None                        | Arbitrary | 
 | [spacy](/label_studio_ml/examples/spacy)                                                   | NER by [SpaCy](https://spacy.io/)                                                                                                                    | ✅              | ❌                | ❌        | None                       | Set      [(see documentation)](https://spacy.io/usage/linguistic-features) |
 | [tesseract](/label_studio_ml/examples/tesseract)                                           | Interactive OCR. [Details](https://github.com/tesseract-ocr/tesseract)                                                                               | ❌              | ✅                | ❌        | None                       | Set (characters)                                                           | 
+| [timeseries_segmenter](/label_studio_ml/examples/timeseries_segmenter)             | Time series segmentation using a small LSTM network | ✅              | ✅                | ✅        | None   | Set |
 | [watsonX](/label_studio_ml/exampels/watsonx)| LLM inference with [WatsonX](https://www.ibm.com/products/watsonx-ai) and integration with [WatsonX.data](watsonx.data)| ✅ | ✅| ❌ | None| Arbitrary|
 | [yolo](/label_studio_ml/examples/yolo)                                                     | All YOLO tasks are supported: [YOLO](https://docs.ultralytics.com/tasks/) | ✅ | ❌ | ❌ | None | Arbitrary |
 

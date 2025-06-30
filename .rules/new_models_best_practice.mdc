@@ -1,0 +1,1217 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Best Practices for Creating Label Studio ML Backends
+
+This document outlines guidelines for building new ML backend examples in the `label-studio-ml-backend` repository. Follow these steps when creating a new model under `label_studio_ml/examples/<model>`.
+
+## 1. Folder Layout
+
+Each example should contain the following files:
+
+- **README.md** – overview of the model, instructions for running the backend, and description of the labeling configuration. Include quick-start commands and environment variables.
+- **model.py** – implementation of `LabelStudioMLBase` with `predict()` and `fit()` methods. Keep functions short and well commented. Reuse helper methods when possible.
+- **_wsgi.py** – minimal entry point exposing the `app` for gunicorn. Import the model and define `app` via `make_wsgi_app()`.
+- **Dockerfile** – builds an image with only the dependencies required to run the model. Install packages from `requirements.txt`.
+- **docker-compose.yml** – example service definition for running the backend locally. Expose `9090` by default.
+- **requirements.txt** – pinned dependencies for the model. Optional files `requirements-base.txt` and `requirements-test.txt` may list shared and test deps.
+- **tests/** – pytest suite. Provide at least one test that runs `fit()` on labeled tasks and verifies `predict()` returns expected results. Use small fixtures under `tests/` to avoid relying on network access.
+
+## 2. Implementation Tips
+
+- Use environment variables like `LABEL_STUDIO_HOST`, `LABEL_STUDIO_API_KEY`, and `MODEL_DIR` to make the backend configurable.
+- Parse the labeling configuration with `self.label_interface` to get tag names, label values and data fields. This ensures the backend works with custom configs.
+- Save trained artifacts inside `MODEL_DIR`. Use a stable file name such as `model.pkl` or `model.keras`.
+- When training, gather all labeled tasks via the Label Studio SDK and convert each annotation to training samples. Keep network requests minimal and log useful information.
+- When predicting, load data referenced in the task (e.g., download the CSV) and return results in Label Studio JSON format.
+- Handle missing data gracefully and skip tasks without required inputs.
+- Keep the code style consistent with `black` and `flake8` where applicable.
+
+## 3. Documentation
+
+- Reference the main repository README to help users understand how to install and run the ML backend.
+- Include labeling configuration examples in the example README so users can quickly reproduce training and inference.
+- Provide troubleshooting tips or links to Label Studio documentation such as [Writing your own ML backend](mdc:https:/labelstud.io/guide/ml_create).
+
+## 3.1. Security Best Practices
+
+When implementing ML backends, follow these security guidelines:
+
+- **Model Serialization**: Use secure serialization methods (e.g., PyTorch `state_dict` with `weights_only=True` for PyTorch 2.6+)
+- **Input Validation**: Validate all user inputs, file formats, and data types before processing
+- **Environment Variables**: Never hardcode sensitive information like API keys; use environment variables
+- **File Access**: Restrict file system access to designated directories (`MODEL_DIR`, temp directories)
+- **Dependencies**: Pin dependency versions and regularly update for security patches
+
+Example secure model loading:
+```python
+# Secure PyTorch model loading (PyTorch 2.6+)
+try:
+    state_dict = torch.load(model_path, weights_only=True)
+    model.load_state_dict(state_dict)
+except Exception as e:
+    logger.error(f"Failed to load model securely: {e}")
+    # Fallback or error handling
+```
+
+## 3.2. Error Handling and Logging
+
+Implement comprehensive error handling and logging:
+
+- **Structured Logging**: Use consistent log levels and structured messages
+- **Graceful Degradation**: Handle missing data, corrupted files, and network issues
+- **User-Friendly Errors**: Return meaningful error messages to Label Studio
+- **Debug Information**: Log sufficient detail for troubleshooting without exposing sensitive data
+
+Example logging pattern:
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+def predict(self, tasks):
+    logger.info(f"Starting prediction for {len(tasks)} tasks")
+    try:
+        # Prediction logic
+        logger.debug(f"Processed task {task_id} successfully")
+    except Exception as e:
+        logger.error(f"Prediction failed for task {task_id}: {e}")
+        return {}  # Return empty result gracefully
+```
+
+## 3.3. Performance and Scalability
+
+Consider performance implications for production deployment:
+
+- **Memory Management**: Use generators for large datasets, clear unused variables, handle memory leaks
+- **Batch Processing**: Process multiple tasks together when possible to improve throughput
+- **Model Loading**: Cache models in memory to avoid repeated loading from disk
+- **Resource Monitoring**: Log memory and CPU usage for monitoring and optimization
+- **Async Operations**: Use async/await for I/O operations when appropriate
+
+Example efficient model caching:
+```python
+_model_cache = {}
+
+def get_model(self, model_path):
+    if model_path not in _model_cache:
+        logger.info(f"Loading model from {model_path}")
+        _model_cache[model_path] = self._load_model(model_path)
+    return _model_cache[model_path]
+```
+
+## 3.4. Model Versioning and Compatibility
+
+Implement proper model versioning for production systems:
+
+- **Version Tracking**: Include model version in predictions and logs
+- **Rollback Support**: Maintain ability to revert to previous model versions
+
+Example versioning pattern:
+```python
+def setup(self):
+    self.set("model_version", f"{self.__class__.__name__}-v1.2.3")
+    
+def predict(self, tasks):
+    return ModelResponse(
+        predictions=predictions,
+        model_version=self.get("model_version")
+    )
+```
+
+## 3.5. CI/CD Integration
+
+Design backends for automated testing and deployment:
+
+- **Containerization**: Ensure Docker containers build consistently across environments
+- **Test Automation**: Include comprehensive test suites that run in CI pipelines
+- **Health Checks**: Implement `/health` endpoints for deployment monitoring
+- **Configuration Management**: Use environment variables for all configuration
+- **Dependency Management**: Pin all dependencies with specific versions
+
+Example health check endpoint:
+```python
+@app.route('/health')
+def health():
+    return {"status": "healthy", "model_loaded": _model is not None}
+```
+
+## 3.6. Data Handling Patterns
+
+Implement robust data processing for different scenarios:
+
+- **File Format Support**: Handle multiple data formats (CSV, JSON, images, audio) with proper validation
+- **Data Preprocessing**: Implement consistent preprocessing pipelines for training and prediction
+- **Type Safety**: Use proper type conversion and validation for different data types
+- **Streaming Data**: Support large files that don't fit in memory using streaming approaches
+- **Data Caching**: Cache preprocessed data when appropriate to improve performance
+- **LabelStudioMLBackend::preload_task_data(path, task)**: Download all URLs from a task and stores them locally. It uses get_local_path() `from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path` and requires LABEL_STUDIO_API_KEY and LABEL_STUDIO_URL to be able to download files through Label Studio instance.
+
+Example robust data loading:
+```python
+def _read_data(self, task, path):
+    """Load data with format detection and error handling."""
+    try:
+        if path.endswith('.csv'):
+            csv_str = self.preload_task_data(task, value=path)
+            return pd.read_csv(io.StringIO(csv_str))
+        elif path.endswith('.json'):
+            json_str = self.preload_task_data(task, value=path)
+            return json.loads(json_str)
+        else:
+            raise ValueError(f"Unsupported file format: {path}")
+    except Exception as e:
+        logger.error(f"Failed to load data from {path}: {e}")
+        return None
+```
+
+Common data validation pattern:
+```python
+def _validate_data(self, df, required_columns):
+    """Validate DataFrame has required structure."""
+    if df is None or df.empty:
+        return False
+    
+    missing_cols = set(required_columns) - set(df.columns)
+    if missing_cols:
+        logger.error(f"Missing required columns: {missing_cols}")
+        return False
+    
+    return True
+```
+
+## 3.7. Annotation Semantics and Field Handling
+
+Proper handling of annotation semantics is crucial for generating semantically correct Label Studio outputs. Different annotation types require different field values and validation.
+
+### Annotation Type Detection and Handling
+
+Different labeling interfaces create different annotation structures that need proper interpretation:
+
+```python
+def determine_annotation_type(self, start, end):
+    """Determine if annotation represents a point event or time range."""
+    if start == end:
+        return "instant"  # Point event (double-click annotation)
+    else:
+        return "range"    # Duration event (drag annotation)
+
+def format_prediction_result(self, segment, params):
+    """Format prediction with semantically correct fields."""
+    start = segment["start"]
+    end = segment["end"]
+    label = segment["label"]
+    score = segment["score"]
+    
+    # Determine annotation semantics
+    is_instant = (start == end)
+    
+    return {
+        "from_name": params["from_name"],
+        "to_name": params["to_name"],
+        "type": "timeserieslabels",  # Adjust based on labeling interface
+        "value": {
+            "start": start,
+            "end": end,
+            "instant": is_instant,  # Critical for UI rendering
+            "timeserieslabels": [label],
+        },
+        "score": score,
+    }
+```
+
+### Field Validation and Type Safety
+
+Ensure output fields match Label Studio's expected types:
+
+```python
+def validate_prediction_fields(self, prediction):
+    """Validate prediction fields match Label Studio expectations."""
+    value = prediction.get("value", {})
+    
+    # Validate required fields exist
+    required_fields = ["start", "end", "instant", "timeserieslabels"]
+    for field in required_fields:
+        if field not in value:
+            logger.error(f"Missing required field: {field}")
+            return False
+    
+    # Validate field types
+    start = value["start"]
+    end = value["end"]
+    instant = value["instant"]
+    labels = value["timeserieslabels"]
+    
+    # Type validation
+    if not isinstance(instant, bool):
+        logger.error(f"instant field must be boolean, got {type(instant)}")
+        return False
+        
+    if not isinstance(labels, list):
+        logger.error(f"timeserieslabels must be list, got {type(labels)}")
+        return False
+        
+    # Semantic validation
+    if instant and start != end:
+        logger.error(f"Instant annotation should have start==end, got start={start}, end={end}")
+        return False
+        
+    if not instant and start == end:
+        logger.warning(f"Range annotation has start==end, consider setting instant=True")
+    
+    return True
+```
+
+### Handling Different Labeling Interfaces
+
+Adapt output format based on the labeling configuration:
+
+```python
+def get_prediction_format(self, label_config):
+    """Determine output format based on labeling configuration."""
+    # Parse label config to understand expected format
+    from_name, to_name, value = self.label_interface.get_first_tag_occurence(
+        "TimeSeriesLabels", "TimeSeries"
+    )
+    
+    # Check for specific interface requirements
+    ts_tag = self.label_interface.get_tag(to_name)
+    time_column = ts_tag.attr.get("timeColumn")
+    
+    return {
+        "from_name": from_name,
+        "to_name": to_name,
+        "value_field": value,
+        "time_column": time_column,
+        "output_type": "timeserieslabels",  # Could be different for other interfaces
+    }
+
+def adapt_to_interface(self, raw_prediction, interface_config):
+    """Adapt raw prediction to specific labeling interface."""
+    if interface_config["output_type"] == "timeserieslabels":
+        return self.format_timeseries_prediction(raw_prediction, interface_config)
+    elif interface_config["output_type"] == "choices":
+        return self.format_choice_prediction(raw_prediction, interface_config)
+    # Add more interface types as needed
+    else:
+        raise ValueError(f"Unsupported interface type: {interface_config['output_type']}")
+```
+
+### Time Data Type Consistency
+
+Handle different time data formats consistently:
+
+```python
+def normalize_time_values(self, start, end, time_dtype):
+    """Ensure time values match the expected data type."""
+    try:
+        if 'int' in str(time_dtype):
+            return int(float(start)), int(float(end))
+        elif 'float' in str(time_dtype):
+            return float(start), float(end)
+        else:
+            # String or datetime - keep as is
+            return start, end
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Could not convert times to {time_dtype}: {e}")
+        return start, end  # Return original values as fallback
+```
+
+### Confidence Score Validation
+
+Ensure prediction confidence scores are valid and meaningful:
+
+```python
+def validate_confidence_scores(self, scores):
+    """Validate and normalize confidence scores."""
+    validated_scores = []
+    
+    for score in scores:
+        # Ensure score is numeric
+        try:
+            score = float(score)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid score type: {type(score)}, defaulting to 0.0")
+            score = 0.0
+        
+        # Ensure score is in valid range [0, 1]
+        if score < 0:
+            logger.warning(f"Score {score} below 0, clamping to 0")
+            score = 0.0
+        elif score > 1:
+            logger.warning(f"Score {score} above 1, clamping to 1")
+            score = 1.0
+        
+        # Check for NaN/Inf
+        if not np.isfinite(score):
+            logger.warning(f"Non-finite score {score}, defaulting to 0.0")
+            score = 0.0
+            
+        validated_scores.append(score)
+    
+    return validated_scores
+```
+
+### Label Mapping and Consistency
+
+Maintain consistent label mapping between training and prediction:
+
+```python
+def ensure_label_consistency(self, predicted_labels, training_labels):
+    """Ensure predicted labels are consistent with training labels."""
+    valid_labels = set(training_labels)
+    
+    filtered_predictions = []
+    for pred_label in predicted_labels:
+        if pred_label in valid_labels:
+            filtered_predictions.append(pred_label)
+        else:
+            logger.warning(f"Predicted label '{pred_label}' not in training set: {valid_labels}")
+            # Could map to closest valid label or skip
+    
+    return filtered_predictions
+
+def map_label_indices_to_names(self, label_indices, label_map):
+    """Convert numeric label indices to human-readable names."""
+    if not hasattr(self, 'index_to_label'):
+        # Create reverse mapping
+        self.index_to_label = {idx: name for name, idx in label_map.items()}
+    
+    label_names = []
+    for idx in label_indices:
+        if idx in self.index_to_label:
+            label_names.append(self.index_to_label[idx])
+        else:
+            logger.warning(f"Unknown label index: {idx}")
+            label_names.append(f"unknown_{idx}")
+    
+    return label_names
+```
+
+
+## 3.8. Handling Imbalanced Data in ML Backends
+
+Many real-world annotation tasks result in highly imbalanced datasets, especially for time series, object detection, and rare event classification. This is critical to handle properly to avoid models that achieve high accuracy by simply predicting the majority class.
+
+### Common Imbalanced Data Scenarios
+
+**Time Series Instant Labels**: Double-click annotations create point events within long sequences
+- Background: 95%+ of timesteps
+- Events: <5% of timesteps (Run, Walk, etc.)
+
+**Object Detection**: Rare objects in images
+- Background regions: 90%+ of image area  
+- Target objects: <10% of image area
+
+**Text Classification**: Rare categories or sentiment
+- Common classes: 80%+ of documents
+- Rare classes: <20% of documents
+
+### Detection and Measurement
+
+Always measure class imbalance in your training data:
+
+```python
+def analyze_class_distribution(self, labels):
+    """Analyze and log class distribution in training data."""
+    unique, counts = np.unique(labels, return_counts=True)
+    total = len(labels)
+    
+    class_info = {}
+    for label_idx, count in zip(unique, counts):
+        percentage = (count / total) * 100
+        class_name = self.label_map.get(label_idx, f"class_{label_idx}")
+        class_info[class_name] = {
+            "count": count,
+            "percentage": percentage
+        }
+        
+    logger.info(f"Class distribution: {class_info}")
+    
+    # Detect severe imbalance
+    max_percentage = max(info["percentage"] for info in class_info.values())
+    if max_percentage > 80:
+        logger.warning(f"Severe class imbalance detected: {max_percentage:.1f}% majority class")
+
+    return class_info
+```
+
+### Class-Weighted Loss Functions
+
+Implement automatic class weighting to penalize minority class misclassification:
+
+```python
+def calculate_class_weights(self, labels, method="inverse_frequency"):
+    """Calculate class weights for imbalanced data."""
+    unique_classes, class_counts = torch.unique(labels, return_counts=True)
+    total_samples = len(labels)
+    num_classes = len(unique_classes)
+    
+    if method == "inverse_frequency":
+        # Weight = total_samples / (num_classes * class_count)
+        weights = torch.zeros(self.output_size, dtype=torch.float32)
+        for i, class_idx in enumerate(unique_classes):
+            weights[class_idx] = total_samples / (num_classes * class_counts[i])
+            
+    elif method == "balanced":
+        # sklearn-style balanced weights
+        weights = torch.zeros(self.output_size, dtype=torch.float32)
+        for i, class_idx in enumerate(unique_classes):
+            weights[class_idx] = total_samples / (2.0 * class_counts[i])
+            
+    return weights
+
+# Usage in model training
+def setup_weighted_loss(self, labels):
+    """Setup class-weighted loss function."""
+    if self.use_class_weights:
+        class_weights = self.calculate_class_weights(labels)
+        self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+        logger.info(f"Using class weights: {class_weights}")
+    else:
+        self.criterion = nn.CrossEntropyLoss()
+```
+
+### Balanced Evaluation Metrics
+
+Use evaluation metrics that don't favor the majority class:
+
+```python
+def evaluate_balanced_metrics(self, predictions, true_labels):
+    """Evaluate using balanced metrics suitable for imbalanced data."""
+    from sklearn.metrics import balanced_accuracy_score, classification_report
+    
+    # Balanced accuracy (macro-averaged recall)
+    balanced_acc = balanced_accuracy_score(true_labels, predictions)
+    
+    # Per-class F1 scores
+    report = classification_report(true_labels, predictions, output_dict=True)
+    
+    # Extract per-class F1 scores
+    per_class_f1 = {}
+    min_f1 = 1.0
+    for class_name, metrics in report.items():
+        if isinstance(metrics, dict) and "f1-score" in metrics:
+            f1 = metrics["f1-score"]
+            per_class_f1[class_name] = f1
+            min_f1 = min(min_f1, f1)
+    
+    return {
+        "balanced_accuracy": balanced_acc,
+        "macro_f1": report["macro avg"]["f1-score"],
+        "per_class_f1": per_class_f1,
+        "min_class_f1": min_f1,
+    }
+```
+
+### Smart Early Stopping for Imbalanced Data
+
+Prevent early stopping when the model only learned the majority class:
+
+```python
+def should_stop_training(self, metrics, thresholds):
+    """Determine if training should stop using balanced criteria."""
+    balanced_acc = metrics.get("balanced_accuracy", 0)
+    min_class_f1 = metrics.get("min_class_f1", 0)
+    
+    # Require BOTH criteria to be met
+    balanced_threshold = thresholds.get("balanced_accuracy", 0.85)
+    min_f1_threshold = thresholds.get("min_class_f1", 0.70)
+    
+    if (balanced_acc >= balanced_threshold and 
+        min_class_f1 >= min_f1_threshold):
+        logger.info(f"Early stopping: Balanced accuracy {balanced_acc:.3f} >= {balanced_threshold} "
+                   f"and min class F1 {min_class_f1:.3f} >= {min_f1_threshold}")
+        return True
+        
+    return False
+```
+
+### Configuration for Imbalanced Data
+
+Provide environment variables to control imbalanced data handling:
+
+```python
+# Environment variables
+BALANCED_ACCURACY_THRESHOLD = float(os.getenv("BALANCED_ACCURACY_THRESHOLD", 0.85))
+MIN_CLASS_F1_THRESHOLD = float(os.getenv("MIN_CLASS_F1_THRESHOLD", 0.70))
+USE_CLASS_WEIGHTS = os.getenv("USE_CLASS_WEIGHTS", "true").lower() == "true"
+
+# Usage in model setup
+def setup(self):
+    """Configure model for imbalanced data handling."""
+    logger.info(f"Imbalanced data handling: Class weights={self.USE_CLASS_WEIGHTS}, "
+               f"Balanced accuracy threshold={self.BALANCED_ACCURACY_THRESHOLD}, "
+               f"Min class F1 threshold={self.MIN_CLASS_F1_THRESHOLD}")
+```
+
+### Special Considerations for Instant Labels
+
+When dealing with instant labels (point annotations), imbalance is often extreme:
+
+```python
+def handle_instant_label_imbalance(self, annotations):
+    """Special handling for instant labels which create extreme imbalance."""
+    instant_count = 0
+    range_count = 0
+    
+    for ann in annotations:
+        if ann.get("value", {}).get("instant", False):
+            instant_count += 1
+        else:
+            range_count += 1
+    
+    if instant_count > 0:
+        logger.warning(f"Instant labels detected ({instant_count} instant, {range_count} range). "
+                      f"Using aggressive class weighting for extreme imbalance.")
+        
+        # Use more aggressive thresholds for instant labels
+        return {
+            "min_class_f1_threshold": max(0.50, self.MIN_CLASS_F1_THRESHOLD - 0.2),
+            "balanced_accuracy_threshold": max(0.75, self.BALANCED_ACCURACY_THRESHOLD - 0.1),
+            "use_class_weights": True,
+        }
+    
+    return {
+        "min_class_f1_threshold": self.MIN_CLASS_F1_THRESHOLD,
+        "balanced_accuracy_threshold": self.BALANCED_ACCURACY_THRESHOLD,
+        "use_class_weights": self.USE_CLASS_WEIGHTS,
+    }
+```
+
+### Testing Imbalanced Data Handling
+
+Include specific tests for imbalanced scenarios:
+
+```python
+def test_extreme_imbalance_handling(self):
+    """Test model behavior with 99% majority class."""
+    # Create extremely imbalanced data
+    background_samples = 9900
+    event_samples = 100
+    
+    labels = ([0] * background_samples + 
+             [1] * event_samples + 
+             [2] * event_samples)
+    
+    # Train with class weights
+    metrics = model.partial_fit(data, labels, use_class_weights=True)
+    
+    # Verify minority classes still achieve reasonable performance
+    assert metrics["min_class_f1"] > 0.3, "Even with extreme imbalance, minority classes should learn"
+    assert metrics["balanced_accuracy"] > 0.5, "Balanced accuracy should exceed random chance"
+```
+
+## 3.9. Project-Specific Model Isolation for Multi-Tenancy
+
+Enterprise Label Studio deployments often serve multiple projects simultaneously, each requiring isolated models to prevent cross-project interference. Implementing proper project isolation ensures data security, performance independence, and scalability.
+
+### Why Project Isolation Matters
+
+**Data Security and Privacy:**
+- Project A's sensitive medical data never trains Project B's financial model
+- Each project can have completely different labeling configurations  
+- Models can't accidentally predict wrong label types from other projects
+- Compliance with data governance and privacy requirements
+
+**Performance Independence:**
+- Training on one project doesn't affect prediction quality for other projects
+- Each project's model optimizes specifically for that project's data characteristics
+- Poor annotations in one project won't degrade other projects' models
+- Independent model performance metrics and monitoring
+
+**Enterprise Scalability:**
+- Memory management keeps frequently used models cached
+- Inactive project models are loaded on-demand
+- Horizontal scaling across different project workloads
+
+### Implementation Architecture
+
+**Project-Aware Model Storage:**
+```python
+# Global model cache - project-specific
+_models: Dict[int, ModelType] = {}
+
+def _get_model(self, n_channels: int, n_labels: int, project_id: Optional[int] = None, blank: bool = False) -> ModelType:
+    """Get or create model for specific project."""
+    global _models
+    
+    # Use default project_id if not provided (backward compatibility)
+    if project_id is None:
+        project_id = 0
+        logger.warning("No project_id provided, using default project_id=0")
+    
+    # Check memory cache first
+    if project_id in _models and not blank:
+        logger.info(f"Using existing model for project {project_id} from memory")
+        return _models[project_id]
+    
+    # Try loading from project-specific file
+    model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+    
+    if not blank and os.path.exists(model_path):
+        logger.info(f"Loading saved model for project {project_id} from {model_path}")
+        try:
+            model = ModelType.load_model(model_path)
+            _models[project_id] = model
+            return model
+        except Exception as e:
+            logger.warning(f"Failed to load model from {model_path}: {e}. Creating new model.")
+            # Clean up corrupted file
+            os.remove(model_path)
+    
+    # Create new model for this project
+    logger.info(f"Creating new model for project {project_id}")
+    model = self._build_model(n_channels, n_labels)
+    _models[project_id] = model
+    
+    return model
+```
+
+**Project-Specific File Management:**
+```python
+def _save_model(self, model: ModelType, project_id: Optional[int] = None) -> None:
+    """Save model with project-specific naming."""
+    if project_id is None:
+        project_id = 0
+        logger.warning("No project_id provided for model save, using default project_id=0")
+        
+    logger.info(f"Saving model for project {project_id} to {self.MODEL_DIR}")
+    os.makedirs(self.MODEL_DIR, exist_ok=True)
+    
+    # Project-specific file naming
+    model_path = os.path.join(self.MODEL_DIR, f"model_project_{project_id}.pt")
+    model.save(model_path)
+    logger.info(f"Model for project {project_id} saved successfully to {model_path}")
+
+def _clear_project_cache(self, project_id: int) -> None:
+    """Clear specific project from memory cache."""
+    global _models
+    if project_id in _models:
+        del _models[project_id]
+        logger.info(f"Model cache cleared for project {project_id}")
+```
+
+### Project ID Detection and Context Handling
+
+**Automatic Project ID Extraction:**
+```python
+def _get_project_id_from_context(self, tasks: List[Dict], context: Optional[Dict] = None) -> Optional[int]:
+    """Extract project ID from tasks or context for model selection."""
+    # Try context first - most reliable source
+    if context and "project" in context:
+        if isinstance(context["project"], dict) and "id" in context["project"]:
+            project_id = context["project"]["id"]
+            logger.debug(f"Found project_id {project_id} from context dict")
+            return project_id
+        elif isinstance(context["project"], (int, str)):
+            project_id = int(context["project"])
+            logger.debug(f"Found project_id {project_id} from context value")
+            return project_id
+    
+    # Fall back to task metadata
+    for task in tasks:
+        if "project" in task:
+            project_id = int(task["project"])
+            logger.debug(f"Found project_id {project_id} from task")
+            return project_id
+    
+    logger.debug("No project_id found in tasks or context")
+    return None
+```
+
+**Training with Project Awareness:**
+```python
+def fit(self, event, data, **kwargs):
+    """Train model with project isolation."""
+    logger.info(f"Training event received: {event}")
+    
+    # Extract project ID from training event
+    project_id = data["annotation"]["project"]
+    logger.info(f"Training triggered for project {project_id}")
+    
+    # Get project-specific model
+    model = self._get_model(
+        n_channels=len(params["channels"]), 
+        n_labels=len(params["all_labels"]), 
+        project_id=project_id, 
+        blank=True  # Create fresh model for training
+    )
+    
+    # Train model with project-specific data
+    metrics = model.partial_fit(X, y, epochs=self.TRAIN_EPOCHS)
+    
+    # Save with project-specific naming
+    self._save_model(model, project_id=project_id)
+    
+    # Clear cache to force reload
+    self._clear_project_cache(project_id)
+    
+    return metrics
+```
+
+**Prediction with Project Awareness:**
+```python
+def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
+    """Predict using project-specific model."""
+    logger.info(f"Starting prediction for {len(tasks)} tasks")
+    
+    # Determine which project's model to use
+    project_id = self._get_project_id_from_context(tasks, context)
+    if project_id is not None:
+        logger.info(f"Using model for project {project_id}")
+    else:
+        logger.info("No project_id found, using default model")
+    
+    # Load project-specific model
+    params = self._get_labeling_params()
+    model = self._get_model(
+        n_channels=len(params["channels"]), 
+        n_labels=len(params["all_labels"]), 
+        project_id=project_id
+    )
+    
+    # Generate predictions with project-specific model
+    predictions = []
+    for task in tasks:
+        pred = self._predict_task(task, model, params)
+        predictions.append(pred)
+        
+    return ModelResponse(predictions=predictions, model_version=self.get("model_version"))
+```
+
+### Memory Management and Performance
+
+**Efficient Caching Strategy:**
+```python
+# Cache frequently used models in memory
+MAX_CACHED_MODELS = int(os.getenv("MAX_CACHED_MODELS", 5))
+
+def _manage_model_cache(self, project_id: int, model: ModelType) -> None:
+    """Manage memory cache with LRU eviction."""
+    global _models
+    
+    # Add to cache
+    _models[project_id] = model
+    
+    # Implement simple LRU eviction if cache is full
+    if len(_models) > MAX_CACHED_MODELS:
+        # Remove oldest model (simple FIFO for now)
+        oldest_project = next(iter(_models))
+        del _models[oldest_project]
+        logger.info(f"Evicted model for project {oldest_project} from cache")
+```
+
+**Resource Monitoring:**
+```python
+def log_model_cache_status(self):
+    """Log current model cache status for monitoring."""
+    global _models
+    cached_projects = list(_models.keys())
+    logger.info(f"Model cache status: {len(cached_projects)} projects cached: {cached_projects}")
+```
+
+
+### Configuration and Environment Variables
+
+**Project Isolation Settings:**
+```python
+# Environment variables for project isolation
+MAX_CACHED_MODELS = int(os.getenv("MAX_CACHED_MODELS", 5))
+ENABLE_PROJECT_ISOLATION = os.getenv("ENABLE_PROJECT_ISOLATION", "true").lower() == "true"
+DEFAULT_PROJECT_ID = int(os.getenv("DEFAULT_PROJECT_ID", 0))
+
+def setup(self):
+    """Setup with project isolation configuration."""
+    logger.info(f"Project isolation: enabled={self.ENABLE_PROJECT_ISOLATION}, "
+               f"max_cached_models={self.MAX_CACHED_MODELS}, "
+               f"default_project_id={self.DEFAULT_PROJECT_ID}")
+```
+
+### Testing Project Isolation
+
+**Comprehensive Project Isolation Tests:**
+```python
+def test_project_specific_models(self):
+    """Test that different projects use separate models and model files."""
+    # Create models for different projects
+    model_project_1 = segmenter._get_model(n_channels=2, n_labels=3, project_id=1)
+    model_project_2 = segmenter._get_model(n_channels=2, n_labels=3, project_id=2)
+    model_default = segmenter._get_model(n_channels=2, n_labels=3)  # project_id=0
+    
+    # Verify different instances
+    assert model_project_1 is not model_project_2
+    assert model_project_1 is not model_default
+    assert model_project_2 is not model_default
+    
+    # Test project-specific file naming
+    segmenter._save_model(model_project_1, project_id=1)
+    segmenter._save_model(model_project_2, project_id=2)
+    
+    assert os.path.exists(os.path.join(temp_dir, "model_project_1.pt"))
+    assert os.path.exists(os.path.join(temp_dir, "model_project_2.pt"))
+    
+    # Test project ID extraction from context
+    context_dict = {"project": {"id": 42}}
+    project_id = segmenter._get_project_id_from_context([], context_dict)
+    assert project_id == 42
+    
+    context_int = {"project": 99}
+    project_id = segmenter._get_project_id_from_context([], context_int)
+    assert project_id == 99
+
+def test_project_isolation_prevents_cross_contamination(self):
+    """Test that training one project doesn't affect another."""
+    # Train model for project 1
+    task_p1 = create_task_with_project(project_id=1, labels=["ClassA", "ClassB"])
+    segmenter.fit("START_TRAINING", {"annotation": {"project": 1}}, tasks=[task_p1])
+    
+    # Train different model for project 2
+    task_p2 = create_task_with_project(project_id=2, labels=["ClassX", "ClassY"])
+    segmenter.fit("START_TRAINING", {"annotation": {"project": 2}}, tasks=[task_p2])
+    
+    # Verify predictions use correct project models
+    pred_p1 = segmenter.predict([task_p1], context={"project": 1})
+    pred_p2 = segmenter.predict([task_p2], context={"project": 2})
+    
+    # Models should predict different label sets
+    assert_different_label_predictions(pred_p1, pred_p2)
+```
+
+### Production Deployment Considerations
+
+**Docker Configuration:**
+```yaml
+# docker-compose.yml for multi-tenant deployment
+services:
+  ml-backend:
+    environment:
+      - MAX_CACHED_MODELS=10  # Adjust based on memory
+      - ENABLE_PROJECT_ISOLATION=true
+      - MODEL_DIR=/app/models
+    volumes:
+      - ./models:/app/models  # Persistent model storage
+```
+
+**Monitoring and Alerting:**
+```python
+def health_check_with_project_info(self):
+    """Health check endpoint with project isolation status."""
+    global _models
+    return {
+        "status": "healthy",
+        "project_isolation_enabled": self.ENABLE_PROJECT_ISOLATION,
+        "cached_projects": list(_models.keys()),
+        "max_cache_size": self.MAX_CACHED_MODELS,
+        "cache_utilization": len(_models) / self.MAX_CACHED_MODELS
+    }
+```
+
+This project isolation pattern ensures enterprise-grade multi-tenancy while maintaining backward compatibility and providing the scalability needed for production Label Studio deployments serving multiple teams or clients.
+
+## 4. Testing
+
+- Tests should be runnable with `pytest` directly from the repository root or inside the example's Docker container.
+- Mock Label Studio API interactions whenever possible to avoid requiring a running server during tests.
+- Aim for good coverage of `fit()` and `predict()` logic to catch regressions.
+
+## 4.1. ML-Specific Testing Patterns
+
+When testing ML backends, follow these specialized patterns beyond standard software testing:
+
+### Model Training and Evaluation Testing
+```python
+def test_training_workflow(self):
+    """Test complete training pipeline including metrics validation."""
+    # Test with small synthetic dataset
+    result = model.fit("START_TRAINING", data)
+    
+    # Validate training metrics are returned
+    assert isinstance(result, dict)
+    assert "f1_score" in result or "balanced_accuracy" in result
+    assert "loss" in result
+    assert result["loss"] > 0  # Sanity check
+    
+    # Ensure model learns something (loss decreases)
+    initial_loss = result.get("initial_loss", float('inf'))
+    final_loss = result["loss"]
+    assert final_loss < initial_loss or result["epoch"] == 1
+```
+
+### Imbalanced Data Testing
+```python
+def test_imbalanced_data_handling(self):
+    """Test model behavior with highly imbalanced datasets."""
+    # Create imbalanced test data (90% background, 10% events)
+    imbalanced_labels = [0] * 900 + [1] * 50 + [2] * 50
+    
+    # Verify class weights are calculated
+    model.partial_fit(data, imbalanced_labels, use_class_weights=True)
+    
+    # Check that minority classes get higher weights
+    if hasattr(model, 'criterion') and hasattr(model.criterion, 'weight'):
+        weights = model.criterion.weight
+        assert weights[1] > weights[0]  # Minority class weighted higher
+        assert weights[2] > weights[0]
+```
+
+### Model Serialization Testing
+```python
+def test_model_save_load_consistency(self):
+    """Test model serialization preserves functionality."""
+    # Train a simple model
+    original_model = self._create_and_train_model()
+    original_prediction = original_model.predict(test_data)
+    
+    # Save and reload
+    model_path = os.path.join(temp_dir, "test_model.pt")
+    original_model.save(model_path)
+    loaded_model = ModelClass.load_model(model_path)
+    
+    # Verify predictions are consistent
+    loaded_prediction = loaded_model.predict(test_data)
+    assert loaded_prediction.shape == original_prediction.shape
+    
+    # Check model parameters are preserved
+    assert loaded_model.input_size == original_model.input_size
+    assert loaded_model.output_size == original_model.output_size
+```
+
+### Prediction Quality Testing
+```python
+def test_prediction_quality_metrics(self):
+    """Test prediction quality and confidence scoring."""
+    predictions = model.predict(test_tasks)
+    
+    for pred in predictions.predictions:
+        if pred.get("result"):  # Skip empty predictions
+            # Verify confidence scores are valid
+            for segment in pred["result"]:
+                score = segment.get("score", 0)
+                assert 0 <= score <= 1, f"Score {score} should be between 0 and 1"
+                
+            # Verify model version is included
+            assert "model_version" in pred
+            assert pred["model_version"].startswith(model.__class__.__name__)
+```
+
+### Mock ML Predictions
+```python
+def test_with_controlled_ml_output(self):
+    """Test business logic with controlled ML predictions."""
+    with patch.object(model, 'predict') as mock_predict:
+        # Create deterministic mock predictions
+        mock_probs = torch.zeros(100, 3)
+        mock_probs[10:20, 1] = 0.9  # High confidence "Run" segment
+        mock_probs[50:60, 2] = 0.8  # Medium confidence "Walk" segment
+        mock_predict.return_value = mock_probs
+        
+        result = model._predict_task(task, mock_model, params)
+        
+        # Test segmentation logic with known inputs
+        assert len(result["result"]) == 2  # Should find 2 segments
+        assert result["result"][0]["value"]["timeserieslabels"][0] == "Run"
+        assert result["result"][1]["value"]["timeserieslabels"][0] == "Walk"
+```
+
+### Performance and Memory Testing
+```python
+def test_memory_efficiency(self):
+    """Test model handles large datasets without memory issues."""
+    import psutil
+    import gc
+    
+    process = psutil.Process()
+    initial_memory = process.memory_info().rss
+    
+    # Process large synthetic dataset
+    large_data = np.random.randn(10000, model.input_size)
+    predictions = model.predict(large_data)
+    
+    # Force garbage collection
+    del large_data, predictions
+    gc.collect()
+    
+    final_memory = process.memory_info().rss
+    memory_growth = final_memory - initial_memory
+    
+    # Memory growth should be reasonable (less than 100MB for this test)
+    assert memory_growth < 100 * 1024 * 1024, f"Memory grew by {memory_growth / 1024 / 1024:.1f}MB"
+```
+
+### Error Resilience Testing
+```python
+def test_handles_corrupted_data(self):
+    """Test graceful handling of corrupted or malformed inputs."""
+    # Test with various bad inputs
+    bad_inputs = [
+        np.array([]),  # Empty data
+        np.array([[np.nan, np.inf]]),  # NaN/Inf values
+        np.random.randn(5, wrong_input_size),  # Wrong input dimensions
+        "not_an_array",  # Wrong data type
+    ]
+    
+    for bad_input in bad_inputs:
+        try:
+            result = model.predict(bad_input)
+            # Should return empty result or handle gracefully
+            assert isinstance(result, (dict, list, type(None)))
+        except Exception as e:
+            # If exception is raised, it should be informative
+            assert len(str(e)) > 0, "Exception should have descriptive message"
+```
+
+### Training Convergence Testing
+```python
+def test_training_convergence_patterns(self):
+    """Test training exhibits expected convergence behavior."""
+    metrics_history = []
+    
+    # Run training with metric tracking
+    for epoch in range(10):
+        metrics = model.partial_fit(train_data, train_labels, epochs=1)
+        metrics_history.append(metrics)
+    
+    # Verify loss generally decreases (allowing for some fluctuation)
+    losses = [m["loss"] for m in metrics_history]
+    assert losses[-1] < losses[0], "Loss should decrease over training"
+    
+    # Verify metrics improve
+    f1_scores = [m.get("f1_score", 0) for m in metrics_history]
+    assert f1_scores[-1] >= f1_scores[0], "F1 score should not degrade"
+```
+
+## 4.2. Running Tests in Docker Containers
+
+For ML backends that require specific dependencies or environments, Docker containers provide consistent testing environments. Here's the recommended workflow:
+
+#### Setup and Build
+```bash
+# Navigate to your example directory
+cd label_studio_ml/examples/<your_example>
+
+# Build the Docker container (without --no-cache for faster builds)
+docker compose -f docker-compose.yml build
+
+# Start the container in background
+docker compose -f docker-compose.yml up -d
+```
+
+#### Install Test Dependencies
+Most containers won't have pytest installed by default. Install it:
+```bash
+# Install pytest and coverage tools
+docker compose -f docker-compose.yml exec -T <service_name> pip install pytest pytest-cov
+```
+
+#### Run Tests
+```bash
+# Run all tests with verbose output and coverage
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
+
+# Run specific test files
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv tests/test_model.py
+
+# Run specific test methods
+docker compose -f docker-compose.yml exec -T <service_name> pytest -vvv tests/test_model.py::TestClass::test_method
+
+# Collect available tests without running them
+docker compose -f docker-compose.yml exec -T <service_name> pytest --collect-only tests/
+```
+
+#### Example: TimeSeries Segmenter
+```bash
+# Complete testing workflow for timeseries_segmenter
+cd label_studio_ml/examples/timeseries_segmenter
+
+# Build and start container
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d
+
+# Install test dependencies
+docker compose -f docker-compose.yml exec -T timeseries_segmenter pip install pytest pytest-cov
+
+# Run full test suite
+docker compose -f docker-compose.yml exec -T timeseries_segmenter pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml tests/test_segmenter.py
+
+# Cleanup
+docker compose -f docker-compose.yml down
+```
+
+#### Troubleshooting Docker Tests
+
+**Issue: Test files not found or outdated**
+- Solution: Rebuild the container if test files were modified after the image was built
+- Use `docker compose build` (without `--no-cache` unless absolutely necessary)
+
+**Issue: Import errors in container**
+- Solution: Ensure all dependencies are in `requirements.txt` and properly installed
+- Check that the test file has correct import paths (relative vs absolute)
+
+**Issue: Environment variables not set**
+- Solution: Use `patch.dict(os.environ, {...})` in tests or set them in docker-compose.yml
+- Override instance attributes directly for test configurations
+
+**Issue: Mock function signature mismatches**
+- Solution: Check the actual method signatures and use `side_effect` with lambda functions when needed
+- Ensure mock functions match the expected parameter names and types
+
+#### Best Practices for Docker Testing
+
+1. **Consistent Environment**: Use the same base image for development and testing
+2. **Fast Iteration**: Avoid `--no-cache` unless dependencies changed
+3. **Test Isolation**: Use temporary directories and cleanup fixtures
+4. **Comprehensive Logging**: Enable verbose pytest output (`-vvv`) for debugging
+5. **Coverage Reports**: Generate coverage reports to ensure thorough testing
+6. **Service Names**: Use descriptive service names in docker-compose.yml for clarity
+
+#### Test Documentation in Code
+
+Each test method should include comprehensive docstrings explaining:
+- What functionality is being tested
+- Expected inputs and outputs
+- Critical validations being performed
+- Edge cases being handled
+
+Example:
+```python
+def test_model_training_workflow(self):
+    """Test complete end-to-end machine learning pipeline.
+    
+    This test validates:
+    - Full training workflow with real data
+    - Training metrics generation (accuracy, F1-score, loss)
+    - Model convergence and learning validation
+    - Prediction generation on trained model
+    
+    Critical validation: The complete ML pipeline works from training 
+    to prediction, producing valid Label Studio annotations.
+    """
+```
+
+## 5. Examples
+
+### Reference Implementations
+
+- **`label_studio_ml/examples/yolo/`** - Well-structured computer vision backend with good Docker integration
+- **`label_studio_ml/examples/timeseries_segmenter/`** - Comprehensive ML backend demonstrating:
+  - Advanced imbalanced data handling with class weights and balanced metrics
+  - Project-specific model isolation for multi-tenant deployments
+  - Proper PyTorch model serialization and loading
+  - ML-specific testing patterns with comprehensive test suite
+  - Annotation semantics handling (instant vs range annotations)
+  - Smart early stopping and training convergence monitoring
+  - Background class modeling for realistic time series scenarios
+
+### Choosing the Right Example
+
+**For Computer Vision backends**: Use `yolo/` as a reference for image processing, object detection patterns, and Docker best practices.
+
+**For ML backends with imbalanced data**: Use `timeseries_segmenter/` as a reference for balanced learning approaches, advanced training patterns, and comprehensive testing.
+
+**For enterprise/multi-tenant deployments**: Use `timeseries_segmenter/` as a reference for project-specific model isolation, ensuring proper data security and performance independence across multiple Label Studio projects.
+
+**For any ML backend**: Both examples demonstrate solid project structure, error handling, and documentation practices.
+
+Following these conventions helps maintain consistency across examples and makes it easier for contributors and automation tools to understand each backend.

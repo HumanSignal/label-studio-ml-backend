@@ -1,0 +1,6 @@
+pandas
+pillow~=10.3
+torch>=2.0.0, <3.0.0
+torchmetrics
+scikit-learn
+numpy

@@ -68,9 +68,9 @@ For a more detailed table of contents, you can use GitHub's native menu located 
 | Object Detection                                             | `<RectangleLabels>`                  | ✅                    | YOLO, COCO          | YOLO, COCO          |
 | Oriented Bounding Boxes (OBB)                                | `<RectangleLabels model_obb="true">` | ✅                    | YOLO                | YOLO                |
 | Image Instance Segmentation: Polygons                        | `<PolygonLabels>`                    | ✅                    | COCO                | YOLO, COCO          |
-| Image Semantic Segmentation: Masks                           | `<BrushLabels>`                      | ❌                    | Native              | Native              |
+| Image Semantic Segmentation: Masks                           | `<BrushLabels>`                      | ❌                    | Native              | COCO (as polygons)  |
 | Image Classification                                         | `<Choices>`                          | ✅                    | Native              | Native              |
-| Pose Detection                                               | `<KeyPoints>`                        | ✅                    | Native              | Native              |
+| Pose Detection                                               | `<KeyPoints>`                        | ✅                    | Native              | YOLO, COCO          |
 | Video Object Tracking                                        | `<VideoRectangle>`                   | ✅                    | Native              | Native              |
 | [Video Temporal Classification](./README_TIMELINE_LABELS.md) | `<TimelineLabels>`                   | ✅                    | Native              | Native              |
 
