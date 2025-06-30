@@ -23,7 +23,7 @@ services:
       - MODEL_DIR=/data/models
 
        # Path to your saved finetuned model
-       - FINETUNED_MODEL_PATH=finetuned_model
+      - FINETUNED_MODEL_PATH=finetuned_model
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
