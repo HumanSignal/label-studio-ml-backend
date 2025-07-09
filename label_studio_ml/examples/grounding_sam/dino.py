@@ -132,14 +132,19 @@ class DINOBackend(LabelStudioMLBase):
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
 
-        if not context or not context.get('result'):
-            # if there is no context, no interaction has happened yet
-            return []
+        # get text_prompt either from incoming context or from prompt.txt fallback
+        if context and isinstance(context, dict) and context.get("result"):
+            text_prompt = context["result"][0]["value"]["text"][0]
+        else:
+            # fallback to your mounted prompt.txt
+            with open("/app/prompt.txt", "r") as f:
+                text_prompt = f.read().strip()
+
+        logger.debug(f"Prompt: {text_prompt}")
 
         from_name_r, to_name_r, value = self.get_first_tag_occurence('RectangleLabels', 'Image')
         from_name_b, to_name_b, _ = self.get_first_tag_occurence('BrushLabels', 'Image')
 
-        text_prompt = context['result'][0]['value']['text'][0]
         logger.debug(f"Prompt: {text_prompt}")
         
         logger.info(f"the prompt is {text_prompt} and {from_name_r} and {from_name_b}")
