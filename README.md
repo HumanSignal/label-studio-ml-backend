@@ -8,7 +8,7 @@
 
 For upstream documentation and advanced configuration options, see:
 
-[HumanSignal/label-studio-ml-backend · README.md](https://github.com/HumanSignal/label-studio-ml-backend/blob/main/README.md)
+[HumanSignal/label-studio-ml-backend · README.md](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#what-is-the-label-studio-ml-backend)
 
 ---
 
@@ -19,30 +19,38 @@ For upstream documentation and advanced configuration options, see:
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation/Running
 
 1. **Install Label Studio**
 
    ```bash
    pip install label-studio
    ```
-2. **Build & launch services**
+2. **Build & run the ML Backend**
 
+   Use the following command to start serving the ML backend at `http://localhost:9090`:
+   
    ```bash
+   cd label-studio-ml-backend/label_studio_ml/examples/{MODEL_NAME}
    docker compose up --build -d
    ```
 
----
 
-## ▶️ Running the Service
+Replace `{MODEL_NAME}` with the name of the model you want to use (see [here](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#models)). 
 
-* **Start the Label Studio web server**
+In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` environment variables to allow the ML backend access to the media data in Label Studio.
+[Read more in the documentation](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data).
+
+**Warning:** Currently, ML backends support only Legacy Tokens and do not support Personal Tokens. You will encounter an `Unauthorized Error` if you use Personal Tokens.
+
+
+3. **Start the Label Studio web server**
 
   ```bash
   label-studio start
   ```
 
-* **Tail logs for the Grounding‑SAM container**
+4. **Tail logs for the Grounding‑SAM container**
 
   ```bash
   docker logs -f grounding_sam
