@@ -1,6 +1,13 @@
 name: "Release: Pipeline"
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA or ref name or tag'
+        required: true
+        default: 'master'
+        type: string
   release:
     types:
       - released
@@ -34,7 +41,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: "${{ env.GITHUB_SHA }}"
+          ref: "${{ inputs.ref || github.ref_name }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.11.1
@@ -55,7 +62,7 @@ jobs:
           DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
-          tags: "${{ matrix.backend_tag_prefix }}${{ github.ref_name }}"
+          tags: "${{ matrix.backend_tag_prefix }}${{ inputs.ref || github.ref_name }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
