@@ -20,10 +20,12 @@ for new tasks. The backend expects the labeling configuration to use
 docker-compose up --build
 ```
 
-A small example CSV is available in `tests/time_series.csv`.
+See Labeling configuration and the data example below. 
 
 Connect the model from the **Model** page in your project settings. The default
 URL is `http://localhost:9090`.
+
+
 
 ## Labeling configuration
 
