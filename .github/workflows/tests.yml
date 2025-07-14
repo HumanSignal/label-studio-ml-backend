@@ -252,7 +252,7 @@ jobs:
     steps:
       - name: Send Slack Notification
         if: always()
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@v2.1.1
         env:
           WORKFLOW: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow>"
         with:
