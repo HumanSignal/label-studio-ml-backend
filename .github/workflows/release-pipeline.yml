@@ -99,3 +99,15 @@ jobs:
             const docker_build_config = yaml.load(docker_build_config_content);
             
             core.setOutput("matrix-include", docker_build_config);
+
+  build-pypi:
+    name: "Build"
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-pypi.yml
+    with:
+      version: ${{ github.ref_name }}
+      ref: ${{ github.ref_name }}
+      upload_to_pypi: true
+      release-id: ${{ github.event.release.id }}
+    secrets: inherit

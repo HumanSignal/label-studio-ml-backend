@@ -158,3 +158,16 @@ jobs:
 
             core.setOutput("id", updated_release.id);
             core.setOutput("tag_name", release.tag_name);
+
+  build-pypi:
+    name: "Build"
+    needs:
+      - draft-release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-pypi.yml
+    with:
+      version: ${{ needs.draft-release.outputs.rc-version }}
+      ref: ${{ github.ref_name }}
+      release-id: ${{ needs.draft-release.outputs.id }}
+    secrets: inherit

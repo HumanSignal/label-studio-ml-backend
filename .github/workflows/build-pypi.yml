@@ -102,7 +102,7 @@ jobs:
         run: twine upload dist/*
 
       - name: Upload to artifact
-        if: always() && inputs.release_type == 'release'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Dist
