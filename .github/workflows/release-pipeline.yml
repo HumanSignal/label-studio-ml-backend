@@ -63,6 +63,7 @@ jobs:
         with:
           context: "${{ env.DOCKER_EXAMPLES_DIRECTORY }}/${{ env.backend_dir_name }}"
           tags: "${{ matrix.backend_tag_prefix }}${{ inputs.ref || github.ref_name }}"
+          push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
