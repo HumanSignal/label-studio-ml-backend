@@ -16,8 +16,6 @@ from segment_anything.utils.transforms import ResizeLongestSide
 from groundingdino.util.inference import load_model, load_image, predict, annotate
 from groundingdino.util import box_ops
 
-# ----Extra Libraries
-
 from typing import Tuple, List
 
 from groundingdino.util.utils import get_phrases_from_posmap
@@ -129,6 +127,19 @@ class DINOBackend(LabelStudioMLBase):
 
     def setup(self):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+        # load prompt->label mappings from prompt.txt ===
+        self.label_map: Dict[str, str] = {}
+        try:
+            with open("/app/prompt.txt", "r") as f:
+                for line in f:
+                    line = line.strip().rstrip(',')
+                    if not line:
+                        continue
+                    key, val = line.split("_", 1)
+                    self.label_map[key] = val
+            logger.info(f"Loaded {len(self.label_map)} label mappings from prompt.txt")
+        except Exception as e:
+            logger.error(f"Failed to load prompt.txt mappings: {e}")
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
 
@@ -136,9 +147,8 @@ class DINOBackend(LabelStudioMLBase):
         if context and isinstance(context, dict) and context.get("result"):
             text_prompt = context["result"][0]["value"]["text"][0]
         else:
-            # fallback to your mounted prompt.txt
-            with open("/app/prompt.txt", "r") as f:
-                text_prompt = f.read().strip()
+            # fallback to mounted prompt.txt
+            text_prompt = " ".join(self.label_map.keys())
 
         logger.debug(f"Prompt: {text_prompt}")
 
@@ -202,11 +212,11 @@ class DINOBackend(LabelStudioMLBase):
 
         if USE_MOBILE_SAM or USE_SAM:
             # get <BrushLabels> results
-            predictions.append(self.get_sam_results(img_path, all_points, all_lengths, from_name_b, to_name_b))
+            predictions.append(self.get_sam_results(img_path, all_points, all_lengths, from_name_b, to_name_b, prompt))
         else:
             # get <RectangleLabels> results
-            predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r))
-        
+            predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt))
+
         return predictions
 
     def multiple_tasks(self, tasks, prompt, from_name_r, to_name_r, from_name_b, to_name_b, value):
@@ -241,7 +251,7 @@ class DINOBackend(LabelStudioMLBase):
 
         if USE_MOBILE_SAM or USE_SAM:
             batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths)
-            predictions = self.get_batched_sam_results(batched_output, from_name_b, to_name_b)
+            predictions = self.get_batched_sam_results(batched_output, from_name_b, to_name_b, prompt)
 
         else:
             predictions = []
@@ -258,7 +268,8 @@ class DINOBackend(LabelStudioMLBase):
                     all_scores.append(logit)
                     all_lengths.append((H, W)) # figure out how to get this
                 
-                predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r))
+
+                predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt))
 
         return predictions
             
@@ -331,7 +342,7 @@ class DINOBackend(LabelStudioMLBase):
 
         return batched_output
     
-    def get_batched_sam_results(self, batched_output, from_name_b, to_name_b):
+    def get_batched_sam_results(self, batched_output, from_name_b, to_name_b, prompt):
 
         predictions = []
 
@@ -347,11 +358,11 @@ class DINOBackend(LabelStudioMLBase):
 
             lengths = [(height, width)] * num_masks
 
-            predictions.append(self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b))
+            predictions.append(self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b, prompt))
 
         return predictions
 
-    def get_results(self, all_points, all_scores, all_lengths, from_name_r, to_name_r):
+    def get_results(self, all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt):
         
         results = []
         total_score = 0
@@ -363,24 +374,29 @@ class DINOBackend(LabelStudioMLBase):
             score = scores.item()
             total_score += score
 
-            results.append({
-                'id': label_id,
-                'from_name': from_name_r,
-                'to_name': to_name_r,
-                'original_width': width,
-                'original_height': height,
-                'image_rotation': 0,
-                'value': {
-                    'rotation': 0,
-                    'width': (points[2] - points[0]) / width * 100,
-                    'height': (points[3] - points[1]) / height * 100,
-                    'x': points[0] / width * 100,
-                    'y': points[1] / height * 100
-                },
-                'score': score,
-                'type': 'rectanglelabels',
-                'readonly': False
-            })
+        # map prompt key to final label
+        mapped_label = self.label_map.get(prompt, prompt)
+
+        results.append({
+            'id': label_id,
+            'from_name': from_name_r,
+            'to_name': to_name_r,
+            'original_width': width,
+            'original_height': height,
+            'image_rotation': 0,
+            'value': {
+                'rotation': 0,
+                'width': (points[2] - points[0]) / width * 100,
+                'height': (points[3] - points[1]) / height * 100,
+                'x': points[0] / width * 100,
+                'y': points[1] / height * 100,
+                'labels': [mapped_label]  
+            },
+            'score': score,
+            'type': 'rectanglelabels',
+            'readonly': False
+        })
+
 
         total_score /= max(len(results), 1)
 
@@ -396,7 +412,8 @@ class DINOBackend(LabelStudioMLBase):
         input_boxes,
         lengths,
         from_name_b,
-        to_name_b
+        to_name_b, 
+        prompt
     ):
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -415,10 +432,10 @@ class DINOBackend(LabelStudioMLBase):
         masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
 
-        return self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b)
-    
+        return self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b, prompt)
+
     # takes straight masks and returns predictions
-    def sam_predictions(self, masks, probs, lengths, from_name_b, to_name_b):
+    def sam_predictions(self, masks, probs, lengths, from_name_b, to_name_b, prompt):
         
         results = []
         total_score = 0
@@ -432,6 +449,9 @@ class DINOBackend(LabelStudioMLBase):
             rle = brush.mask2rle(mask)
             score = float(prob[0])
 
+            # map prompt key to final label
+            mapped_label = self.label_map.get(prompt, prompt)
+
             results.append({
                 'id': label_id,
                 'from_name': from_name_b,
@@ -441,7 +461,8 @@ class DINOBackend(LabelStudioMLBase):
                 'image_rotation': 0,
                 'value': {
                     'format': 'rle',
-                    'rle': rle
+                    'rle': rle,
+                    'labels': [mapped_label]
                 },
                 'score': score,
                 'type': 'brushlabels',

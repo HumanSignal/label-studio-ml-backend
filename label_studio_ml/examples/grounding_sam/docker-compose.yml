@@ -22,7 +22,7 @@ services:
       LOG_LEVEL: "DEBUG"
 
       # Add these variables if you want to access the images stored in Label Studio
-      LABEL_STUDIO_HOST: "http://localhost:8080"
+      LABEL_STUDIO_HOST: "http://172.17.0.1:8080"
       LABEL_STUDIO_ACCESS_TOKEN: "your_label_studio_access_token_here"
 
       # use these if you want to use segment anything instead of bounding box predictions from input text prompts
