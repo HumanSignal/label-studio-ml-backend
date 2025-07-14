@@ -9,6 +9,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  DOCKER_BUILD_CONFIG_BRANCH: "master"
+  DOCKER_BUILD_CONFIG_PATH: ".github/docker-build-config.yml"
+  DOCKER_EXAMPLES_DIRECTORY: "label_studio_ml/examples"
+
 jobs:
   build-image:
     name: Build image
