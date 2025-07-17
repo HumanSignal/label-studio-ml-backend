@@ -13,15 +13,7 @@ from label_studio_ml.model import LabelStudioMLBase
 from label_studio_sdk._extensions.label_studio_tools.core.utils.params import get_bool_env
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
-<<<<<<< Updated upstream
-
-from typing import Tuple, List
-
-from groundingdino.util.utils import get_phrases_from_posmap
-from groundingdino.util.inference import preprocess_caption
-=======
 from torchvision.ops import nms
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -118,39 +110,15 @@ if USE_SAM or USE_MOBILE_SAM:
 
 class DINOBackend(LabelStudioMLBase):
     def setup(self):
-<<<<<<< Updated upstream
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
-        # load prompt->label mappings from prompt.txt ===
-        self.label_map: Dict[str, str] = {}
-        try:
-            with open("/app/prompt.txt", "r") as f:
-                for line in f:
-                    line = line.strip().rstrip(',')
-                    if not line:
-                        continue
-                    key, val = line.split("_", 1)
-                    self.label_map[key] = val
-            logger.info(f"Loaded {len(self.label_map)} label mappings from prompt.txt")
-        except Exception as e:
-            logger.error(f"Failed to load prompt.txt mappings: {e}")
-
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
-=======
         self.set('model_version','DINOBackend-v0.0.1')
->>>>>>> Stashed changes
 
     def predict(self, tasks, context=None, **kwargs):
         # get prompt
         if context and context.get('result'):
             prompt = context['result'][0]['value']['text'][0]
         else:
-<<<<<<< Updated upstream
-            # fallback to mounted prompt.txt
-            text_prompt = " ".join(self.label_map.keys())
-=======
             with open('/app/prompt.txt') as f:
                 prompt = f.read().strip()
->>>>>>> Stashed changes
 
         fn_r, tn_r, img_key = self.get_first_tag_occurence('RectangleLabels','Image')
         fn_b, tn_b, _      = self.get_first_tag_occurence('BrushLabels','Image')
@@ -188,201 +156,6 @@ class DINOBackend(LabelStudioMLBase):
         phrases    = [ phrases[i] for i in keep ]
 
         points = boxes_xyxy.cpu().numpy()
-<<<<<<< Updated upstream
-
-        for point, logit in zip(points, logits):
-            all_points.append(point)
-            all_scores.append(logit)
-            all_lengths.append((H, W))
-
-        if USE_MOBILE_SAM or USE_SAM:
-            # get <BrushLabels> results
-            predictions.append(self.get_sam_results(img_path, all_points, all_lengths, from_name_b, to_name_b, prompt))
-        else:
-            # get <RectangleLabels> results
-            predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt))
-
-        return predictions
-
-    def multiple_tasks(self, tasks, prompt, from_name_r, to_name_r, from_name_b, to_name_b, value):
-
-        # first getting all the image paths
-        image_paths = []
-
-        for task in tasks:
-            raw_img_path = task['data'][value]
-
-            try:
-                img_path = self.get_local_path(
-                    raw_img_path,
-                    ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                    ls_host=LABEL_STUDIO_HOST,
-                    task_id=task.get('id')
-                )
-            except Exception as e:
-                logger.error(f"Error getting local path: {e}")
-                img_path = raw_img_path
-
-            image_paths.append(img_path)
-
-        boxes, logits, lengths = self.batch_dino(image_paths, prompt)
-
-        box_by_task = []
-        for (box_task, (H, W)) in zip(boxes, lengths):
-
-            boxes_xyxy = box_ops.box_cxcywh_to_xyxy(box_task) * torch.Tensor([W, H, W, H])
-
-            box_by_task.append(boxes_xyxy)
-
-        if USE_MOBILE_SAM or USE_SAM:
-            batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths)
-            predictions = self.get_batched_sam_results(batched_output, from_name_b, to_name_b, prompt)
-
-        else:
-            predictions = []
-
-            for boxes_xyxy, (H, W), logits in zip(box_by_task, lengths, logits): 
-                points = boxes_xyxy.cpu().numpy()
-
-                all_points = []
-                all_scores = []
-                all_lengths = []
-
-                for point, logit in zip(points, logits):
-                    all_points.append(point)
-                    all_scores.append(logit)
-                    all_lengths.append((H, W)) # figure out how to get this
-                
-
-                predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt))
-
-        return predictions
-            
-    # make sure you use new github repo when predicting in batch
-    def batch_dino(self, image_paths, prompt):
-        # text prompt is same as self.label
-        loaded_images = []
-        lengths = []
-        for img in image_paths:
-            src, img = load_image(img)
-            loaded_images.append(img)
-
-            H, W, _ = src.shape
-
-            lengths.append((H, W))
-
-        images = torch.stack(loaded_images)
-
-        if len(image_paths) <= 3:   
-            boxes, logits, _ = predict_batch(
-                model=groundingdino_model,
-                images=images,
-                caption=prompt, # text prompt is same as self.label
-                box_threshold=float(BOX_THRESHOLD),
-                text_threshold=float(TEXT_THRESHOLD),
-                device=device
-            )
-
-        else:
-            all_boxes = []
-            all_logits = []
-            for img in loaded_images:
-                boxes, logits, _ = predict(
-                    model=groundingdino_model,
-                    image=img,
-                    caption=prompt,
-                    box_threshold=float(BOX_THRESHOLD),
-                    text_threshold=float(TEXT_THRESHOLD),
-                    device=device
-                )
-                all_boxes.append(boxes)
-                all_logits.append(logits)
-
-            boxes = all_boxes
-            logits = all_logits
-
-        return boxes, logits, lengths
-
-    def batch_sam(self, input_boxes_list, image_paths):
-
-        resize_transform = ResizeLongestSide(sam.image_encoder.img_size)
-
-        # from SAM code base
-        def prepare_image(image, transform, device):
-            image = transform.apply_image(image)
-            image = torch.as_tensor(image, device=device.device) 
-            return image.permute(2, 0, 1).contiguous()
-
-        batched_input = []
-        for input_box, path in zip(input_boxes_list, image_paths):
-            image = cv2.imread(path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            batched_input.append({
-                'image': prepare_image(image, resize_transform, sam),
-                'boxes': resize_transform.apply_boxes_torch(input_box, image.shape[:2]),
-                'original_size': image.shape[:2]
-            })
-        
-        batched_output = sam(batched_input, multimask_output=False)
-
-        return batched_output
-    
-    def get_batched_sam_results(self, batched_output, from_name_b, to_name_b, prompt):
-
-        predictions = []
-
-        for output in batched_output:
-            masks = output['masks']
-            masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
-
-            probs = output['iou_predictions'].cpu().numpy()
-
-            num_masks = masks.shape[0]
-            height = masks.shape[-2]
-            width = masks.shape[-1]
-
-            lengths = [(height, width)] * num_masks
-
-            predictions.append(self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b, prompt))
-
-        return predictions
-
-    def get_results(self, all_points, all_scores, all_lengths, from_name_r, to_name_r, prompt):
-        
-        results = []
-        total_score = 0
-        for points, scores, lengths in zip(all_points, all_scores, all_lengths):
-            # random ID
-            label_id = str(uuid4())[:9]
-
-            height, width = lengths
-            score = scores.item()
-            total_score += score
-
-        # map prompt key to final label
-        mapped_label = self.label_map.get(prompt, prompt)
-
-        results.append({
-            'id': label_id,
-            'from_name': from_name_r,
-            'to_name': to_name_r,
-            'original_width': width,
-            'original_height': height,
-            'image_rotation': 0,
-            'value': {
-                'rotation': 0,
-                'width': (points[2] - points[0]) / width * 100,
-                'height': (points[3] - points[1]) / height * 100,
-                'x': points[0] / width * 100,
-                'y': points[1] / height * 100,
-                'labels': [mapped_label]  
-            },
-            'score': score,
-            'type': 'rectanglelabels',
-            'readonly': False
-        })
-
-=======
         labels = [ auto_map_label(p) for p in phrases ]
 
         rect_res = self.get_results(points,logits,labels,[(H,W)]*len(points),
@@ -439,7 +212,6 @@ class DINOBackend(LabelStudioMLBase):
                 'image_rotation':  0,
                 'readonly': False,
             })
->>>>>>> Stashed changes
 
         return {
             'result': results,
@@ -447,70 +219,17 @@ class DINOBackend(LabelStudioMLBase):
             'model_version': self.get('model_version')
         }
 
-<<<<<<< Updated upstream
-    def get_sam_results(
-        self,
-        img_path,
-        input_boxes,
-        lengths,
-        from_name_b,
-        to_name_b, 
-        prompt
-    ):
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        predictor.set_image(image)
-
-        input_boxes = torch.from_numpy(np.array(input_boxes))
-
-        transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2]).to(device)
-=======
     def get_sam_results(self, img_path, points, labels, sizes, fn, tn):
         img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
         predictor.set_image(img)
         tensor = torch.from_numpy(np.array(points))
         boxes  = predictor.transform.apply_boxes_torch(tensor, img.shape[:2]).to(device)
->>>>>>> Stashed changes
         masks, probs, _ = predictor.predict_torch(
             point_coords=None, point_labels=None,
             boxes=boxes, multimask_output=False
         )
         masks = masks[:,0].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
-<<<<<<< Updated upstream
-
-        return self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b, prompt)
-
-    # takes straight masks and returns predictions
-    def sam_predictions(self, masks, probs, lengths, from_name_b, to_name_b, prompt):
-        
-        results = []
-        total_score = 0
-        for mask, prob, length in zip(masks, probs, lengths):
-            height, width = length
-            # creates a random ID for your label everytime so no chance for errors
-            label_id = str(uuid4())[:9]
-
-            # converting the mask from the model to RLE format which is usable in Label Studio
-            mask = mask * 255
-            rle = brush.mask2rle(mask)
-            score = float(prob[0])
-
-            # map prompt key to final label
-            mapped_label = self.label_map.get(prompt, prompt)
-
-            results.append({
-                'id': label_id,
-                'from_name': from_name_b,
-                'to_name': to_name_b,
-                'original_width': width,
-                'original_height': height,
-                'image_rotation': 0,
-                'value': {
-                    'format': 'rle',
-                    'rle': rle,
-                    'labels': [mapped_label]
-=======
         return self.sam_predictions(masks, probs, labels, sizes, fn, tn)
 
     def sam_predictions(self, masks, probs, labels, sizes, fn, tn):
@@ -526,7 +245,6 @@ class DINOBackend(LabelStudioMLBase):
                 'value':{
                   'format':'rle','rle':rle,
                   'brushlabels':[ lbl ]
->>>>>>> Stashed changes
                 },
                 'score': score,
                 'original_width':  sizes[0][1],
