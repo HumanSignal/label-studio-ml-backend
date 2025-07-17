@@ -74,7 +74,7 @@ class SklearnTextClassifier(LabelStudioMLBase):
             'value': value,
             'labels': labels
         }
-        
+
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """
         This method is used to predict the labels for a given list of tasks.
@@ -162,7 +162,8 @@ class SklearnTextClassifier(LabelStudioMLBase):
             logger.info(f"Skip training: event {event} is not supported")
             return
 
-        project_id = data['annotation']['project']
+        logger.debug(f"Project details payload for training: {data}")
+        project_id = data['project']['id']
         tasks = self._get_tasks(project_id)
 
         # Get the labeling configuration parameters like labels and input / output annotation format names
