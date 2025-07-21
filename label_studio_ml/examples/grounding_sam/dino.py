@@ -1,455 +1,325 @@
 import os
+import json
 import pathlib
 import logging
 import cv2
 import numpy as np
 import torch
+import difflib
+import xml.etree.ElementTree as ET
 
-from label_studio_sdk.converter import brush
-from typing import List, Dict, Optional
 from uuid import uuid4
-from label_studio_ml.model import LabelStudioMLBase, ModelResponse
+from typing import List, Dict, Optional
+from datetime import datetime, timezone
+
+from label_studio_ml.model import LabelStudioMLBase
+from label_studio_sdk.converter import brush
 from label_studio_sdk._extensions.label_studio_tools.core.utils.params import get_bool_env
-from label_studio_sdk.label_interface.objects import PredictionValue
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
+
+from groundingdino.util.inference import load_model, load_image, predict, preprocess_caption
+from groundingdino.util.utils    import get_phrases_from_posmap
+from groundingdino.util           import box_ops 
 from segment_anything.utils.transforms import ResizeLongestSide
-
-from groundingdino.util.inference import load_model, load_image, predict, annotate
-from groundingdino.util import box_ops
-
-# ----Extra Libraries
-
-from typing import Tuple, List
-
-from groundingdino.util.utils import get_phrases_from_posmap
-from groundingdino.util.inference import preprocess_caption
+from torchvision.ops import nms
 
 logger = logging.getLogger(__name__)
+LOG_PATH = '/app/dino_alias_log.jsonl'
 
+# Parse project labels from XML configuration
+def parse_project_labels(xml_conf: str) -> List[str]:
+    root = ET.fromstring(xml_conf)
+    seen, ordered = set(), []
+    for tag in root.findall('.//Label'):
+        val = tag.attrib.get('value', '').strip()
+        if val and val not in seen:
+            ordered.append(val)
+            seen.add(val)
+    return ordered
 
-def predict_batch(
-    model,
-    images: torch.Tensor,
-    caption: str,
-    box_threshold: float,
-    text_threshold: float,
-    device: str = "cuda"
-) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[List[str]]]:
-    # copy from https://github.com/yuwenmichael/Grounding-DINO-Batch-Inference/blob/main/batch_utlities.py
-    '''
-    return:
-        bboxes_batch: list of tensors of shape (n, 4)
-        predicts_batch: list of tensors of shape (n,)
-        phrases_batch: list of list of strings of shape (n,)
-        n is the number of boxes in one image
-    '''
-    caption = preprocess_caption(caption=caption)
-    model = model.to(device)
-    image = images.to(device)
-    with torch.no_grad():
-        outputs = model(image, captions=[caption for _ in range(
-            len(images))])  # <------- I use the same caption for all the images for my use-case
-    prediction_logits = outputs["pred_logits"].cpu().sigmoid()  # prediction_logits.shape = (num_batch, nq, 256)
-    prediction_boxes = outputs["pred_boxes"].cpu()  # prediction_boxes.shape = (num_batch, nq, 4)
+def fuzzy_map(raw: str, ui_labels: List[str]) -> str:
+    """
+    Normalize DINO phrase to one of UI_LABELS:
+     - lowercase, replace underscores
+     - strip trailing 's' to singularize
+     - fuzzy match full phrase then last token
+    """
+    r = raw.lower().replace("_", " ").strip()
+    if r in ui_labels:
+        return r
+    if r.endswith("s") and r[:-1] in ui_labels:
+        return r[:-1]
+    m = difflib.get_close_matches(r, ui_labels, n=1, cutoff=0.6)
+    if m:
+        return m[0]
+    token = r.split()[-1]
+    m = difflib.get_close_matches(token, ui_labels, n=1, cutoff=0.6)
+    if m:
+        return m[0]
+    return r
 
-    mask = prediction_logits.max(dim=2)[0] > box_threshold  # mask: torch.Size([num_batch, 256])
-
-    bboxes_batch = []
-    predicts_batch = []
-    phrases_batch = []  # list of lists
-    tokenizer = model.tokenizer
-    tokenized = tokenizer(caption)
-    for i in range(prediction_logits.shape[0]):
-        logits = prediction_logits[i][mask[i]]  # logits.shape = (n, 256)
-        phrases = [
-            get_phrases_from_posmap(logit > text_threshold, tokenized, tokenizer).replace('.', '')
-            for logit  # logit is a tensor of shape (256,) torch.Size([256])
-            in logits  # torch.Size([7, 256])
-        ]
-        boxes = prediction_boxes[i][mask[i]]  # boxes.shape = (n, 4)
-        phrases_batch.append(phrases)
-        bboxes_batch.append(boxes)
-        predicts_batch.append(logits.max(dim=1)[0])
-
-    return bboxes_batch, predicts_batch, phrases_batch
-
-
-# LOADING THE MODEL
+# Load GroundingDINO
 groundingdino_model = load_model(
-    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', "./GroundingDINO")) / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py",
-    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', "./GroundingDINO")) / "weights" / "groundingdino_swint_ogc.pth"
+    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', './GroundingDINO')) /
+      'groundingdino/config/GroundingDINO_SwinT_OGC.py',
+    pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', './GroundingDINO')) /
+      'weights/groundingdino_swint_ogc.pth'
 )
 
+BOX_THRESHOLD   = float(os.environ.get('BOX_THRESHOLD', 0.3))
+TEXT_THRESHOLD  = float(os.environ.get('TEXT_THRESHOLD', 0.4))
+LABEL_STUDIO_TOKEN = os.environ.get('LABEL_STUDIO_ACCESS_TOKEN') or os.environ.get('LABEL_STUDIO_API_KEY')
+LABEL_STUDIO_HOST  = os.environ.get('LABEL_STUDIO_HOST') or os.environ.get('LABEL_STUDIO_URL')
+USE_SAM        = get_bool_env('USE_SAM', default=False)
+USE_MOBILE_SAM = get_bool_env('USE_MOBILE_SAM', default=False)
+SAM_CHECKPOINT    = os.environ.get('SAM_CHECKPOINT','sam_vit_h_4b8939.pth')
+MOBILESAM_CHECKPOINT = os.environ.get('MOBILESAM_CHECKPOINT','mobile_sam.pt')
 
-BOX_THRESHOLD = os.environ.get("BOX_THRESHOLD", 0.3)
-TEXT_THRESHOLD = os.environ.get("TEXT_THRESHOLD", 0.25)
-LABEL_STUDIO_ACCESS_TOKEN = (
-        os.environ.get("LABEL_STUDIO_ACCESS_TOKEN") or os.environ.get("LABEL_STUDIO_API_KEY")
-)
-LABEL_STUDIO_HOST = (
-        os.environ.get("LABEL_STUDIO_HOST") or os.environ.get("LABEL_STUDIO_URL")
-)
-
-USE_SAM = get_bool_env("USE_SAM", default=False)
-USE_MOBILE_SAM = get_bool_env("USE_MOBILE_SAM", default=False)
-
-MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", "mobile_sam.pt")
-SAM_CHECKPOINT = os.environ.get("SAM_CHECKPOINT", "sam_vit_h_4b8939.pth")
-
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-logger.info(f"Using device {device}")
-
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+logger.info(f'Using device {device}')
 
 if USE_MOBILE_SAM:
-    logger.info(f"Using Mobile-SAM with checkpoint {MOBILESAM_CHECKPOINT}")
     from mobile_sam import SamPredictor, sam_model_registry
-
-    model_checkpoint = MOBILESAM_CHECKPOINT
-    reg_key = 'vit_t'
+    ckpt, reg_key = MOBILESAM_CHECKPOINT, 'vit_t'
 elif USE_SAM:
-    logger.info(f"Using SAM with checkpoint {SAM_CHECKPOINT}")
     from segment_anything import SamPredictor, sam_model_registry
-
-    model_checkpoint = SAM_CHECKPOINT
-    reg_key = 'vit_h'
+    ckpt, reg_key = SAM_CHECKPOINT, 'vit_h'
 else:
-    reg_key = None
-    model_checkpoint = None
-    logger.info("Using GroundingDINO without SAM")
+    ckpt = reg_key = None
+    logger.info('Running without SAM')
 
-if USE_MOBILE_SAM or USE_SAM:
-    logger.info(f"Loading SAM model with checkpoint {model_checkpoint}")
-    sam = sam_model_registry[reg_key](checkpoint=model_checkpoint)
-    sam.to(device=device)
+if USE_SAM or USE_MOBILE_SAM:
+    sam = sam_model_registry[reg_key](checkpoint=ckpt).to(device)
     predictor = SamPredictor(sam)
-    logger.info("SAM model successfully loaded!")
-
+    resize_longest = ResizeLongestSide(sam.image_encoder.img_size)
+    logger.info('Loaded SAM model')
 
 class DINOBackend(LabelStudioMLBase):
+    def __init__(self, project_id=None, label_config=None, **kwargs):
+        super().__init__(project_id=project_id, label_config=label_config, **kwargs)
+        
+        #get labels
+        self.ui_labels = parse_project_labels(self.label_config)
+        
+        #get prompt from extra_params
+        ep: Dict = getattr(self, 'extra_params', {}) or {}
+        self.project_prompt = ep.get('prompt')
+        
+        self.set('model_version', 'DINOBackend-v0.0.1')
+        logger.info(f'[init] prompt={self.project_prompt!r}, labels={self.ui_labels}')
 
-    def setup(self):
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+    def predict(self,
+                tasks: List[Dict],
+                context: Optional[Dict] = None,
+                **kwargs) -> List[Dict]:
+        prompt = (context and context.get('result') and
+                  context['result'][0]['value']['text'][0].strip()) \
+                 or self.project_prompt
 
-    def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
+        fn_r, tn_r, img_key = self.get_first_tag_occurence('RectangleLabels', 'Image')
+        fn_b, tn_b, _       = self.get_first_tag_occurence('BrushLabels',     'Image')
 
-        # get text_prompt either from incoming context or from prompt.txt fallback
-        if context and isinstance(context, dict) and context.get("result"):
-            text_prompt = context["result"][0]["value"]["text"][0]
+        if len(tasks) == 1:
+            return [self.one_task(tasks[0], prompt, fn_r, tn_r, fn_b, tn_b, img_key)]
         else:
-            # fallback to your mounted prompt.txt
-            with open("/app/prompt.txt", "r") as f:
-                text_prompt = f.read().strip()
+            return self.multiple_tasks(tasks, prompt, fn_r, tn_r, fn_b, tn_b, img_key)
 
-        logger.debug(f"Prompt: {text_prompt}")
-
-        from_name_r, to_name_r, value = self.get_first_tag_occurence('RectangleLabels', 'Image')
-        from_name_b, to_name_b, _ = self.get_first_tag_occurence('BrushLabels', 'Image')
-
-        logger.debug(f"Prompt: {text_prompt}")
-        
-        logger.info(f"the prompt is {text_prompt} and {from_name_r} and {from_name_b}")
-
-        final_predictions = []
-        if len(tasks) > 1:
-            logger.info(f"Running multiple tasks with {len(tasks)} images")
-            final_predictions = self.multiple_tasks(
-                tasks, text_prompt, from_name_r, to_name_r, from_name_b, to_name_b, value)
-        elif len(tasks) == 1:
-            logger.info(f"Running single task {tasks[0]}")
-            final_predictions = self.one_task(
-                tasks[0], text_prompt, from_name_r, to_name_r, from_name_b, to_name_b, value)
-        return final_predictions
-        
-    def one_task(self, task, prompt, from_name_r, to_name_r, from_name_b, to_name_b, value):
-        all_points = []
-        all_scores = []
-        all_lengths = []
-        predictions = []
-        raw_img_path = task['data'][value]
-
+    def one_task(self, task, prompt, fn_r, tn_r, fn_b, tn_b, img_key):
+        raw = task['data'][img_key]
         try:
-            img_path = self.get_local_path(
-                raw_img_path,
-                ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                ls_host=LABEL_STUDIO_HOST,
-                task_id=task.get('id')
-            )
-        except Exception as e:
-            logger.error(f"Error getting image path: {e}")
-            img_path = raw_img_path
+            path = get_local_path(raw, ls_access_token=LABEL_STUDIO_TOKEN, ls_host=LABEL_STUDIO_HOST)
+        except:
+            path = raw
+        src, img = load_image(path)
+        H, W = src.shape[:2]
 
-        src, img = load_image(img_path)
-
-        boxes, logits, _ = predict(
-            model=groundingdino_model,
-            image=img,
-            caption=prompt,
-            box_threshold=float(BOX_THRESHOLD),
-            text_threshold=float(TEXT_THRESHOLD),
+        boxes, scores, phrases = predict(
+            groundingdino_model, img, prompt,
+            box_threshold=BOX_THRESHOLD,
+            text_threshold=TEXT_THRESHOLD,
             device=device
         )
+        xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.tensor([W,H,W,H])
+        keep = nms(xyxy, scores, 0.5)[:50]
+        xyxy, scores, phrases = xyxy[keep], scores[keep], [phrases[i] for i in keep]
 
-        H, W, _ = src.shape
+        labels = [fuzzy_map(p, self.ui_labels) for p in phrases]
+        self._log_aliases(phrases, labels, task.get('id'))
 
-        boxes_xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.Tensor([W, H, W, H])
+        rect = self._rect_results(xyxy.cpu().numpy(), scores, [(H,W)]*len(labels), labels, fn_r, tn_r)
+        if not _ckpt:
+            return rect['result']
 
-        points = boxes_xyxy.cpu().numpy()
+        brush_res = self._sam_single(path, xyxy.cpu().numpy(), labels, (H,W), fn_b, tn_b)
+        return [{
+            'result': rect['result'] + brush_res['result'],
+            'score':  (rect['score'] + brush_res['score']) / 2,
+            'model_version': self.get('model_version')
+        }]
 
-        for point, logit in zip(points, logits):
-            all_points.append(point)
-            all_scores.append(logit)
-            all_lengths.append((H, W))
-
-        if USE_MOBILE_SAM or USE_SAM:
-            # get <BrushLabels> results
-            predictions.append(self.get_sam_results(img_path, all_points, all_lengths, from_name_b, to_name_b))
-        else:
-            # get <RectangleLabels> results
-            predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r))
-        
-        return predictions
-
-    def multiple_tasks(self, tasks, prompt, from_name_r, to_name_r, from_name_b, to_name_b, value):
-
-        # first getting all the image paths
-        image_paths = []
-
-        for task in tasks:
-            raw_img_path = task['data'][value]
-
+    def multiple_tasks(self, tasks, prompt, fn_r, tn_r, fn_b, tn_b, img_key):
+        img_paths, HWs = [], []
+        for t in tasks:
+            raw = t['data'][img_key]
             try:
-                img_path = self.get_local_path(
-                    raw_img_path,
-                    ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                    ls_host=LABEL_STUDIO_HOST,
-                    task_id=task.get('id')
-                )
-            except Exception as e:
-                logger.error(f"Error getting local path: {e}")
-                img_path = raw_img_path
+                p = get_local_path(raw, ls_access_token=LABEL_STUDIO_TOKEN, ls_host=LABEL_STUDIO_HOST)
+            except:
+                p = raw
+            img_paths.append(p)
+            src, _ = load_image(p)
+            HWs.append(src.shape[:2])
 
-            image_paths.append(img_path)
-
-        boxes, logits, lengths = self.batch_dino(image_paths, prompt)
-
-        box_by_task = []
-        for (box_task, (H, W)) in zip(boxes, lengths):
-
-            boxes_xyxy = box_ops.box_cxcywh_to_xyxy(box_task) * torch.Tensor([W, H, W, H])
-
-            box_by_task.append(boxes_xyxy)
-
-        if USE_MOBILE_SAM or USE_SAM:
-            batched_output = self.batch_sam(input_boxes_list=box_by_task, image_paths=image_paths)
-            predictions = self.get_batched_sam_results(batched_output, from_name_b, to_name_b)
-
-        else:
-            predictions = []
-
-            for boxes_xyxy, (H, W), logits in zip(box_by_task, lengths, logits): 
-                points = boxes_xyxy.cpu().numpy()
-
-                all_points = []
-                all_scores = []
-                all_lengths = []
-
-                for point, logit in zip(points, logits):
-                    all_points.append(point)
-                    all_scores.append(logit)
-                    all_lengths.append((H, W)) # figure out how to get this
-                
-                predictions.append(self.get_results(all_points, all_scores, all_lengths, from_name_r, to_name_r))
-
-        return predictions
-            
-    # make sure you use new github repo when predicting in batch
-    def batch_dino(self, image_paths, prompt):
-        # text prompt is same as self.label
-        loaded_images = []
-        lengths = []
-        for img in image_paths:
-            src, img = load_image(img)
-            loaded_images.append(img)
-
-            H, W, _ = src.shape
-
-            lengths.append((H, W))
-
-        images = torch.stack(loaded_images)
-
-        if len(image_paths) <= 3:   
-            boxes, logits, _ = predict_batch(
-                model=groundingdino_model,
-                images=images,
-                caption=prompt, # text prompt is same as self.label
-                box_threshold=float(BOX_THRESHOLD),
-                text_threshold=float(TEXT_THRESHOLD),
-                device=device
+        boxes_b, scores_b, phrases_b = [], [], []
+        for p in img_paths:
+            _, im = load_image(p)
+            b, s, ph = predict(
+                groundingdino_model, im, prompt,
+                BOX_THRESHOLD, TEXT_THRESHOLD, device
             )
+            boxes_b.append(b)
+            scores_b.append(s)
+            phrases_b.append(ph)
 
-        else:
-            all_boxes = []
-            all_logits = []
-            for img in loaded_images:
-                boxes, logits, _ = predict(
-                    model=groundingdino_model,
-                    image=img,
-                    caption=prompt,
-                    box_threshold=float(BOX_THRESHOLD),
-                    text_threshold=float(TEXT_THRESHOLD),
-                    device=device
-                )
-                all_boxes.append(boxes)
-                all_logits.append(logits)
+        rect_results, sam_boxes, sam_labels = [], [], []
+        for b, s, ph, (H, W), task in zip(boxes_b, scores_b, phrases_b, HWs, tasks):
+            bxy = box_ops.box_cxcywh_to_xyxy(b) * torch.tensor([W,H,W,H])
+            keep = nms(bxy, s, 0.5)[:50]
+            bxy, s, ph = bxy[keep], s[keep], [ph[i] for i in keep]
 
-            boxes = all_boxes
-            logits = all_logits
+            labels = [fuzzy_map(x, self.ui_labels) for x in ph]
+            self._log_aliases(ph, labels, task.get('id'))
 
-        return boxes, logits, lengths
+            rect_results.append(self._rect_results(
+                bxy.cpu().numpy(), s, [(H,W)]*len(labels), labels, fn_r, tn_r
+            ))
+            sam_boxes.append(bxy.cpu().numpy())
+            sam_labels.append(labels)
 
-    def batch_sam(self, input_boxes_list, image_paths):
+        if not _ckpt:
+            return [r['result'] for r in rect_results]
 
-        resize_transform = ResizeLongestSide(sam.image_encoder.img_size)
+        brush_results = [{'result': [], 'score': 0.0} for _ in sam_boxes]
+        valid = [i for i,b in enumerate(sam_boxes) if b.shape[0]>0]
+        if valid:
+            sel_boxes  = [sam_boxes[i]  for i in valid]
+            sel_paths  = [img_paths[i]  for i in valid]
+            sel_labels = [sam_labels[i] for i in valid]
+            sam_out    = self._sam_batch(sel_boxes, sel_paths)
+            sel_brush  = self._sam_batch_results(sam_out, sel_labels, fn_b, tn_b)
+            for idx, br in zip(valid, sel_brush):
+                brush_results[idx] = br
 
-        # from SAM code base
-        def prepare_image(image, transform, device):
-            image = transform.apply_image(image)
-            image = torch.as_tensor(image, device=device.device) 
-            return image.permute(2, 0, 1).contiguous()
-
-        batched_input = []
-        for input_box, path in zip(input_boxes_list, image_paths):
-            image = cv2.imread(path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            batched_input.append({
-                'image': prepare_image(image, resize_transform, sam),
-                'boxes': resize_transform.apply_boxes_torch(input_box, image.shape[:2]),
-                'original_size': image.shape[:2]
+        final = []
+        for r, b in zip(rect_results, brush_results):
+            final.append({
+                'result': r['result'] + b['result'],
+                'score':  (r['score'] + b['score']) / 2,
+                'model_version': self.get('model_version')
             })
-        
-        batched_output = sam(batched_input, multimask_output=False)
+        return final
 
-        return batched_output
-    
-    def get_batched_sam_results(self, batched_output, from_name_b, to_name_b):
-
-        predictions = []
-
-        for output in batched_output:
-            masks = output['masks']
-            masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
-
-            probs = output['iou_predictions'].cpu().numpy()
-
-            num_masks = masks.shape[0]
-            height = masks.shape[-2]
-            width = masks.shape[-1]
-
-            lengths = [(height, width)] * num_masks
-
-            predictions.append(self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b))
-
-        return predictions
-
-    def get_results(self, all_points, all_scores, all_lengths, from_name_r, to_name_r):
-        
-        results = []
-        total_score = 0
-        for points, scores, lengths in zip(all_points, all_scores, all_lengths):
-            # random ID
-            label_id = str(uuid4())[:9]
-
-            height, width = lengths
-            score = scores.item()
-            total_score += score
-
-            results.append({
-                'id': label_id,
-                'from_name': from_name_r,
-                'to_name': to_name_r,
-                'original_width': width,
-                'original_height': height,
-                'image_rotation': 0,
-                'value': {
-                    'rotation': 0,
-                    'width': (points[2] - points[0]) / width * 100,
-                    'height': (points[3] - points[1]) / height * 100,
-                    'x': points[0] / width * 100,
-                    'y': points[1] / height * 100
-                },
-                'score': score,
-                'type': 'rectanglelabels',
-                'readonly': False
-            })
-
-        total_score /= max(len(results), 1)
-
-        return {
-            'result': results,
-            'score': total_score,
-            'model_version': self.get('model_version')
-        }
-
-    def get_sam_results(
-        self,
-        img_path,
-        input_boxes,
-        lengths,
-        from_name_b,
-        to_name_b
-    ):
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        predictor.set_image(image)
-
-        input_boxes = torch.from_numpy(np.array(input_boxes))
-
-        transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2]).to(device)
+    def _sam_single(self, img_path, pts, labels, size, fn_b, tn_b):
+        H, W = size
+        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+        predictor.set_image(img)
+        boxes = predictor.transform.apply_boxes_torch(
+            torch.from_numpy(np.asarray(pts)), img.shape[:2]
+        ).to(device)
         masks, probs, _ = predictor.predict_torch(
-            point_coords=None,
-            point_labels=None,
-            boxes=transformed_boxes,
-            multimask_output=False,
+            None, None, boxes, multimask_output=False
         )
-
-        masks = masks[:, 0, :, :].cpu().numpy().astype(np.uint8)
+        masks = masks[:,0].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
+        return self._sam_predictions(masks, probs, labels, [(H,W)]*len(labels), fn_b, tn_b)
 
-        return self.sam_predictions(masks, probs, lengths, from_name_b, to_name_b)
-    
-    # takes straight masks and returns predictions
-    def sam_predictions(self, masks, probs, lengths, from_name_b, to_name_b):
-        
-        results = []
-        total_score = 0
-        for mask, prob, length in zip(masks, probs, lengths):
-            height, width = length
-            # creates a random ID for your label everytime so no chance for errors
-            label_id = str(uuid4())[:9]
-
-            # converting the mask from the model to RLE format which is usable in Label Studio
-            mask = mask * 255
-            rle = brush.mask2rle(mask)
-            score = float(prob[0])
-
-            results.append({
-                'id': label_id,
-                'from_name': from_name_b,
-                'to_name': to_name_b,
-                'original_width': width,
-                'original_height': height,
-                'image_rotation': 0,
-                'value': {
-                    'format': 'rle',
-                    'rle': rle
-                },
-                'score': score,
-                'type': 'brushlabels',
-                'readonly': False
+    def _sam_batch(self, boxes_list, img_paths):
+        resize = ResizeLongestSide(sam.image_encoder.img_size)
+        batch = []
+        for bxy, p in zip(boxes_list, img_paths):
+            img = cv2.cvtColor(cv2.imread(p), cv2.COLOR_BGR2RGB)
+            # ← convert numpy→torch BEFORE apply_boxes_torch
+            box_tensor = torch.from_numpy(bxy).to(device)
+            batch.append({
+                "image": self._prep(img, resize),
+                "boxes": resize.apply_boxes_torch(box_tensor, img.shape[:2]),
+                "original_size": img.shape[:2]
             })
-            total_score += score
+        out = sam(batch, multimask_output=False)
+        for o, i in zip(out, batch):
+            o["original_size"] = i["original_size"]
+        return out
+
+    def _prep(self, img, resize):
+        im = resize.apply_image(img)
+        t  = torch.as_tensor(im, device=device)
+        return t.permute(2,0,1).contiguous()
+
+    def _sam_batch_results(self, sam_out, label_tasks, fn_b, tn_b):
+        preds = []
+        for out_i, lbls in zip(sam_out, label_tasks):
+            H, W = out_i["original_size"]
+            masks = out_i["masks"][:,0].cpu().numpy().astype(np.uint8)
+            probs = out_i["iou_predictions"].cpu().numpy()
+            preds.append(self._sam_predictions(masks, probs, lbls, [(H,W)]*len(lbls), fn_b, tn_b))
+        return preds
+
+    def _rect_results(self, points, scores, sizes, labels, fn_r, tn_r):
+        res, total = [], 0.0
+        for (x0,y0,x1,y1), sc, (H,W), lbl in zip(points, scores, sizes, labels):
+            sc = float(sc); total += sc
+            res.append({
+                'id': str(uuid4())[:9],
+                'from_name': fn_r, 'to_name': tn_r,
+                'type': 'rectanglelabels','readonly': False,
+                'original_width': W,'original_height': H,'image_rotation':0,
+                'score': sc,
+                'value': {
+                    'rotation':0,
+                    'width':  (x1-x0)/W*100,
+                    'height': (y1-y0)/H*100,
+                    'x': x0/W*100,'y': y0/H*100,
+                    'rectanglelabels':[lbl]
+                }
+            })
         return {
-            'result': results,
-            'score': total_score / max(len(results), 1),
+            'result': res,
+            'score': float(total)/max(len(res),1),
             'model_version': self.get('model_version')
         }
+
+    def _sam_predictions(self, masks, probs, labels, sizes, fn_b, tn_b):
+        res, total = [], 0.0
+        for m, pr, lbl, (H,W) in zip(masks, probs, labels, sizes):
+            score = float(pr[0] if pr.ndim else pr); total += score
+            res.append({
+                'id': str(uuid4())[:9],
+                'from_name': fn_b,'to_name': tn_b,
+                'type': 'brushlabels','readonly': False,
+                'original_width': W,'original_height': H,'image_rotation':0,
+                'score': score,
+                'value': {
+                    'format':'rle',
+                    'rle': brush.mask2rle(m*255),
+                    'brushlabels':[lbl]
+                }
+            })
+        return {
+            'result': res,
+            'score': float(total)/max(len(res),1),
+            'model_version': self.get('model_version')
+        }
+
+    def _log_aliases(self, raw_phrases: List[str], mapped: List[str], task_id=None):
+        for raw, ui in zip(raw_phrases, mapped):
+            entry = {
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'task_id': task_id,
+                'raw_phrase': raw,
+                'mapped_label': ui
+            }
+            logger.info(f"[MAP] task={task_id} {raw!r} → {ui!r}")
+            try:
+                with open(LOG_PATH, 'a') as fh:
+                    fh.write(json.dumps(entry) + '\n')
+            except Exception as e:
+                logger.warning(f"Could not write alias log: {e}")
