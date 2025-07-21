@@ -1,0 +1,21 @@
+raw_phrase,mapped_label,count
+industrial tanks,industrial tank,21
+humans,human,15
+all instances,ambulances,9
+humans emergency personnel,emergency personnel,7
+navigable roads roads,navigable road,6
+buildings,damaged buildings,5
+industrial pipes,industrial pipe,5
+industrial tanks hotspots,industrial tank,3
+firetrucks ambulances,firetrucks,3
+##s ambulances,ambulances,2
+firetruckss,firetrucks,2
+ambulance,ambulances,2
+firetrucks ambulance,firetrucks,1
+thermal hotspotss ambulances,thermal hotspots,1
+thermal hotspots ambulances,thermal hotspots,1
+thermal hotspotss,thermal hotspots,1
+firetr,fire,1
+all instances fire,fire,1
+industrial tanks industrial,industrial tank,1
+tree trunks industrial tanks,industrial tank,1
