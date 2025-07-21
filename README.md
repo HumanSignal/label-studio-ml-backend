@@ -32,14 +32,14 @@ For upstream documentation and advanced configuration options, see:
    
    ```bash
    cd label-studio-ml-backend/label_studio_ml/examples/{MODEL_NAME}
-   docker compose up --build -d
+   docker compose up
    ```
 
 
 Replace `{MODEL_NAME}` with the name of the model you want to use (see [here](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#models)). 
 
 In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY` environment variables to allow the ML backend access to the media data in Label Studio.
-[Read more in the documentation](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data).
+[Read more in the documentation](https://labelstud.io/guide/ml#Allow-the-ML-backend-to-access-Label-Studio-data). - **Not necessary**
 
 **Warning:** Currently, ML backends support only Legacy Tokens and do not support Personal Tokens. You will encounter an `Unauthorized Error` if you use Personal Tokens.
 
@@ -48,12 +48,6 @@ In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY
 
   ```bash
   label-studio start
-  ```
-
-4. **Tail logs for the Grounding‑SAM container**
-
-  ```bash
-  docker logs -f grounding_sam
   ```
 
 ---
@@ -144,25 +138,34 @@ In most cases, you will need to set `LABEL_STUDIO_URL` and `LABEL_STUDIO_API_KEY
 
    </details>
 
-   > **Warning:** Rectangle labels are mandatory even if you only use segmentation. The results will be segmentation masks but you still need the RectangleLabel values present.
-
-4. **Connect the ML backend**:
+4. **Connect the ML backend and define the Project Prompt for Automatic Pre-Labeling**:
 
    * Go to **Project Settings** → **Model**
    * Click **Connect Model**
    * Enter **URL:** `http://localhost:9090`
    * Enable **Interactive pre‑annotations**
+   * Enter the prompt in json format
 
-   ![ML Backend Settings](https://github.com/user-attachments/assets/d20c9ee8-64b5-4ee5-b080-0cf0870ef22d)
+   ![Custom prompt](https://github.com/user-attachments/assets/22ea1be5-c646-4b6b-b1f0-fdb6b8150f23)
 
-5. **Enable Auto‑annotation** on any image:
+
+```json
+{
+ "prompt": "enter prompt here"
+}
+```
+
+
+
+6. **Enable Auto‑annotation** on any image:
 
    * Open an image in the labeling interface
    * Toggle **Auto‑annotation** at the bottom
    * (Optional) Add or modify the prompt in the text area for custom queries and pick the corresponding label from below
 
-   ![Auto Annotation](https://github.com/user-attachments/assets/7403735c-c104-4119-b891-7abab6d91551)
-   ![Custom Prompt](https://github.com/user-attachments/assets/9828ed8d-2a10-4e43-a8e5-c77046fe591d)
+   ![Auto Annotation](https://github.com/user-attachments/assets/b9a946b4-2a42-426b-8da5-8f9d7be8d360)
+
+   ![Custom Prompt](https://github.com/user-attachments/assets/729d4401-f75b-4284-a4aa-20fc5d0c980f)
 
 ---
 

@@ -23,6 +23,10 @@ from groundingdino.util           import box_ops
 from segment_anything.utils.transforms import ResizeLongestSide
 from torchvision.ops import nms
 
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import torch.nn.functional as F
+
 logger = logging.getLogger(__name__)
 LOG_PATH = '/app/dino_alias_log.jsonl'
 
@@ -37,26 +41,17 @@ def parse_project_labels(xml_conf: str) -> List[str]:
             seen.add(val)
     return ordered
 
-def fuzzy_map(raw: str, ui_labels: List[str]) -> str:
-    """
-    Normalize DINO phrase to one of UI_LABELS:
-     - lowercase, replace underscores
-     - strip trailing 's' to singularize
-     - fuzzy match full phrase then last token
-    """
-    r = raw.lower().replace("_", " ").strip()
-    if r in ui_labels:
-        return r
-    if r.endswith("s") and r[:-1] in ui_labels:
-        return r[:-1]
-    m = difflib.get_close_matches(r, ui_labels, n=1, cutoff=0.6)
-    if m:
-        return m[0]
-    token = r.split()[-1]
-    m = difflib.get_close_matches(token, ui_labels, n=1, cutoff=0.6)
-    if m:
-        return m[0]
-    return r
+def embedding_map(raw: str, label_embs: torch.Tensor, ui_labels: List[str]) -> Optional[str]:
+    """Return the UI label with highest cosine similarity to raw, or None."""
+    # normalize raw
+    phrase_emb = embedder.encode(raw, convert_to_tensor=True)       # [D]
+    # cosine similarities:
+    sims = F.cosine_similarity(phrase_emb, label_embs)              # [N_labels]
+    top_idx = int(torch.argmax(sims).cpu().item())
+    top_score = float(sims[top_idx].cpu().item())
+    if top_score >= EMB_THRESHOLD:
+        return ui_labels[top_idx]
+    return raw
 
 # Load GroundingDINO
 groundingdino_model = load_model(
@@ -74,6 +69,7 @@ USE_SAM        = get_bool_env('USE_SAM', default=False)
 USE_MOBILE_SAM = get_bool_env('USE_MOBILE_SAM', default=False)
 SAM_CHECKPOINT    = os.environ.get('SAM_CHECKPOINT','sam_vit_h_4b8939.pth')
 MOBILESAM_CHECKPOINT = os.environ.get('MOBILESAM_CHECKPOINT','mobile_sam.pt')
+EMB_THRESHOLD = float(os.environ.get('EMB_THRESHOLD', 0.6))
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 logger.info(f'Using device {device}')
@@ -94,13 +90,21 @@ if USE_SAM or USE_MOBILE_SAM:
     resize_longest = ResizeLongestSide(sam.image_encoder.img_size)
     logger.info('Loaded SAM model')
 
+# Load SentenceTransformer for label embeddings
+embedder = SentenceTransformer('all-MiniLM-L6-v2')
+logger.info("Loaded SentenceTransformer embedder")
+
 class DINOBackend(LabelStudioMLBase):
     def __init__(self, project_id=None, label_config=None, **kwargs):
         super().__init__(project_id=project_id, label_config=label_config, **kwargs)
         
         #get labels
         self.ui_labels = parse_project_labels(self.label_config)
-        
+
+        ui_labels = parse_project_labels(label_config)
+        # encode once:
+        self.label_embs = embedder.encode(ui_labels, convert_to_tensor=True)  # shape [N_labels, D]
+
         #get prompt from extra_params
         ep: Dict = getattr(self, 'extra_params', {}) or {}
         self.project_prompt = ep.get('prompt')
@@ -112,9 +116,13 @@ class DINOBackend(LabelStudioMLBase):
                 tasks: List[Dict],
                 context: Optional[Dict] = None,
                 **kwargs) -> List[Dict]:
-        prompt = (context and context.get('result') and
-                  context['result'][0]['value']['text'][0].strip()) \
-                 or self.project_prompt
+        
+        if context and context.get('result'):
+            prompt = context['result'][0]['value']['text'][0]
+        else:
+            prompt = self.project_prompt
+
+        logger.info(f"[PREDICT] tasks={len(tasks)} prompt={prompt!r}")
 
         fn_r, tn_r, img_key = self.get_first_tag_occurence('RectangleLabels', 'Image')
         fn_b, tn_b, _       = self.get_first_tag_occurence('BrushLabels',     'Image')
@@ -127,35 +135,58 @@ class DINOBackend(LabelStudioMLBase):
     def one_task(self, task, prompt, fn_r, tn_r, fn_b, tn_b, img_key):
         raw = task['data'][img_key]
         try:
-            path = get_local_path(raw, ls_access_token=LABEL_STUDIO_TOKEN, ls_host=LABEL_STUDIO_HOST)
+            img_path = self.get_local_path(raw,
+                                          ls_access_token=LABEL_STUDIO_TOKEN,
+                                          ls_host=LABEL_STUDIO_HOST)
         except:
-            path = raw
-        src, img = load_image(path)
-        H, W = src.shape[:2]
+            img_path = raw
 
-        boxes, scores, phrases = predict(
+        src, img = load_image(img_path)
+        H, W, _  = src.shape
+
+        logger.debug(f"Running DINO on task {task['id']} with prompt: {prompt!r}")
+        
+        boxes_xywh, logits, phrases = predict(
             groundingdino_model, img, prompt,
             box_threshold=BOX_THRESHOLD,
             text_threshold=TEXT_THRESHOLD,
             device=device
         )
-        xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.tensor([W,H,W,H])
-        keep = nms(xyxy, scores, 0.5)[:50]
-        xyxy, scores, phrases = xyxy[keep], scores[keep], [phrases[i] for i in keep]
+        logger.debug(f"DINO returned phrases: {phrases!r}")
 
-        labels = [fuzzy_map(p, self.ui_labels) for p in phrases]
+        # convert & nms
+        boxes_xyxy = box_ops.box_cxcywh_to_xyxy(boxes_xywh) * torch.Tensor([W,H,W,H])
+        scores_tensor = logits if isinstance(logits, torch.Tensor) else torch.stack(logits)
+        keep = nms(boxes_xyxy, scores_tensor, 0.5)[:50]
+        boxes_xyxy = boxes_xyxy[keep]
+        logits     = [ (logits[i].item() if isinstance(logits, torch.Tensor) else float(logits[i])) for i in keep ]
+        phrases    = [ phrases[i] for i in keep ]
+
+        points = boxes_xyxy.cpu().numpy()
+        labels = [ embedding_map(p, self.label_embs, self.ui_labels) for p in phrases ]
         self._log_aliases(phrases, labels, task.get('id'))
 
-        rect = self._rect_results(xyxy.cpu().numpy(), scores, [(H,W)]*len(labels), labels, fn_r, tn_r)
-        if not _ckpt:
-            return rect['result']
+        # build your rect results dict
+        rect_res = self._rect_results(points, logits, [(H,W)]*len(points), labels, fn_r, tn_r)
 
-        brush_res = self._sam_single(path, xyxy.cpu().numpy(), labels, (H,W), fn_b, tn_b)
-        return [{
-            'result': rect['result'] + brush_res['result'],
-            'score':  (rect['score'] + brush_res['score']) / 2,
-            'model_version': self.get('model_version')
-        }]
+        # 1) if you _do_ have SAM, merge masks + boxes exactly as before:
+        if USE_SAM or USE_MOBILE_SAM:
+            mask_res = self._sam_single(img_path, points, labels, (H,W), fn_b, tn_b)
+            return {
+                'result':        rect_res['result'] + mask_res['result'],
+                'score':         (rect_res['score'] + mask_res['score']) / 2,
+                'model_version': self.get('model_version'),
+            }
+
+        # 2) otherwise (no SAM), **return the full dict**, not just rect_res['result']:
+        mapping = [(p, embedding_map(p, self.label_embs, self.ui_labels)) for p in phrases]
+        for raw_phrase, ui_label in mapping:
+            logger.info(f"[DEBUG] {raw_phrase:<30} → {ui_label}")
+        print("\n[ DINO → UI LABELS ]")
+        print("\n".join(f"{r:30} → {u}" for r, u in mapping))
+
+        return rect_res
+
 
     def multiple_tasks(self, tasks, prompt, fn_r, tn_r, fn_b, tn_b, img_key):
         img_paths, HWs = [], []
@@ -186,7 +217,7 @@ class DINOBackend(LabelStudioMLBase):
             keep = nms(bxy, s, 0.5)[:50]
             bxy, s, ph = bxy[keep], s[keep], [ph[i] for i in keep]
 
-            labels = [fuzzy_map(x, self.ui_labels) for x in ph]
+            labels = [embedding_map(x, self.label_embs, self.ui_labels) for x in ph]
             self._log_aliases(ph, labels, task.get('id'))
 
             rect_results.append(self._rect_results(
@@ -195,7 +226,7 @@ class DINOBackend(LabelStudioMLBase):
             sam_boxes.append(bxy.cpu().numpy())
             sam_labels.append(labels)
 
-        if not _ckpt:
+        if not ckpt:
             return [r['result'] for r in rect_results]
 
         brush_results = [{'result': [], 'score': 0.0} for _ in sam_boxes]

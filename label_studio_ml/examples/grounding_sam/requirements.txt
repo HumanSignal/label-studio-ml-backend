@@ -8,5 +8,6 @@ segment-anything==1.0
 olefile==0.47
 # networkx==2.8.8
 accelerate==1.6.0
+sentence-transformers>=2.2.2
 
 

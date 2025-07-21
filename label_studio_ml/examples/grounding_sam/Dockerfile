@@ -30,6 +30,34 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install --no-cache-dir -r requirements.txt
 
+# 1) Make sure sentence-transformers is in your requirements.txt
+#    (or install it here explicitly)
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip3 install --no-cache-dir sentence-transformers huggingface-hub
+
+# pre-cache the bert tokenizer and config so runtime is offline-safe
+RUN python3 - <<EOF
+from transformers import AutoTokenizer, AutoConfig, AutoModel
+for model in ["bert-base-uncased", "sentence-transformers/all-MiniLM-L6-v2"]:
+    AutoTokenizer.from_pretrained(model)
+    AutoConfig.from_pretrained(model)
+    AutoModel.from_pretrained(model)
+EOF
+
+
+# 2) Pre‐cache the 'all-MiniLM-L6-v2' model into the HF cache
+#    so that SentenceTransformer(...) never hits the network.
+RUN python3 - <<'EOF'
+from sentence_transformers import SentenceTransformer
+# this will download weights, tokenizer, config into ~/.cache/huggingface/hub
+SentenceTransformer('all-MiniLM-L6-v2')
+EOF
+
+# 3) Enable Transformers “offline” mode at runtime
+ENV TRANSFORMERS_OFFLINE=1 \
+    HF_DATASETS_OFFLINE=1
+
+
 # install GroundingDINO
 RUN cd / && git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /GroundingDINO
