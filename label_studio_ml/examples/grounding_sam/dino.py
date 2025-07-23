@@ -107,7 +107,8 @@ class DINOBackend(LabelStudioMLBase):
 
         #get prompt from extra_params
         ep: Dict = getattr(self, 'extra_params', {}) or {}
-        self.project_prompt = ep.get('prompt')
+        raw_prompt = ep.get('prompt')
+        self.project_prompt = self._format_prompt(raw_prompt)
         
         self.set('model_version', 'DINOBackend-v0.0.1')
         logger.info(f'[init] prompt={self.project_prompt!r}, labels={self.ui_labels}')
@@ -339,6 +340,23 @@ class DINOBackend(LabelStudioMLBase):
             'score': float(total)/max(len(res),1),
             'model_version': self.get('model_version')
         }
+
+    def _format_prompt(self, prompt):
+        if not prompt:
+            return ""
+        if isinstance(prompt, list):
+            # If prompt is a list, join or take first element
+            if len(prompt) == 0:
+                return ""
+            if isinstance(prompt[0], str):
+                return prompt[0]
+            else:
+                return str(prompt[0])
+        if not isinstance(prompt, str):
+            # Convert anything else to string
+            return str(prompt)
+        return prompt.strip()
+
 
     def _log_aliases(self, raw_phrases: List[str], mapped: List[str], task_id=None):
         for raw, ui in zip(raw_phrases, mapped):
