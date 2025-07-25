@@ -61,8 +61,8 @@ groundingdino_model = load_model(
       'weights/groundingdino_swint_ogc.pth'
 )
 
-BOX_THRESHOLD   = float(os.environ.get('BOX_THRESHOLD', 0.3))
-TEXT_THRESHOLD  = float(os.environ.get('TEXT_THRESHOLD', 0.4))
+BOX_THRESHOLD   = float(os.environ.get('BOX_THRESHOLD', 0.45))
+TEXT_THRESHOLD  = float(os.environ.get('TEXT_THRESHOLD', 0.5))
 LABEL_STUDIO_TOKEN = os.environ.get('LABEL_STUDIO_ACCESS_TOKEN') or os.environ.get('LABEL_STUDIO_API_KEY')
 LABEL_STUDIO_HOST  = os.environ.get('LABEL_STUDIO_HOST') or os.environ.get('LABEL_STUDIO_URL')
 USE_SAM        = get_bool_env('USE_SAM', default=False)
@@ -70,6 +70,11 @@ USE_MOBILE_SAM = get_bool_env('USE_MOBILE_SAM', default=False)
 SAM_CHECKPOINT    = os.environ.get('SAM_CHECKPOINT','sam_vit_h_4b8939.pth')
 MOBILESAM_CHECKPOINT = os.environ.get('MOBILESAM_CHECKPOINT','mobile_sam.pt')
 EMB_THRESHOLD = float(os.environ.get('EMB_THRESHOLD', 0.6))
+
+# Set environment variable for PyTorch CUDA memory allocation
+# This helps to avoid fragmentation issues with CUDA memory allocation
+if 'PYTORCH_CUDA_ALLOC_CONF' not in os.environ:
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:32'
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 logger.info(f'Using device {device}')
@@ -262,6 +267,7 @@ class DINOBackend(LabelStudioMLBase):
         )
         masks = masks[:,0].cpu().numpy().astype(np.uint8)
         probs = probs.cpu().numpy()
+        del boxes # free memory
         return self._sam_predictions(masks, probs, labels, [(H,W)]*len(labels), fn_b, tn_b)
 
     def _sam_batch(self, boxes_list, img_paths):
@@ -335,6 +341,11 @@ class DINOBackend(LabelStudioMLBase):
                     'brushlabels':[lbl]
                 }
             })
+       
+        # free memory
+        del masks, probs
+        torch.cuda.empty_cache()
+        
         return {
             'result': res,
             'score': float(total)/max(len(res),1),
