@@ -17,16 +17,16 @@ services:
         reservations:
             memory: 4G
 # Add this to pass through 1 GPU 
-#            devices:
-#              - driver: nvidia
-#                count: 1
-#                capabilities: [gpu]
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
     environment:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
       # Change this to your model name: MobileSAM or SAM
-      - SAM_CHOICE=MobileSAM
+      - SAM_CHOICE=SAM
       - LOG_LEVEL=DEBUG
       # Enable this to use the GPU
       # - NVIDIA_VISIBLE_DEVICES=all
@@ -41,8 +41,8 @@ services:
       # Do not use 'localhost' as it does not work within Docker containers.
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
-      - LABEL_STUDIO_HOST=
-      - LABEL_STUDIO_ACCESS_TOKEN=
+      - LABEL_STUDIO_HOST=http://192.168.110.208:8080
+      - LABEL_STUDIO_ACCESS_TOKEN=9c65451a1335c0977d62978df63b6d42c5c5f86c
 
     ports:
       - 9090:9090
