@@ -1,0 +1,26 @@
+version: '3.11'
+
+services:
+  fix-data-permissions:
+      image: heartexlabs/label-studio:latest
+      user: root
+      volumes:
+        - ./data/label-studio:/label-studio/data
+      command: chown -R 1001:root /label-studio/data
+      restart: "no"
+
+  label_studio:
+    container_name: label-studio
+    image: heartexlabs/label-studio:latest
+    init: true
+
+    network_mode: host
+
+    depends_on:
+      - fix-data-permissions
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./data/label-studio:/label-studio/data:rw

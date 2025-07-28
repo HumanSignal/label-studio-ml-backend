@@ -48,12 +48,13 @@ services:
       - sh
       - -c
       - |
-        pip install "numpy<2"  && /app/start.sh
+        pip install "numpy<2" sentence_transformers  && /app/start.sh
 
 
     volumes:
       - ./data/ml-backend:/data # ML models & cache
       # ← mount LS’s upload folder so dino.py can open “/data/upload/1/…jpg” directly
-      - ~/.local/share/label-studio/media/upload:/data/upload:ro
+      # - ~/.local/share/label-studio/media/upload:/data/upload:ro
+      - ../../../data/label-studio/media/upload:/data/upload:ro
       - ./dino.py:/app/dino.py:ro
       - ./logs/dino_alias_log.jsonl:/app/dino_alias_log.jsonl
