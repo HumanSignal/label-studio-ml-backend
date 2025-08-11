@@ -86,7 +86,7 @@ jobs:
 
       - name: Login to DockerHub
         if: ${{ !github.event.pull_request.head.repo.fork }}
-        uses: docker/login-action@v3.4.0
+        uses: docker/login-action@v3.5.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
