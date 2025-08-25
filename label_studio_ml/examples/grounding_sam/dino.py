@@ -43,7 +43,7 @@ def parse_project_labels(xml_conf: str) -> List[str]:
             seen.add(val)
     return ordered
 
-def embedding_map(raw: str, label_embs: torch.Tensor, ui_labels: List[str]) -> Optional[str]:
+def embedding_map(raw: str, label_embs: torch.Tensor, ui_labels, emb_threshold: float) -> Optional[str]:
     """Return the UI label with highest cosine similarity to raw, or None."""
     # normalize raw
     phrase_emb = embedder.encode(raw, convert_to_tensor=True)       # [D]
@@ -51,7 +51,7 @@ def embedding_map(raw: str, label_embs: torch.Tensor, ui_labels: List[str]) -> O
     sims = F.cosine_similarity(phrase_emb, label_embs)              # [N_labels]
     top_idx = int(torch.argmax(sims).cpu().item())
     top_score = float(sims[top_idx].cpu().item())
-    if top_score >= EMB_THRESHOLD:
+    if top_score >= emb_threshold:
         return ui_labels[top_idx]
     return raw
 
@@ -96,6 +96,16 @@ def safe_parse_extra_params(raw):
     logging.warning(f"extra_params type unsupported: {type(raw)}; using {{}}")
     return {}
 
+def _safe_float(ep, key, default, minv=0.0, maxv=1.0):
+    try:
+        val = float(ep.get(key, default))
+        if val < minv or val > maxv:
+            raise ValueError
+        return val
+    except Exception:
+        logger.warning(f"Invalid {key} in extra_params, using default={default}")
+        return default
+    
 # Load GroundingDINO
 groundingdino_model = load_model(
     pathlib.Path(os.environ.get('GROUNDINGDINO_REPO_PATH', './GroundingDINO')) /
@@ -159,8 +169,13 @@ class DINOBackend(LabelStudioMLBase):
         raw_prompt = ep.get('prompt')
         self.project_prompt = self._format_prompt(raw_prompt)
         
+        #get thresholds from extra_params
+        self.box_threshold = _safe_float(ep, 'box_threshold', BOX_THRESHOLD)
+        self.text_threshold = _safe_float(ep, 'text_threshold', TEXT_THRESHOLD)
+        self.emb_threshold = _safe_float(ep, 'emb_threshold', EMB_THRESHOLD)
+        
         self.set('model_version', 'DINOBackend-v0.0.1')
-        logger.info(f'[init] prompt={self.project_prompt!r}, labels={self.ui_labels}')
+        logger.info(f'[init] prompt={self.project_prompt!r}, labels={self.ui_labels}, \n ARGUMENTS: box_th={self.box_threshold}, text_th={self.text_threshold}, emb_th={self.emb_threshold}')
 
     def predict(self,
                 tasks: List[Dict],
@@ -198,8 +213,8 @@ class DINOBackend(LabelStudioMLBase):
         
         boxes_xywh, logits, phrases = predict(
             groundingdino_model, img, prompt,
-            box_threshold=BOX_THRESHOLD,
-            text_threshold=TEXT_THRESHOLD,
+            box_threshold=self.box_threshold,
+            text_threshold=self.text_threshold,
             device=device
         )
         logger.debug(f"DINO returned phrases: {phrases!r}")
@@ -213,7 +228,7 @@ class DINOBackend(LabelStudioMLBase):
         phrases    = [ phrases[i] for i in keep ]
 
         points = boxes_xyxy.cpu().numpy()
-        labels = [ embedding_map(p, self.label_embs, self.ui_labels) for p in phrases ]
+        labels = [ embedding_map(p, self.label_embs, self.ui_labels, self.emb_threshold) for p in phrases ]
         self._log_aliases(phrases, labels, task.get('id'))
 
         # build your rect results dict
@@ -230,7 +245,7 @@ class DINOBackend(LabelStudioMLBase):
             return out
 
         # 2) otherwise (no SAM), **return the full dict**, not just rect_res['result']:
-        mapping = [(p, embedding_map(p, self.label_embs, self.ui_labels)) for p in phrases]
+        mapping = [(p, embedding_map(p, self.label_embs, self.ui_labels, self.emb_threshold)) for p in phrases]
         for raw_phrase, ui_label in mapping:
             logger.info(f"[DEBUG] {raw_phrase:<30} → {ui_label}")
         print("\n[ DINO → UI LABELS ]")
@@ -256,7 +271,7 @@ class DINOBackend(LabelStudioMLBase):
             _, im = load_image(p)
             b, s, ph = predict(
                 groundingdino_model, im, prompt,
-                BOX_THRESHOLD, TEXT_THRESHOLD, device
+                self.box_threshold, self.text_threshold, device
             )
             boxes_b.append(b)
             scores_b.append(s)
@@ -268,7 +283,7 @@ class DINOBackend(LabelStudioMLBase):
             keep = nms(bxy, s, 0.5)[:50]
             bxy, s, ph = bxy[keep], s[keep], [ph[i] for i in keep]
 
-            labels = [embedding_map(x, self.label_embs, self.ui_labels) for x in ph]
+            labels = [embedding_map(x, self.label_embs, self.ui_labels, self.emb_threshold) for x in ph]
             self._log_aliases(ph, labels, task.get('id'))
 
             rect_results.append(self._rect_results(
