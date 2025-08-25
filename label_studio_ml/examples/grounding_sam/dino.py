@@ -26,6 +26,8 @@ from torchvision.ops import nms
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import torch.nn.functional as F
+import ast
+import re
 
 logger = logging.getLogger(__name__)
 LOG_PATH = '/app/dino_alias_log.jsonl'
@@ -52,6 +54,47 @@ def embedding_map(raw: str, label_embs: torch.Tensor, ui_labels: List[str]) -> O
     if top_score >= EMB_THRESHOLD:
         return ui_labels[top_idx]
     return raw
+
+
+def safe_parse_extra_params(raw):
+    """
+    Return dict or {}. Accept dict or JSON string.
+    Tolerates raw newlines/tabs by escaping them.
+    Never raises.
+    """
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip()
+
+        # Try strict JSON first
+        try:
+            val = json.loads(s)
+            return val if isinstance(val, dict) else {}
+        except json.JSONDecodeError:
+            pass
+
+        # Sanitize unescaped control chars that break JSON
+        s2 = re.sub(r'(?<!\\)\n', r'\\n', s)
+        s2 = re.sub(r'(?<!\\)\t', r'\\t', s2)
+        try:
+            val = json.loads(s2)
+            return val if isinstance(val, dict) else {}
+        except json.JSONDecodeError:
+            pass
+
+        # Python literal fallback for single-quoted dicts
+        try:
+            import ast
+            val = ast.literal_eval(s)
+            return val if isinstance(val, dict) else {}
+        except Exception:
+            logging.warning("extra_params parse failed; using {}")
+            return {}
+    logging.warning(f"extra_params type unsupported: {type(raw)}; using {{}}")
+    return {}
 
 # Load GroundingDINO
 groundingdino_model = load_model(
@@ -111,7 +154,8 @@ class DINOBackend(LabelStudioMLBase):
         self.label_embs = embedder.encode(ui_labels, convert_to_tensor=True)  # shape [N_labels, D]
 
         #get prompt from extra_params
-        ep: Dict = getattr(self, 'extra_params', {}) or {}
+        ep_raw = self.get('extra_params') or '{}'   # raw JSON string; don’t json.loads() here
+        ep: Dict = safe_parse_extra_params(ep_raw)
         raw_prompt = ep.get('prompt')
         self.project_prompt = self._format_prompt(raw_prompt)
         
@@ -178,11 +222,12 @@ class DINOBackend(LabelStudioMLBase):
         # 1) if you _do_ have SAM, merge masks + boxes exactly as before:
         if USE_SAM or USE_MOBILE_SAM:
             mask_res = self._sam_single(img_path, points, labels, (H,W), fn_b, tn_b)
-            return {
-                'result':        rect_res['result'] + mask_res['result'],
-                'score':         (rect_res['score'] + mask_res['score']) / 2,
+            out = {
+                'result': rect_res['result'] + mask_res['result'],
+                'score':  (rect_res['score'] + mask_res['score']) / 2,
                 'model_version': self.get('model_version'),
             }
+            return out
 
         # 2) otherwise (no SAM), **return the full dict**, not just rect_res['result']:
         mapping = [(p, embedding_map(p, self.label_embs, self.ui_labels)) for p in phrases]
