@@ -34,7 +34,7 @@ jobs:
       - uses: hmarr/debug-action@v3.0.0
 
       - name: Check user's membership
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         id: actor-membership
         env:
           ACTOR: ${{ github.actor }}
@@ -93,7 +93,7 @@ jobs:
 
       - name: Calculate Docker tags
         id: calculate-docker-tags
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           IMAGE_NAME: "${{ env.IMAGE_NAME }}"
           TAGS: "${{ steps.version.outputs.image_version }},${{ steps.version.outputs.image_branch_version }}"
@@ -136,7 +136,7 @@ jobs:
 
       - name: Build matrix
         id: matrix
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const yaml = require('js-yaml');
