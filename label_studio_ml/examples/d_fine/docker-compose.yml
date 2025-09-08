@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  d-fine-ml-backend:
+    container_name: d-fine-ml-backend
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV:-false}
+    # If you have a GPU and want to use it:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1 # or 'all'
+    #           capabilities: [gpu]
+    environment:
+      # Label Studio ML Backend related
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:-}
+      - BASIC_AUTH_PASS=${BASIC_AUTH_PASS:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - WORKERS=${WORKERS:-1}
+      - THREADS=${THREADS:-4}
+      - MODEL_DIR=/data/models # Standard LS ML backend dir for custom model files (.pth)
+
+      # D-FINE specific
+      - DFINE_CODE_DIR=/app/d-fine-code # Location of D-FINE's 'src' and 'configs'
+      - DFINE_CONFIG_FILE=${DFINE_CONFIG_FILE:-dfine_hgnetv2_l_coco.yml} # Name of the .yml config file (expected in DFINE_CODE_DIR/configs/dfine/)
+      - DFINE_MODEL_WEIGHTS=${DFINE_MODEL_WEIGHTS:-dfine_l_coco.pth}     # Name of the .pth weights file (expected in MODEL_DIR)
+      - DEVICE=${DEVICE:-cuda} # 'cuda' or 'cpu'
+
+      # For accessing data from Label Studio (e.g., if LS is hosting images)
+      # - LABEL_STUDIO_URL=http://your-ls-host:8080
+      # - LABEL_STUDIO_API_KEY=your-ls-api-key
+    ports:
+      - "9090:9090"
+    volumes:
+      # Mount your local directory containing D-FINE .pth model weights to /data/models in the container
+      - ./models:/data/models:ro 
+      # Mount D-FINE's 'src' and 'configs' directories. 
+      # Create a 'd-fine-code' directory in this example folder and copy D-FINE's 'src' and 'configs' into it.
+      - ./d-fine-code:/app/d-fine-code:ro
