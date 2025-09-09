@@ -1,2 +1,5 @@
 gunicorn==22.0.0
+# 安装时禁用依赖解析，防止自动装 pillow 和 label-studio-sdk
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git
+pillow==10.3.0
+flask>=2.3,<3.2

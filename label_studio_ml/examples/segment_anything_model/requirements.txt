@@ -7,9 +7,14 @@ torchvision==0.15.2
 gunicorn==22.0.0
 rq==1.10.1
 timm==0.4.12
+flask>=2.3,<3.2
+pydantic
 
 segment_anything @ git+https://github.com/facebookresearch/segment-anything.git
 mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
-label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git
 
 numpy<2
+
+label-studio-sdk @ git+https://github.com/HumanSignal/label-studio-sdk.git
+colorama
+semver

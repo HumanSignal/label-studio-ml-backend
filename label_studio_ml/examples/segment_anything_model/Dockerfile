@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 ARG PYTHON_VERSION=3.10
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
@@ -34,8 +33,8 @@ RUN bash /app/download_models.sh
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install --upgrade pip && \
-    pip install -r requirements-base.txt
-
+    pip install gunicorn==22.0.0 pillow==10.3.0 && \
+    pip install --no-deps "label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git"
 # install custom requirements
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
