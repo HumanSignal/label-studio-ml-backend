@@ -277,7 +277,7 @@ You can now upload images into your project and begin annotating.
 
 ## Creating annotations
 
-See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing)
+See [this video tutorial](https://hs-sandbox-pub.s3.us-east-1.amazonaws.com/ml-backend-docs/SAM_video_tutorial.mp4)
 to get a better understanding of the workflow when annotating with SAM.
 
 Use the `Alt` hotkey to alter keypoint positive and negative labels.
