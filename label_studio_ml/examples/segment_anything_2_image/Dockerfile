@@ -58,4 +58,4 @@ COPY . ./
 
 WORKDIR /sam2
 
-CMD ["gunicorn", "--bind", ":9090", "--workers", "1", "--threads", "8", "--timeout", "0", "--pythonpath", "/app", "_wsgi:app"]
+CMD ["gunicorn", "--bind", ":9090", "--workers", "${WORKERS}", "--threads", "${THREADS}", "--timeout", "0", "--pythonpath", "/app", "_wsgi:app"]
