@@ -70,7 +70,7 @@ jobs:
       - name: Git Commit
         working-directory: "${{ env.DOCS_REPO_PATH }}"
         run: |
-          git add 'docs/source/tutorials' || true
+          git add 'docs/source/guide/ml_tutorials' || true
           git add 'docs/source/guide/ml_tutorials.html' || true
           git status -s
           git commit -m '${{ env.COMMIT_MESSAGE }}' -m 'Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' || true

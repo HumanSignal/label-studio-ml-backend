@@ -13,7 +13,7 @@ categories:
     - Video Classification
     - Temporal Labeling
     - LSTM
-image: "/tutorials/yolo-video-classification.png"
+image: "/guide/ml_tutorials/yolo-video-classification.png"
 ---
 -->
 

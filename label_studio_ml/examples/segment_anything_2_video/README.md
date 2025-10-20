@@ -12,7 +12,7 @@ categories:
     - Video Annotation
     - Object Detection
     - Segment Anything Model
-image: "/tutorials/sam2-video.png"
+image: "/guide/ml_tutorials/sam2-video.png"
 ---
 -->
 

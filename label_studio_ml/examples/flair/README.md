@@ -12,7 +12,7 @@ categories:
     - Natural Language Processing
     - Named Entity Recognition
     - Flair
-image: "/tutorials/flair.png"
+image: "/guide/ml_tutorials/flair.png"
 ---
 -->
 

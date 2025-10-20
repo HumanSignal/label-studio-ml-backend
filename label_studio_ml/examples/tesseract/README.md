@@ -12,7 +12,7 @@ categories:
     - Computer Vision
     - Optical Character Recognition
     - Tesseract
-image: "/tutorials/tesseract.png"
+image: "/guide/ml_tutorials/tesseract.png"
 ---
 -->
 

@@ -15,7 +15,7 @@ categories:
     - Azure
     - Ollama
     - ChatGPT
-image: "/tutorials/llm-interactive.png"
+image: "/guide/ml_tutorials/llm-interactive.png"
 ---
 -->
 

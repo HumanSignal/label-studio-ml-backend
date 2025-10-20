@@ -11,7 +11,7 @@ categories:
     - Generative AI
     - Large Language Model
     - WatsonX
-image: "/tutorials/watsonx.png"
+image: "/guide/ml_tutorials/watsonx.png"
 ---
 -->
 
