@@ -15,7 +15,7 @@ categories:
     - Zero-shot Image Segmentation
     - Grounding DINO
     - Segment Anything Model
-image: "/tutorials/grounding-sam.png"
+image: "/guide/ml_tutorials/grounding-sam.png"
 ---
 -->
 

@@ -15,7 +15,7 @@ categories:
     - Segment Anything Model
     - Facebook
     - ONNX
-image: "/tutorials/segment-anything.png"
+image: "/guide/ml_tutorials/segment-anything.png"
 ---
 -->
 

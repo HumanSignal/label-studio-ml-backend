@@ -12,7 +12,7 @@ categories:
     - Image Annotation
     - Object Detection
     - Segment Anything Model
-image: "/tutorials/sam2-images.png"
+image: "/guide/ml_tutorials/sam2-images.png"
 ---
 -->
 
