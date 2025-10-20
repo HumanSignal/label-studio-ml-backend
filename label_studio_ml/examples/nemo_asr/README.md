@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Automatic Speech Recognition with NVidia NeMo
 type: guide
 tier: all
@@ -8,13 +8,11 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: Automatic Speech Recognition with NeMo
 meta_description: Tutorial on how to use set up Nvidia NeMo to use for ASR tasks in Label Studio
-categories:
-    - Audio/Speech Processing
-    - Automatic Speech Recognition
-    - NeMo
-    - NVidia
-image: "/tutorials/nvidia.png"
+categories: - Audio/Speech Processing - Automatic Speech Recognition - NeMo - NVidia
+image: "/guide/ml_tutorials/nvidia.png"
+
 ---
+
 -->
 
 # ASR with NeMo
@@ -25,13 +23,13 @@ Use this model if you want to transcribe and fix your audio data.
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`nemo_asr` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/nemo_asr). 
+This tutorial uses the [`nemo_asr` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/nemo_asr).
 
 ## Labeling interface
 
-This example works with the Label Studio's pre-built **Audio Transcription** template (available under **Audio Processing > Audio Transcription**).  
+This example works with the Label Studio's pre-built **Audio Transcription** template (available under **Audio Processing > Audio Transcription**).
 
 ```xml
 <View>
@@ -63,7 +61,6 @@ $ curl http://localhost:9090/
 
 3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
-
 ## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
@@ -92,8 +89,8 @@ label-studio-ml start ./nemo_asr
 
 Parameters can be set in `docker-compose.yml` before running the container.
 
-
 The following common parameters are available:
+
 - `MODEL_NAME` - Specify the model name for the ASR. (`QuartzNet15x5Base-En` by default)
 - `BASIC_AUTH_USER` - Specify the basic auth user for the model server
 - `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
@@ -105,4 +102,4 @@ The following common parameters are available:
 
 ## Customization
 
-The ML backend can be customized by adding your own models and logic inside `./nemo_asr/model.py`. 
+The ML backend can be customized by adding your own models and logic inside `./nemo_asr/model.py`.

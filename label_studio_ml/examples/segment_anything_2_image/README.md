@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: SAM2 with Images
 type: guide
 tier: all
@@ -7,37 +7,36 @@ order: 15
 hide_menu: true
 hide_frontmatter_title: true
 meta_title: Using SAM2 with Label Studio for Image Annotation
-categories:
-    - Computer Vision
-    - Image Annotation
-    - Object Detection
-    - Segment Anything Model
-image: "/tutorials/sam2-images.png"
+categories: - Computer Vision - Image Annotation - Object Detection - Segment Anything Model
+image: "/guide/ml_tutorials/sam2-images.png"
+
 ---
+
 -->
 
 # Using SAM2 with Label Studio for Image Annotation
 
-Segment Anything 2, or SAM 2, is a model released by Meta in July 2024. An update to the original Segment Anything Model, 
-SAM 2 provides even better object segmentation for both images and video. In this guide, we'll show you how to use 
-SAM 2 for better image labeling with label studio. 
+Segment Anything 2, or SAM 2, is a model released by Meta in July 2024. An update to the original Segment Anything Model,
+SAM 2 provides even better object segmentation for both images and video. In this guide, we'll show you how to use
+SAM 2 for better image labeling with label studio.
 
 Click on the image below to watch our ML Evangelist Micaela Kaplan explain how to link SAM 2 to your Label Studio Project.
-You'll need to follow the instructions below to stand up an instance of SAM2 before you can link your model! 
+You'll need to follow the instructions below to stand up an instance of SAM2 before you can link your model!
 
 [![Connecting SAM2 Model to Label Studio for Image Annotation ](https://img.youtube.com/vi/FTg8P8z4RgY/0.jpg)](https://www.youtube.com/watch?v=FTg8P8z4RgY)
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`segment_anything_2_image` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/segment_anything_2_image). 
+This tutorial uses the [`segment_anything_2_image` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/segment_anything_2_image).
 
 Note that as of 8/1/2024, SAM2 only runs on GPU.
 
 ## Labeling configuration
 
 The current implementation of the Label Studio SAM2 ML backend works using Interactive mode. The user-guided inputs are:
+
 - `KeypointLabels`
 - `RectangleLabels`
 
@@ -90,8 +89,8 @@ This means all three control tags should be represented in your labeling configu
       <View className="title">Choose Label</View>
       <View className="label">
         <BrushLabels name="tag" toName="image">
-          
-          
+
+
         <Label value="defect" background="#FFA39E"/></BrushLabels>
       </View>
     </View>
@@ -99,8 +98,8 @@ This means all three control tags should be represented in your labeling configu
       <View className="title">Use Keypoint</View>
       <View className="label">
         <KeyPointLabels name="tag2" toName="image" smart="true">
-          
-          
+
+
         <Label value="defect" background="#250dd3"/></KeyPointLabels>
       </View>
     </View>
@@ -108,8 +107,8 @@ This means all three control tags should be represented in your labeling configu
       <View className="title">Use Rectangle</View>
       <View className="label">
         <RectangleLabels name="tag3" toName="image" smart="true">
-          
-          
+
+
         <Label value="defect" background="#FFC069"/></RectangleLabels>
       </View>
     </View>
@@ -133,28 +132,26 @@ cd label_studio_ml/examples/segment_anything_2_image
 pip install -r requirements.txt
 ```
 
-2. Download [`segment-anything-2` repo](https://github.com/facebookresearch/sam2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/sam2?tab=readme-ov-file#installation)
-You should now have the following folder structure: 
+2.  Download [`segment-anything-2` repo](https://github.com/facebookresearch/sam2) into the root directory. Install SegmentAnything model and download checkpoints using [the official Meta documentation](https://github.com/facebookresearch/sam2?tab=readme-ov-file#installation)
+    You should now have the following folder structure:
 
-
-    | root directory 
-        | label-studio-ml-backend 
-            | label-studio-ml
-                | examples 
-                    | segment_anything_2_image
-        | sam2
+        | root directory
+            | label-studio-ml-backend
+                | label-studio-ml
+                    | examples
+                        | segment_anything_2_image
             | sam2
-            | checkpoints
+                | sam2
+                | checkpoints
 
-
-3. Then you can start the ML backend on the default port `9090`:
+3.  Then you can start the ML backend on the default port `9090`:
 
 ```bash
 cd ~/sam2
 label-studio-ml start ../label-studio-ml-backend/label_studio_ml/examples/segment_anything_2_image
 ```
 
-Due to breaking changes from Meta [HERE](https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/sam2/build_sam.py#L20), it is CRUCIAL that you run this command from the sam2 directory at your root directory. 
+Due to breaking changes from Meta [HERE](https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/sam2/build_sam.py#L20), it is CRUCIAL that you run this command from the sam2 directory at your root directory.
 
 4. Connect running ML backend server to Label Studio: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL. Read more in the official [Label Studio documentation](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio).
 
@@ -175,12 +172,12 @@ $ curl http://localhost:9090/
 
 3. Connect to the backend from Label Studio running on the same host: go to your project `Settings -> Machine Learning -> Add Model` and specify `http://localhost:9090` as a URL.
 
-
 ## Configuration
+
 Parameters can be set in `docker-compose.yml` before running the container.
 
-
 The following common parameters are available:
+
 - `DEVICE` - specify the device for the model server (currently only `cuda` is supported, `cpu` is coming soon)
 - `MODEL_CONFIG` - SAM2 model configuration file (`sam2_hiera_l.yaml` by default)
 - `MODEL_CHECKPOINT` - SAM2 model checkpoint file (`sam2_hiera_large.pt` by default)
@@ -192,4 +189,4 @@ The following common parameters are available:
 
 ## Customization
 
-The ML backend can be customized by adding your own models and logic inside the `./segment_anything_2` directory. 
+The ML backend can be customized by adding your own models and logic inside the `./segment_anything_2` directory.

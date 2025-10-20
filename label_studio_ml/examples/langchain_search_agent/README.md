@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: RAG with a Langchain search agent
 type: guide
 tier: all
@@ -7,18 +7,13 @@ order: 45
 hide_menu: true
 hide_frontmatter_title: true
 meta_title: RAG with a Langchain search agent
-meta_description: Use Langchain, OpenAI, and Google to generate responses based on Google search results. 
-categories:
-    - Generative AI
-    - Retrieval Augmented Generation
-    - Google
-    - OpenAI
-    - Langchain
-image: "/tutorials/langchain.png"
+meta_description: Use Langchain, OpenAI, and Google to generate responses based on Google search results.
+categories: - Generative AI - Retrieval Augmented Generation - Google - OpenAI - Langchain
+image: "/guide/ml_tutorials/langchain.png"
+
 ---
+
 -->
-
-
 
 # Langchain search agent
 
@@ -29,9 +24,9 @@ and returns the answer based on the search results (a.k.a Retrieval Augmented Ge
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`langchain_search_agent` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/langchain_search_agent). 
+This tutorial uses the [`langchain_search_agent` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/langchain_search_agent).
 
 ## Prerequisites
 

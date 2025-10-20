@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Hugging Face Large Language Model (LLM)
 type: guide
 tier: all
@@ -8,13 +8,11 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: Label Studio tutorial to run Hugging Face Large Language Model backend
 meta_description: This tutorial explains how to run Hugging Face Large Language model backend in Label Studio. Hugging Face Large Language Model Backend is a machine learning backend designed to work with Label Studio, providing a custom model for text generation.
-categories:
-    - Generative AI
-    - Large Language Model
-    - Text Generation
-    - Hugging Face
-image: "/tutorials/hf-llm.png"
+categories: - Generative AI - Large Language Model - Text Generation - Hugging Face
+image: "/guide/ml_tutorials/hf-llm.png"
+
 ---
+
 -->
 
 # Hugging Face Large Language Model backend
@@ -25,9 +23,9 @@ Check [text generation pipelines on Hugging Face](https://huggingface.co/tasks/t
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`huggingface_llm` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/huggingface_llm). 
+This tutorial uses the [`huggingface_llm` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/huggingface_llm).
 
 ## Label Studio XML labeling config
 
@@ -59,7 +57,6 @@ $ curl http://localhost:9090/
 
 3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
-
 ## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
@@ -89,6 +86,7 @@ label-studio-ml start ./huggingface_llm
 Parameters can be set in `docker-compose.yml` before running the container.
 
 The following common parameters are available:
+
 - `MODEL_NAME`: The name of the pre-trained model to use for text generation. Default is `facebook/opt-125m`.
 - `MAX_LENGTH`: The maximum length of the generated text. Default is `50`.
 - `BASIC_AUTH_USER`: The basic auth user for the model server.
@@ -99,4 +97,4 @@ The following common parameters are available:
 
 # Customization
 
-The ML backend can be customized by adding your own models and logic inside the `./huggingface_llm` directory. 
+The ML backend can be customized by adding your own models and logic inside the `./huggingface_llm` directory.

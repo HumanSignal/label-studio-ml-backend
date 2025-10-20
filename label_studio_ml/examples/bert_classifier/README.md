@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Classify text with a BERT model
 type: guide
 tier: all
@@ -8,18 +8,16 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: BERT-based text classification
 meta_description: Tutorial on how to use BERT-based text classification with your Label Studio project
-categories:
-    - Natural Language Processing
-    - Text Classification
-    - BERT
-    - Hugging Face
-image: "/tutorials/bert.png"
+categories: - Natural Language Processing - Text Classification - BERT - Hugging Face
+image: "/guide/ml_tutorials/bert.png"
+
 ---
+
 -->
 
 # BERT-based text classification
 
-The NewModel is a BERT-based text classification model that is designed to work with Label Studio. This model uses the Hugging Face Transformers library to fine-tune a BERT model for text classification. The model is trained on the labeled data from Label Studio and then used to make predictions on new data.  With this model connected to Label Studio, you can: 
+The NewModel is a BERT-based text classification model that is designed to work with Label Studio. This model uses the Hugging Face Transformers library to fine-tune a BERT model for text classification. The model is trained on the labeled data from Label Studio and then used to make predictions on new data. With this model connected to Label Studio, you can:
 
 - Train a BERT model on your labeled data directly from Label Studio.
 - Use any model for [AutoModelForSequenceClassification](https://huggingface.co/transformers/v3.0.2/model_doc/auto.html#automodelforsequenceclassification) from the Hugging Face model hub.
@@ -29,10 +27,9 @@ The NewModel is a BERT-based text classification model that is designed to work 
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`bert_classifier` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/bert_classifier). 
-
+This tutorial uses the [`bert_classifier` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/bert_classifier).
 
 ## Running with Docker (recommended)
 
@@ -77,10 +74,9 @@ Then you can start the ML backend:
 label-studio-ml start ./dir_with_your_model
 ```
 
-
 ## Labeling configuration
 
-In project `Settings > Labeling Interface > Browse Templates > Natural Language Processing > Text Classification`, you can find the default labeling configuration for text classification in Label Studio. This configuration includes a single `<Choices>` output and a single `<Text>` input. 
+In project `Settings > Labeling Interface > Browse Templates > Natural Language Processing > Text Classification`, you can find the default labeling configuration for text classification in Label Studio. This configuration includes a single `<Choices>` output and a single `<Text>` input.
 Feel free to modify the set of labels in the `<Choices>` tag to match your specific task, for example:
 
 ```xml
@@ -93,7 +89,6 @@ Feel free to modify the set of labels in the `<Choices>` tag to match your speci
   </Choices>
 </View>
 ```
-
 
 ## Configuration
 
@@ -121,7 +116,6 @@ The following parameters are available for training:
 - `FINETUNED_MODEL_NAME`: The name of the fine-tuned model. Default is `finetuned_model`. Checkpoints will be saved under this name.
 
 > Note: The `LABEL_STUDIO_API_KEY` is required for training the model. You can find the API key in Label Studio under the [**Account & Settings** page](https://labelstud.io/guide/user_account#Access-token).
-
 
 # Customization
 

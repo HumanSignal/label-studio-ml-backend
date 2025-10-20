@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Sklearn Text Classifier model
 type: guide
 tier: all
@@ -8,12 +8,11 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: Sklearn Text Classifier model for Label Studio
 meta_description: Tutorial on how to use an example ML backend for Label Studio with Scikit-learn logistic regression
-categories:
-    - Natural Language Processing
-    - Text Classification
-    - Scikit-learn
-image: "/tutorials/scikit-learn.png"
+categories: - Natural Language Processing - Text Classification - Scikit-learn
+image: "/guide/ml_tutorials/scikit-learn.png"
+
 ---
+
 -->
 
 # Sklearn Text Classifier model for Label Studio
@@ -24,9 +23,9 @@ The model is trained on the labeled texts collected from Label Studio, and it us
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`sklearn_text_classifier` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/sklearn_text_classifier). 
+This tutorial uses the [`sklearn_text_classifier` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/sklearn_text_classifier).
 
 ## Labeling configuration
 
@@ -62,7 +61,6 @@ $ curl http://localhost:9090/
 ```
 
 3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
-
 
 ## Building from source (advanced)
 
@@ -106,4 +104,4 @@ The following common parameters are available:
 
 # Customization
 
-The ML backend can be customized by adding your own models and logic inside the `./dir_with_your_model` directory. 
+The ML backend can be customized by adding your own models and logic inside the `./dir_with_your_model` directory.

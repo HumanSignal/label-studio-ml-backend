@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Interactive substring matching for NER tasks
 type: guide
 tier: all
@@ -8,23 +8,22 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: Interactive substring matching for NER tasks
 meta_description: Use the interactive substring matching model for labeling NER tasks in Label Studio
-categories:
-    - Natural Language Processing
-    - Named Entity Recognition
-    - Interactive matching
-image: "/tutorials/interactive-substring-matching.png"
+categories: - Natural Language Processing - Named Entity Recognition - Interactive matching
+image: "/guide/ml_tutorials/interactive-substring-matching.png"
+
 ---
+
 -->
 
 # Interactive substring matching
 
-The Machine Learning (ML) backend is designed to enhance the efficiency of auto-labeling in Named Entity Recognition (NER) tasks. It achieves this by selecting a keyword and automatically matching the same keyword in the provided text. 
+The Machine Learning (ML) backend is designed to enhance the efficiency of auto-labeling in Named Entity Recognition (NER) tasks. It achieves this by selecting a keyword and automatically matching the same keyword in the provided text.
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`interactive_substring_matching` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/interactive_substring_matching). 
+This tutorial uses the [`interactive_substring_matching` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/interactive_substring_matching).
 
 ## Recommended labeling config
 
@@ -61,7 +60,6 @@ $ curl http://localhost:9090/
 
 3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
 
-
 ## Building from source (advanced)
 
 To build the ML backend from source, you have to clone the repository and build the Docker image:
@@ -91,6 +89,7 @@ label-studio-ml start ./interactive_substring_matching
 Parameters can be set in `docker-compose.yml` before running the container.
 
 The following common parameters are available:
+
 - `BASIC_AUTH_USER` - Specify the basic auth user for the model server
 - `BASIC_AUTH_PASS` - Specify the basic auth password for the model server
 - `LOG_LEVEL` - Set the log level for the model server
@@ -99,4 +98,4 @@ The following common parameters are available:
 
 ## Customization
 
-The ML backend can be customized by adding your own models and logic inside the `./interactive_substring_matching` directory. 
+The ML backend can be customized by adding your own models and logic inside the `./interactive_substring_matching` directory.

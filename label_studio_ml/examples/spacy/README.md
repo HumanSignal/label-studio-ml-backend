@@ -1,32 +1,32 @@
-<!--
----
-title: spaCy models for NER 
+## <!--
+
+title: spaCy models for NER
 type: guide
 tier: all
 order: 70
 hide_menu: true
 hide_frontmatter_title: true
 meta_title: Use spaCy models with Label Studio
-meta_description: Tutorial on how to use Label Studio and spaCy for faster NER and POS labeling 
-categories:
-    - Natural Language Processing
-    - Named Entity Recognition
-    - SpaCy
-image: "/tutorials/spacy.png"
+meta_description: Tutorial on how to use Label Studio and spaCy for faster NER and POS labeling
+categories: - Natural Language Processing - Named Entity Recognition - SpaCy
+image: "/guide/ml_tutorials/spacy.png"
+
 ---
+
 -->
 
 This ML backend provides a simple way to use [spaCy](https://spacy.io/) models for Named Entity Recognition (NER) and Part-of-Speech (POS) tagging.
 
 Current implementation includes the following models:
+
 - Named Entity Recognition (NER)
 - [coming soon...] Part-of-Speech (POS) tagging
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`spacy` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/spacy). 
+This tutorial uses the [`spacy` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/spacy).
 
 ## Quickstart
 
@@ -50,6 +50,7 @@ $ curl http://localhost:9090/health
 ### Labeling configuration
 
 This model is compatible with the following labeling configurations:
+
 ```xml
 <View>
     <Labels name="label" toName="text">
@@ -74,6 +75,7 @@ You can also use the default configuration from the [Named Entity Recognition te
 > Note: If your labels are different from the default ones, the text spans will still be highlighted, but you have to manually map the labels to the ones you have in the model. Go to `model.py` and change `_custom_labels_mapping` to map from SpaCy entities to your labels. Check for predefined labels in the official SpaCy documentation, for example for [en_core_web_sm](https://spacy.io/models/en#en_core_web_sm).
 
 ## Parameters
+
 To change default parameters, specify the following environment variables:
 
 - `PORT` - port to run the server on, default is `9090`

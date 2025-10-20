@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Integrate WatsonX with Label Studio
 type: guide
 tier: all
@@ -7,23 +7,22 @@ order: 15
 hide_menu: true
 hide_frontmatter_title: true
 meta_title: Integrate WatsonX with Label Studio
-categories:
-    - Generative AI
-    - Large Language Model
-    - WatsonX
-image: "/tutorials/watsonx.png"
+categories: - Generative AI - Large Language Model - WatsonX
+image: "/guide/ml_tutorials/watsonx.png"
+
 ---
+
 -->
 
 # Integrate WatsonX to Label Studio
 
 WatsonX offers a suite of machine learning tools, including access to many LLMs, prompt
-refinement interfaces, and datastores via WatsonX.data. When you integrate WatsonX with Label Studio, you get 
-access to these models and can automatically keep your annotated data up to date in your WatsonX.data tables. 
+refinement interfaces, and datastores via WatsonX.data. When you integrate WatsonX with Label Studio, you get
+access to these models and can automatically keep your annotated data up to date in your WatsonX.data tables.
 
-To run the integration, you'll need to pull this repo and host it locally or in the cloud. Then, you can link the model 
-to your Label Studio project under the `models` section in the settings. To use the WatsonX.data integration, 
-set up a webhook in settings under `webhooks` by using the following structure for the link: 
+To run the integration, you'll need to pull this repo and host it locally or in the cloud. Then, you can link the model
+to your Label Studio project under the `models` section in the settings. To use the WatsonX.data integration,
+set up a webhook in settings under `webhooks` by using the following structure for the link:
 `<link to your hosted container>/data/upload` and set the triggers to `ANNOTATION_CREATED` and `ANNOTATION_UPDATED`. For more
 on webhooks, see [our documentation](https://labelstud.io/guide/webhooks)
 
@@ -33,19 +32,20 @@ For a video demonstration, see [Integrating Label Studio with IBM WatsonX](https
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`watsonx_llm` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/watsonx_llm). 
+This tutorial uses the [`watsonx_llm` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/watsonx_llm).
 
 ## Setting up your label_config
+
 For this project, we recommend you start with the labeling config as defined below, but you can always edit it or expand it to
-meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into. 
+meet your needs! Crucially, there must be a `<TextArea>` tag for the model to insert its response into.
 
 ```xml
     <View>
         <Style>
             .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
-    
+
             .text-container {
             background-color: white;
             border-radius: 10px;
@@ -81,22 +81,23 @@ meet your needs! Crucially, there must be a `<TextArea>` tag for the model to in
                   smart="false"
                   placeholder="Generated response will appear here..."
         />
-        
+
         <Header value="Overall response quality:"/>
         <Rating name="rating" toName="context"/>
     </View>
 ```
 
 ## Setting up WatsonX.Data
-To use your WatsonX.data integration, follow the steps below. 
-1. First, get the host and port information of the engine that you'll be using. To do this, navigate to the Infrastructure Manager 
-on the left sidebar of your WatsonX.data page and select the Infrastructure Manager. Change to list view by clicking the symbol in 
-the upper right hand corner. From there, click on the name of the engine you'll be using. This will bring up a pop up window, 
-where you can see the host and port information under "host". The port is the part after the `:` at the end of the url. 
+
+To use your WatsonX.data integration, follow the steps below.
+
+1. First, get the host and port information of the engine that you'll be using. To do this, navigate to the Infrastructure Manager
+   on the left sidebar of your WatsonX.data page and select the Infrastructure Manager. Change to list view by clicking the symbol in
+   the upper right hand corner. From there, click on the name of the engine you'll be using. This will bring up a pop up window,
+   where you can see the host and port information under "host". The port is the part after the `:` at the end of the url.
 2. Next, make sure your catalog is set up. To create a new catalog, follow [these instructions](https://dataplatform.cloud.ibm.com/docs/content/wsj/catalog/create-catalog.html?context=wx&locale=en)
 3. Once your catalog is set up, make sure that the correct schema is also set up. Navigate to your Data Manager and select `create` to create a new schema
-4. With all of this information, you're ready to update the environment variables listed at the bottom of this page and get started with your WatsonX.data integration! 
-
+4. With all of this information, you're ready to update the environment variables listed at the bottom of this page and get started with your WatsonX.data integration!
 
 ## Running with Docker (recommended)
 
@@ -114,7 +115,6 @@ $ curl http://localhost:9090/
 ```
 
 3. Create a project in Label Studio. Then from the **Model** page in the project settings, [connect the model](https://labelstud.io/guide/ml#Connect-the-model-to-Label-Studio). The default URL is `http://localhost:9090`.
-
 
 ## Building from source (advanced)
 
@@ -145,6 +145,7 @@ label-studio-ml start ./dir_with_your_model
 Parameters can be set in `docker-compose.yml` before running the container.
 
 The following common parameters are available:
+
 - `BASIC_AUTH_USER` - Specify the basic auth user for the model server.
 - `BASIC_AUTH_PASS` - Specify the basic auth password for the model server.
 - `LOG_LEVEL` - Set the log level for the model server.
@@ -158,8 +159,8 @@ The following parameters allow you to link the WatsonX models to Label Studio:
 - `WATSONX_API_KEY`- Specify the API key for authenticating into WatsonX. You can generate this by following the instructions at [here](https://www.ibm.com/docs/en/watsonx/watsonxdata/1.0.x?topic=started-generating-api-keys)
 - `WATSONX_PROJECT_ID`- Specify the ID of your WatsonX project from which you will run the model. Must have WML capabilities. You can find this in the `General` section of your project, which is accessible by clicking on the project from the homepage of WatsonX.
 - `WATSONX_MODELTYPE`- Specify the name of the WatsonX model you'd like to use. A full list can be found in [IBM's documentation](https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#TextModels:~:text=CODELLAMA_34B_INSTRUCT_HF)
-- `DEFAULT_PROMPT` - If you want the model to automatically predict on new data samples, you'll need to provide a default prompt or the location to a default prompt file. 
-- `USE_INTERNAL_PROMPT` - If using a default prompt, set to 0. Otherwise, set to 1.  
+- `DEFAULT_PROMPT` - If you want the model to automatically predict on new data samples, you'll need to provide a default prompt or the location to a default prompt file.
+- `USE_INTERNAL_PROMPT` - If using a default prompt, set to 0. Otherwise, set to 1.
 
 The following parameters allow you to use the webhook connection to transfer data from Label Studio to WatsonX.data:
 
@@ -172,4 +173,3 @@ To get the host and port information below, you can follow the steps under [Pre-
 - `WATSONX_CATALOG` - the name of the catalog for the table you'll insert your data into. Must be created in the WatsonX.data platform.
 - `WATSONX_SCHEMA` - the name of the schema for the table you'll insert your data into. Must be created in the WatsonX.data platform.
 - `WATSONX_TABLE` - the name of the table you'll insert your data into. Does not need to be already created.
-

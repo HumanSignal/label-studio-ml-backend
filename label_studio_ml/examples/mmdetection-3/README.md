@@ -1,5 +1,5 @@
-<!--
----
+## <!--
+
 title: Object detection with bounding boxes using MMDetection
 type: guide
 tier: all
@@ -8,30 +8,27 @@ hide_menu: true
 hide_frontmatter_title: true
 meta_title: Object detection in images with Label Studio and MMDetection
 meta_description: This is a tutorial on how to use the example MMDetection model backend with Label Studio for image segmentation tasks.
-categories:
-    - Computer Vision
-    - Object Detection
-    - Image Annotation
-    - OpenMMLab
-    - MMDetection
-image: "/tutorials/openmmlab.png"
+categories: - Computer Vision - Object Detection - Image Annotation - OpenMMLab - MMDetection
+image: "/guide/ml_tutorials/openmmlab.png"
+
 ---
+
 -->
 
 # Object detection with bounding boxes using MMDetection
 
 https://mmdetection.readthedocs.io/en/latest/
 
-This example demonstrates how to use the MMDetection model with Label Studio to annotate images with bounding boxes. 
-The model is based on the YOLOv3 architecture with a MobileNetV2 backbone and trained on the COCO dataset. 
+This example demonstrates how to use the MMDetection model with Label Studio to annotate images with bounding boxes.
+The model is based on the YOLOv3 architecture with a MobileNetV2 backbone and trained on the COCO dataset.
 
 ![screenshot.png](screenshot.png)
 
 ## Before you begin
 
-Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart). 
+Before you begin, you must install the [Label Studio ML backend](https://github.com/HumanSignal/label-studio-ml-backend?tab=readme-ov-file#quickstart).
 
-This tutorial uses the [`mmdetection-3` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/mmdetection-3). 
+This tutorial uses the [`mmdetection-3` example](https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/mmdetection-3).
 
 ## Quick usage
 
@@ -45,8 +42,7 @@ docker-compose up -d
 
 See the tutorial in the documentation for building your own image and advanced usage:
 
-https://github.com/HumanSignal/label-studio/blob/master/docs/source/tutorials/object-detector.md
-
+https://github.com/HumanSignal/label-studio/blob/master/docs/source/guide/ml_tutorials/object-detector.md
 
 ## Labeling config
 
@@ -54,31 +50,30 @@ There are two possible variants of labeling configurations that can be used:
 
 1. In this example, you can provide labels "as is" and they will be automatically mapped to MMDetection model's labels.
 
-    This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
+   This will work for simple use cases. For example, Label Studio `Airplane` maps to MMDetection `airplane`.
 
-    ```
-    <View>
-      <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image">
-        <Label value="Airplane" background="green"/>
-        <Label value="Car" background="blue"/>
-      </RectangleLabels>
-    </View>
-    ```
+   ```
+   <View>
+     <Image name="image" value="$image"/>
+     <RectangleLabels name="label" toName="image">
+       <Label value="Airplane" background="green"/>
+       <Label value="Car" background="blue"/>
+     </RectangleLabels>
+   </View>
+   ```
 
 2. More complex labeling config with `predicted_values`:
 
-    ```
-    <View>
-      <Image name="image" value="$image"/>
-      <RectangleLabels name="label" toName="image">
-        <Label value="Vehicle" predicted_values="airplane,car" background="green"/>
-      </RectangleLabels>
-    </View>
-    ```
+   ```
+   <View>
+     <Image name="image" value="$image"/>
+     <RectangleLabels name="label" toName="image">
+       <Label value="Vehicle" predicted_values="airplane,car" background="green"/>
+     </RectangleLabels>
+   </View>
+   ```
 
 In this example, you can combine multiple labels into one Label Studio annotation the. For example, Label Studio `Vehicle` maps to MMDetection "airplane" and "car".
-
 
 ## Run without Docker
 
@@ -92,6 +87,7 @@ cd label-studio-ml-backend/label_studio_ml/examples/mmdetection-3
 ```
 
 2. Create a virtual environment using `venv` and install all dependencies using pip:
+
 ```
 python -m venv ml-backend
 source ml-backend/bin/activate
@@ -161,11 +157,11 @@ export LABEL_STUDIO_API_KEY=<your-ls-api-key>
 label-studio-ml start --root-dir .. mmdetection-3
 ```
 
-or using gunicorn for a Python web app 
+or using gunicorn for a Python web app
 
 ```
 gunicorn --preload --bind :9090 --workers 1 --threads 1 --timeout 0 _wsgi:app
 ```
 
-* Use this guide to find out your access token: https://labelstud.io/guide/api.html
-* You can use and increased value of `SCORE_THRESHOLD` parameter when you see a lot of unwanted detections or lower its value if you don't see any detections.
+- Use this guide to find out your access token: https://labelstud.io/guide/api.html
+- You can use and increased value of `SCORE_THRESHOLD` parameter when you see a lot of unwanted detections or lower its value if you don't see any detections.
