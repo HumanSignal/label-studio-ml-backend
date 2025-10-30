@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
@@ -22,11 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=2 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda \
-    SEGMENT_ANYTHING_2_REPO_PATH=/sam2 \
     PYTHONPATH=/sam2:${PYTHONPATH}
-
-# this image is already built with cuda 12.1.1, so we don't need to install it again
-# RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y 
 
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"

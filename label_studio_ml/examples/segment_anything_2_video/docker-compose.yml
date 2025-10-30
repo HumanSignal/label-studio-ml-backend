@@ -22,12 +22,11 @@ services:
       # specify the model directory (likely you don't need to change this)
       - MODEL_DIR=/data/models
       # specify device
-      - DEVICE=cuda  # or 'cpu'
+      - DEVICE=cuda
       # SAM2 model config
       - MODEL_CONFIG=configs/sam2.1/sam2.1_hiera_t.yaml
       # SAM2 checkpoint
       - MODEL_CHECKPOINT=sam2.1_hiera_tiny.pt
-      - SEGMENT_ANYTHING_2_REPO_PATH=/sam2
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.

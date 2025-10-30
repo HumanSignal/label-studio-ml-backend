@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 DEVICE = os.getenv('DEVICE', 'cuda')
-SEGMENT_ANYTHING_2_REPO_PATH = os.getenv('SEGMENT_ANYTHING_2_REPO_PATH', 'segment-anything-2')
 MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'sam2_hiera_l.yaml')
 MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
 MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 10))
@@ -35,7 +34,7 @@ if DEVICE == 'cuda':
 
 
 # build path to the model checkpoint
-sam2_checkpoint = str(pathlib.Path(__file__).parent / SEGMENT_ANYTHING_2_REPO_PATH / "checkpoints" / MODEL_CHECKPOINT)
+sam2_checkpoint = str(pathlib.Path(__file__).parent / "/sam2" / "checkpoints" / MODEL_CHECKPOINT)
 predictor = build_sam2_video_predictor(MODEL_CONFIG, sam2_checkpoint)
 
 
