@@ -1,0 +1,2 @@
+deepgram-sdk
+boto3
