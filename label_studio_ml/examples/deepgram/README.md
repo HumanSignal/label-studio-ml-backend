@@ -1,18 +1,10 @@
-<!--
----
-title: Deepgram Text To Speech
-type: guide
-tier: all
-order: 15
-hide_menu: true
-hide_frontmatter_title: true
-meta_title: Using Deepgram with label Studio for Text to Speech
----
--->
 
 # Using Deepgram with Label Studio for Text to Speech annotation
 
 This backend uses the Deepgram API to take the input text from the user, do text to speech, and return the output audio for annotation in Label Studio.
+
+https://github.com/user-attachments/assets/9569a955-0baf-4a95-9e8a-d08250a0a298
+
 
 IMPORTANT NOTE: YOU MUST REFRESH THE PAGE AFTER SUBMITTING THE TEXT TO SEE THE AUDIO APPEAR.
 
