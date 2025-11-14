@@ -23,7 +23,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        wget git libopencv-dev cmake protobuf-compiler binutils; \
+        wget git libopencv-dev cmake protobuf-compiler binutils patchelf; \
     apt-get autoremove -y
 
 # Copy and run the model download script
@@ -45,10 +45,9 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt
 
-# Fix executable stack issue with onnxruntime shared library
-# Remove the .note.GNU-stack section which marks the stack as executable
+# Fix executable stack issue with onnxruntime shared library using patchelf
 RUN PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
-    find /usr/local/lib/python${PYTHON_VER}/site-packages/onnxruntime/capi -name "onnxruntime_pybind11_state*.so" -exec sh -c 'objcopy --remove-section .note.GNU-stack "$1" 2>/dev/null || true' _ {} \; || true
+    find /usr/local/lib/python${PYTHON_VER}/site-packages/onnxruntime/capi -name "onnxruntime_pybind11_state*.so" -exec sh -c 'patchelf --clear-execstack "$1" 2>/dev/null || true' _ {} \; || true
 
 # install test requirements if needed
 COPY requirements-test.txt .
