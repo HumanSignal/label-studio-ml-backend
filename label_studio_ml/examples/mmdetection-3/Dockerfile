@@ -41,6 +41,10 @@ ENV PYTHONUNBUFFERED=1 \
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
     pip install -U pip
 
+# Install numpy early to avoid dependency conflicts
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install "numpy~=1.26"
+
 # Install base requirements
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
