@@ -3,6 +3,7 @@ import sys
 import pathlib
 from types import SimpleNamespace
 from typing import List, Dict, Optional
+from werkzeug.utils import secure_filename
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_sdk import LabelStudio
@@ -58,9 +59,13 @@ class DeepgramModel(LabelStudioMLBase):
         )
         
         # Generate unique filename for the audio file - task_id and user_id are unique identifiers for the task and user
-        audio_filename = f"{task_id}_{context['user_id']}.mp3"
-        local_audio_path = f"/tmp/{audio_filename}"
-        
+        safe_task_id = secure_filename(str(task_id))
+        safe_user_id = secure_filename(str(context['user_id']))
+        audio_filename = f"{safe_task_id}_{safe_user_id}.mp3"
+        local_audio_path = os.path.normpath(os.path.join("/tmp", audio_filename))
+        # Ensure the final path is within /tmp
+        if not local_audio_path.startswith(os.path.abspath("/tmp") + os.sep):
+            raise ValueError("Invalid path: attempted directory traversal in filename")
         # Write audio chunks to local file
         with open(local_audio_path, "wb") as audio_file:
             for chunk in response:
