@@ -4,12 +4,16 @@ import os
 from uuid import uuid4
 from typing import List, Dict, Optional, Any
 from label_studio_ml.model import LabelStudioMLBase
-from langchain.tools import Tool
-from langchain.utilities import GoogleSearchAPIWrapper
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.agents import initialize_agent
-from langchain.agents import AgentType
-from langchain.llms import OpenAI
+
+
+# Import langchain components - use new API (v1.0+)
+from langchain_community.utilities import GoogleSearchAPIWrapper
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain.agents import create_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import Tool
+
+
 from label_studio_ml.utils import match_labels
 
 logger = logging.getLogger(__name__)
@@ -82,17 +86,16 @@ class LangchainSearchAgent(LabelStudioMLBase):
                 func=search.run,
                 callbacks=[search_results]
             )]
-        llm = OpenAI(
+        llm = ChatOpenAI(
             temperature=0,
-            model_name='gpt-3.5-turbo-instruct'
+            model="gpt-3.5-turbo"
         )
-        agent = initialize_agent(
-            tools,
-            llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            max_iterations=3,
-            early_stopping_method="generate",
+        
+        # Use new agent API (langchain 1.0+)
+        agent = create_agent(
+            model=llm,
+            tools=tools,
+            debug=True
         )
 
         labels = self.parsed_label_config[from_name]['labels']
@@ -121,7 +124,24 @@ class LangchainSearchAgent(LabelStudioMLBase):
             text = self.preload_task_data(task, task['data'][value])
             full_prompt = self.PROMPT_TEMPLATE.format(prompt=prompt, text=text)
             logger.info(f'Full prompt: {full_prompt}')
-            llm_result = agent.run(full_prompt)
+            # Invoke the agent with the prompt
+            result = agent.invoke({"messages": [("user", full_prompt)]})
+            # Extract the response from the agent result
+            if isinstance(result, dict) and "messages" in result:
+                # Get the last message which should be the agent's response
+                messages = result["messages"]
+                if messages:
+                    last_message = messages[-1]
+                    if hasattr(last_message, 'content'):
+                        llm_result = last_message.content
+                    elif isinstance(last_message, dict) and 'content' in last_message:
+                        llm_result = last_message['content']
+                    else:
+                        llm_result = str(last_message)
+                else:
+                    llm_result = str(result)
+            else:
+                llm_result = str(result)
             output_classes = match_labels(llm_result, labels)
             snippets = search_results.snippets
             logger.debug(f'LLM result: {llm_result}')

@@ -1,5 +1,11 @@
 import requests
 
+# Ensure numpy is available before importing mmdetection (which depends on mmdet)
+try:
+    import numpy
+except ImportError:
+    raise ImportError("numpy is not available. Please install numpy before running tests.")
+
 from mmdetection import MMDetection
 
 from label_studio_ml.utils import compare_nested_structures
