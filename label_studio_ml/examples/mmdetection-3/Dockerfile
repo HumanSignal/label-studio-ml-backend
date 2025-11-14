@@ -55,7 +55,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt
 
-# Install test requirements if needed
+# Install test requirements if needed (install before mim to ensure numpy is available)
 COPY requirements-test.txt .
 # build only when TEST_ENV="true"
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
@@ -63,12 +63,20 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
       pip install -r requirements-test.txt; \
     fi
 
-RUN mim install mmengine==0.10.3
-RUN mim install mmcv==2.1.0
-RUN mim install mmdet==3.3.0 
+# Ensure numpy is available and pinned before mim installs (mim packages may depend on it)
+RUN python -c "import numpy; print(f'numpy version: {numpy.__version__}')" || pip install "numpy~=1.26"
+
+# Install mim packages, but prevent numpy from being upgraded
+RUN mim install mmengine==0.10.3 && \
+    mim install mmcv==2.1.0 && \
+    mim install mmdet==3.3.0 && \
+    pip install --force-reinstall --no-deps "numpy~=1.26" || true 
 RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest . 
 
 COPY . .
+
+# Final verification that numpy is available (important for tests)
+RUN python -c "import numpy; print(f'✓ numpy {numpy.__version__} is available')" || (echo "ERROR: numpy is not available!" && exit 1)
 
 EXPOSE 9090
 
