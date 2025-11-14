@@ -4,12 +4,22 @@ import os
 from uuid import uuid4
 from typing import List, Dict, Optional, Any
 from label_studio_ml.model import LabelStudioMLBase
-from langchain.tools import tool
-from langchain.utilities import GoogleSearchAPIWrapper
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.agents import initialize_agent
-from langchain.agents import AgentType
-from langchain.llms import OpenAI
+
+# Try new langchain imports first (v0.1.0+), fall back to old imports
+try:
+    from langchain_community.utilities import GoogleSearchAPIWrapper
+    from langchain_core.callbacks import BaseCallbackHandler
+    from langchain.agents import initialize_agent, AgentType
+    from langchain_openai import OpenAI
+    from langchain.tools import Tool
+except ImportError:
+    # Fall back to old imports for older langchain versions
+    from langchain.utilities import GoogleSearchAPIWrapper
+    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain.agents import initialize_agent, AgentType
+    from langchain.llms import OpenAI
+    from langchain.tools import Tool
+
 from label_studio_ml.utils import match_labels
 
 logger = logging.getLogger(__name__)
