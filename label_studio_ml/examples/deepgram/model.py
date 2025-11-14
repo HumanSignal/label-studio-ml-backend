@@ -1,6 +1,7 @@
 import os
 import sys
 import pathlib
+from types import SimpleNamespace
 from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
@@ -20,6 +21,11 @@ class DeepgramModel(LabelStudioMLBase):
 
     def setup(self):
         """Initialize the Deepgram client with API key from environment"""
+        self.test_mode = self._is_test_mode_enabled()
+        if self.test_mode:
+            self._setup_test_clients()
+            return
+
         api_key = os.getenv('DEEPGRAM_API_KEY')
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY environment variable is not set")
@@ -78,7 +84,10 @@ class DeepgramModel(LabelStudioMLBase):
             print(f"Uploaded audio to S3: {s3_url}")
             
             # Update task with S3 URL
-            ls.tasks.update(id=task_id, data={"text": text, "audio": s3_url})
+            if self.test_mode:
+                print(f"[TEST MODE] Would update task {task_id} with audio {s3_url}")
+            else:
+                ls.tasks.update(id=task_id, data={"text": text, "audio": s3_url})
         except Exception as e:
             print(f"Error uploading to S3: {e}")
             raise
@@ -86,5 +95,35 @@ class DeepgramModel(LabelStudioMLBase):
             # Clean up local file
             if os.path.exists(local_audio_path):
                 os.remove(local_audio_path)
-        
+
+    def _is_test_mode_enabled(self) -> bool:
+        """Check environment variables to decide if the model should use local stubs."""
+        truthy = {'1', 'true', 'TRUE', 'True', 'yes', 'on'}
+        explicit_flag = os.getenv('DEEPGRAM_TEST_MODE')
+        test_env_flag = os.getenv('TEST_ENV')
+        return (explicit_flag in truthy) or (test_env_flag in truthy)
+
+    def _setup_test_clients(self):
+        """Configure lightweight stub clients so docker/CI runs do not need real secrets."""
+        print("[TEST MODE] DeepgramModel using stubbed Deepgram/S3 clients.")
+
+        def fake_generate(text: str):
+            # Produce deterministic fake audio bytes for predictable tests.
+            preview = text[:10] if text else ''
+            return [f"fake-audio-{preview}".encode('utf-8')]
+
+        fake_audio = SimpleNamespace(generate=fake_generate)
+        fake_speak = SimpleNamespace(v1=SimpleNamespace(audio=fake_audio))
+        self.deepgram_client = SimpleNamespace(speak=fake_speak)
+
+        class _StubS3Client:
+            """Minimal S3 client replacement for test environments."""
+            def upload_file(self, filename, bucket, key, ExtraArgs=None):
+                print(f"[TEST MODE] Pretend upload of {filename} to s3://{bucket}/{key}")
+
+        self.s3_client = _StubS3Client()
+        # Provide sensible defaults so downstream URL building still works.
+        self.s3_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        self.s3_bucket = os.getenv('S3_BUCKET', 'test-bucket')
+        self.s3_folder = os.getenv('S3_FOLDER', 'tts')
 

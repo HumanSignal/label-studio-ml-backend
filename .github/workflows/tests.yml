@@ -113,6 +113,7 @@ jobs:
         if: ${{ matrix.skip_pytests != 'true' }}
         env:
           ML_BACKEND: ${{ matrix.backend_dir_name }}
+          TEST_ENV: "true"
         run: |
           docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml exec -T ${{ matrix.backend_dir_name }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 

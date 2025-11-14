@@ -178,3 +178,44 @@ def test_predict_s3_failure_raises_and_cleans_up_temp_file(env_settings, patched
     assert not os.path.exists(local_path)
     patched_clients['ls'].tasks.update.assert_not_called()
 
+
+def test_setup_in_test_mode_uses_stub_clients(monkeypatch):
+    """
+    Scenario: TEST_ENV is enabled to activate internal stubs.
+    Steps   : set TEST_ENV, instantiate the model, and inspect configured clients.
+    Checks  : ensure real Deepgram constructor is not called and stub clients exist with defaults.
+    """
+    monkeypatch.setenv('TEST_ENV', '1')
+    ctor = MagicMock()
+    monkeypatch.setattr(deepgram_model, 'DeepgramClient', ctor)
+
+    model = deepgram_model.DeepgramModel()
+
+    assert model.test_mode is True
+    ctor.assert_not_called()
+    assert callable(model.deepgram_client.speak.v1.audio.generate)
+    assert model.s3_bucket == 'test-bucket'
+    assert model.s3_folder == 'tts'
+
+
+def test_predict_test_mode_skips_label_studio_update(monkeypatch):
+    """
+    Scenario: predict runs in test mode so external Label Studio updates should be skipped.
+    Steps   : enable TEST_ENV, patch ls.tasks.update, run predict with valid context.
+    Checks  : confirm stub S3 upload runs without raising and Label Studio update is not invoked.
+    """
+    monkeypatch.setenv('TEST_ENV', '1')
+    model = deepgram_model.DeepgramModel()
+    mocked_update = MagicMock()
+    monkeypatch.setattr(deepgram_model.ls.tasks, 'update', mocked_update)
+
+    tasks = [{'id': 321}]
+    context = {
+        'user_id': 'tester',
+        'result': [{'value': {'text': ['Hello from test mode']}}],
+    }
+
+    model.predict(tasks=tasks, context=context)
+
+    mocked_update.assert_not_called()
+
