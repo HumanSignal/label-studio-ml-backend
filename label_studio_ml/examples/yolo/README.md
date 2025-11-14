@@ -13,7 +13,7 @@ categories:
     - Object Detection
     - Image Segmentation
     - YOLO
-image: "/tutorials/yolo.png"
+image: "/guide/ml_tutorials/yolo.png"
 ---
 -->
 

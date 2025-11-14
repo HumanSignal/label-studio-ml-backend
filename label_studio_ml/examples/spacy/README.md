@@ -12,7 +12,7 @@ categories:
     - Natural Language Processing
     - Named Entity Recognition
     - SpaCy
-image: "/tutorials/spacy.png"
+image: "/guide/ml_tutorials/spacy.png"
 ---
 -->
 

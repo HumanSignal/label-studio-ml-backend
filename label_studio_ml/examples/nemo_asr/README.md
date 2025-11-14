@@ -13,7 +13,7 @@ categories:
     - Automatic Speech Recognition
     - NeMo
     - NVidia
-image: "/tutorials/nvidia.png"
+image: "/guide/ml_tutorials/nvidia.png"
 ---
 -->
 
