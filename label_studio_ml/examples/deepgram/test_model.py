@@ -192,6 +192,8 @@ def test_setup_in_test_mode_uses_stub_clients(monkeypatch):
     Checks  : ensure real Deepgram constructor is not called and stub clients exist with defaults.
     """
     monkeypatch.setenv('TEST_ENV', '1')
+    monkeypatch.setenv('S3_BUCKET', 'test-bucket')
+    monkeypatch.setenv('S3_FOLDER', 'tts')
     ctor = MagicMock()
     monkeypatch.setattr(deepgram_module, 'DeepgramClient', ctor)
 
