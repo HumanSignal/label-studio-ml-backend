@@ -8,8 +8,11 @@ ARG TEST_ENV
 WORKDIR /app
 
 # To fix GPG key error when running apt-get update
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub \
-    && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub
+RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub | gpg --dearmor -o /usr/share/keyrings/nvidia.gpg \
+    && wget -qO - https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub | gpg --dearmor -o /usr/share/keyrings/nvidia-ml.gpg
 
 # Update the base OS
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
@@ -57,8 +60,9 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     fi
 
 RUN mim install mmengine==0.10.3
-RUN mim install mmdet==3.3.0
-RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest .
+RUN mim install mmcv==2.1.0
+RUN mim install mmdet==3.3.0 
+RUN mim download mmdet --config yolov3_mobilenetv2_8xb24-320-300e_coco --dest . 
 
 COPY . .
 
