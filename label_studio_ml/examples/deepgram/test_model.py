@@ -7,8 +7,10 @@ from label_studio_ml.response import ModelResponse
 # Ensure the Label Studio SDK inside the Deepgram example sees harmless defaults.
 os.environ.setdefault('LABEL_STUDIO_URL', 'http://localhost')
 os.environ.setdefault('LABEL_STUDIO_API_KEY', 'test-token')
-
-from label_studio_ml.examples.deepgram import model as deepgram_model  # noqa: E402
+try:
+    from label_studio_ml.examples.deepgram import model as deepgram_model  # noqa: E402
+except ImportError:
+    from model import DeepgramModel as deepgram_model
 
 
 @pytest.fixture
