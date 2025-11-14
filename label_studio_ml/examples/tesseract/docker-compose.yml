@@ -34,7 +34,7 @@ services:
 
   minio:
     container_name: minio
-    image: bitnami/minio:latest
+    image: minio/minio:latest
     environment:
       - MINIO_ROOT_USER=<admin username>
       - MINIO_ROOT_PASSWORD=<admin password>
