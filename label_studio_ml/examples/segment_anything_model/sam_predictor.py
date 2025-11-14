@@ -9,6 +9,52 @@ from typing import List, Dict, Optional
 from label_studio_ml.utils import InMemoryLRUDictCache
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 
+# Monkey-patch torch.as_tensor to handle numpy 2.x compatibility
+_original_as_tensor = torch.as_tensor
+def _patched_as_tensor(data, dtype=None, device=None):
+    """Patched version of torch.as_tensor that handles numpy 2.x compatibility"""
+    if isinstance(data, np.ndarray):
+        # For numpy 2.x compatibility, ensure arrays are properly converted
+        if dtype is None and data.dtype == np.uint8:
+            # Explicitly convert uint8 arrays
+            return _original_as_tensor(data.copy(), dtype=torch.uint8, device=device)
+        elif dtype is not None:
+            # If dtype is specified, ensure the array is compatible
+            if data.dtype == np.float32 and dtype == torch.int:
+                # Convert float32 to int properly
+                return _original_as_tensor(data.astype(np.int32), dtype=dtype, device=device)
+    return _original_as_tensor(data, dtype=dtype, device=device)
+torch.as_tensor = _patched_as_tensor
+
+# Also patch tensor.numpy() to handle numpy 2.x compatibility
+_original_tensor_numpy = torch.Tensor.numpy
+def _patched_tensor_numpy(self, *args, **kwargs):
+    """Patched version of tensor.numpy() that handles numpy 2.x compatibility"""
+    try:
+        return _original_tensor_numpy(self, *args, **kwargs)
+    except RuntimeError as e:
+        if "Numpy is not available" in str(e):
+            # Fallback: manually convert tensor to numpy array
+            # This is a workaround for numpy 2.x compatibility issues
+            arr = self.detach().cpu().contiguous()
+            # Convert to list first, then to numpy array
+            if arr.dim() == 0:
+                return np.array(arr.item())
+            else:
+                # Map torch dtypes to numpy dtypes
+                dtype_map = {
+                    torch.float32: np.float32,
+                    torch.float64: np.float64,
+                    torch.int32: np.int32,
+                    torch.int64: np.int64,
+                    torch.uint8: np.uint8,
+                    torch.bool: np.bool_,
+                }
+                np_dtype = dtype_map.get(arr.dtype, None)
+                return np.array(arr.tolist(), dtype=np_dtype)
+        raise
+torch.Tensor.numpy = _patched_tensor_numpy
+
 logger = logging.getLogger(__name__)
 _MODELS_DIR = pathlib.Path(__file__).parent / "models"
 
@@ -91,6 +137,8 @@ class SAMPredictor(object):
             )
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # Ensure image is contiguous and properly typed for numpy 2.x compatibility
+            image = np.ascontiguousarray(image, dtype=np.uint8)
             self.predictor.set_image(image)
             payload = {'image_shape': image.shape[:2]}
             logger.debug(f'Finished set_image({img_path}) in `IN_MEM_CACHE`: image shape {image.shape[:2]}')
