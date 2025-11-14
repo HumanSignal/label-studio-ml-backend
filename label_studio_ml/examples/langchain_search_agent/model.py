@@ -4,7 +4,7 @@ import os
 from uuid import uuid4
 from typing import List, Dict, Optional, Any
 from label_studio_ml.model import LabelStudioMLBase
-from langchain.tools import Tool
+from langchain.tools import tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.agents import initialize_agent
