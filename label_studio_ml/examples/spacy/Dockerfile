@@ -21,7 +21,10 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        git; \
+        git \
+        build-essential \
+        gcc \
+        g++; \
     apt-get autoremove -y
 
 # install base requirements
@@ -32,7 +35,9 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 # install custom requirements
 COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -r requirements.txt
+    pip install -r requirements.txt && \
+    apt-get purge -y build-essential gcc g++ && \
+    apt-get autoremove -y
 
 # install test requirements if needed
 COPY requirements-test.txt .
