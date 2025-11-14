@@ -1,3 +1,4 @@
+import importlib
 import os
 from unittest.mock import MagicMock
 
@@ -7,10 +8,13 @@ from label_studio_ml.response import ModelResponse
 # Ensure the Label Studio SDK inside the Deepgram example sees harmless defaults.
 os.environ.setdefault('LABEL_STUDIO_URL', 'http://localhost')
 os.environ.setdefault('LABEL_STUDIO_API_KEY', 'test-token')
+
 try:
-    from label_studio_ml.examples.deepgram import model as deepgram_model  # noqa: E402
+    deepgram_module = importlib.import_module('label_studio_ml.examples.deepgram.model')
 except ImportError:
-    from model import DeepgramModel as deepgram_model
+    deepgram_module = importlib.import_module('model')
+
+DeepgramModelCls = deepgram_module.DeepgramModel
 
 
 @pytest.fixture
@@ -32,13 +36,13 @@ def patched_clients(monkeypatch):
     """Patch the Deepgram SDK, boto3 client, and Label Studio SDK with mocks."""
     mock_deepgram_client = MagicMock(name='DeepgramClientInstance')
     mock_deepgram_ctor = MagicMock(return_value=mock_deepgram_client)
-    monkeypatch.setattr(deepgram_model, 'DeepgramClient', mock_deepgram_ctor)
+    monkeypatch.setattr(deepgram_module, 'DeepgramClient', mock_deepgram_ctor)
 
     mock_s3_client = MagicMock(name='S3Client')
-    monkeypatch.setattr(deepgram_model.boto3, 'client', MagicMock(return_value=mock_s3_client))
+    monkeypatch.setattr(deepgram_module.boto3, 'client', MagicMock(return_value=mock_s3_client))
 
     mock_ls = MagicMock(name='LabelStudio')
-    monkeypatch.setattr(deepgram_model, 'ls', mock_ls)
+    monkeypatch.setattr(deepgram_module, 'ls', mock_ls)
 
     return {
         'deepgram_client': mock_deepgram_client,
@@ -57,7 +61,7 @@ def test_setup_raises_without_api_key(monkeypatch):
     monkeypatch.delenv('DEEPGRAM_API_KEY', raising=False)
 
     with pytest.raises(ValueError, match='DEEPGRAM_API_KEY'):
-        deepgram_model.DeepgramModel()
+        DeepgramModelCls()
 
 
 def test_setup_initializes_clients_with_api_key(env_settings, patched_clients):
@@ -66,7 +70,7 @@ def test_setup_initializes_clients_with_api_key(env_settings, patched_clients):
     Steps   : call setup after patching external clients.
     Checks  : ensure Deepgram & S3 clients plus region/bucket/folder are stored.
     """
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
     model.setup()
 
     assert patched_clients['deepgram_ctor'].called
@@ -87,7 +91,7 @@ def test_setup_falls_back_to_access_token(env_settings, patched_clients):
         TypeError('unexpected kwarg'),
         patched_clients['deepgram_client'],
     ]
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
 
     assert patched_clients['deepgram_ctor'].call_count == 2
     first_call_kwargs = patched_clients['deepgram_ctor'].call_args_list[0].kwargs
@@ -103,7 +107,7 @@ def test_predict_no_context_returns_empty_modelresponse(env_settings, patched_cl
     Steps   : set up env vars and mocks, then call predict with empty context/result payloads.
     Checks  : confirm an empty ModelResponse is returned immediately without calling external services.
     """
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
     tasks = [{'id': 1}]
 
     response = model.predict(tasks=tasks, context=None)
@@ -123,7 +127,7 @@ def test_predict_generates_audio_uploads_to_s3_and_updates_task(env_settings, pa
               receives the S3 URL, and the temporary file is deleted.
     """
     patched_clients['deepgram_client'].speak.v1.audio.generate.return_value = [b'chunk-a', b'chunk-b']
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
     model.setup()
 
     tasks = [{'id': 123}]
@@ -164,7 +168,7 @@ def test_predict_s3_failure_raises_and_cleans_up_temp_file(env_settings, patched
     """
     patched_clients['deepgram_client'].speak.v1.audio.generate.return_value = [b'chunk']
     patched_clients['s3_client'].upload_file.side_effect = RuntimeError('s3 boom')
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
     model.setup()
 
     tasks = [{'id': 999}]
@@ -189,9 +193,9 @@ def test_setup_in_test_mode_uses_stub_clients(monkeypatch):
     """
     monkeypatch.setenv('TEST_ENV', '1')
     ctor = MagicMock()
-    monkeypatch.setattr(deepgram_model, 'DeepgramClient', ctor)
+    monkeypatch.setattr(deepgram_module, 'DeepgramClient', ctor)
 
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
 
     assert model.test_mode is True
     ctor.assert_not_called()
@@ -207,9 +211,9 @@ def test_predict_test_mode_skips_label_studio_update(monkeypatch):
     Checks  : confirm stub S3 upload runs without raising and Label Studio update is not invoked.
     """
     monkeypatch.setenv('TEST_ENV', '1')
-    model = deepgram_model.DeepgramModel()
+    model = DeepgramModelCls()
     mocked_update = MagicMock()
-    monkeypatch.setattr(deepgram_model.ls.tasks, 'update', mocked_update)
+    monkeypatch.setattr(deepgram_module.ls.tasks, 'update', mocked_update)
 
     tasks = [{'id': 321}]
     context = {
