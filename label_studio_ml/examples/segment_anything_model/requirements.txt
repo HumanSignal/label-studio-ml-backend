@@ -1,7 +1,8 @@
+numpy>=2,<2.3.0
 label_studio_converter
-opencv-python
+opencv-python-headless>=4.12.0,<5.0.0
 onnxruntime==1.15.1
-onnx
+onnx==1.12.0
 torch==2.0.1
 torchvision==0.15.2
 gunicorn==22.0.0
@@ -11,5 +12,3 @@ timm==0.4.12
 segment_anything @ git+https://github.com/facebookresearch/segment-anything.git
 mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 label-studio-ml @ git+https://github.com/heartexlabs/label-studio-ml-backend.git
-
-numpy<2

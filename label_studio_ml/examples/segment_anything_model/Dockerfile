@@ -23,17 +23,21 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        wget git libopencv-dev python3-opencv cmake protobuf-compiler; \
+        wget git libopencv-dev cmake protobuf-compiler; \
     apt-get autoremove -y
 
 # Copy and run the model download script
 COPY download_models.sh .
 RUN bash /app/download_models.sh
 
+# Install numpy first to avoid conflicts with system numpy
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install --upgrade pip && \
+    pip install "numpy>=2,<2.3.0"
+
 # install base requirements
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install --upgrade pip && \
     pip install -r requirements-base.txt
 
 # install custom requirements
