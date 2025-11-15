@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
@@ -22,10 +22,7 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=2 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda \
-    SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
-
-# this image is already built with cuda 12.1.1, so we don't need to install it again
-# RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y 
+    PYTHONPATH=/sam2:${PYTHONPATH}
 
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
@@ -39,16 +36,17 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -r requirements.txt
 
-# install segment-anything-2
-RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
-WORKDIR /segment-anything-2
+# install SAM 2.1 (sam2 repo)
+ARG SAM2_REF=main
+RUN cd / && git clone --depth 1 --branch ${SAM2_REF} --single-branch https://github.com/facebookresearch/sam2.git || \
+    (cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/sam2.git)
+WORKDIR /sam2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install -e .
 RUN cd checkpoints && ./download_ckpts.sh
 
 WORKDIR /app
 
-# install test requirements if needed
 COPY requirements-test.txt .
 # build only when TEST_ENV="true"
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
@@ -57,5 +55,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     fi
 
 COPY . ./
+# Normalize line endings and ensure executable for start script (fix Windows CRLF issues)
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
