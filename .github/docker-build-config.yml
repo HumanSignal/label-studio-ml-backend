@@ -25,6 +25,7 @@
   runs_on: ubuntu-latest-4c-16gb
 - backend_dir_name: nemo_asr
   backend_tag_prefix: nemoasr-
+  runs_on: ubuntu-latest-4c-16gb
 - backend_dir_name: segment_anything_model
   backend_tag_prefix: sam-
 - backend_dir_name: segment_anything_2_image
