@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: "${{ inputs.ref || github.ref_name }}"
 
