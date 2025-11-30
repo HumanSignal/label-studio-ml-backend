@@ -1,0 +1,14 @@
+# Main dependency for the model
+doclayout-yolo
+
+# Required by doclayout-yolo or its dependencies (like ultralytics/yolov10)
+# Keep torch installed via Dockerfile's base image or add specific version if needed
+# torch
+# torchvision
+# torchaudio
+torchmetrics~=1.4.2 # Often a dependency of ultralytics-based packages
+huggingface_hub
+tqdm
+
+# For model downloading (optional, can be done manually)
+# huggingface-hub
