@@ -17,11 +17,10 @@ ALLOWED_LABELS = {
     if label.strip()
 }
 
-SPARSIFY_KF_FOR_SAM = os.getenv("SPARSIFY_KF_FOR_SAM", "false").lower() in [
-    "1",
-    "true",
-    "yes",
-]
+SPARSIFY_KF_FOR_SAM = os.getenv("SPARSIFY_KF_FOR_SAM", "false").lower() in ["1", "true"]
+KEYFRAME_SPARSIFY_INTERVAL = max(
+    1, int(os.getenv("KEYFRAME_SPARSIFY_INTERVAL", os.getenv("VIDEO_KEYFRAME_SPARSIFY_INTERVAL", "5")))
+)
 
 TRACKER_ENV_MAP = {
     "track_activation_threshold": "track_activation_threshold",
@@ -161,12 +160,21 @@ class VideoRectangleModel(ControlModel):
         regions: List[Dict] = []
         for track_id, sequence in tracks.items():
             sequence.sort(key=lambda item: item["frame"])
+            sequence = self._sparsify_dense_keyframes(sequence)
             if SPARSIFY_KF_FOR_SAM:
                 sequence = self._sparsify_sequence_for_sam(sequence)
             sequence = self.process_lifespans_enabled(sequence)
 
             label = track_labels.get(track_id)
             if not label:
+                continue
+
+            if len(sequence) < 2:
+                logger.debug(
+                    "Skipping track %s because it only has %d keyframe(s) after sparsification",
+                    track_id,
+                    len(sequence),
+                )
                 continue
 
             region = {
@@ -182,6 +190,7 @@ class VideoRectangleModel(ControlModel):
                 "score": max(frame_info["score"] for frame_info in sequence),
                 "origin": "manual",
             }
+            region.setdefault("meta", {})["text"] = f"id:{track_id}"
             regions.append(region)
 
         return regions
@@ -245,6 +254,44 @@ class VideoRectangleModel(ControlModel):
 
         result.sort(key=lambda item: item["frame"])
         return result
+
+    @staticmethod
+    def _sparsify_dense_keyframes(sequence: List[Dict]) -> List[Dict]:
+        if KEYFRAME_SPARSIFY_INTERVAL <= 1 or not sequence:
+            return sequence
+
+        thinned: List[Dict] = []
+        prev_frame: Optional[int] = None
+        streak_index = 0
+        last_kept_idx = -1
+
+        for idx, box in enumerate(sequence):
+            frame = box.get("frame")
+            if not isinstance(frame, int):
+                thinned.append(box)
+                prev_frame = None
+                streak_index = 0
+                last_kept_idx = len(thinned) - 1
+                continue
+
+            if prev_frame is None or frame - prev_frame > 1:
+                streak_index = 0
+            else:
+                streak_index += 1
+
+            if streak_index % KEYFRAME_SPARSIFY_INTERVAL == 0:
+                thinned.append(box)
+                last_kept_idx = len(thinned) - 1
+
+            prev_frame = frame
+
+        # Ensure the final keyframe is kept for track completeness.
+        if thinned and thinned[-1] is not sequence[-1]:
+            thinned.append(sequence[-1])
+        elif not thinned:
+            thinned.append(sequence[-1])
+
+        return thinned
 
     def _build_tracker_kwargs(self) -> Dict:
         kwargs: Dict = {}
