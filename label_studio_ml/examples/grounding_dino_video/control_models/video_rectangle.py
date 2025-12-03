@@ -190,7 +190,7 @@ class VideoRectangleModel(ControlModel):
                 "score": max(frame_info["score"] for frame_info in sequence),
                 "origin": "manual",
             }
-            region.setdefault("meta", {})["text"] = f"id:{track_id}"
+            region.setdefault("meta", {})["text"] = "id:"
             regions.append(region)
 
         return regions
@@ -202,8 +202,15 @@ class VideoRectangleModel(ControlModel):
             if prev is None:
                 prev = sequence[i]
                 continue
-            if box["frame"] - prev["frame"] > 1:
-                sequence[i - 1]["enabled"] = False
+
+            prev_frame = prev.get("frame")
+            curr_frame = box.get("frame")
+            if isinstance(prev_frame, int) and isinstance(curr_frame, int):
+                # Treat gaps larger than the sparsification interval as true lifecycle breaks.
+                max_continuous_gap = max(1, KEYFRAME_SPARSIFY_INTERVAL)
+                if curr_frame - prev_frame > max_continuous_gap:
+                    sequence[i - 1]["enabled"] = False
+
             prev = sequence[i]
 
         if sequence:

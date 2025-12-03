@@ -2,6 +2,7 @@ import os
 import logging
 import json
 
+import httpx
 from tqdm import tqdm
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from model import YOLO
@@ -164,12 +165,27 @@ class LabelStudioMLPredictor:
                     task.get("id"),
                     float(score) if isinstance(score, (int, float)) else score,
                 )
-                ls.predictions.create(
-                    task=task["id"],
-                    score=score,
-                    model_version=prediction.get("model_version", "none"),
-                    result=prediction["result"],
-                )
+                try:
+                    ls.predictions.create(
+                        task=task["id"],
+                        score=score,
+                        model_version=prediction.get("model_version", "none"),
+                        result=prediction["result"],
+                    )
+                except httpx.ReadTimeout as exc:
+                    logger.warning(
+                        "Prediction likely created but Label Studio timed out while acknowledging (non-fatal timeout): %s",
+                        exc,
+                    )
+                except httpx.HTTPStatusError as exc:
+                    status = getattr(getattr(exc, "response", None), "status_code", None)
+                    if status == 504:
+                        logger.warning(
+                            "Label Studio returned HTTP 504 Gateway Timeout while saving prediction; treating as non-fatal. Response: %s",
+                            exc,
+                        )
+                    else:
+                        raise
 
             if not fps_synced:
                 fps_synced = self._update_task_fps_if_needed(task)
