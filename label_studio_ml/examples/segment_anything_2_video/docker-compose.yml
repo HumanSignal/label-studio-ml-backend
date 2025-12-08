@@ -35,6 +35,16 @@ services:
       - MODEL_CONFIG=configs/sam2.1/sam2.1_hiera_l.yaml
       # SAM2 checkpoint
       - MODEL_CHECKPOINT=sam2.1_hiera_large.pt
+      # Grounding DINO config/weights (weights copied into /GroundingDINO/weights in Dockerfile)
+      - GROUNDINGDINO_REPO_PATH=/GroundingDINO
+      - GROUNDING_DINO_CONFIG=GroundingDINO_SwinT_OGC.py
+      - GROUNDING_DINO_WEIGHTS=gdino_swint_darpa-ir-v1-1k_20_1.pth
+      - GROUNDING_DINO_DEVICE=cuda
+      # Optional: override prompt/labels and thresholds
+      - GROUNDING_DINO_PROMPT= person
+      - GROUNDING_DINO_LABELS=
+      - GROUNDING_DINO_BOX_THRESHOLD=0.35
+      - GROUNDING_DINO_TEXT_THRESHOLD=0.25
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.

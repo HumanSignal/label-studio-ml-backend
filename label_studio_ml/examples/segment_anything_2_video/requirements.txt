@@ -1,3 +1,12 @@
 opencv-python
 cuda-python
+# Grounding DINO + deps (aligned with grounding_dino_video example)
+accelerate==1.6.0
+supervision>=0.19.0
+tqdm
+numpy<2
+opencv-python-headless>=4.8.0
+torchvision==0.16.1
+transformers==4.40.1
+safetensors==0.4.3
 

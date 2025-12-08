@@ -22,7 +22,8 @@ ENV PYTHONUNBUFFERED=1 \
     WORKERS=2 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda \
-    PYTHONPATH=/sam2:${PYTHONPATH}
+    PYTHONPATH=/sam2:${PYTHONPATH} \
+    GROUNDINGDINO_REPO_PATH=/GroundingDINO
 
 ENV CUDA_HOME=/opt/conda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
@@ -55,6 +56,18 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     fi
 
 COPY . ./
+
+# Install Grounding DINO from source and place provided weights
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    if [ ! -d "${GROUNDINGDINO_REPO_PATH}" ]; then \
+        git clone https://github.com/IDEA-Research/GroundingDINO.git ${GROUNDINGDINO_REPO_PATH}; \
+    fi \
+    && pip3 install -e ${GROUNDINGDINO_REPO_PATH} \
+    && mkdir -p ${GROUNDINGDINO_REPO_PATH}/weights \
+    && if [ -f "/app/models/gdino_swint_darpa-ir-v1-1k_20_1.pth" ]; then \
+        cp /app/models/gdino_swint_darpa-ir-v1-1k_20_1.pth ${GROUNDINGDINO_REPO_PATH}/weights/; \
+    fi
+
 # Normalize line endings and ensure executable for start script (fix Windows CRLF issues)
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 

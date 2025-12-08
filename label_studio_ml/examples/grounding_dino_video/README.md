@@ -5,13 +5,13 @@ This ML backend provides **zero-shot object detection and multi-object tracking*
 - **Grounding DINO** (SwinT) for text-prompted object detection
 - **ByteTrack** (via `supervision.ByteTrack`) for multi-object tracking
 - **Composable tracking presets** for different video scenarios (UAV, thermal, crowded scenes, etc.)
-- **True batched GPU inference** for 2-4x faster processing
+- **CUDA/FP16 acceleration** for faster frame-by-frame processing
 
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
 2. [Tracking Presets](#tracking-presets)
-3. [GPU Optimization](#gpu-optimization)
+3. [Performance Notes](#performance-notes)
 4. [CLI Reference](#cli-reference)
 5. [Configuration Reference](#configuration-reference)
 6. [Debugging](#debugging)
@@ -43,10 +43,10 @@ docker-compose up --build
 # Basic usage
 python cli.py --project 123 --tasks 456,457,458
 
-# With tracking preset for UAV footage
+# With tracking preset for UAV footage (applies env thresholds)
 python cli.py --preset uav+long_video --project 123 --tasks 456
 
-# With debugging output
+# With debugging output (saves annotated frames)
 python cli.py --preset uav --save-frames --output-dir ./debug --project 123 --tasks 456
 ```
 
@@ -162,46 +162,12 @@ All values are validated and clamped to valid ranges automatically.
 
 ---
 
-## GPU Optimization
+## Performance Notes
 
-### True Batched Inference
-
-The backend uses **true batched GPU inference** — multiple frames are stacked into a single tensor and processed in one forward pass. This provides **2-4x speedup** compared to sequential frame-by-frame processing.
-
-```bash
-# Default batch size is 8
-python cli.py --batch-size 16 --project 123 --tasks 456
-
-# Or via environment variable
-export GROUNDING_DINO_BATCH_SIZE=16
-```
-
-**Recommended batch sizes by GPU VRAM:**
-
-| VRAM | Recommended Batch Size |
-|------|------------------------|
-| 8 GB | 2-4 |
-| 12 GB | 4-8 |
-| 24 GB | 8-16 |
-| 48 GB | 16-32 |
-
-### Mixed Precision (FP16)
-
-Automatically enabled on CUDA devices. Provides ~2x speedup with minimal accuracy impact.
-
-### Environment Variables
-
-```bash
-# Batch size for true batched GPU inference (default: 8)
-GROUNDING_DINO_BATCH_SIZE=16
-
-# Input resolution (default: 800x1333)
-GROUNDING_DINO_BASE_SIZE=800
-GROUNDING_DINO_MAX_SIZE=1333
-
-# Progress logging interval (default: every 25 frames)
-GROUNDING_DINO_PROGRESS_EVERY=50
-```
+- Frames are processed sequentially; parallelism is not used in detection.
+- **CUDA + FP16:** Mixed precision is enabled automatically on CUDA for speedups with minimal accuracy impact.
+- **Resolution controls:** Use `GROUNDING_DINO_BASE_SIZE` and `GROUNDING_DINO_MAX_SIZE` to tune input resolution (defaults: 800x1333).
+- **Logging cadence:** Adjust progress logs with `GROUNDING_DINO_PROGRESS_EVERY` (default: every 25 frames).
 
 ---
 
@@ -222,7 +188,6 @@ python cli.py [OPTIONS]
 | `--project` | `1` | Project ID |
 | `--tasks` | `tasks.json` | Task IDs (comma-separated) or JSON file |
 | `--preset` | `$TRACKING_PRESET` | Tracking preset(s), combine with `+` |
-| `--batch-size` | `8` | Frames per GPU batch |
 | `--save-frames` | `false` | Save annotated frames for debugging |
 | `--output-dir` | `./output_frames` | Directory for saved frames |
 | `--list-presets` | - | List all preset layers and exit |
@@ -239,9 +204,6 @@ python cli.py --preset uav+fast_motion+long_video --project 123 --tasks 456
 
 # Debug with saved frames
 python cli.py --preset thermal --save-frames --output-dir ./debug --project 123 --tasks 456
-
-# High batch size for large GPU
-python cli.py --batch-size 32 --project 123 --tasks 456
 ```
 
 ---
@@ -262,9 +224,6 @@ environment:
   GROUNDING_DINO_TEXT_THRESHOLD: "0.25"
   GROUNDING_DINO_DEVICE: cuda
   MODEL_SCORE_THRESHOLD: "0.5"
-
-  # GPU optimization
-  GROUNDING_DINO_BATCH_SIZE: "8"
 
   # Tracking preset (recommended)
   # TRACKING_PRESET: "uav+long_video"
@@ -314,7 +273,7 @@ LOG_LEVEL=DEBUG python cli.py --project 123 --tasks 456
 | Too many tracks | Use `high_precision` or increase `track_activation_threshold` |
 | Tracks fragmenting | Use `long_video` or increase `lost_track_buffer` |
 | Missing detections | Use `high_recall` or decrease thresholds |
-| GPU OOM | Reduce `GROUNDING_DINO_BATCH_SIZE` |
+| GPU OOM | Lower input resolution (`GROUNDING_DINO_BASE_SIZE`, `GROUNDING_DINO_MAX_SIZE`) or shorten clips |
 
 ---
 
@@ -348,7 +307,7 @@ Use the `<VideoRectangle>` control tag for video object tracking:
 ### Detection Pipeline
 
 1. **Frame Extraction** — Video frames are read using OpenCV
-2. **Batched Detection** — Frames are stacked into GPU batches and processed by Grounding DINO
+2. **Detection** — Frames are processed on GPU with Grounding DINO
 3. **Tracking** — ByteTrack associates detections across frames
 4. **Output** — Track annotations are uploaded to Label Studio
 
@@ -356,9 +315,9 @@ Use the `<VideoRectangle>` control tag for video object tracking:
 
 | Component | File | Description |
 |-----------|------|-------------|
-| CLI | `cli.py` | Command-line interface for batch processing |
+| CLI | `cli.py` | Command-line interface for task processing |
 | Presets | `tracking_presets.py` | Composable preset system |
-| Detection | `utils/grounding.py` | Grounding DINO inference with batching |
+| Detection | `utils/grounding.py` | Grounding DINO inference for detection/tracking |
 | Tracking | `control_models/video_rectangle.py` | ByteTrack integration |
 
 ---
