@@ -32,6 +32,9 @@ services:
       - LABEL_STUDIO_HOST="http://host.docker.internal:8080"
       - LABEL_STUDIO_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3MjY0OTY5OSwiaWF0IjoxNzY1NDQ5Njk5LCJqdGkiOiJiMzQzNGFhZGYwZmQ0NTVjYWQxNDBkMzIyYzJmZDAxYyIsInVzZXJfaWQiOiIxIn0.EbACkyFgypOkQpF0hdejbYeVF4LJIvnjbkDxbVUUc64"
 
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=C:\Users\User\Desktop\label-studio\data
+
       # YOLO parameters
 
       # Allow to use custom `model_path` in labeling configurations
