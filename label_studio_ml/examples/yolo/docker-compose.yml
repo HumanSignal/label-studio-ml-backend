@@ -29,7 +29,7 @@ services:
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
-      - YOLO_MODEL: "label_studio_ml/examples/yolo/models/best.pt"
+      - YOLO_MODEL="label_studio_ml/examples/yolo/models/best.pt"
       - LABEL_STUDIO_HOST="http://host.docker.internal:8080"
       - LABEL_STUDIO_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3MjY2MzU0NCwiaWF0IjoxNzY1NDYzNTQ0LCJqdGkiOiI2YmJmMmJjNWY2ZTA0NGY2YWFhNDAzZDJmNGY2NDYyZSIsInVzZXJfaWQiOjF9.ic3heLT34jqqfSFFhGJnRsgo_InlGKLLuEty91rSHZs
 
