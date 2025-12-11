@@ -34,7 +34,7 @@ services:
 
       - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
       - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=C:\Users\User\Desktop\label-studio\data
-
+      - DATA_UPLOAD_MAX_NUMBER_FILES=10000
       # YOLO parameters
 
       # Allow to use custom `model_path` in labeling configurations
