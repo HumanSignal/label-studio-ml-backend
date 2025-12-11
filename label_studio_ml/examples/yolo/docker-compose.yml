@@ -29,8 +29,8 @@ services:
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
-      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://host.docker.internal:8080}
-      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
+      - LABEL_STUDIO_HOST="http://host.docker.internal:8080"
+      - LABEL_STUDIO_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3MjY0OTY5OSwiaWF0IjoxNzY1NDQ5Njk5LCJqdGkiOiJiMzQzNGFhZGYwZmQ0NTVjYWQxNDBkMzIyYzJmZDAxYyIsInVzZXJfaWQiOiIxIn0.EbACkyFgypOkQpF0hdejbYeVF4LJIvnjbkDxbVUUc64"
 
       # YOLO parameters
 
