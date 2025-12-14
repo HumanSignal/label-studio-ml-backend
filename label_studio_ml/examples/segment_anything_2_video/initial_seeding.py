@@ -6,17 +6,18 @@ import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
 import cv2
 import numpy as np
 import torch
-import torchvision.transforms as T
+import groundingdino.datasets.transforms as T
 from joblib import Memory
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.client import LabelStudio
 from PIL import Image
-from scipy.ndimage import median_filter
-from torchvision.ops import box_iou
+from torchvision.ops import box_iou, nms
 
 # Grounding DINO
 from groundingdino.util.inference import load_model, predict
@@ -205,56 +206,98 @@ def _compute_sam2_frame_embeddings(
     batch_size: int,
     cache_dir: str,
 ) -> np.ndarray:
+    """Compute SAM2 embeddings with joblib caching keyed only by video_id (ignores code changes)."""
     memory = Memory(cache_dir, verbose=0)
 
-    @memory.cache
-    def _inner(video_id_cached: str, video_path_cached: str, batch_size_cached: int) -> np.ndarray:
-        predictor = _build_sam2_predictor()
-        cap = cv2.VideoCapture(video_path_cached)
+    # Use ignore parameter to cache only by video_id, not by function source code
+    @memory.cache(ignore=["video_path_arg", "batch_size_arg", "predictor_builder"])
+    def _cached_compute(video_id_key: str, video_path_arg: str, batch_size_arg: int, predictor_builder) -> np.ndarray:
+        from tqdm import tqdm
+
+        predictor = predictor_builder()
+        cap = cv2.VideoCapture(video_path_arg)
         if not cap.isOpened():
-            raise InitialSeedingError(f"Could not open video file: {video_path_cached}")
+            raise InitialSeedingError(f"Could not open video file: {video_path_arg}")
 
-        embeds: List[np.ndarray] = []
-        frames: List[np.ndarray] = []
+        # Get total frame count for progress bar
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        duration_sec = total_frames / fps if fps > 0 else 0
+        logger.info(
+            "Processing video: %d frames, %.1f FPS, %.1f sec duration",
+            total_frames, fps, duration_sec
+        )
+
+        # Suppress SAM2 per-frame logging during batch processing
+        # SAM2 uses logging.info() directly, so we suppress root logger AND its handlers
+        root_logger = logging.getLogger()
+        original_level = root_logger.level
+        original_handler_levels = [(h, h.level) for h in root_logger.handlers]
+        root_logger.setLevel(logging.WARNING)
+        for h in root_logger.handlers:
+            h.setLevel(logging.WARNING)
+
         try:
-            while True:
-                success, frame_bgr = cap.read()
-                if not success or frame_bgr is None:
-                    break
-                frames.append(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+            embeds: List[np.ndarray] = []
+            frames: List[np.ndarray] = []
 
-                if len(frames) >= batch_size:
+            with tqdm(total=total_frames, desc="Embedding frames", unit="frame") as pbar:
+                while True:
+                    success, frame_bgr = cap.read()
+                    if not success or frame_bgr is None:
+                        break
+                    frames.append(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+
+                    if len(frames) >= batch_size_arg:
+                        embeds.append(_embed_batch(predictor, frames))
+                        pbar.update(len(frames))
+                        frames = []
+
+                if frames:
                     embeds.append(_embed_batch(predictor, frames))
-                    frames = []
+                    pbar.update(len(frames))
 
-            if frames:
-                embeds.append(_embed_batch(predictor, frames))
-        finally:
             cap.release()
 
-        if not embeds:
-            raise InitialSeedingError("No frames read from video for embedding computation")
+            if not embeds:
+                raise InitialSeedingError("No frames read from video for embedding computation")
 
-        stacked = np.concatenate(embeds, axis=0).astype("float16")
-        logger.info("Computed SAM2 embeddings for %d frames (shape=%s)", stacked.shape[0], stacked.shape)
-        return stacked
+            stacked = np.concatenate(embeds, axis=0).astype("float16")
+            logger.info("Computed SAM2 embeddings for %d frames (shape=%s)", stacked.shape[0], stacked.shape)
+            return stacked
+        finally:
+            # Restore root logger and handler levels
+            root_logger.setLevel(original_level)
+            for h, lvl in original_handler_levels:
+                h.setLevel(lvl)
 
-    return _inner(video_id, video_path, batch_size)
+    return _cached_compute(video_id, video_path, batch_size, _build_sam2_predictor)
+
+
+def _extract_sam2_image_embedding(predictor) -> torch.Tensor:
+    """Extract SAM2 image embedding using the predictor's recorded features."""
+    features = getattr(predictor, "_features", None)
+    if not isinstance(features, dict):
+        raise InitialSeedingError(
+            f"SAM2 predictor features should be a dict, got {type(features).__name__}"
+        )
+    if "image_embed" not in features:
+        raise InitialSeedingError(
+            f"SAM2 predictor did not return 'image_embed'; available keys: {list(features.keys())}"
+        )
+    embed = features["image_embed"]
+    if isinstance(embed, (list, tuple)) and embed:
+        embed = embed[0]
+    if not isinstance(embed, torch.Tensor):
+        raise InitialSeedingError(f"'image_embed' expected torch.Tensor, got {type(embed).__name__}")
+    return embed
 
 
 def _embed_batch(predictor, frames: List[np.ndarray]) -> np.ndarray:
     out: List[np.ndarray] = []
     for frame in frames:
         predictor.set_image(frame)
-        features = getattr(predictor, "features", {}) or {}
-        embed = (
-            features.get("image_embed")
-            or features.get("image_embeddings")
-            or features.get("image_embedding")
-            or None
-        )
-        if embed is None:
-            raise InitialSeedingError("SAM2 predictor did not return image embeddings")
+        embed = _extract_sam2_image_embedding(predictor)
         pooled = _global_pool_embed(embed)
         out.append(pooled.detach().cpu().numpy())
     return np.concatenate(out, axis=0)
@@ -271,8 +314,30 @@ def compute_change_scores(embeds: np.ndarray) -> np.ndarray:
     return diff
 
 
+def _median_filter_1d(values: np.ndarray, kernel_size: int) -> np.ndarray:
+
+    if kernel_size < 1:
+        raise InitialSeedingError(f"kernel_size must be positive, got {kernel_size}")
+    if kernel_size % 2 == 0:
+        kernel_size += 1  # enforce odd window for symmetric padding
+
+    pad = kernel_size // 2
+    padded = np.pad(values, pad_width=pad, mode="edge")
+    try:
+        windows = np.lib.stride_tricks.sliding_window_view(padded, kernel_size)
+        return np.median(windows, axis=-1).astype(values.dtype, copy=False)
+    except AttributeError:
+        # Fallback for older NumPy versions
+        filtered = np.empty_like(values)
+        for i in range(len(values)):
+            start = i
+            end = i + kernel_size
+            filtered[i] = np.median(padded[start:end])
+        return filtered
+
+
 def smooth_change_scores(diff: np.ndarray, kernel_size: int = 5) -> np.ndarray:
-    return median_filter(diff, size=kernel_size)
+    return _median_filter_1d(diff, kernel_size=kernel_size)
 
 
 def uniform_indices(T_len: int, K: int) -> List[int]:
@@ -397,14 +462,29 @@ class GroundingDINOHelper:
         h, w = frame.shape[:2]
         xyxy = boxes_to_xyxy(boxes, w, h)
         scores_np = scores.cpu().numpy().astype(np.float32)
+
+        nms_iou = float(os.getenv("GROUNDING_DINO_NMS_IOU", "0.5"))
+        if xyxy.shape[0] > 0 and nms_iou > 0:
+            keep = nms(
+                torch.from_numpy(xyxy),
+                torch.from_numpy(scores_np),
+                nms_iou,
+            )
+            keep_idx = keep.cpu().numpy().astype(int).tolist()
+            xyxy = xyxy[keep_idx]
+            scores_np = scores_np[keep_idx]
+            if isinstance(phrases, (list, tuple)):
+                phrases = [phrases[i] for i in keep_idx]
+
         detections: List[KeyframeDetection] = []
         for i in range(xyxy.shape[0]):
+            label = phrases[i] if i < len(phrases) and phrases[i] else "object"
             detections.append(
                 KeyframeDetection(
                     frame_idx=-1,  # to be filled by caller
                     xyxy=xyxy[i],
                     score=float(scores_np[i]),
-                    label="object",
+                    label=label,
                 )
             )
         return detections
@@ -431,226 +511,505 @@ def xyxy_to_percent(xyxy: np.ndarray, width: int, height: int) -> Tuple[float, f
     return (x0 / width) * 100.0, (y0 / height) * 100.0, (w / width) * 100.0, (h / height) * 100.0
 
 
+def _process_keyframe_pair_worker(args: Tuple) -> Tuple[int, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Worker function for parallel keyframe pair processing.
+    Each worker creates its own SAM2 predictor and processes one keyframe pair.
+    
+    Args:
+        args: Tuple of (pair_idx, video_path, start_idx, end_idx, start_dets_data, end_dets_data)
+              where dets_data are serializable dicts (not KeyframeDetection objects)
+    
+    Returns:
+        Tuple of (pair_idx, segments, unmatched_dets_data)
+    """
+    pair_idx, video_path, start_idx, end_idx, start_dets_data, end_dets_data = args
+    
+    # Suppress SAM2 logging in worker process (spawned processes don't inherit log settings)
+    # SAM2 uses logging.info() directly to root logger, so we must:
+    # 1. Set root logger level to WARNING
+    # 2. Add a NullHandler if no handlers exist (spawned processes start with none)
+    # 3. Set all existing handler levels to WARNING
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.WARNING)
+    if not root_logger.handlers:
+        root_logger.addHandler(logging.NullHandler())
+    for h in root_logger.handlers:
+        h.setLevel(logging.WARNING)
+    
+    # Reconstruct KeyframeDetection objects from serializable data
+    start_dets = [
+        KeyframeDetection(
+            xyxy=np.array(d["xyxy"], dtype=np.float32),
+            score=d["score"],
+            label=d["label"],
+            frame_idx=d["frame_idx"],
+            track_id=d["track_id"],
+        )
+        for d in start_dets_data
+    ]
+    end_dets = [
+        KeyframeDetection(
+            xyxy=np.array(d["xyxy"], dtype=np.float32),
+            score=d["score"],
+            label=d["label"],
+            frame_idx=d["frame_idx"],
+            track_id=d["track_id"],
+        )
+        for d in end_dets_data
+    ]
+    
+    # Create fresh predictor for this process
+    predictor = _build_sam2_predictor()
+    
+    segments, unmatched = _track_between_keyframes(
+        predictor=predictor,
+        video_path=video_path,
+        start_idx=start_idx,
+        end_idx=end_idx,
+        start_dets=start_dets,
+        end_dets=end_dets,
+    )
+    
+    # Convert unmatched back to serializable format
+    unmatched_data = [
+        {
+            "xyxy": d.xyxy.tolist(),
+            "score": d.score,
+            "label": d.label,
+            "frame_idx": d.frame_idx,
+            "track_id": d.track_id,
+        }
+        for d in unmatched
+    ]
+    
+    return pair_idx, segments, unmatched_data
+
+
 def _track_between_keyframes(
-    predictor_factory,
-    cap: cv2.VideoCapture,
+    predictor,
+    video_path: str,
     start_idx: int,
     end_idx: int,
     start_dets: List[KeyframeDetection],
     end_dets: List[KeyframeDetection],
-    iou_threshold: float = 0.5,
+    iou_threshold: float = 0.3,
 ) -> Tuple[List[Dict[str, Any]], List[KeyframeDetection]]:
     """
+    Track detections between two keyframes using SAM2 mask prediction.
+    Optimized: batches all box predictions per frame into single GPU call.
+    Uses torch.inference_mode() and autocast for faster inference.
+    
     Returns:
         track_segments: list of dicts with keys track_id, sequence (list of frame boxes)
         unmatched_end: end detections not matched (used to spawn new tracks later)
     """
-    if end_idx <= start_idx:
+    if end_idx <= start_idx or not start_dets:
         return [], end_dets
 
-    predictor = predictor_factory()
-    # Load segment frames into memory (inclusive)
-    frames: List[np.ndarray] = []
-    for fidx in range(start_idx, end_idx + 1):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, fidx)
-        success, frame_bgr = cap.read()
-        if not success or frame_bgr is None:
-            logger.warning("Failed to read frame %d during tracking segment", fidx)
-            frames.append(None)
-            continue
-        frames.append(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return [], end_dets
 
-    track_segments: List[Dict[str, Any]] = []
-    end_boxes = np.stack([d.xyxy for d in end_dets], axis=0) if end_dets else np.zeros((0, 4), dtype=np.float32)
+    try:
+        # Track state: current box for each detection
+        track_boxes = [det.xyxy.copy() for det in start_dets]
+        track_last_seen = [start_idx] * len(start_dets)
+        track_enabled = [True] * len(start_dets)
+        sequences = [[] for _ in start_dets]
+        n_dets = len(start_dets)
 
-    for det in start_dets:
-        sequence: List[Dict[str, Any]] = []
-        prev_box = det.xyxy.copy()
-        last_seen = start_idx
+        # Use inference mode and autocast for faster GPU inference
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+            for frame_id in range(start_idx, end_idx + 1):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
+                success, frame_bgr = cap.read()
+                if not success or frame_bgr is None:
+                    for i in range(n_dets):
+                        sequences[i].append({
+                            "frame": frame_id + 1,
+                            "xyxy": track_boxes[i].copy(),
+                            "enabled": track_enabled[i],
+                        })
+                    continue
 
-        for local_idx, frame in enumerate(frames):
-            frame_id = start_idx + local_idx
-            if frame is None:
-                continue
-            predictor.set_image(frame)
-            box = prev_box
-            try:
-                masks, scores, _ = predictor.predict(
-                    box=box.astype(np.float32),
-                    multimask_output=True,
-                    return_logits=False,
-                )
-                if masks.size > 0 and scores.size > 0:
-                    best_idx = int(np.argmax(scores))
-                    mask = masks[best_idx]
-                    ys, xs = np.where(mask > 0)
-                    if xs.size > 0 and ys.size > 0:
-                        x0_tight = int(xs.min())
-                        x1_tight = int(xs.max()) + 1
-                        y0_tight = int(ys.min())
-                        y1_tight = int(ys.max()) + 1
-                        prev_box = np.array([x0_tight, y0_tight, x1_tight, y1_tight], dtype=np.float32)
-                        last_seen = frame_id
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.debug("SAM2 predict failed on frame %d: %s", frame_id, exc)
+                frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+                predictor.set_image(frame_rgb)
 
-            sequence.append({"frame": frame_id + 1, "xyxy": prev_box.copy()})
+                # Batch predict all boxes at once for better GPU utilization
+                if n_dets > 0:
+                    input_boxes = np.stack([tb.astype(np.float32) for tb in track_boxes], axis=0)
+                    try:
+                        masks, scores, _ = predictor.predict(
+                            point_coords=None,
+                            point_labels=None,
+                            box=input_boxes,
+                            multimask_output=False,
+                        )
+                        if masks.ndim == 4:
+                            masks = masks.squeeze(1)
+                        
+                        for i in range(n_dets):
+                            frame_enabled = True
+                            if i < masks.shape[0]:
+                                mask = masks[i]
+                                ys, xs = np.where(mask > 0)
+                                if xs.size > 0 and ys.size > 0:
+                                    track_boxes[i] = np.array([
+                                        int(xs.min()), int(ys.min()),
+                                        int(xs.max()) + 1, int(ys.max()) + 1
+                                    ], dtype=np.float32)
+                                    track_last_seen[i] = frame_id
+                                    track_enabled[i] = True
+                                else:
+                                    frame_enabled = False
+                                    track_enabled[i] = False
+                            else:
+                                frame_enabled = track_enabled[i]
+                            
+                            sequences[i].append({
+                                "frame": frame_id + 1,
+                                "xyxy": track_boxes[i].copy(),
+                                "enabled": frame_enabled,
+                            })
+                    except Exception:
+                        for i in range(n_dets):
+                            sequences[i].append({
+                                "frame": frame_id + 1,
+                                "xyxy": track_boxes[i].copy(),
+                                "enabled": track_enabled[i],
+                            })
 
-        match_idx = -1
-        if end_boxes.shape[0] > 0:
-            ious = box_iou(
-                torch.from_numpy(prev_box[None, :]),
-                torch.from_numpy(end_boxes),
-            ).numpy()[0]
-            if ious.size > 0:
-                match_idx = int(np.argmax(ious))
-                if ious[match_idx] < iou_threshold:
-                    match_idx = -1
+        # Match final boxes to end detections using IoU with center-distance fallback
+        end_boxes = np.stack([d.xyxy for d in end_dets], axis=0) if end_dets else np.zeros((0, 4), dtype=np.float32)
+        track_segments = []
+        matched_end_indices = set()  # Track which end detections are already matched
+        for i, det in enumerate(start_dets):
+            match_idx = -1
+            if end_boxes.shape[0] > 0 and track_enabled[i]:
+                ious = box_iou(
+                    torch.from_numpy(track_boxes[i][None, :]),
+                    torch.from_numpy(end_boxes),
+                ).numpy()[0]
+                if ious.size > 0:
+                    # Find best unmatched end detection
+                    for best in np.argsort(-ious):
+                        if best not in matched_end_indices and ious[best] >= iou_threshold:
+                            match_idx = int(best)
+                            matched_end_indices.add(match_idx)
+                            break
+                    
+                    # Fallback: center-distance matching if IoU failed
+                    if match_idx < 0:
+                        track_center = np.array([(track_boxes[i][0] + track_boxes[i][2]) / 2,
+                                                  (track_boxes[i][1] + track_boxes[i][3]) / 2])
+                        end_centers = np.stack([(end_boxes[:, 0] + end_boxes[:, 2]) / 2,
+                                                 (end_boxes[:, 1] + end_boxes[:, 3]) / 2], axis=1)
+                        dists = np.linalg.norm(end_centers - track_center, axis=1)
+                        # Use video dimensions for distance threshold (10% of diagonal)
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        _, sample_frame = cap.read()
+                        if sample_frame is not None:
+                            h, w = sample_frame.shape[:2]
+                        else:
+                            h, w = 1080, 1920  # fallback
+                        dist_threshold = 0.1 * np.sqrt(h**2 + w**2)
+                        for best in np.argsort(dists):
+                            if best not in matched_end_indices and dists[best] < dist_threshold:
+                                match_idx = int(best)
+                                matched_end_indices.add(match_idx)
+                                break
 
-        track_segments.append(
-            {
+            track_segments.append({
                 "track_id": det.track_id,
-                "sequence": sequence,
+                "sequence": sequences[i],
                 "end_match": match_idx,
-                "last_seen": last_seen,
-                "final_box": prev_box.copy(),
-            }
-        )
+                "last_seen": track_last_seen[i],
+                "final_box": track_boxes[i].copy(),
+            })
 
-    unmatched_end = []
-    matched_end_indices = {seg["end_match"] for seg in track_segments if seg["end_match"] >= 0}
-    for idx, det in enumerate(end_dets):
-        if idx not in matched_end_indices:
-            unmatched_end.append(det)
+        unmatched_end = []
+        matched_indices = {seg["end_match"] for seg in track_segments if seg["end_match"] >= 0}
+        for idx, det in enumerate(end_dets):
+            if idx not in matched_indices:
+                unmatched_end.append(det)
 
-    return track_segments, unmatched_end
+        return track_segments, unmatched_end
+    finally:
+        cap.release()
 
 
 def _merge_tracks_across_pairs(
     keyframes: List[int],
     detections_by_frame: Dict[int, List[KeyframeDetection]],
     video_path: str,
+    num_workers: int = 8,
 ) -> List[Dict[str, Any]]:
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise InitialSeedingError(f"Could not open video file: {video_path}")
+    """
+    Merge tracks across keyframe pairs with parallel SAM2 tracking.
+    
+    Args:
+        keyframes: List of keyframe indices
+        detections_by_frame: Detections for each keyframe
+        video_path: Path to video file
+        num_workers: Number of parallel workers for tracking
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from tqdm import tqdm
 
-    # Initialize tracks from first keyframe
-    global_tracks: Dict[int, List[Dict[str, Any]]] = {}
-    active: Dict[int, Dict[str, Any]] = {}
-    next_global_id = 0
+    if len(keyframes) < 2:
+        # No pairs to track
+        tracks = []
+        if keyframes:
+            first_kf = keyframes[0]
+            for i, det in enumerate(detections_by_frame.get(first_kf, [])):
+                tracks.append({
+                    "track_id": i,
+                    "sequence": [{"frame": first_kf + 1, "xyxy": det.xyxy.copy()}]
+                })
+        return tracks
 
-    if keyframes:
+    # Suppress SAM2 logging during tracking
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    original_handler_levels = [(h, h.level) for h in root_logger.handlers]
+    root_logger.setLevel(logging.WARNING)
+    for h in root_logger.handlers:
+        h.setLevel(logging.WARNING)
+
+    try:
+        # Initialize track_labels dict early so Phase 2 can use it
+        track_labels: Dict[int, str] = {}
+        
+        # Phase 1: Assign initial track IDs to first keyframe detections
+        next_global_id = 0
         first_kf = keyframes[0]
         for det in detections_by_frame.get(first_kf, []):
             det.track_id = next_global_id
-            seq_entry = {"frame": first_kf + 1, "xyxy": det.xyxy.copy()}
-            global_tracks[next_global_id] = [seq_entry]
-            active[next_global_id] = {"last_box": det.xyxy.copy(), "last_frame": first_kf}
+            track_labels[det.track_id] = det.label  # Store label immediately
             next_global_id += 1
 
-    total_pairs = max(0, len(keyframes) - 1)
-    for pair_idx, (start_idx, end_idx) in enumerate(zip(keyframes[:-1], keyframes[1:]), 1):
-        # Attach track ids to start detections (use active mapping)
-        start_dets = detections_by_frame.get(start_idx, [])
-        for det in start_dets:
-            if det.track_id is None:
-                # Find nearest active by IoU with last_box
-                best_id = None
-                best_iou = 0.0
-                for tid, state in active.items():
-                    if state["last_frame"] != start_idx:
-                        continue
-                    iou = float(
-                        box_iou(
-                            torch.from_numpy(det.xyxy[None, :]),
-                            torch.from_numpy(state["last_box"][None, :]),
-                        ).numpy()[0, 0]
-                    )
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_id = tid
-                if best_id is None:
-                    best_id = next_global_id
+        # Phase 2: Assign track IDs to start detections only
+        # End detection IDs will be assigned during merge based on matching
+        # Also store labels for all start detections
+        for start_idx in keyframes[:-1]:
+            start_dets = detections_by_frame.get(start_idx, [])
+            for det in start_dets:
+                if det.track_id is None:
+                    det.track_id = next_global_id
                     next_global_id += 1
-                    global_tracks[best_id] = []
-                det.track_id = best_id
-        end_dets = detections_by_frame.get(end_idx, [])
+                # Store label for this track if not already stored
+                if det.track_id not in track_labels:
+                    track_labels[det.track_id] = det.label
 
-        track_segments, unmatched_end = _track_between_keyframes(
-            predictor_factory=_build_sam2_predictor,
-            cap=cap,
-            start_idx=start_idx,
-            end_idx=end_idx,
-            start_dets=start_dets,
-            end_dets=end_dets,
-        )
+        # Phase 3: Build work items for parallel processing
+        # Convert KeyframeDetection objects to serializable dicts for multiprocessing
+        keyframe_pairs = list(zip(keyframes[:-1], keyframes[1:]))
+        work_items = []
+        for pair_idx, (start_idx, end_idx) in enumerate(keyframe_pairs):
+            start_dets = detections_by_frame.get(start_idx, [])
+            end_dets = detections_by_frame.get(end_idx, [])
+            # Serialize detections for cross-process transfer
+            start_dets_data = [
+                {
+                    "xyxy": d.xyxy.tolist(),
+                    "score": d.score,
+                    "label": d.label,
+                    "frame_idx": d.frame_idx,
+                    "track_id": d.track_id,
+                }
+                for d in start_dets
+            ]
+            end_dets_data = [
+                {
+                    "xyxy": d.xyxy.tolist(),
+                    "score": d.score,
+                    "label": d.label,
+                    "frame_idx": d.frame_idx,
+                    "track_id": d.track_id,
+                }
+                for d in end_dets
+            ]
+            work_items.append((pair_idx, video_path, start_idx, end_idx, start_dets_data, end_dets_data))
 
-        # Update global tracks with segment sequences and propagate IDs
-        end_assigned = set()
-        for seg in track_segments:
-            tid = seg["track_id"]
-            if tid is None:
-                tid = next_global_id
-                next_global_id += 1
-                global_tracks.setdefault(tid, [])
-            seq_entries = []
-            for item in seg["sequence"]:
-                seq_entries.append({"frame": item["frame"], "xyxy": item["xyxy"]})
-            global_tracks.setdefault(tid, []).extend(seq_entries)
-            active[tid] = {"last_box": seg["final_box"], "last_frame": seg["last_seen"]}
+        # Phase 4: Process pairs in parallel using multiprocessing
+        # Each process creates its own SAM2 predictor and CUDA context
+        # Use NVIDIA MPS for concurrent GPU kernel execution (start MPS daemon externally)
+        all_results = [None] * len(work_items)
+        # Use provided num_workers, capped by number of work items
+        n_workers = min(len(work_items), max(1, num_workers))
+        
+        logger.info("Starting SAM2 tracking for %d keyframe pairs with %d workers...", len(work_items), n_workers)
+        
+        # Use spawn method for CUDA compatibility
+        ctx = mp.get_context("spawn")
+        
+        if n_workers > 1 and len(work_items) > 1:
+            # Parallel processing with progress tracking
+            with ProcessPoolExecutor(max_workers=n_workers, mp_context=ctx) as executor:
+                futures = {executor.submit(_process_keyframe_pair_worker, item): item[0] for item in work_items}
+                
+                from tqdm import tqdm as tqdm_iter
+                for future in tqdm_iter(futures, desc="SAM2 tracking pairs", unit="pair", total=len(futures)):
+                    try:
+                        pair_idx, segments, unmatched_data = future.result()
+                        # Reconstruct KeyframeDetection objects from serialized data
+                        unmatched = [
+                            KeyframeDetection(
+                                xyxy=np.array(d["xyxy"], dtype=np.float32),
+                                score=d["score"],
+                                label=d["label"],
+                                frame_idx=d["frame_idx"],
+                                track_id=d["track_id"],
+                            )
+                            for d in unmatched_data
+                        ]
+                        all_results[pair_idx] = (segments, unmatched)
+                    except Exception as e:
+                        logger.error("Worker failed for pair %d: %s", futures[future], e)
+                        # Fallback: empty result
+                        all_results[futures[future]] = ([], [])
+        else:
+            # Sequential fallback
+            for item in tqdm(work_items, desc="SAM2 tracking pairs", unit="pair"):
+                pair_idx, video_path_item, start_idx, end_idx, start_dets_data, end_dets_data = item
+                # Reconstruct detections
+                start_dets = [
+                    KeyframeDetection(
+                        xyxy=np.array(d["xyxy"], dtype=np.float32),
+                        score=d["score"],
+                        label=d["label"],
+                        frame_idx=d["frame_idx"],
+                        track_id=d["track_id"],
+                    )
+                    for d in start_dets_data
+                ]
+                end_dets = [
+                    KeyframeDetection(
+                        xyxy=np.array(d["xyxy"], dtype=np.float32),
+                        score=d["score"],
+                        label=d["label"],
+                        frame_idx=d["frame_idx"],
+                        track_id=d["track_id"],
+                    )
+                    for d in end_dets_data
+                ]
+                predictor = _build_sam2_predictor()
+                segments, unmatched = _track_between_keyframes(
+                    predictor=predictor,
+                    video_path=video_path_item,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    start_dets=start_dets,
+                    end_dets=end_dets,
+                )
+                all_results[pair_idx] = (segments, unmatched)
 
-            # Assign matching end detection to this track id
-            if seg["end_match"] >= 0 and seg["end_match"] < len(end_dets):
-                matched = end_dets[seg["end_match"]]
-                matched.track_id = tid
-                end_assigned.add(seg["end_match"])
+        # Phase 5: Merge all results into global tracks
+        global_tracks: Dict[int, List[Dict[str, Any]]] = {}
+        
+        # Add first keyframe entries (labels already stored in Phase 1 and 2)
+        for det in detections_by_frame.get(first_kf, []):
+            global_tracks[det.track_id] = [{"frame": first_kf + 1, "xyxy": det.xyxy.copy()}]
 
-        # Spawn new tracks for unmatched detections on end keyframe
-        for idx, det in enumerate(end_dets):
-            if idx in end_assigned:
+        # Process results in order
+        for pair_idx, (start_idx, end_idx) in enumerate(keyframe_pairs):
+            segments, unmatched = all_results[pair_idx]
+            end_dets = detections_by_frame.get(end_idx, [])
+            
+            end_assigned = set()
+            for seg in segments:
+                tid = seg["track_id"]
+                if tid is not None:
+                    global_tracks.setdefault(tid, []).extend(seg["sequence"])
+                    
+                    # Update end detection track ID if matched
+                    if seg["end_match"] >= 0 and seg["end_match"] < len(end_dets):
+                        end_dets[seg["end_match"]].track_id = tid
+                        end_assigned.add(seg["end_match"])
+
+            # Add unmatched end detections as new track entries
+            # IMPORTANT: Only spawn new tracks in the first 10% of keyframes to limit fragmentation
+            # After that, unmatched detections are ignored (assumed to be new objects entering scene)
+            spawn_cutoff = max(1, int(len(keyframe_pairs) * 0.1))
+            for idx, det in enumerate(end_dets):
+                if idx not in end_assigned:
+                    # Only spawn new tracks early in the video
+                    if pair_idx < spawn_cutoff:
+                        if det.track_id is None:
+                            det.track_id = next_global_id
+                            next_global_id += 1
+                        global_tracks.setdefault(det.track_id, []).append({
+                            "frame": end_idx + 1, "xyxy": det.xyxy.copy()
+                        })
+                        # Store label for new tracks
+                        if det.track_id not in track_labels:
+                            track_labels[det.track_id] = det.label
+
+        # Phase 6: Deduplicate, trim disabled tails, and format output
+        tracks: List[Dict[str, Any]] = []
+        for gid, seq in global_tracks.items():
+            seen_frames = {}
+            for entry in seq:
+                # Store full entry (xyxy + enabled) keyed by frame
+                seen_frames[entry["frame"]] = {
+                    "xyxy": entry["xyxy"],
+                    "enabled": entry.get("enabled", True),
+                }
+            merged_seq = [
+                {"frame": f, "xyxy": data["xyxy"], "enabled": data["enabled"]}
+                for f, data in sorted(seen_frames.items())
+            ]
+            
+            # Trim trailing disabled frames (track ended but wasn't properly terminated)
+            # Find last enabled frame and truncate there
+            last_enabled_idx = -1
+            for i, item in enumerate(merged_seq):
+                if item["enabled"]:
+                    last_enabled_idx = i
+            
+            if last_enabled_idx >= 0:
+                # Keep up to last enabled frame, mark the last one as end of track
+                merged_seq = merged_seq[:last_enabled_idx + 1]
+                if merged_seq:
+                    merged_seq[-1]["enabled"] = False  # Mark last frame as disabled (track ends here)
+            
+            # Skip tracks with no enabled frames
+            if not merged_seq or last_enabled_idx < 0:
                 continue
-            tid = det.track_id if det.track_id is not None else next_global_id
-            if det.track_id is None:
-                next_global_id += 1
-            det.track_id = tid
-            global_tracks.setdefault(tid, []).append({"frame": end_idx + 1, "xyxy": det.xyxy.copy()})
-            active[tid] = {"last_box": det.xyxy.copy(), "last_frame": end_idx}
-
-        pct = 100.0 * float(pair_idx) / float(total_pairs if total_pairs else 1)
-        logger.info(
-            "Keyframe tracking progress: %d/%d pairs (%.1f%%)",
-            pair_idx,
-            total_pairs,
-            pct,
-        )
-
-    cap.release()
-    tracks: List[Dict[str, Any]] = []
-    for gid, seq in global_tracks.items():
-        # Deduplicate frames (keep last occurrence)
-        seen_frames = {}
-        for entry in seq:
-            seen_frames[entry["frame"]] = entry["xyxy"]
-        merged_seq = [{"frame": f, "xyxy": b} for f, b in sorted(seen_frames.items())]
-        tracks.append({"track_id": gid, "sequence": merged_seq})
-    return tracks
+            
+            tracks.append({
+                "track_id": gid,
+                "sequence": merged_seq,
+                "label": track_labels.get(gid, "object"),
+            })
+        
+        return tracks
+    finally:
+        # Restore logger levels
+        root_logger.setLevel(original_level)
+        for h, lvl in original_handler_levels:
+            h.setLevel(lvl)
 
 
-def _build_prediction(tracks: List[Dict[str, Any]], width: int, height: int, frames_count: int) -> Dict[str, Any]:
+def _build_prediction(tracks: List[Dict[str, Any]], width: int, height: int, frames_count: int, fps: float) -> Dict[str, Any]:
+    duration = frames_count / fps if fps > 0 else 0.0
     results: List[Dict[str, Any]] = []
     for tr in tracks:
         seq_items = []
         for item in tr["sequence"]:
             x_pct, y_pct, w_pct, h_pct = xyxy_to_percent(item["xyxy"], width, height)
+            frame_num = int(item["frame"])
             seq_items.append(
                 {
-                    "frame": int(item["frame"]),
+                    "frame": frame_num,
                     "x": x_pct,
                     "y": y_pct,
                     "width": w_pct,
                     "height": h_pct,
-                    "enabled": True,
+                    "enabled": item.get("enabled", True),
+                    "rotation": 0,
+                    "time": (frame_num - 1) / fps if fps > 0 else 0.0,
                 }
             )
 
@@ -664,16 +1023,19 @@ def _build_prediction(tracks: List[Dict[str, Any]], width: int, height: int, fra
                 "from_name": "box",
                 "to_name": "video",
                 "score": 1.0,
+                "origin": "manual",
                 "value": {
                     "sequence": seq_items,
                     "framesCount": frames_count,
+                    "duration": duration,
+                    "labels": [tr.get("label", "object")],
                 },
                 "meta": {"text": "id:"},
             }
         )
         _ensure_meta_text_placeholder(results[-1])
 
-    prediction = {"result": results, "score": 1.0, "model_version": "initial-seeding"}
+    prediction = {"result": results, "score": 1.0, "model_version": "gdinosam2-init-seed"}
     return prediction
 
 
@@ -682,7 +1044,7 @@ def _upload_prediction(ls, task_id: int, prediction: Dict[str, Any]):
         result = ls.predictions.create(
             task=task_id,
             score=prediction.get("score", 0.0),
-            model_version=prediction.get("model_version", "initial-seeding"),
+            model_version=prediction.get("model_version", "gdinosam2-init-seed"),
             result=prediction.get("result", []),
         )
         pred_id = getattr(result, "id", None)
@@ -692,10 +1054,14 @@ def _upload_prediction(ls, task_id: int, prediction: Dict[str, Any]):
             logger.info("Upload request completed (no prediction id in response)")
     except Exception as exc:  # pragma: no cover - defensive
         msg = str(exc)
+        err_no = getattr(exc, "errno", None)
         if "504" in msg:
             logger.warning("Received 504 from LS during prediction upload; assuming it succeeded.")
         else:
-            logger.error("Failed to upload prediction: %s", msg)
+            if err_no is not None:
+                logger.error("Failed to upload prediction (errno=%s): %s", err_no, msg)
+            else:
+                logger.error("Failed to upload prediction: %s", msg)
 
 
 def _read_frame(cap: cv2.VideoCapture, idx: int) -> Optional[np.ndarray]:
@@ -713,13 +1079,14 @@ def _detect_keyframes(
     embedding_batch: int,
     keyframe_frac: float,
     min_spacing: int,
-) -> Tuple[List[int], int, int, int]:
+) -> Tuple[List[int], int, int, int, float]:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise InitialSeedingError(f"Could not open video file: {video_path}")
     frames_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     cap.release()
 
     embeds = _compute_sam2_frame_embeddings(cache_key, video_path, embedding_batch, cache_dir)
@@ -736,7 +1103,7 @@ def _detect_keyframes(
     smooth = smooth_change_scores(diff, kernel_size=5)
     keyframes = select_keyframes(frames_count, keyframe_frac, smooth, min_spacing=min_spacing)
     logger.info("Selected %d keyframes out of %d total frames", len(keyframes), frames_count)
-    return keyframes, width, height, frames_count
+    return keyframes, width, height, frames_count, fps
 
 
 def _run_grounding_dino_on_keyframes(
@@ -744,6 +1111,8 @@ def _run_grounding_dino_on_keyframes(
     keyframes: List[int],
     prompt: Optional[str],
 ) -> Dict[int, List[KeyframeDetection]]:
+    from tqdm import tqdm
+
     dino = GroundingDINOHelper()
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -751,7 +1120,7 @@ def _run_grounding_dino_on_keyframes(
 
     detections: Dict[int, List[KeyframeDetection]] = {}
     try:
-        for idx, frame_idx in enumerate(keyframes, 1):
+        for frame_idx in tqdm(keyframes, desc="Grounding DINO keyframes", unit="kf"):
             frame = _read_frame(cap, frame_idx)
             if frame is None:
                 logger.warning("Failed to read keyframe %d", frame_idx)
@@ -760,14 +1129,6 @@ def _run_grounding_dino_on_keyframes(
             for d in dets:
                 d.frame_idx = frame_idx
             detections[frame_idx] = dets
-
-            pct = 100.0 * float(idx) / float(len(keyframes))
-            logger.info(
-                "Grounding DINO progress: %d/%d keyframes (%.1f%%)",
-                idx,
-                len(keyframes),
-                pct,
-            )
     finally:
         cap.release()
 
@@ -820,6 +1181,20 @@ def main() -> None:
         default="INFO",
         help="Logging level",
     )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=int(os.getenv("SAM2_NUM_WORKERS", "4")),
+        help="Number of parallel workers for SAM2 tracking (default: 4, or SAM2_NUM_WORKERS env var). "
+             "Set to 1 for sequential processing. For best GPU utilization with multiple workers, "
+             "enable NVIDIA MPS: 'sudo nvidia-smi -c 3 && nvidia-cuda-mps-control -d'",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Save prediction to JSON file instead of uploading to Label Studio. "
+             "Useful for validating prediction format before full run.",
+    )
 
     args = parser.parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level))
@@ -836,7 +1211,7 @@ def main() -> None:
         _ = _fetch_annotation(ls, args.annotation)
 
         video_path, _video_key = _get_video_path(task)
-        keyframes, width, height, frames_count = _detect_keyframes(
+        keyframes, width, height, frames_count, fps = _detect_keyframes(
             video_path=video_path,
             cache_dir=args.cache_dir,
             cache_key=f"{task['id']}",
@@ -850,14 +1225,27 @@ def main() -> None:
             keyframes=keyframes,
             detections_by_frame=detections,
             video_path=video_path,
+            num_workers=args.num_workers,
         )
 
-        prediction = _build_prediction(tracks, width, height, frames_count=frames_count)
-        _upload_prediction(ls, args.task, prediction)
-
-        logger.info("=" * 80)
-        logger.info("✅ INITIAL SEEDING COMPLETED")
-        logger.info("=" * 80)
+        prediction = _build_prediction(tracks, width, height, frames_count=frames_count, fps=fps)
+        
+        if args.dry_run:
+            # Save prediction to file for validation
+            import json
+            output_file = f"prediction_task_{args.task}.json"
+            with open(output_file, "w") as f:
+                json.dump(prediction, f, indent=2)
+            logger.info("=" * 80)
+            logger.info("🔍 DRY RUN: Prediction saved to %s", output_file)
+            logger.info("Validate with: python validate_prediction.py --ls-url %s --ls-api-key <key> --task %s --prediction-file %s --upload",
+                        args.ls_url, args.task, output_file)
+            logger.info("=" * 80)
+        else:
+            _upload_prediction(ls, args.task, prediction)
+            logger.info("=" * 80)
+            logger.info("✅ INITIAL SEEDING COMPLETED")
+            logger.info("=" * 80)
     except InitialSeedingError as e:
         logger.error("❌ Initial seeding error: %s", e)
         exit_code = 1

@@ -77,7 +77,7 @@ For your project, you can use any labeling config with video properties. Here's 
 
 ## CLI Usage for Batch Processing
 
-You can use the CLI to run SAM2 tracking on tasks with existing annotations (keyframes):
+You can use the CLI to run SAM2 tracking on tasks with existing annotations (keyframes). If you don't have keyframes yet, see **Automatic initial seeding (Grounding DINO + SAM2)** below.
 
 1. Start the Docker container:
 ```bash
@@ -115,16 +115,70 @@ python /app/cli.py \
 - The model tracks from the first keyframe to the end of the video (or `--max-frames` limit).
 - Supports multi-person tracking: annotate multiple people and track them all simultaneously.
 
+## Automatic initial seeding (Grounding DINO + SAM2)
+
+If you want to bootstrap a task **without drawing any keyframes**, you can generate an initial set of tracks using:
+
+- Grounding DINO (open-vocabulary box detection on selected keyframes)
+- SAM2 (keyframe selection via embeddings + per-frame mask-to-box tracking)
+
+Run it (from source or inside the container) using `initial_seeding.py`:
+
+```bash
+python initial_seeding.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 198563 \
+  --task 227350954 \
+  --annotation 12345 \
+  --dry-run
+```
+
+Notes:
+- `--annotation` is currently required for validation/logging, even though the seeding pipeline does not use keyframe regions from it.
+- Use `--dry-run` first to write `prediction_task_<TASK_ID>.json` locally, then validate (and optionally upload) with:
+
+```bash
+python validate_prediction.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --task 227350954 \
+  --prediction-file prediction_task_227350954.json \
+  --upload
+```
+
+Key parameters:
+- `--keyframe-frac`: Fraction of video frames to treat as keyframes (default: `0.1`)
+- `--min-spacing`: Minimum spacing between high-change keyframes (default: `30`)
+- `--embedding-batch`: SAM2 embedding batch size (default: `8`)
+- `--num-workers`: Parallel workers for keyframe-pair tracking (default: `4`)
+
 ## Configuration
 
 ### Environment Variables:
-- `MAX_FRAMES_TO_TRACK`: Set to `0` for no limit (tracks full video), or a specific number to limit frames. Default: `0`
-- `MODEL_CONFIG`: SAM2 model config (default: `configs/sam2.1/sam2.1_hiera_t.yaml`)
-- `MODEL_CHECKPOINT`: SAM2 checkpoint (default: `sam2.1_hiera_tiny.pt`)
-- `DEVICE`: Computing device (default: `cuda`)
+- `DEVICE`: Computing device (recommended: `cuda`)
+- `MODEL_CONFIG`: SAM2 model config path.
+  - In `docker-compose.yml` this is set to `configs/sam2.1/sam2.1_hiera_l.yaml`
+- `MODEL_CHECKPOINT`: SAM2 checkpoint filename.
+  - In `docker-compose.yml` this is set to `sam2.1_hiera_large.pt`
+- `MAX_FRAMES_TO_TRACK`: Hard limit for how many frames to track from the first keyframe.
+  - Set to `0` for no limit.
+  - In `model.py` the default is `1000` if not set.
+- `TRACK_FPS`: Temporal downsampling target FPS for tracking (used by `model.py`).
+  - Set to `0` to disable downsampling (default: `0`).
+- `LABEL_STUDIO_HOST`, `LABEL_STUDIO_URL`, `LABEL_STUDIO_API_KEY`: Used to resolve and download video assets via `get_local_path`.
+
+Initial seeding (`initial_seeding.py`) also uses:
+- `GROUNDINGDINO_REPO_PATH`: Path to Grounding DINO repo (docker default: `/GroundingDINO`)
+- `GROUNDING_DINO_CONFIG`, `GROUNDING_DINO_WEIGHTS`: Config and weights name under `${GROUNDINGDINO_REPO_PATH}`
+- `GROUNDING_DINO_PROMPT` or `GROUNDING_DINO_LABELS`: Class prompt for detection
+- `GROUNDING_DINO_BOX_THRESHOLD`, `GROUNDING_DINO_TEXT_THRESHOLD`: Detection thresholds
+- `CACHE_DIR`: Joblib cache directory for SAM2 embeddings (default: `./cache_dir/joblib`)
+- `EMBED_BATCH`: Embedding batch size (default: `8`)
+- `SAM2_NUM_WORKERS`: Parallel workers for SAM2 tracking pairs (default: `4`)
 
 ## Known limitations
-- As of 8/11/2024, SAM2 only runs on GPU servers.
+- SAM2 is designed to run on GPU servers; CPU execution is not recommended for practical video workloads.
 - Currently, we do not support video segmentation (only bounding boxes).
 - For very long videos (40,000+ frames), tracking may take significant time. Consider using `--max-frames` to process in chunks.
 

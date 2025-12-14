@@ -1,3 +1,7 @@
+# IDE
+.idea/
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -128,23 +132,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# actions-hub
-.github/actions-hub
+# vscode
+.vscode/
+output/
+outputs/
+subs/
+logs/
 
-.idea/
+grounding/config/configs
+grounding/version.py
 
-.DS_Store
-*.pth
-*.pt
-
-# Data folders
-label_studio_ml/examples/grounding_dino_video/output_frames/
-label_studio_ml/examples/yolo_botSort/workspace/utils/app/workspace/temp/
-label_studio_ml/examples/yolo_botSort/workspace/training_results_weights/
-label_studio_ml/examples/yolo_botSort/workspace/autotrain/temp/
-
-*.jpg
-label_studio_ml/examples/segment_anything_2_video/data/server/models/cache.db
-label_studio_ml/examples/yolo_botSort/data/server/models/cache.db
-
-.windsurfrules
+vis/
+tmp/
