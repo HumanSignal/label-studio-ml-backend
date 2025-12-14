@@ -299,9 +299,12 @@ def _merge_group(results: List[Dict[str, Any]], indices: List[int]) -> Dict[str,
         labels = value.get("labels") or []
         if isinstance(labels, list):
             for label in labels:
-                if isinstance(label, str) and label not in labels_seen:
-                    labels_seen.add(label)
-                    labels_union.append(label)
+                if not isinstance(label, str):
+                    continue
+                cleaned = label.strip()
+                if cleaned and cleaned not in labels_seen:
+                    labels_seen.add(cleaned)
+                    labels_union.append(cleaned)
 
         frames_count = value.get("framesCount")
         if isinstance(frames_count, int):

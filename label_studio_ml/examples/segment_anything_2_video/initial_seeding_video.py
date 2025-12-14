@@ -7,8 +7,10 @@ import math
 import os
 import shutil
 import sys
+from collections import Counter
 from contextlib import nullcontext
 from typing import Any, Dict, List, Optional, Tuple
+import xml.etree.ElementTree as ET
 
 import cv2
 import numpy as np
@@ -147,6 +149,140 @@ def _get_env_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _prompt_to_single_label(prompt: Optional[str]) -> Optional[str]:
+    if prompt is None:
+        return None
+    label = prompt.strip()
+    if not label:
+        return None
+    label = label.rstrip(".").strip()
+    if not label:
+        return None
+    if any(ch.isspace() for ch in label):
+        return None
+    return label
+
+
+def _validate_prediction_region_labels(
+    *,
+    prediction: Dict[str, Any],
+    expected_single_label: Optional[str] = None,
+    allowed_labels: Optional[set[str]] = None,
+) -> None:
+    results = prediction.get("result")
+    if not isinstance(results, list):
+        raise base.InitialSeedingError("Prediction is missing a valid 'result' list")
+
+    missing: List[str] = []
+    label_counts: Counter[str] = Counter()
+    mismatched: List[str] = []
+    unknown: List[str] = []
+
+    for idx, region in enumerate(results):
+        if not isinstance(region, dict):
+            missing.append(f"result[{idx}] (not a dict)")
+            continue
+
+        if region.get("type") != "videorectangle":
+            continue
+
+        region_id = str(region.get("id", f"result[{idx}]"))
+        value = region.get("value")
+        if not isinstance(value, dict):
+            missing.append(f"{region_id}: missing value")
+            continue
+
+        labels = value.get("labels")
+        if not isinstance(labels, list) or not labels:
+            missing.append(f"{region_id}: missing/empty value.labels")
+            continue
+
+        clean_labels: List[str] = []
+        for lbl in labels:
+            if not isinstance(lbl, str):
+                continue
+            stripped = lbl.strip()
+            if stripped:
+                clean_labels.append(stripped)
+
+        if not clean_labels:
+            missing.append(f"{region_id}: labels are blank")
+            continue
+
+        first_label = clean_labels[0]
+        label_counts[first_label] += 1
+        if expected_single_label is not None and first_label != expected_single_label:
+            mismatched.append(f"{region_id}: '{first_label}'")
+        if allowed_labels is not None and first_label not in allowed_labels:
+            unknown.append(f"{region_id}: '{first_label}'")
+
+    logger.info("Prediction label summary (first label per region): %s", dict(label_counts))
+
+    if mismatched:
+        logger.warning(
+            "Some regions did not use the expected label '%s': %s",
+            expected_single_label,
+            ", ".join(mismatched[:10]),
+        )
+
+    if missing:
+        raise base.InitialSeedingError(
+            "Prediction contains regions with missing/blank labels: " + ", ".join(missing[:10])
+        )
+
+    if unknown:
+        raise base.InitialSeedingError(
+            "Prediction contains regions with labels not present in the project label config: "
+            + ", ".join(unknown[:10])
+        )
+
+
+def _extract_label_values_from_label_config(label_config_xml: str) -> List[str]:
+    try:
+        root = ET.fromstring(label_config_xml)
+    except Exception:
+        return []
+
+    labels: List[str] = []
+    seen: set[str] = set()
+    for elem in root.iter():
+        tag = elem.tag.split("}", 1)[-1]
+        if tag != "Label":
+            continue
+        value = elem.attrib.get("value")
+        if not isinstance(value, str):
+            continue
+        cleaned = value.strip()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        labels.append(cleaned)
+    return labels
+
+
+def _canonicalize_label_to_project_config(*, label: str, project_labels: List[str]) -> str:
+    if not project_labels:
+        return label
+    if label in project_labels:
+        return label
+    lower_map = {cand.lower(): cand for cand in project_labels if cand}
+    return lower_map.get(label.lower(), label)
+
+
+def _fetch_project_labels(ls, project_id: int) -> List[str]:
+    try:
+        project = ls.projects.get(id=project_id)
+    except Exception as exc:
+        logger.warning("Could not fetch project %s to read label config: %s", project_id, exc)
+        return []
+
+    label_config = getattr(project, "label_config", None)
+    if not isinstance(label_config, str) or not label_config.strip():
+        return []
+
+    return _extract_label_values_from_label_config(label_config)
 
 
 def _mask_logits_to_xyxy(mask_logits: torch.Tensor) -> Optional[np.ndarray]:
@@ -523,9 +659,11 @@ def _build_prediction_zero_based(
     height: int,
     frames_count: int,
     fps: float,
+    use_sparse: Optional[bool] = None,
 ) -> Dict[str, Any]:
     converted: List[Dict[str, Any]] = []
-    use_sparse = _get_env_bool("SPARSE_SEQUENCE", True)
+    if use_sparse is None:
+        use_sparse = _get_env_bool("SPARSE_SEQUENCE", True)
     for tr in tracks:
         seq_0b = tr.get("sequence", [])
         if use_sparse:
@@ -602,13 +740,47 @@ def main() -> None:
         help="Save prediction to JSON file instead of uploading to Label Studio.",
     )
 
+    sparse_group = parser.add_mutually_exclusive_group()
+    sparse_group.add_argument(
+        "--sparse-sequence",
+        dest="sparse_sequence",
+        action="store_true",
+        help="Enable sparse sequence generation (overrides SPARSE_SEQUENCE env var).",
+    )
+    sparse_group.add_argument(
+        "--no-sparse-sequence",
+        dest="sparse_sequence",
+        action="store_false",
+        help="Disable sparse sequence generation (overrides SPARSE_SEQUENCE env var).",
+    )
+    parser.set_defaults(sparse_sequence=None)
+
     args = parser.parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level))
+
+    prompt_label = _prompt_to_single_label(args.prompt)
 
     exit_code = 0
     temp_root: Optional[str] = None
     try:
         ls = base._build_ls_client(args.ls_url, args.ls_api_key)
+        project_labels = _fetch_project_labels(ls, args.project)
+        if project_labels:
+            logger.info("Project label config contains %d label(s)", len(project_labels))
+
+        if prompt_label is not None and project_labels:
+            canonical_label = _canonicalize_label_to_project_config(
+                label=prompt_label,
+                project_labels=project_labels,
+            )
+            if canonical_label != prompt_label:
+                logger.info(
+                    "Using canonical label '%s' from project config for prompt '%s'",
+                    canonical_label,
+                    prompt_label,
+                )
+            prompt_label = canonical_label
+
         task = base._fetch_task(ls, args.project, args.task)
         _ = base._fetch_annotation(ls, args.annotation)
 
@@ -628,6 +800,11 @@ def main() -> None:
         detections_by_frame = base._run_grounding_dino_on_keyframes(video_path, keyframes, args.prompt)
         for k in keyframes:
             detections_by_frame.setdefault(k, [])
+
+        if prompt_label is not None:
+            for dets in detections_by_frame.values():
+                for det in dets:
+                    det.label = prompt_label
 
         temp_root = os.path.abspath(f"./temp_init_seeding_video_task_{args.task}")
         temp_total_dir = os.path.join(temp_root, "temp_total")
@@ -746,6 +923,13 @@ def main() -> None:
             height=height,
             frames_count=frames_count,
             fps=fps,
+            use_sparse=args.sparse_sequence,
+        )
+
+        _validate_prediction_region_labels(
+            prediction=prediction,
+            expected_single_label=prompt_label,
+            allowed_labels=set(project_labels) if project_labels else None,
         )
 
         if args.dry_run:

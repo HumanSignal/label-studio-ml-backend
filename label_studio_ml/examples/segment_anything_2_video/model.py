@@ -696,7 +696,15 @@ class NewModel(LabelStudioMLBase):
             original_keyframes = context_result['value'].get('sequence', [])
 
             # Get labels from context
-            labels = context_result['value'].get('labels', ['Person'])
+            raw_labels = context_result['value'].get('labels')
+            if isinstance(raw_labels, str):
+                labels = [raw_labels.strip()] if raw_labels.strip() else []
+            elif isinstance(raw_labels, list):
+                labels = [lbl.strip() for lbl in raw_labels if isinstance(lbl, str) and lbl.strip()]
+            else:
+                labels = []
+            if not labels:
+                labels = ['Person']
 
             # Sort predicted sequence to ensure temporal order
             predicted_sequence = sorted(predicted_sequence, key=lambda x: x['frame'])
@@ -780,8 +788,8 @@ class NewModel(LabelStudioMLBase):
                     'sequence': merged_sequence,
                     'labels': labels,
                 },
-                'from_name': 'box',
-                'to_name': 'video',
+                'from_name': from_name,
+                'to_name': to_name,
                 'type': 'videorectangle',
                 'origin': 'manual',
                 'id': original_obj_id,

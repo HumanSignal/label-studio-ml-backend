@@ -631,7 +631,7 @@ def _build_prediction(
                     "sequence": seq_items,
                     "framesCount": frames_count,
                     "duration": duration,
-                    "labels": [tr.get("label", "object")],
+                    "labels": [tr.get("label") or "object"],
                 },
                 "meta": {"text": "id:"},
             }
