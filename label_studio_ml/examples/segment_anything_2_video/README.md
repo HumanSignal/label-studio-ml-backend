@@ -120,8 +120,8 @@ python /app/cli.py \
 If you need to clean up or adjust existing video tracks after tracking, use `video_tools.py`. It fetches an existing task annotation from Label Studio, modifies the region `result` locally, and patches the annotation back to Label Studio.
 
 Track selection requirements:
-- Tracks are selected by parsing `meta.text` for `id:<number>` (for example `id:15`).
-- The `id:<number>` must be unique within the annotation (the script fails fast if multiple regions match).
+- Tracks are selected by the region `result[i]["id"]` (for example `auto-track-0`).
+- The region `id` is case-sensitive and is expected to be unique within the annotation.
 
 Common parameters:
 - `--task`, `--annotation`: Identify the task and annotation to modify.
@@ -130,7 +130,7 @@ Common parameters:
 
 Commands:
 - `sparsify`: Uniformly downsample keyframes in a frame range (keep a ratio).
-- `swap-ids`: Move a segment of video history from one `id:<n>` track to another.
+- `swap-ids`: Move a segment of video history from one track id to another.
 - `trim-tail`: Delete all keyframes after a cutoff frame.
 - `smooth`: Moving-average smoothing over `x`, `y`, `width`, `height`.
 - `pad`: Inflate boxes by a percentage over a frame range (clamped to 0-100%).
@@ -144,7 +144,7 @@ export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
 
 python /app/video_tools.py sparsify \
   --task 227350954 --annotation 12345 \
-  --user-id 15 \
+  --track-id auto-track-0 \
   --start-frame 1000 --end-frame 2000 --ratio 0.1
 '
 ```

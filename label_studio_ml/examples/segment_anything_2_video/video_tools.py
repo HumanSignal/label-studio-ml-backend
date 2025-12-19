@@ -4,7 +4,6 @@ import argparse
 import json
 import logging
 import os
-import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -26,9 +25,6 @@ if not logging.getLogger().handlers:
 
 class VideoToolsError(Exception):
     pass
-
-
-_ID_PATTERN = re.compile(r"^\s*id\s*:\s*([0-9]+)\s*$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -132,50 +128,6 @@ def _patch_annotation(
     )
 
 
-def _extract_strings(field: Any) -> List[str]:
-    if isinstance(field, str):
-        return [field]
-    if isinstance(field, (list, tuple)):
-        return [item for item in field if isinstance(item, str)]
-    return []
-
-
-def _normalize_text_candidates(result: Dict[str, Any]) -> List[str]:
-    candidates: List[str] = []
-
-    meta = result.get("meta")
-    if isinstance(meta, dict):
-        candidates.extend(_extract_strings(meta.get("text")))
-
-    candidates.extend(_extract_strings(result.get("text")))
-
-    value = result.get("value")
-    if isinstance(value, dict):
-        candidates.extend(_extract_strings(value.get("text")))
-
-    seen: set[str] = set()
-    unique: List[str] = []
-    for text in candidates:
-        if text in seen:
-            continue
-        seen.add(text)
-        unique.append(text)
-
-    return unique
-
-
-def _parse_user_id_from_result(result: Dict[str, Any]) -> Optional[int]:
-    for text in _normalize_text_candidates(result):
-        match = _ID_PATTERN.match(text)
-        if not match:
-            continue
-        try:
-            return int(match.group(1))
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
 def _get_sequence(result: Dict[str, Any]) -> List[Dict[str, Any]]:
     value = result.get("value")
     if not isinstance(value, dict):
@@ -204,22 +156,32 @@ def _get_frame(item: Dict[str, Any]) -> Optional[int]:
     return frame
 
 
-def _find_unique_track(results: List[Dict[str, Any]], user_id: int) -> Dict[str, Any]:
+def _find_unique_track(results: List[Dict[str, Any]], track_id: str) -> Dict[str, Any]:
+    track_id = str(track_id)
+    if track_id.strip() == "":
+        raise VideoToolsError("Track id must be a non-empty string")
+
     matches: List[Dict[str, Any]] = []
     for res in results:
         if not isinstance(res, dict):
             continue
-        parsed = _parse_user_id_from_result(res)
-        if parsed == user_id:
+        if res.get("id") == track_id:
             matches.append(res)
 
     if not matches:
-        raise VideoToolsError(f"No track found with meta text id:{user_id}")
+        available = [
+            res.get("id")
+            for res in results
+            if isinstance(res, dict) and isinstance(res.get("id"), str)
+        ]
+        sample = ", ".join(available[:20])
+        suffix = "" if len(available) <= 20 else f", ... (+{len(available) - 20} more)"
+        hint = f" Available track ids include: {sample}{suffix}" if available else ""
+        raise VideoToolsError(f"No track found with track id '{track_id}'.{hint}")
     if len(matches) > 1:
-        ids = [m.get("id") for m in matches]
         raise VideoToolsError(
-            f"Found {len(matches)} tracks with meta text id:{user_id} (region ids: {ids}). "
-            "Merge or disambiguate before running this command."
+            f"Found {len(matches)} tracks with the same track id '{track_id}'. "
+            "This should not happen; please inspect the annotation JSON."
         )
     return matches[0]
 
@@ -466,7 +428,7 @@ def _cmd_sparsify(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     annotation = _fetch_annotation(api, task_id=args.task, annotation_id=args.annotation)
     results = annotation["result"]
 
-    track = _find_unique_track(results, args.user_id)
+    track = _find_unique_track(results, args.track_id)
     sequence = _get_sequence(track)
 
     new_sequence, removed, kept = _sparsify_sequence(sequence, start_frame, end_frame, args.ratio)
@@ -474,8 +436,8 @@ def _cmd_sparsify(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     _update_track_stats(track)
 
     logger.info(
-        "Sparsify complete (user_id=%s, range=%s-%s, ratio=%.4f): kept=%d removed=%d",
-        args.user_id,
+        "Sparsify complete (track_id=%s, range=%s-%s, ratio=%.4f): kept=%d removed=%d",
+        args.track_id,
         start_frame,
         end_frame,
         float(args.ratio),
@@ -499,8 +461,8 @@ def _cmd_swap_ids(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     annotation = _fetch_annotation(api, task_id=args.task, annotation_id=args.annotation)
     results = annotation["result"]
 
-    source = _find_unique_track(results, args.source_id)
-    target = _find_unique_track(results, args.target_id)
+    source = _find_unique_track(results, args.source_track_id)
+    target = _find_unique_track(results, args.target_track_id)
 
     source_seq = _get_sequence(source)
     target_seq = _get_sequence(target)
@@ -516,8 +478,8 @@ def _cmd_swap_ids(api: LabelStudioAPI, args: argparse.Namespace) -> None:
 
     if not moved:
         logger.info(
-            "No frames to move (source_id=%s, range=%s-%s). No changes applied.",
-            args.source_id,
+            "No frames to move (source_track_id=%s, range=%s-%s). No changes applied.",
+            args.source_track_id,
             start_frame,
             end_frame,
         )
@@ -538,10 +500,10 @@ def _cmd_swap_ids(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     _update_track_stats(target)
 
     logger.info(
-        "Swap-ids complete: moved=%d frame(s) from id:%s -> id:%s (range=%s-%s)",
+        "Swap-ids complete: moved=%d frame(s) from track_id=%s -> track_id=%s (range=%s-%s)",
         len(moved),
-        args.source_id,
-        args.target_id,
+        args.source_track_id,
+        args.target_track_id,
         start_frame,
         end_frame,
     )
@@ -564,7 +526,7 @@ def _cmd_trim_tail(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     annotation = _fetch_annotation(api, task_id=args.task, annotation_id=args.annotation)
     results = annotation["result"]
 
-    track = _find_unique_track(results, args.user_id)
+    track = _find_unique_track(results, args.track_id)
     sequence = _get_sequence(track)
 
     new_sequence: List[Dict[str, Any]] = []
@@ -579,7 +541,7 @@ def _cmd_trim_tail(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     _set_sequence(track, _sort_sequence(new_sequence))
     _update_track_stats(track)
 
-    logger.info("Trim-tail complete (user_id=%s, cutoff=%s): removed=%d", args.user_id, cutoff, removed)
+    logger.info("Trim-tail complete (track_id=%s, cutoff=%s): removed=%d", args.track_id, cutoff, removed)
 
     _apply_and_commit(
         api,
@@ -597,14 +559,14 @@ def _cmd_smooth(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     annotation = _fetch_annotation(api, task_id=args.task, annotation_id=args.annotation)
     results = annotation["result"]
 
-    track = _find_unique_track(results, args.user_id)
+    track = _find_unique_track(results, args.track_id)
     sequence = _get_sequence(track)
 
     updated = _smooth_sequence(sequence, window)
     _set_sequence(track, _sort_sequence(sequence))
     _update_track_stats(track)
 
-    logger.info("Smooth complete (user_id=%s, window=%s): updated=%d", args.user_id, window, updated)
+    logger.info("Smooth complete (track_id=%s, window=%s): updated=%d", args.track_id, window, updated)
 
     _apply_and_commit(
         api,
@@ -623,7 +585,7 @@ def _cmd_pad(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     annotation = _fetch_annotation(api, task_id=args.task, annotation_id=args.annotation)
     results = annotation["result"]
 
-    track = _find_unique_track(results, args.user_id)
+    track = _find_unique_track(results, args.track_id)
     sequence = _get_sequence(track)
 
     updated = 0
@@ -653,8 +615,8 @@ def _cmd_pad(api: LabelStudioAPI, args: argparse.Namespace) -> None:
     _update_track_stats(track)
 
     logger.info(
-        "Pad complete (user_id=%s, percent=%.4f, range=%s-%s): updated=%d",
-        args.user_id,
+        "Pad complete (track_id=%s, percent=%.4f, range=%s-%s): updated=%d",
+        args.track_id,
         percent,
         start_frame,
         end_frame,
@@ -713,7 +675,12 @@ def _build_parser() -> argparse.ArgumentParser:
         parents=[common],
         help="Uniformly downsample frames in a range for one track",
     )
-    sparsify.add_argument("--user-id", type=int, required=True, help="Numeric id:<n> value")
+    sparsify.add_argument(
+        "--track-id",
+        type=str,
+        required=True,
+        help="Region track id from the annotation result list (e.g., auto-track-0)",
+    )
     sparsify.add_argument("--start-frame", type=int, required=True)
     sparsify.add_argument("--end-frame", type=int, required=True)
     sparsify.add_argument("--ratio", type=float, required=True, help="Fraction of frames to keep (0,1]")
@@ -721,10 +688,10 @@ def _build_parser() -> argparse.ArgumentParser:
     swap_ids = subparsers.add_parser(
         "swap-ids",
         parents=[common],
-        help="Move a segment of track history from one id:<n> to another",
+        help="Move a segment of track history from one track id to another",
     )
-    swap_ids.add_argument("--source-id", type=int, required=True)
-    swap_ids.add_argument("--target-id", type=int, required=True)
+    swap_ids.add_argument("--source-track-id", type=str, required=True)
+    swap_ids.add_argument("--target-track-id", type=str, required=True)
     swap_ids.add_argument("--start-frame", type=int, required=True)
     swap_ids.add_argument("--end-frame", type=int, required=True)
 
@@ -733,7 +700,7 @@ def _build_parser() -> argparse.ArgumentParser:
         parents=[common],
         help="Delete all frames after a cutoff for one track",
     )
-    trim_tail.add_argument("--user-id", type=int, required=True)
+    trim_tail.add_argument("--track-id", type=str, required=True)
     trim_tail.add_argument("--cutoff-frame", type=int, required=True)
 
     smooth = subparsers.add_parser(
@@ -741,7 +708,7 @@ def _build_parser() -> argparse.ArgumentParser:
         parents=[common],
         help="Smooth x/y/width/height using a moving average window",
     )
-    smooth.add_argument("--user-id", type=int, required=True)
+    smooth.add_argument("--track-id", type=str, required=True)
     smooth.add_argument("--window", type=int, default=5)
 
     pad = subparsers.add_parser(
@@ -749,7 +716,7 @@ def _build_parser() -> argparse.ArgumentParser:
         parents=[common],
         help="Inflate boxes by a percentage over a frame range",
     )
-    pad.add_argument("--user-id", type=int, required=True)
+    pad.add_argument("--track-id", type=str, required=True)
     pad.add_argument("--percent", type=float, required=True, help="e.g., 0.10 expands by 10%")
     pad.add_argument("--start-frame", type=int, required=True)
     pad.add_argument("--end-frame", type=int, required=True)
