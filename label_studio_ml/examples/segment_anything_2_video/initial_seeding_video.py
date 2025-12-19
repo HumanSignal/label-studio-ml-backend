@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 import torch
 from torchvision.ops import box_iou
+from tqdm import tqdm
 
 import seeding_common as base
 
@@ -62,6 +63,22 @@ def _build_sam2_video_predictor():
     return build_sam2_video_predictor(model_config, sam2_checkpoint, device=device)
 
 
+def _disable_sam2_progress_bars() -> None:
+    try:
+        import sam2.sam2_video_predictor as sam2_video_predictor  # type: ignore[import]
+        import sam2.utils.misc as sam2_misc  # type: ignore[import]
+    except Exception as exc:
+        logger.debug("Could not patch SAM2 tqdm progress bars: %s", exc)
+        return
+
+    def _quiet_tqdm(*args, **kwargs):
+        kwargs["disable"] = True
+        return tqdm(*args, **kwargs)
+
+    setattr(sam2_video_predictor, "tqdm", _quiet_tqdm)
+    setattr(sam2_misc, "tqdm", _quiet_tqdm)
+
+
 def _clear_jpeg_dir(dir_path: str) -> None:
     if not os.path.isdir(dir_path):
         return
@@ -71,6 +88,17 @@ def _clear_jpeg_dir(dir_path: str) -> None:
                 os.remove(os.path.join(dir_path, name))
             except FileNotFoundError:
                 continue
+
+
+def _list_jpeg_files(dir_path: str) -> List[str]:
+    try:
+        names = os.listdir(dir_path)
+    except FileNotFoundError:
+        return []
+    except NotADirectoryError:
+        return []
+
+    return [name for name in names if name.lower().endswith((".jpg", ".jpeg"))]
 
 
 def _link_or_copy(src: str, dst: str) -> None:
@@ -134,6 +162,13 @@ def _prepare_segment_dir(
     _clear_jpeg_dir(temp_dir)
 
     num_frames = end_idx - start_idx + 1
+    logger.debug(
+        "Preparing segment dir=%s frames=[%d..%d] expected_frames=%d",
+        temp_dir,
+        start_idx,
+        end_idx,
+        num_frames,
+    )
     for local_idx, global_idx in enumerate(range(start_idx, end_idx + 1)):
         src = os.path.join(temp_total_dir, f"{global_idx:06d}.jpg")
         dst = os.path.join(temp_dir, f"{local_idx:05d}.jpg")
@@ -141,7 +176,62 @@ def _prepare_segment_dir(
             raise base.InitialSeedingError(f"Missing frame in temp_total: {src}")
         _link_or_copy(src, dst)
 
+    actual = len(_list_jpeg_files(temp_dir))
+    if actual != num_frames:
+        raise base.InitialSeedingError(
+            f"Segment dir '{temp_dir}' contains {actual} JPEG frames but expected {num_frames} "
+            f"for segment start_idx={start_idx} end_idx={end_idx}."
+        )
+
     return num_frames
+
+
+def _augment_keyframes_for_max_segment(
+    *,
+    keyframes: List[int],
+    frames_count: int,
+    max_segment_frames: int,
+) -> List[int]:
+    if frames_count <= 0:
+        return []
+
+    max_segment_frames = int(max_segment_frames)
+    if max_segment_frames <= 1:
+        cleaned_set: set[int] = set()
+        for k in keyframes:
+            ki = int(k)
+            if 0 <= ki < frames_count:
+                cleaned_set.add(ki)
+        return sorted(cleaned_set)
+
+    cleaned_set: set[int] = set()
+    for k in keyframes:
+        ki = int(k)
+        if 0 <= ki < frames_count:
+            cleaned_set.add(ki)
+    cleaned = sorted(cleaned_set)
+
+    if not cleaned:
+        cleaned = [0, frames_count - 1]
+    else:
+        if cleaned[0] != 0:
+            cleaned = [0] + cleaned
+        if cleaned[-1] != frames_count - 1:
+            cleaned = cleaned + [frames_count - 1]
+
+    step = max_segment_frames - 1
+    augmented: List[int] = [cleaned[0]]
+    for start_kf, end_kf in zip(cleaned[:-1], cleaned[1:]):
+        cur = int(start_kf)
+        end_kf_int = int(end_kf)
+        while end_kf_int - cur + 1 > max_segment_frames:
+            cur = cur + step
+            if cur >= end_kf_int:
+                break
+            augmented.append(cur)
+        augmented.append(end_kf_int)
+
+    return sorted(set(augmented))
 
 
 def _get_env_bool(name: str, default: bool) -> bool:
@@ -317,6 +407,42 @@ def _track_segment(
 
     num_frames = end_idx - start_idx + 1
     offload_video_to_cpu = _get_env_bool("SAM2_OFFLOAD_VIDEO_TO_CPU", True)
+
+    actual = len(_list_jpeg_files(temp_dir))
+    if actual != num_frames:
+        raise base.InitialSeedingError(
+            f"Before SAM2 init_state, segment dir '{temp_dir}' contains {actual} JPEG frames but "
+            f"expected {num_frames} (start_idx={start_idx} end_idx={end_idx})."
+        )
+
+    image_size = getattr(predictor, "image_size", None)
+    if image_size is not None:
+        try:
+            est_bytes = int(actual) * 3 * int(image_size) * int(image_size) * 4
+            est_gb = est_bytes / float(1024**3)
+            logger.debug(
+                "SAM2 init_state: temp_dir=%s frames=%d image_size=%s estimated_alloc_gb=%.2f offload_video_to_cpu=%s",
+                temp_dir,
+                actual,
+                str(image_size),
+                est_gb,
+                str(offload_video_to_cpu),
+            )
+        except Exception:
+            logger.debug(
+                "SAM2 init_state: temp_dir=%s frames=%d image_size=%s offload_video_to_cpu=%s",
+                temp_dir,
+                actual,
+                str(image_size),
+                str(offload_video_to_cpu),
+            )
+    else:
+        logger.debug(
+            "SAM2 init_state: temp_dir=%s frames=%d offload_video_to_cpu=%s",
+            temp_dir,
+            actual,
+            str(offload_video_to_cpu),
+        )
 
     inference_state = predictor.init_state(
         video_path=temp_dir,
@@ -639,7 +765,10 @@ def _finalize_tracks(
         if last_enabled_idx < 0:
             continue
 
-        merged_seq = merged_seq[: last_enabled_idx + 1]
+        trim_end = last_enabled_idx + 1
+        if trim_end < len(merged_seq) and not merged_seq[trim_end].get("enabled", True):
+            trim_end += 1
+        merged_seq = merged_seq[:trim_end]
 
         tracks.append(
             {
@@ -796,7 +925,39 @@ def main() -> None:
         if frames_count <= 0:
             raise base.InitialSeedingError("Video has no frames")
 
-        keyframes = sorted({int(k) for k in keyframes} | {0, frames_count - 1})
+        keyframes_raw = sorted({int(k) for k in keyframes} | {0, frames_count - 1})
+        max_segment_frames = int(os.getenv("MAX_SEGMENT_FRAMES", "1024"))
+        keyframes = _augment_keyframes_for_max_segment(
+            keyframes=keyframes_raw,
+            frames_count=frames_count,
+            max_segment_frames=max_segment_frames,
+        )
+        if len(keyframes) < 2:
+            raise base.InitialSeedingError("Need at least two keyframes to form segments")
+
+        if len(keyframes) != len(keyframes_raw):
+            logger.info(
+                "Augmented keyframes from %d to %d to enforce max_segment_frames=%d",
+                len(keyframes_raw),
+                len(keyframes),
+                max_segment_frames,
+            )
+
+        seg_lens = [int(b) - int(a) + 1 for a, b in zip(keyframes[:-1], keyframes[1:])]
+        if seg_lens and max(seg_lens) > max_segment_frames:
+            raise base.InitialSeedingError(
+                f"Keyframe augmentation failed: max segment length {max(seg_lens)} > max_segment_frames={max_segment_frames}"
+            )
+
+        logger.info(
+            "Video frames=%d | keyframes=%d | segments=%d | segment_len[min=%d max=%d avg=%.2f]",
+            frames_count,
+            len(keyframes),
+            max(0, len(keyframes) - 1),
+            min(seg_lens) if seg_lens else 0,
+            max(seg_lens) if seg_lens else 0,
+            float(sum(seg_lens)) / float(len(seg_lens)) if seg_lens else 0.0,
+        )
         detections_by_frame = base._run_grounding_dino_on_keyframes(video_path, keyframes, args.prompt)
         for k in keyframes:
             detections_by_frame.setdefault(k, [])
@@ -820,6 +981,7 @@ def main() -> None:
         )
 
         predictor = _build_sam2_video_predictor()
+        _disable_sam2_progress_bars()
 
         global_tracks: Dict[int, Dict[int, Dict[str, Any]]] = {}
         track_labels: Dict[int, str] = {}
@@ -835,86 +997,99 @@ def main() -> None:
             }
             next_track_id += 1
 
-        for start_kf, end_kf in zip(keyframes[:-1], keyframes[1:]):
-            start_dets = detections_by_frame.get(start_kf, [])
-            end_dets = detections_by_frame.get(end_kf, [])
+        segment_total = max(0, len(keyframes) - 1)
+        segment_bar = tqdm(
+            total=segment_total,
+            desc="Segments (track+stitch)",
+            unit="seg",
+        )
 
-            for det in start_dets:
-                if det.track_id is None:
-                    det.track_id = next_track_id
-                    track_labels[next_track_id] = det.label
-                    next_track_id += 1
-                global_tracks.setdefault(int(det.track_id), {})[start_kf] = {
-                    "xyxy": det.xyxy.copy(),
-                    "enabled": True,
-                }
+        try:
+            for start_kf, end_kf in zip(keyframes[:-1], keyframes[1:]):
+                start_dets = detections_by_frame.get(start_kf, [])
+                end_dets = detections_by_frame.get(end_kf, [])
 
-            seg_dir = os.path.join(temp_segments_root, f"seg_{start_kf:06d}_{end_kf:06d}")
-            _ = _prepare_segment_dir(
-                temp_total_dir=temp_total_dir,
-                temp_dir=seg_dir,
-                start_idx=start_kf,
-                end_idx=end_kf,
-            )
-            try:
-                tracklets = _track_segment(
-                    predictor=predictor,
+                for det in start_dets:
+                    if det.track_id is None:
+                        det.track_id = next_track_id
+                        track_labels[next_track_id] = det.label
+                        next_track_id += 1
+                    global_tracks.setdefault(int(det.track_id), {})[start_kf] = {
+                        "xyxy": det.xyxy.copy(),
+                        "enabled": True,
+                    }
+
+                seg_dir = os.path.join(temp_segments_root, f"seg_{start_kf:06d}_{end_kf:06d}")
+                _ = _prepare_segment_dir(
+                    temp_total_dir=temp_total_dir,
                     temp_dir=seg_dir,
                     start_idx=start_kf,
                     end_idx=end_kf,
-                    start_dets=start_dets,
                 )
-            finally:
-                shutil.rmtree(seg_dir, ignore_errors=True)
+                try:
+                    tracklets = _track_segment(
+                        predictor=predictor,
+                        temp_dir=seg_dir,
+                        start_idx=start_kf,
+                        end_idx=end_kf,
+                        start_dets=start_dets,
+                    )
+                finally:
+                    shutil.rmtree(seg_dir, ignore_errors=True)
 
-            matches = _match_tracklets_to_end_dets(
-                tracklets=tracklets,
-                end_dets=end_dets,
-                width=width,
-                height=height,
-            )
+                segment_bar.update(1)
 
-            matched_tracklets = set(matches.keys())
-            for ti, dj in matches.items():
-                tid = int(tracklets[ti]["track_id"])
-                end_dets[dj].track_id = tid
-                if tid not in track_labels:
-                    track_labels[tid] = end_dets[dj].label
-                global_tracks.setdefault(tid, {})[end_kf] = {
-                    "xyxy": end_dets[dj].xyxy.copy(),
-                    "enabled": True,
-                }
+                matches = _match_tracklets_to_end_dets(
+                    tracklets=tracklets,
+                    end_dets=end_dets,
+                    width=width,
+                    height=height,
+                )
 
-            for det in end_dets:
-                if det.track_id is not None:
-                    continue
-                det.track_id = next_track_id
-                track_labels[next_track_id] = det.label
-                global_tracks.setdefault(next_track_id, {})[end_kf] = {
-                    "xyxy": det.xyxy.copy(),
-                    "enabled": True,
-                }
-                next_track_id += 1
-
-            for ti, trk in enumerate(tracklets):
-                if ti not in matched_tracklets:
-                    for item in trk.get("sequence", []):
-                        if int(item.get("frame", -1)) == end_kf:
-                            item["enabled"] = False
-
-                tid = int(trk["track_id"])
-                frame_map = global_tracks.setdefault(tid, {})
-                for item in trk.get("sequence", []):
-                    frame_idx = int(item["frame"])
-                    if frame_idx == start_kf:
-                        continue
-                    existing = frame_map.get(frame_idx)
-                    if existing is not None and existing.get("enabled", True):
-                        continue
-                    frame_map[frame_idx] = {
-                        "xyxy": np.array(item["xyxy"], dtype=np.float32),
-                        "enabled": bool(item.get("enabled", True)),
+                matched_tracklets = set(matches.keys())
+                for ti, dj in matches.items():
+                    tid = int(tracklets[ti]["track_id"])
+                    end_dets[dj].track_id = tid
+                    if tid not in track_labels:
+                        track_labels[tid] = end_dets[dj].label
+                    global_tracks.setdefault(tid, {})[end_kf] = {
+                        "xyxy": end_dets[dj].xyxy.copy(),
+                        "enabled": True,
                     }
+
+                for det in end_dets:
+                    if det.track_id is not None:
+                        continue
+                    det.track_id = next_track_id
+                    track_labels[next_track_id] = det.label
+                    global_tracks.setdefault(next_track_id, {})[end_kf] = {
+                        "xyxy": det.xyxy.copy(),
+                        "enabled": True,
+                    }
+                    next_track_id += 1
+
+                for ti, trk in enumerate(tracklets):
+                    if ti not in matched_tracklets:
+                        for item in trk.get("sequence", []):
+                            if int(item.get("frame", -1)) == end_kf:
+                                item["enabled"] = False
+
+                    tid = int(trk["track_id"])
+                    frame_map = global_tracks.setdefault(tid, {})
+                    for item in trk.get("sequence", []):
+                        frame_idx = int(item["frame"])
+                        if frame_idx == start_kf:
+                            continue
+                        existing = frame_map.get(frame_idx)
+                        if existing is not None and existing.get("enabled", True):
+                            continue
+                        frame_map[frame_idx] = {
+                            "xyxy": np.array(item["xyxy"], dtype=np.float32),
+                            "enabled": bool(item.get("enabled", True)),
+                        }
+
+        finally:
+            segment_bar.close()
 
         tracks = _finalize_tracks(global_tracks=global_tracks, track_labels=track_labels)
         prediction = _build_prediction_zero_based(

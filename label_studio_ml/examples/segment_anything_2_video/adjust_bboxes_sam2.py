@@ -8,6 +8,11 @@ from typing import Any, Dict, List, Tuple
 import cv2
 import numpy as np
 
+try:
+    from tqdm import tqdm
+except Exception:  # pragma: no cover
+    tqdm = None
+
 from complete_reid import (  # type: ignore[import]
     ReIDCLIError,
     TrackSequence,
@@ -23,12 +28,35 @@ from complete_reid import (  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
+
+class _SAM2SetImageLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno != logging.INFO:
+            return True
+        if record.name != "root":
+            return True
+        if record.funcName != "set_image":
+            return True
+
+        msg = record.getMessage()
+        if msg.startswith("For numpy array image, we assume"):
+            return False
+        if msg.startswith("Computing image embeddings for the provided image"):
+            return False
+        if msg.startswith("Image embeddings computed"):
+            return False
+        return True
+
 if not logging.getLogger().handlers:
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+
+_root_logger = logging.getLogger()
+for _handler in _root_logger.handlers:
+    _handler.addFilter(_SAM2SetImageLogFilter())
 
 
 def _parse_args() -> argparse.Namespace:
@@ -109,6 +137,8 @@ def _build_frame_requests(tracks: List[TrackSequence]) -> Dict[int, List[Tuple[T
         for item in track.sequence:
             if not isinstance(item, dict):
                 continue
+            if not bool(item.get("enabled", True)):
+                continue
             frame = int(item.get("frame", 0))
             if frame <= 0:
                 continue
@@ -122,6 +152,10 @@ def _refine_bboxes_with_sam2(
     tracks: List[TrackSequence],
     search_scale: float,
 ) -> None:
+    search_scale = float(search_scale)
+    if search_scale <= 0:
+        raise ReIDCLIError(f"search_scale must be > 0, got {search_scale}")
+
     frame_requests = _build_frame_requests(tracks)
     if not frame_requests:
         logger.warning("No frames found in any sequence; nothing to refine")
@@ -140,7 +174,13 @@ def _refine_bboxes_with_sam2(
         raise ReIDCLIError(f"Could not open video file: {video_path}")
 
     try:
-        for idx, frame_idx in enumerate(sorted(frame_requests.keys()), 1):
+        frame_indices = sorted(frame_requests.keys())
+        if tqdm is None:
+            frame_iter = frame_indices
+        else:
+            frame_iter = tqdm(frame_indices, total=total_frames, desc="Refining frames", unit="frame")
+
+        for idx, frame_idx in enumerate(frame_iter, 1):
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             success, frame_bgr = cap.read()
             if not success or frame_bgr is None:
@@ -242,14 +282,15 @@ def _refine_bboxes_with_sam2(
                 item["height"] = new_h_pct
 
             # Periodic progress feedback for long runs
-            if idx % 50 == 0 or idx == total_frames:
-                pct = 100.0 * float(idx) / float(total_frames)
-                logger.info(
-                    "SAM2 bbox refinement progress: %d/%d frames (%.1f%%)",
-                    idx,
-                    total_frames,
-                    pct,
-                )
+            if tqdm is None:
+                if idx % 50 == 0 or idx == total_frames:
+                    pct = 100.0 * float(idx) / float(total_frames)
+                    logger.info(
+                        "SAM2 bbox refinement progress: %d/%d frames (%.1f%%)",
+                        idx,
+                        total_frames,
+                        pct,
+                    )
     finally:
         cap.release()
 

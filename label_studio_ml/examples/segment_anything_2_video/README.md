@@ -115,6 +115,42 @@ python /app/cli.py \
 - The model tracks from the first keyframe to the end of the video (or `--max-frames` limit).
 - Supports multi-person tracking: annotate multiple people and track them all simultaneously.
 
+## Video annotation toolbox (`video_tools.py`)
+
+If you need to clean up or adjust existing video tracks after tracking, use `video_tools.py`. It fetches an existing task annotation from Label Studio, modifies the region `result` locally, and patches the annotation back to Label Studio.
+
+Track selection requirements:
+- Tracks are selected by parsing `meta.text` for `id:<number>` (for example `id:15`).
+- The `id:<number>` must be unique within the annotation (the script fails fast if multiple regions match).
+
+Common parameters:
+- `--task`, `--annotation`: Identify the task and annotation to modify.
+- `--ls-url`, `--ls-api-key`: Or use `LABEL_STUDIO_URL` / `LABEL_STUDIO_HOST` and `LABEL_STUDIO_API_KEY`.
+- `--dry-run`: Write the updated annotation JSON locally instead of uploading.
+
+Commands:
+- `sparsify`: Uniformly downsample keyframes in a frame range (keep a ratio).
+- `swap-ids`: Move a segment of video history from one `id:<n>` track to another.
+- `trim-tail`: Delete all keyframes after a cutoff frame.
+- `smooth`: Moving-average smoothing over `x`, `y`, `width`, `height`.
+- `pad`: Inflate boxes by a percentage over a frame range (clamped to 0-100%).
+
+Example (inside Docker):
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py sparsify \
+  --task 227350954 --annotation 12345 \
+  --user-id 15 \
+  --start-frame 1000 --end-frame 2000 --ratio 0.1
+'
+```
+
+Note: For large updates, Label Studio may return `504 Gateway Timeout` on `PATCH` even though the update succeeds. `video_tools.py` treats HTTP 504 as success and logs a warning.
+
 ## Automatic initial seeding (Grounding DINO + SAM2)
 
 If you want to bootstrap a task **without drawing any keyframes**, you can generate an initial set of tracks using:

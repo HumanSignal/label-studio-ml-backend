@@ -360,9 +360,9 @@ def select_keyframes(T_len: int, frac: float, smooth_diff: np.ndarray, min_spaci
     changed = set(top_change_indices(smooth_diff, max_candidates=3 * K, min_spacing=min_spacing))
     merged = sorted(base.union(changed))
     if len(merged) > K:
-        step = max(1, len(merged) // K)
-        merged = merged[::step][:K]
-    return sorted(merged)
+        idx = np.linspace(0, len(merged) - 1, num=K, dtype=int)
+        merged = [merged[i] for i in idx]
+    return sorted(set(merged))
 
 
 def _read_frame(cap: cv2.VideoCapture, idx: int) -> Optional[np.ndarray]:
