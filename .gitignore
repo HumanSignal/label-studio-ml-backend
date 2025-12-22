@@ -148,3 +148,7 @@ label_studio_ml/examples/segment_anything_2_video/data/server/models/cache.db
 label_studio_ml/examples/yolo_botSort/data/server/models/cache.db
 
 .windsurfrules
+label_studio_ml/examples/segment_anything_2_video/project198563_task230834354_ann82098762.json
+.DS_Store
+label_studio_ml/.DS_Store
+label_studio_ml/examples/.DS_Store

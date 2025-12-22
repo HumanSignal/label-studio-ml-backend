@@ -222,6 +222,7 @@ extract_annotation() {
 
     (choose_task) as $task_obj
     | if $task_obj == null then error("Task not found in export") else . end
+    | ($task_obj.data.video // $task_obj.data.video_url // $task_obj.data.videoUrl // $task_obj.data.video_path // $task_obj.data.videoPath // $task_obj.data.source // $task_obj.data.video_source) as $video_url
     | (choose_entry($task_obj.annotations) as $ann
        | choose_entry($task_obj.predictions) as $pred
        | if $ann != null then
@@ -231,6 +232,7 @@ extract_annotation() {
           annotation_id: ($ann.key|tonumber? // $ann.key // ($entry_id|tonumber? // $entry_id)),
           source_type: "annotation",
           exported_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+          video_url: $video_url,
           annotation: $ann.value
         }
       elif $pred != null then
@@ -240,6 +242,7 @@ extract_annotation() {
           prediction_id: ($pred.key|tonumber? // $pred.key // ($entry_id|tonumber? // $entry_id)),
           source_type: "prediction",
           exported_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+          video_url: $video_url,
           prediction: $pred.value
         }
       else
