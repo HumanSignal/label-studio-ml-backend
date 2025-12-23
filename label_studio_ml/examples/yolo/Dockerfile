@@ -59,4 +59,6 @@ RUN /bin/sh -c 'if [ ! -f /app/models/yolov8m.pt ]; then \
 
 ENV PYTHONPATH=/app
 
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
+
 CMD ["/app/start.sh"]
