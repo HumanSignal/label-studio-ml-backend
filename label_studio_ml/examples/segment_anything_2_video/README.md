@@ -77,16 +77,57 @@ For your project, you can use any labeling config with video properties. Here's 
 
 ## CLI Usage for Batch Processing
 
-You can use the CLI to run SAM2 tracking on tasks with existing annotations (keyframes). If you don't have keyframes yet, see **Automatic initial seeding (Grounding DINO + SAM2)** below.
+You can use the CLI to run SAM2 tracking on tasks with existing annotations (keyframes). This is useful for processing long videos in parallel segments.
 
-1. Start the Docker container:
+### Arguments
+
+- `--ls-url`: Label Studio URL (required)
+- `--ls-api-key`: API key (required)
+- `--project`: Project ID (required)
+- `--task`: Task ID (required)
+- `--annotation`: Annotation ID with keyframes (required)
+- `--global-start`: Start frame index (0-based inclusive, default: 0)
+- `--global-end`: End frame index (0-based inclusive, default: last frame)
+- `--max-frames-to-track`: Max frames to track forward/backward from each keyframe (default: 300)
+- `--prompt`: Optional label override (e.g., "Person")
+- `--dry-run`: Print JSON output instead of uploading
+
+### Example Command
+
+To run tracking on a specific segment (frames 0-2000):
+
 ```bash
-docker compose up -d
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+# API key can also be passed as argument
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+ 
+python /app/initial_seeding_video_boxes.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 198563 \
+  --task 226454007 \
+  --annotation 79598308 \
+  --global-start 0 \
+  --global-end 2000 \
+  --max-frames-to-track 300
+'
 ```
 
-2. Draw bounding boxes (keyframes) in Label Studio for the people/objects you want to track
+### Processing Strategy
 
-3. Run tracking via CLI:
+For very long videos (e.g., 1 hour), you should:
+1. Divide the video into overlapping segments (e.g., 0-2000, 1900-3900...)
+2. Run this script for each segment in parallel (using different `--global-start`/`--global-end`)
+3. The script will:
+   - Extract only the needed frames to a temp directory
+   - Filter keyframes relevant to this segment
+   - Track objects bidirectionally
+   - Stitch tracks using Hungarian matching
+   - Upload results back to Label Studio
+
+Note: Tracks are uploaded as new "videorectangle" regions. You may want to merge them later or use `video_tools.py` to clean up results.
+
 ```bash
 docker compose exec segment_anything_2_video bash -lc '
 export LABEL_STUDIO_HOST=https://app.heartex.com
