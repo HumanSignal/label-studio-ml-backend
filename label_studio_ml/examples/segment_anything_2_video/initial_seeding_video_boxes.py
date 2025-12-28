@@ -12,7 +12,9 @@ import argparse
 import json
 import logging
 import os
+import shutil
 import sys
+import uuid
 import xml.etree.ElementTree as ET
 from collections import Counter
 from typing import Any, Dict, List, Optional
@@ -21,6 +23,7 @@ import cv2
 import numpy as np
 import requests
 import torch
+from tqdm import tqdm
 
 import seeding_common as base
 from seeding_common import InitialSeedingError
@@ -38,6 +41,23 @@ if not logging.getLogger().handlers:
         format="[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+
+
+def _disable_sam2_progress_bars() -> None:
+    """Disable SAM2 tqdm progress bars to avoid log clutter."""
+    try:
+        import sam2.sam2_video_predictor as sam2_video_predictor
+        import sam2.utils.misc as sam2_misc
+    except Exception as exc:
+        logger.debug("Could not patch SAM2 tqdm progress bars: %s", exc)
+        return
+
+    def _quiet_tqdm(*args, **kwargs):
+        kwargs["disable"] = True
+        return tqdm(*args, **kwargs)
+
+    setattr(sam2_video_predictor, "tqdm", _quiet_tqdm)
+    setattr(sam2_misc, "tqdm", _quiet_tqdm)
 
 
 def _prompt_to_single_label(prompt: Optional[str]) -> Optional[str]:
@@ -226,6 +246,23 @@ def _export_segment_to_frames_dir(cap, out_dir, global_start, global_end):
 def _mask_logits_to_box_xyxy(mask_logits, threshold=0.0):
     """Convert SAM2 mask logits to bounding box."""
     mask = (mask_logits > threshold)
+    
+    # Ensure 2D mask (H, W)
+    if mask.ndim > 2:
+        mask = mask.squeeze()
+    
+    # Verify shape is valid for torch.where unpacking
+    if mask.ndim != 2:
+        # If squeezing didn't result in 2D (e.g. scalar or 3D with C>1), handle gracefully
+        if mask.ndim == 3:
+             # Take first channel if multiple exist (unlikely for single obj tracking)
+             mask = mask[0]
+        elif mask.ndim < 2:
+             return None
+             
+    if mask.ndim != 2:
+        return None
+
     ys, xs = torch.where(mask)
     if ys.numel() == 0:
         return None
@@ -269,41 +306,56 @@ def _backward_start(t, prev_kf, max_frames_to_track):
     return max(prev_kf, t - max_frames_to_track)
 
 
+def _sanitize_filename(name):
+    """Sanitize string for use in filenames."""
+    return "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in name)
+
+
 def _generate_forward_tracklet(predictor, seed, start_local, end_local, segment_frames_dir):
     """Generate forward tracklet from seed."""
-    window_dir = f"/tmp/sam2_fwd_{seed['temp_id']}_{start_local}_{end_local}"
+    safe_id = _sanitize_filename(seed['temp_id'])
+    # Use UUID to prevent collisions in parallel runs
+    window_dir = f"/tmp/sam2_fwd_{safe_id}_{start_local}_{end_local}_{uuid.uuid4().hex}"
     win_len = _make_window_dir(segment_frames_dir, window_dir, start_local, end_local)
     
     seed_local = seed["frame_idx"]
     seed_in_win = seed_local - start_local
     
-    state = predictor.init_state(video_path=window_dir, offload_video_to_cpu=False)
-    predictor.add_new_points_or_box(
-        inference_state=state, 
-        frame_idx=seed_in_win, 
-        obj_id=1, 
-        box=seed["box_xyxy"]
-    )
-    
-    fwd = {}
-    for frame_local, obj_ids, mask_logits in predictor.propagate_in_video(
-        inference_state=state,
-        start_frame_idx=seed_in_win,
-        max_frame_num_to_track=win_len - seed_in_win,
-    ):
-        pos = obj_ids.index(1)
-        box = _mask_logits_to_box_xyxy(mask_logits[pos])
-        if box is None:
-            continue
-        seg_frame = start_local + int(frame_local)
-        fwd[seg_frame] = box
-    
-    return fwd
+    try:
+        state = predictor.init_state(video_path=window_dir, offload_video_to_cpu=False)
+        predictor.add_new_points_or_box(
+            inference_state=state, 
+            frame_idx=seed_in_win, 
+            obj_id=1, 
+            box=seed["box_xyxy"]
+        )
+        
+        fwd = {}
+        for frame_local, obj_ids, mask_logits in predictor.propagate_in_video(
+            inference_state=state,
+            start_frame_idx=seed_in_win,
+            max_frame_num_to_track=win_len - seed_in_win,
+        ):
+            if 1 not in obj_ids:
+                continue
+            pos = obj_ids.index(1)
+            box = _mask_logits_to_box_xyxy(mask_logits[pos])
+            if box is None:
+                continue
+            seg_frame = start_local + int(frame_local)
+            fwd[seg_frame] = box
+            
+        return fwd
+    finally:
+        if os.path.exists(window_dir):
+            shutil.rmtree(window_dir)
 
 
 def _generate_backward_tracklet(predictor, seed, start_local, end_local, segment_frames_dir):
     """Generate backward tracklet from seed using reversed directory."""
-    window_dir = f"/tmp/sam2_bwd_{seed['temp_id']}_{start_local}_{end_local}"
+    safe_id = _sanitize_filename(seed['temp_id'])
+    # Use UUID to prevent collisions in parallel runs
+    window_dir = f"/tmp/sam2_bwd_{safe_id}_{start_local}_{end_local}_{uuid.uuid4().hex}"
     win_len = _make_window_dir(segment_frames_dir, window_dir, start_local, end_local)
     
     window_dir_rev = window_dir + "_rev"
@@ -313,30 +365,43 @@ def _generate_backward_tracklet(predictor, seed, start_local, end_local, segment
     seed_in_win = seed_local - start_local
     seed_in_win_rev = (win_len - 1 - seed_in_win)
     
-    state_rev = predictor.init_state(video_path=window_dir_rev, offload_video_to_cpu=False)
-    predictor.add_new_points_or_box(
-        inference_state=state_rev,
-        frame_idx=seed_in_win_rev,
-        obj_id=1,
-        box=seed["box_xyxy"]
-    )
-    
-    bwd = {}
-    for frame_local, obj_ids, mask_logits in predictor.propagate_in_video(
-        inference_state=state_rev,
-        start_frame_idx=seed_in_win_rev,
-        max_frame_num_to_track=seed_in_win_rev + 1,
-    ):
-        pos = obj_ids.index(1)
-        box = _mask_logits_to_box_xyxy(mask_logits[pos])
-        if box is None:
-            continue
-        rev_win_frame = int(frame_local)
-        win_frame = (win_len - 1 - rev_win_frame)
-        seg_frame = start_local + win_frame
-        bwd[seg_frame] = box
-    
-    return bwd
+    try:
+        state_rev = predictor.init_state(video_path=window_dir_rev, offload_video_to_cpu=False)
+        predictor.add_new_points_or_box(
+            inference_state=state_rev,
+            frame_idx=seed_in_win_rev,
+            obj_id=1,
+            box=seed["box_xyxy"]
+        )
+        
+        bwd = {}
+        # We propagate 'forward' in the reversed video, from the seed (reversed index)
+        # to the end of the reversed video (which corresponds to the start of the original window).
+        # Frames to track = Total frames - Start index
+        frames_to_track = win_len - seed_in_win_rev
+
+        for frame_local, obj_ids, mask_logits in predictor.propagate_in_video(
+            inference_state=state_rev,
+            start_frame_idx=seed_in_win_rev,
+            max_frame_num_to_track=frames_to_track,
+        ):
+            if 1 not in obj_ids:
+                continue
+            pos = obj_ids.index(1)
+            box = _mask_logits_to_box_xyxy(mask_logits[pos])
+            if box is None:
+                continue
+            rev_win_frame = int(frame_local)
+            win_frame = (win_len - 1 - rev_win_frame)
+            seg_frame = start_local + win_frame
+            bwd[seg_frame] = box
+            
+        return bwd
+    finally:
+        if os.path.exists(window_dir):
+            shutil.rmtree(window_dir)
+        if os.path.exists(window_dir_rev):
+            shutil.rmtree(window_dir_rev)
 
 
 def _box_iou_diag_xyxy_torch(a, b, eps=1e-6):
@@ -497,16 +562,19 @@ def _run_sam2_tracking(ls, args, task, annotation, video_path,
     if not cap.isOpened():
         raise InitialSeedingError(f"Could not open video: {video_path}")
     
-    segment_frames_dir = "/tmp/sam2_segment_frames"
-    written = _export_segment_to_frames_dir(cap, segment_frames_dir, global_start, global_end)
-    cap.release()
+    # Use unique directory for this segment execution
+    segment_frames_dir = f"/tmp/sam2_segment_frames_{uuid.uuid4().hex}"
     
-    if written != segment_len:
-        logger.warning("Expected %d frames but got %d, adjusting end frame", segment_len, written)
-        global_end = global_start + written - 1
-        segment_len = written
-    
-    # STEP 3: Parse Label Studio keyframes and filter to segment
+    try:
+        written = _export_segment_to_frames_dir(cap, segment_frames_dir, global_start, global_end)
+        cap.release()
+        
+        if written != segment_len:
+            logger.warning("Expected %d frames but got %d, adjusting end frame", segment_len, written)
+            global_end = global_start + written - 1
+            segment_len = written
+        
+        # STEP 3: Parse Label Studio keyframes and filter to segment
     manual_boxes = []
     results = annotation.get("result", []) if isinstance(annotation, dict) else getattr(annotation, "result", [])
     
@@ -616,40 +684,62 @@ def _run_sam2_tracking(ls, args, task, annotation, video_path,
     
     logger.info("Consolidated into %d object tracks", len(root_to_gid))
     
-    # STEP 8: Final tracking pass on full segment
-    final_state = predictor.init_state(video_path=segment_frames_dir, offload_video_to_cpu=False)
+    # STEP 8: Merge tracklets into final tracks
+    logger.info("Merging tracklets into final object tracks...")
+    
+    # obj_id -> frame_idx -> list of boxes
+    merged_tracks: Dict[int, Dict[int, List[np.ndarray]]] = {}
     
     for b in manual_boxes:
-        predictor.add_new_points_or_box(
-            inference_state=final_state,
-            frame_idx=int(b["frame_idx"]),
-            obj_id=int(b["obj_id"]),
-            box=b["box_xyxy"],
-        )
-    
-    # Collect results
-    obj_tracks = {}
-    for frame_local, obj_ids, mask_logits in predictor.propagate_in_video(
-        inference_state=final_state,
-        start_frame_idx=0,
-        max_frame_num_to_track=segment_len,
-    ):
-        global_frame = global_start + int(frame_local)
-        time_offset = (global_frame) / fps
+        obj_id = int(b["obj_id"])
+        temp_id = b["temp_id"]
         
-        for pos, obj_id in enumerate(obj_ids):
-            box = _mask_logits_to_box_xyxy(mask_logits[pos])
-            if box is None:
-                continue
+        if temp_id not in tracklets:
+            continue
             
-            if obj_id not in obj_tracks:
-                obj_tracks[obj_id] = []
+        t_data = tracklets[temp_id]
+        
+        if obj_id not in merged_tracks:
+            merged_tracks[obj_id] = {}
+            
+        # Collect forward boxes
+        for f_idx, box in t_data["fwd"].items():
+            if f_idx not in merged_tracks[obj_id]:
+                merged_tracks[obj_id][f_idx] = []
+            merged_tracks[obj_id][f_idx].append(box)
+            
+        # Collect backward boxes
+        for f_idx, box in t_data["bwd"].items():
+            if f_idx not in merged_tracks[obj_id]:
+                merged_tracks[obj_id][f_idx] = []
+            merged_tracks[obj_id][f_idx].append(box)
+            
+    # Collapse (average) overlaps and format results
+    obj_tracks = {}
+    
+    for obj_id, frames_dict in merged_tracks.items():
+        obj_tracks[obj_id] = []
+        
+        sorted_frames = sorted(frames_dict.keys())
+        for f_idx in sorted_frames:
+            boxes = frames_dict[f_idx]
+            if not boxes:
+                continue
+                
+            # Average boxes if multiple (e.g. from overlapping forward/backward passes)
+            if len(boxes) == 1:
+                avg_box = boxes[0]
+            else:
+                avg_box = np.mean(np.stack(boxes), axis=0)
+                
+            global_frame = f_idx
+            time_offset = global_frame / fps
             
             # Convert pixel XYXY back to percent XYWH
-            x_percent = (box[0] / width) * 100.0
-            y_percent = (box[1] / height) * 100.0
-            width_percent = ((box[2] - box[0]) / width) * 100.0
-            height_percent = ((box[3] - box[1]) / height) * 100.0
+            x_percent = (avg_box[0] / width) * 100.0
+            y_percent = (avg_box[1] / height) * 100.0
+            width_percent = ((avg_box[2] - avg_box[0]) / width) * 100.0
+            height_percent = ((avg_box[3] - avg_box[1]) / height) * 100.0
             
             obj_tracks[obj_id].append({
                 "frame": global_frame + 1,  # LS uses 1-based frames
@@ -686,12 +776,12 @@ def _run_sam2_tracking(ls, args, task, annotation, video_path,
     
     logger.info("Generated prediction with %d tracks", len(results))
     
-    # Cleanup temp directories
-    import shutil
-    if os.path.exists(segment_frames_dir):
-        shutil.rmtree(segment_frames_dir)
-    
     return prediction
+    
+    finally:
+        # Cleanup temp directories
+        if os.path.exists(segment_frames_dir):
+            shutil.rmtree(segment_frames_dir)
 
 
 def main() -> None:
@@ -729,6 +819,8 @@ def main() -> None:
 
     exit_code = 0
     try:
+        _disable_sam2_progress_bars()
+        
         ls = base._build_ls_client(args.ls_url, args.ls_api_key)
         project_labels = _fetch_project_labels(ls, args.project)
         if project_labels:
