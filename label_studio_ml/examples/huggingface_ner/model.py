@@ -52,7 +52,7 @@ class HuggingFaceNER(LabelStudioMLBase):
         from_name, _, _ = li.get_first_tag_occurence('Labels', 'Text')
         tag = li.get_tag(from_name)
         return tag.labels
-    
+
     def setup(self):
         """Configure any paramaters of your model here
         """
@@ -102,7 +102,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     'score': avg_score / len(results),
                     'model_version': self.get('model_version')
                 })
-        
+
         return ModelResponse(predictions=predictions, model_version=self.get('model_version'))
 
     def _get_tasks(self, project_id):
@@ -135,7 +135,7 @@ class HuggingFaceNER(LabelStudioMLBase):
 
         tokenized_inputs["labels"] = labels
         return tokenized_inputs
-    
+
     def fit(self, event, data, **kwargs):
         """Download dataset from Label Studio and prepare data for training in BERT
         """
@@ -143,7 +143,8 @@ class HuggingFaceNER(LabelStudioMLBase):
             logger.info(f"Skip training: event {event} is not supported")
             return
 
-        project_id = data['annotation']['project']
+        logger.debug(f"Project details payload for training: {data}")
+        project_id = data['project']['id']
         tasks = self._get_tasks(project_id)
 
         if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':
