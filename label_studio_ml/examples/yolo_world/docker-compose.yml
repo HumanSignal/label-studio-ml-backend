@@ -1,0 +1,16 @@
+version: "3.11"
+
+services:
+  ml-yolo-world-backend:
+    build:
+      context: .
+    runtime: nvidia
+    env_file:
+      - ./.env.dev
+    volumes:
+      - ./yolo_world.py:/app/yolo_world.py
+      - ./_wsgi.py:/app/_wsgi.py
+    ports:
+      - "9090:9090"
+    command: gunicorn --preload --bind :9090 --workers 2 --threads 4 --timeout 0 _wsgi:app
+
