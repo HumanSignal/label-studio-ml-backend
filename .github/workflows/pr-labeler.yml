@@ -26,7 +26,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pass_on_octokit_error: false
           configuration_path: ".github/pr-title-checker-config.json"
-      - uses: release-drafter/release-drafter@v6.1.0
+      - uses: release-drafter/release-drafter@v6.2.0
         name: "Set PR's label based on title"
         with:
           disable-releaser: true
