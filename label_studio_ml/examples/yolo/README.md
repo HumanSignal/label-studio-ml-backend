@@ -261,7 +261,7 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
     **Warning 1**: You must upgrade the `ultralytics` package to the latest version (`pip install -U ultralytics`) or rebuild the ML backend Docker from scratch (`docker-compose build --no-cache`) if you used it before the latest Ultralytics update on **Monday, September 30, 2024**.
 
     **Warning 2**: YOLO11 models do not use the `v` in their naming convention. For example, use **`yolo11n.pt`** instead of `yolov11n.pt`, unlike the naming convention in YOLOv8.
-
+-**YOLO26**: YOLO26 models have been successfully tested with this backend. Make sure to specify `model_path="yolo26n.pt"` or whatever model you'd like to use. 
 - For a full list of supported YOLO versions and models, refer to the Ultralytics documentation:
   [Ultralytics Supported YOLO Models](https://docs.ultralytics.com/models/)
 
