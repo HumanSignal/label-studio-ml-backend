@@ -59,10 +59,11 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--tasks",
         type=str,
-        required=True,
+        default=None,
         help=(
             "Path to JSON file or comma-separated list of task IDs. "
-            "The JSON file can contain full task objects or bare IDs."
+            "The JSON file can contain full task objects or bare IDs. "
+            "If not provided, --project must be specified to fetch all tasks."
         ),
     )
     parser.add_argument(
@@ -117,7 +118,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.project,
             )
 
-    tasks = prepare_tasks(ls, args.tasks)
+    if not args.tasks and not args.project:
+        LOGGER.error("Either --tasks or --project must be provided")
+        return 1
+
+    tasks = prepare_tasks(ls, args.tasks, args.project)
     if not tasks:
         LOGGER.error("No tasks to process")
         return 1
@@ -156,8 +161,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     return 0 if processed else 1
 
 
-def prepare_tasks(ls: LabelStudio, tasks_arg: str) -> List[Dict]:
-    """Load tasks either from a file or by fetching IDs from Label Studio."""
+def prepare_tasks(ls: LabelStudio, tasks_arg: Optional[str], project_id: Optional[str] = None) -> List[Dict]:
+    """Load tasks either from a file, by fetching IDs, or by fetching all from a project."""
+    if not tasks_arg:
+        if not project_id:
+            raise ValueError("Either tasks_arg or project_id must be provided")
+
+        LOGGER.info("Fetching all tasks from project %s", project_id)
+        tasks = []
+        for task in tqdm(ls.tasks.list(project=project_id), desc="Fetch project tasks", unit="task"):
+            tasks.append({"id": task.id, "data": task.data})
+        return tasks
+
     if os.path.exists(tasks_arg):
         with open(tasks_arg, "r", encoding="utf-8") as handle:
             tasks_raw = json.load(handle)

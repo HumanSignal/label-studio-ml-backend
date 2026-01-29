@@ -75,184 +75,393 @@ For your project, you can use any labeling config with video properties. Here's 
 </View>
 ```
 
-## CLI Usage for Batch Processing
+## CLI Usage
 
-You can use the CLI to run SAM2 tracking on tasks with existing annotations (keyframes). This is useful for processing long videos in parallel segments.
+This directory contains several powerful CLI tools for video tracking automation. All commands should be run inside the running Docker container.
 
-### Arguments
-
-- `--ls-url`: Label Studio URL (required)
-- `--ls-api-key`: API key (required)
-- `--project`: Project ID (required)
-- `--task`: Task ID (required)
-- `--annotation`: Annotation ID with keyframes (required)
-- `--global-start`: Start frame index (0-based inclusive, default: 0)
-- `--global-end`: End frame index (0-based inclusive, default: last frame)
-- `--max-frames-to-track`: Max frames to track forward/backward from each keyframe (default: 300)
-- `--prompt`: Optional label override (e.g., "Person")
-- `--dry-run`: Print JSON output instead of uploading
-
-### Example Command
-
-To run tracking on a specific segment (frames 0-2000):
+### 1. Automatic Object Detection & Tracking (`initial_seeding_video.py`)
+**Use case:** You have a raw video and want to automatically find and track all objects of a certain class (e.g., "person", "car").
+**Input:** Raw video task. No existing annotations or bounding boxes are required.
+**Method:** Uses Grounding DINO to find objects at keyframes, then SAM2 to track them, and stitches the results into complete tracks.
 
 ```bash
 docker compose exec segment_anything_2_video bash -lc '
-export LABEL_STUDIO_HOST=https://app.heartex.com
-# API key can also be passed as argument
+export LABEL_STUDIO_HOST="https://app.heartex.com"
 export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
- 
-python /app/initial_seeding_video_boxes.py \
-  --ls-url https://app.heartex.com \
+
+python /app/initial_seeding_video.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
   --ls-api-key "$LABEL_STUDIO_API_KEY" \
-  --project 198563 \
-  --task 226454007 \
-  --annotation 79598308 \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --prompt "person" \
+  --keyframe-frac 0.1
+'
+```
+
+### 2. Track Existing Manual Keyframes (`initial_seeding_video_boxes.py`)
+**Use case:** You have already drawn some bounding boxes (keyframes) in Label Studio and want SAM2 to track them forward and backward to fill the gaps.
+**Input:** Video task with at least a few manual bounding boxes (keyframes).
+**Method:** Uses your existing boxes as anchors, generates bidirectional tracklets using SAM2, and uses the Hungarian algorithm to stitch them robustly. Supports processing long videos in parallel segments.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/initial_seeding_video_boxes.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --prompt "person" \
   --global-start 0 \
   --global-end 2000 \
   --max-frames-to-track 300
 '
 ```
+*   `--prompt`: (Optional) Label name to apply to the tracked objects (default: "object").
+*   `--global-start` / `--global-end`: Process only this frame range (useful for parallel batching). **0-indexed**. Defaults to `0` and the last frame of the video if not specified.
+*   `--max-frames-to-track`: How far to track from each keyframe in **each direction**. A value of 300 means it will track 300 frames forward AND 300 frames backward (total window ~600 frames).
 
-### Processing Strategy
-
-For very long videos (e.g., 1 hour), you should:
-1. Divide the video into overlapping segments (e.g., 0-2000, 1900-3900...)
-2. Run this script for each segment in parallel (using different `--global-start`/`--global-end`)
-3. The script will:
-   - Extract only the needed frames to a temp directory
-   - Filter keyframes relevant to this segment
-   - Track objects bidirectionally
-   - Stitch tracks using Hungarian matching
-   - Upload results back to Label Studio
-
-Note: Tracks are uploaded as new "videorectangle" regions. You may want to merge them later or use `video_tools.py` to clean up results.
+### 2a. Manual Merge Tracking (`initial_seeding_video_boxes_manual_merge.py`)
+**Use case:** You want bidirectional tracking per seed box, but you prefer to merge tracks manually using `mergevideoregions.py` and meta text IDs.
+**Input:** Video task with manual keyframes. Optional track-id filtering lets you target specific seed regions per iteration.
+**Method:** Builds forward+backward tracks per seed and keeps them in the same region; no automatic cross-seed merging. Each output region gets `meta.text="id:"` to ease manual ID assignment.
 
 ```bash
 docker compose exec segment_anything_2_video bash -lc '
-export LABEL_STUDIO_HOST=https://app.heartex.com
-export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/initial_seeding_video_boxes_manual_merge.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --track-id auto-track-14,auto-track-15 \
+  --global-start 1000 \
+  --global-end 1800 \
+  --max-frames-to-track 300 \
+  --overlap-mode iou-weighted \
+  --overlap-iou-threshold 0.3
+'
+```
+*   `--track-id`: (Optional) Comma-separated list of region IDs to use as anchors. If omitted, all manual keyframes are used.
+*   `--global-start` / `--global-end`: Same semantics as above (0-indexed, inclusive).
+*   `--max-frames-to-track`: Tracks N frames backward and N frames forward from each seed.
+*   `--overlap-mode`: Resolve overlaps within the same region (`iou-weighted`, `weighted`, `winner`). Default: `iou-weighted`.
+*   `--overlap-iou-threshold`: IoU threshold for `iou-weighted` (default: 0.3).
+*   `--overlap-mode` / `--overlap-iou-threshold` are optional; omit them to use the defaults shown above.
+
+### 3. Simple Forward Tracking (`cli.py`)
+**Use case:** Simple "predict" functionality similar to the UI button. Tracks from start to finish linearly.
+**Input:** Video task with at least one manual keyframe (bounding box) to start tracking from.
+**Method:** Loads the entire video and propagates all keyframes at once. Best for short clips.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
 export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
 
 python /app/cli.py \
-  --ls-url https://app.heartex.com \
+  --ls-url "$LABEL_STUDIO_HOST" \
   --ls-api-key "$LABEL_STUDIO_API_KEY" \
-  --project 198563 \
-  --task 227350954 \
-  --annotation 12345'
-```
-
-### CLI Parameters:
-- `--ls-url`: Label Studio URL (e.g., https://app.heartex.com)
-- `--ls-api-key`: Your Label Studio API key
-- `--project`: Project ID
-- `--task`: Task ID to process
-- `--annotation`: Annotation ID containing keyframes to track
-- `--max-frames`: (Optional) Limit tracking to N frames (default: tracks full video)
-
-### Tracking Strategy:
-- **Multiple keyframes (recommended for long videos)**: Draw boxes at key moments (start, turns, occlusions). SAM2 uses them as guidance points for better tracking accuracy.
-- **Single keyframe**: Draw one box per person at video start. SAM2 tracks forward from there.
-- The model tracks from the first keyframe to the end of the video (or `--max-frames` limit).
-- Supports multi-person tracking: annotate multiple people and track them all simultaneously.
-
-## Video annotation toolbox (`video_tools.py`)
-
-If you need to clean up or adjust existing video tracks after tracking, use `video_tools.py`. It fetches an existing task annotation from Label Studio, modifies the region `result` locally, and patches the annotation back to Label Studio.
-
-Track selection requirements:
-- Tracks are selected by the region `result[i]["id"]` (for example `auto-track-0`).
-- The region `id` is case-sensitive and is expected to be unique within the annotation.
-
-Common parameters:
-- `--task`, `--annotation`: Identify the task and annotation to modify.
-- `--ls-url`, `--ls-api-key`: Or use `LABEL_STUDIO_URL` / `LABEL_STUDIO_HOST` and `LABEL_STUDIO_API_KEY`.
-- `--dry-run`: Write the updated annotation JSON locally instead of uploading.
-
-Commands:
-- `sparsify`: Uniformly downsample keyframes in a frame range (keep a ratio).
-- `swap-ids`: Move a segment of video history from one track id to another.
-- `trim-tail`: Delete all keyframes after a cutoff frame.
-- `smooth`: Moving-average smoothing over `x`, `y`, `width`, `height`.
-- `pad`: Inflate boxes by a percentage over a frame range (clamped to 0-100%).
-
-Example (inside Docker):
-
-```bash
-docker compose exec segment_anything_2_video bash -lc '
-export LABEL_STUDIO_URL=https://app.heartex.com
-export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
-
-python /app/video_tools.py sparsify \
-  --task 227350954 --annotation 12345 \
-  --track-id auto-track-0 \
-  --start-frame 1000 --end-frame 2000 --ratio 0.1
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID>
 '
 ```
 
-Note: For large updates, Label Studio may return `504 Gateway Timeout` on `PATCH` even though the update succeeds. `video_tools.py` treats HTTP 504 as success and logs a warning.
+### 4. Post-Processing Tools (`video_tools.py`)
+**Use case:** Clean up tracking results (sparsify dense frames, swap IDs, smooth jitter).
 
-## Automatic initial seeding (Grounding DINO + SAM2)
-
-If you want to bootstrap a task **without drawing any keyframes**, you can generate an initial set of tracks using:
-
-- Grounding DINO (open-vocabulary box detection on selected keyframes)
-- SAM2 (keyframe selection via embeddings + per-frame mask-to-box tracking)
-
-Run it (from source or inside the container) using `initial_seeding.py`:
-
+**Sparsify (Downsample Keyframes)**
+Reduce the density of keyframes (e.g., keep 10% of frames) to make manual editing easier.
 ```bash
-python initial_seeding.py \
-  --ls-url https://app.heartex.com \
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py sparsify \
+  --ls-url "$LABEL_STUDIO_HOST" \
   --ls-api-key "$LABEL_STUDIO_API_KEY" \
-  --project 198563 \
-  --task 227350954 \
-  --annotation 12345 \
-  --dry-run
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --track-id auto-track-0 \
+  --start-frame 1000 \
+  --end-frame 2000 \
+  --ratio 0.1
+'
 ```
 
-Notes:
-- `--annotation` is currently required for validation/logging, even though the seeding pipeline does not use keyframe regions from it.
-- Use `--dry-run` first to write `prediction_task_<TASK_ID>.json` locally, then validate (and optionally upload) with:
+**Swap IDs (Fix Identity Switches)**
+Move a segment of tracking history from one object ID to another (e.g., if the tracker swapped "Person A" to "Person B").
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py swap-ids \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --source-track-id auto-track-0 \
+  --target-track-id auto-track-1 \
+  --start-frame 500 \
+  --end-frame 600
+'
+```
+
+**Trim Tail (Delete Trailing Frames)**
+Delete all keyframes for a specific track after a certain cutoff frame (e.g., when an object leaves the view).
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py trim-tail \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --track-id auto-track-0 \
+  --cutoff-frame 1500
+'
+```
+
+**Smooth (Stabilize Jitter)**
+Apply a moving average filter to smooth out shaky bounding boxes.
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py smooth \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --track-id auto-track-0 \
+  --window 5
+'
+```
+
+**Pad (Expand Bounding Boxes)**
+Inflate bounding boxes by a percentage (e.g., 10%) over a specific frame range. Useful if the tracker is consistently too tight.
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/video_tools.py pad \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --track-id auto-track-0 \
+  --percent 0.10 \
+  --start-frame 0 \
+  --end-frame 1000
+'
+```
+
+### 5. Prediction Validation (`validate_prediction.py`)
+**Use case:** Validate a prediction JSON file against your project configuration without uploading.
 
 ```bash
-python validate_prediction.py \
-  --ls-url https://app.heartex.com \
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/validate_prediction.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
   --ls-api-key "$LABEL_STUDIO_API_KEY" \
-  --task 227350954 \
-  --prediction-file prediction_task_227350954.json \
+  --task <TASK_ID> \
+  --prediction-file prediction.json \
   --upload
+'
 ```
 
-Key parameters:
-- `--keyframe-frac`: Fraction of video frames to treat as keyframes (default: `0.1`)
-- `--min-spacing`: Minimum spacing between high-change keyframes (default: `30`)
-- `--embedding-batch`: SAM2 embedding batch size (default: `8`)
-- `--num-workers`: Parallel workers for keyframe-pair tracking (default: `4`)
+### 6. Export Utilities (`export_interpolated_annotation.py`)
+**Use case:** Download a single annotation JSON with *all* interpolated video frames included (not just keyframes). This is critical for getting the full frame-by-frame tracking data out of Label Studio.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/export_interpolated_annotation.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --output-dir /app/exports
+'
+```
+
+**Alternative (Bash script):**
+If you prefer a shell script (requires `curl`, `jq`, `unzip`):
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+/app/export_interpolated_annotation.sh \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --output /app/exports/annotation.json
+'
+```
+
+### 7. Deletion Utilities (`delete_annotation_or_prediction.py`)
+**Use case:** surgically delete a specific annotation or prediction by ID. Useful for cleanup scripts or resetting a task state.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+# Delete an annotation
+python /app/delete_annotation_or_prediction.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID>
+
+# OR delete a prediction
+python /app/delete_annotation_or_prediction.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --prediction <PREDICTION_ID>
+'
+```
+
+### 8. Merge Video Regions (`mergevideoregions.py`)
+**Use case:** Consolidate fragmented tracks that share the same text ID (e.g., `id:31` in `meta.text`) into single continuous track objects. Useful after manual labeling or ReID where multiple regions represent the same object.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/mergevideoregions.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID>
+'
+```
+
+### 9. Bounding Box Refinement (`adjust_bboxes_sam2.py`)
+**Use case:** Tighten or adjust existing bounding boxes using SAM2's segmentation capabilities. It uses the box as a prompt, generates a mask, and replaces the box with the mask's bounding box.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/adjust_bboxes_sam2.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --search-scale 1.2
+'
+```
+*   `--search-scale`: How much to expand the search region around the original box (default 1.2 = 20% larger).
+
+### 10. Re-Identification (`complete_reid.py`)
+**Use case:** Automatically suggest identity matches for broken tracks. Uses appearance features (color, geometry, or SAM2 embeddings) to find likely matches between "candidate" tracks (no ID) and "reference" tracks (confirmed ID).
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/complete_reid.py \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --profile uav \
+  --feature-backend sam2
+'
+```
+*   `--profile`: Preset for weighting features (`uav`, `ugv`).
+*   `--feature-backend`: `classic` (color/geometry histograms) or `sam2` (neural embeddings).
 
 ## Configuration
 
-### Environment Variables:
-- `DEVICE`: Computing device (recommended: `cuda`)
-- `MODEL_CONFIG`: SAM2 model config path.
-  - In `docker-compose.yml` this is set to `configs/sam2.1/sam2.1_hiera_l.yaml`
-- `MODEL_CHECKPOINT`: SAM2 checkpoint filename.
-  - In `docker-compose.yml` this is set to `sam2.1_hiera_large.pt`
-- `MAX_FRAMES_TO_TRACK`: Hard limit for how many frames to track from the first keyframe.
-  - Set to `0` for no limit.
-  - In `model.py` the default is `1000` if not set.
-- `TRACK_FPS`: Temporal downsampling target FPS for tracking (used by `model.py`).
-  - Set to `0` to disable downsampling (default: `0`).
-- `LABEL_STUDIO_HOST`, `LABEL_STUDIO_URL`, `LABEL_STUDIO_API_KEY`: Used to resolve and download video assets via `get_local_path`.
+### Core Environment Variables
+- `LABEL_STUDIO_HOST` / `LABEL_STUDIO_URL`: The URL of your Label Studio instance (e.g., `https://app.heartex.com`).
+- `LABEL_STUDIO_API_KEY`: Your Label Studio API key.
+- `DEVICE`: Computing device (recommended: `cuda`).
+- `MODEL_CONFIG`: SAM2 model config path (default: `configs/sam2.1/sam2.1_hiera_l.yaml`).
+- `MODEL_CHECKPOINT`: SAM2 checkpoint filename (default: `sam2.1_hiera_large.pt`).
 
-Initial seeding (`initial_seeding.py`) also uses:
-- `GROUNDINGDINO_REPO_PATH`: Path to Grounding DINO repo (docker default: `/GroundingDINO`)
-- `GROUNDING_DINO_CONFIG`, `GROUNDING_DINO_WEIGHTS`: Config and weights name under `${GROUNDINGDINO_REPO_PATH}`
-- `GROUNDING_DINO_PROMPT` or `GROUNDING_DINO_LABELS`: Class prompt for detection
-- `GROUNDING_DINO_BOX_THRESHOLD`, `GROUNDING_DINO_TEXT_THRESHOLD`: Detection thresholds
-- `CACHE_DIR`: Joblib cache directory for SAM2 embeddings (default: `./cache_dir/joblib`)
-- `EMBED_BATCH`: Embedding batch size (default: `8`)
-- `SAM2_NUM_WORKERS`: Parallel workers for SAM2 tracking pairs (default: `4`)
+### Tracking Performance & Memory
+- `MAX_FRAMES_TO_TRACK`: Hard limit for how many frames to track from the first keyframe (default: `1000`).
+  - **Note**: This environment variable controls the limit for the serving model (`model.py` / `cli.py`). The `initial_seeding_video_boxes.py` script uses its own `--max-frames-to-track` CLI argument (default `300`).
+  - Set to `0` for no limit (tracks to end of video).
+  - **Warning**: High values (e.g. >2000) require significant RAM/VRAM.
+- `TRACK_FPS`: Temporal downsampling target FPS (default: `0` = disabled).
+  - Example: Set `TRACK_FPS=5` to track only 5 frames per second, reducing memory usage and processing time.
+
+### Server Configuration (Gunicorn/Docker)
+- `PORT`: Port to listen on (default: `9090`).
+- `WORKERS`: Number of worker processes (default: `1`).
+  - **Note**: SAM2 is memory-intensive. Increasing workers increases RAM usage linearly.
+- `THREADS`: Threads per worker (default: `4`; `docker-compose.yml` sets this to `8`).
+- `LOG_LEVEL`: Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
+- **Docker `shm_size`**: SAM2 requires shared memory. Ensure your `docker-compose.yml` sets `shm_size: '32g'` or higher.
+- **Docker `mem_limit`**: Recommended to set a memory limit (e.g., `mem_limit: 48g`) to avoid system instability.
+
+### Advanced Tool Configuration
+
+**Re-Identification (`complete_reid.py`):**
+- `REID_PROFILE`: Preset profile (`uav` or `ugv`). Default: `uav`.
+- `REID_FEATURE_BACKEND`: Feature extractor (`classic` or `sam2`). Default: `classic`.
+
+**Initial seeding (`initial_seeding_video.py`):**
+- `GROUNDINGDINO_REPO_PATH`: Path to Grounding DINO repo (default: `/GroundingDINO`).
+- `GROUNDING_DINO_CONFIG`: Config filename (default: `GroundingDINO_SwinT_OGC.py`).
+- `GROUNDING_DINO_WEIGHTS`: Weights filename (default: `gdino_swint_darpa-ir-v1-1k_20_1.pth`).
+- `GROUNDING_DINO_DEVICE`: Device for Grounding DINO inference (default: `cuda` if available, else `cpu`).
+- `GROUNDING_DINO_PROMPT` or `GROUNDING_DINO_LABELS`: Class prompt for detection.
+- `GROUNDING_DINO_BOX_THRESHOLD` (default 0.35) / `GROUNDING_DINO_TEXT_THRESHOLD` (default 0.25).
+- `GROUNDING_DINO_NMS_IOU`: NMS IoU threshold (default `0.5`).
+- `GROUNDING_DINO_BASE_SIZE`: Input image resize short side (default `800`).
+- `GROUNDING_DINO_MAX_SIZE`: Input image resize long side (default `1333`).
+- `CACHE_DIR`: Joblib cache directory for SAM2 embeddings.
+- `EMBED_BATCH`: Embedding batch size (default: `8`).
+- `MAX_SEGMENT_FRAMES`: Max frames per segment for seeding (default: `1024`).
+- `FRAME_JPEG_QUALITY`: Quality of extracted frames (default: `95`).
+- `SPARSE_SEQUENCE`: Set to `true` to enable sparse sequence generation (can be overridden by CLI flags).
+
+**Stitching & Sparsification Tuning (`initial_seeding_video.py` only):**
+- `SPARSE_IOU_THRESH`: IoU threshold for removing redundant frames (default: `0.2`).
+- `SPARSE_MAX_INTERVAL`: Max frame interval for sparsification (default: `0` = disabled).
+- `STITCH_REQUIRE_VISIBLE_AT_END`: Require object to be visible at segment end to match (default: `true`).
+- `STITCH_IOU_MIN`: Min IoU to consider matching tracks (default: `0.3`).
+- `STITCH_DIST_MAX`: Max normalized distance for matching (default: `0.15`).
+- `STITCH_AREA_RATIO_MAX`: Max area ratio difference (default: `2.5`).
+- `STITCH_MAX_COST`: Max total cost for Hungarian matching (default: `1.2`).
+- `STITCH_W_IOU` / `STITCH_W_DIST` / `STITCH_W_SIZE`: Weights for cost calculation (defaults: `1.0`, `1.0`, `0.2`).
 
 ## Known limitations
 - SAM2 is designed to run on GPU servers; CPU execution is not recommended for practical video workloads.

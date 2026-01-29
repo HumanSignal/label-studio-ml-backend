@@ -973,6 +973,8 @@ This Command Line Interface (CLI) tool facilitates the integration of YOLO model
 It provides an alternative method for running YOLO predictions on tasks managed by Label Studio, 
 particularly useful for processing long videos or large datasets. 
 
+**Input:** Tasks containing raw image or video data. No prior annotations are required.
+
 Running the model predictions directly from the CLI helps to avoid issues 
 like connection timeouts between Label Studio and the ML backend, 
 which can occur during lengthy processing times.

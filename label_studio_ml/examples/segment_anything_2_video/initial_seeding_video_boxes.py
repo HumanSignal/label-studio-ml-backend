@@ -125,7 +125,7 @@ def _validate_prediction_region_labels(
 ) -> None:
     results = prediction.get("result")
     if not isinstance(results, list):
-        raise InitialSeedingError("Prediction is missing a valid 'result' list")
+        raise InitialSeedingError("Tracking result is missing a valid 'result' list")
 
     missing: List[str] = []
     label_counts: Counter[str] = Counter()
@@ -170,7 +170,7 @@ def _validate_prediction_region_labels(
         if allowed_labels is not None and first_label not in allowed_labels:
             unknown.append(f"{region_id}: '{first_label}'")
 
-    logger.info("Prediction label summary (first label per region): %s", dict(label_counts))
+    logger.info("Tracking result label summary (first label per region): %s", dict(label_counts))
 
     if mismatched:
         logger.warning(
@@ -181,12 +181,12 @@ def _validate_prediction_region_labels(
 
     if missing:
         raise InitialSeedingError(
-            "Prediction contains regions with missing/blank labels: " + ", ".join(missing[:10])
+            "Tracking result contains regions with missing/blank labels: " + ", ".join(missing[:10])
         )
 
     if unknown:
         raise InitialSeedingError(
-            "Prediction contains regions with labels not present in the project label config: "
+            "Tracking result contains regions with labels not present in the project label config: "
             + ", ".join(unknown[:10])
         )
 
@@ -294,16 +294,14 @@ def _make_reversed_dir(window_dir, window_dir_rev, window_len):
 
 def _forward_end(t, next_kf, max_frames_to_track, segment_len):
     """Calculate forward tracking boundary."""
-    if next_kf is None:
-        return min(segment_len - 1, t + max_frames_to_track)
-    return min(next_kf, t + max_frames_to_track)
+    # Ignore next_kf to allow tracking through interleaved objects
+    return min(segment_len - 1, t + max_frames_to_track)
 
 
 def _backward_start(t, prev_kf, max_frames_to_track):
     """Calculate backward tracking boundary.""" 
-    if prev_kf is None:
-        return max(0, t - max_frames_to_track)
-    return max(prev_kf, t - max_frames_to_track)
+    # Ignore prev_kf to allow tracking through interleaved objects
+    return max(0, t - max_frames_to_track)
 
 
 def _sanitize_filename(name):
@@ -430,10 +428,31 @@ def _mean_iou_over_overlapped_frames(temp_id_prev, temp_id_next, tracklets, devi
     if len(common_frames) == 0:
         return 0.0
     
-    a = torch.tensor([fwd[t] for t in common_frames], device=device)
-    b = torch.tensor([bwd[t] for t in common_frames], device=device)
+    # Stack numpy arrays first to avoid slow list-to-tensor conversion warning
+    a_np = np.stack([fwd[t] for t in common_frames])
+    b_np = np.stack([bwd[t] for t in common_frames])
     
-    return float(_box_iou_diag_xyxy_torch(a, b).mean().item())
+    a = torch.from_numpy(a_np).to(device)
+    b = torch.from_numpy(b_np).to(device)
+    
+    ious = _box_iou_diag_xyxy_torch(a, b)
+    mean_iou = float(ious.mean().item())
+    
+    # Debug logging for the first few comparisons or if IoU is unexpectedly low/high
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Match check: %s vs %s | Common frames: %d | Mean IoU: %.4f", 
+            temp_id_prev, temp_id_next, len(common_frames), mean_iou
+        )
+        if len(common_frames) > 0 and mean_iou < 0.1:
+            # Log first frame boxes to see divergence
+            logger.debug("  Frame %d: Box A (fwd)=%s, Box B (bwd)=%s", 
+                         common_frames[0], a_np[0].tolist(), b_np[0].tolist())
+            # Log last frame boxes to see divergence
+            logger.debug("  Frame %d: Box A (fwd)=%s, Box B (bwd)=%s", 
+                         common_frames[-1], a_np[-1].tolist(), b_np[-1].tolist())
+        
+    return mean_iou
 
 
 def _hungarian_min_cost(cost):
@@ -575,209 +594,268 @@ def _run_sam2_tracking(ls, args, task, annotation, video_path,
             segment_len = written
         
         # STEP 3: Parse Label Studio keyframes and filter to segment
-    manual_boxes = []
-    results = annotation.get("result", []) if isinstance(annotation, dict) else getattr(annotation, "result", [])
-    
-    for region in results:
-        if not isinstance(region, dict) or region.get("type") != "videorectangle":
-            continue
+        manual_boxes = []
+        results = annotation.get("result", []) if isinstance(annotation, dict) else getattr(annotation, "result", [])
         
-        region_id = str(region.get("id", "unknown_region"))
-        value = region.get("value", {}) or {}
-        sequence = value.get("sequence", []) or []
-        
-        for k, keyframe in enumerate(sequence):
-            if not isinstance(keyframe, dict) or not keyframe.get("enabled", True):
+        for region in results:
+            if not isinstance(region, dict) or region.get("type") != "videorectangle":
                 continue
             
-            # Convert 1-based LS frame to 0-based global
-            global_frame = int(keyframe.get("frame", 1)) - 1
+            region_id = str(region.get("id", "unknown_region"))
+            value = region.get("value", {}) or {}
+            sequence = value.get("sequence", []) or []
             
-            # Filter to segment range
-            if global_frame < global_start or global_frame > global_end:
-                continue
-            
-            local_frame = global_frame - global_start  # segment-local index
-            
-            box_xyxy = _percent_xywh_to_xyxy_px(
-                keyframe["x"], keyframe["y"], keyframe["width"], keyframe["height"], 
-                width, height
-            )
-            
-            manual_boxes.append({
-                "global_frame": global_frame,
-                "frame_idx": local_frame,
-                "box_xyxy": box_xyxy,
-                "temp_id": f"{region_id}_kf{k}",
-            })
-    
-    manual_boxes.sort(key=lambda b: b["frame_idx"])
-    
-    if len(manual_boxes) == 0:
-        raise InitialSeedingError("No keyframes found in specified segment")
-    
-    logger.info("Found %d keyframe annotations in segment", len(manual_boxes))
-    
-    # Group by frame
-    def _group_by_local_frame(sorted_boxes):
-        groups = {}
-        for b in sorted_boxes:
-            groups.setdefault(b["frame_idx"], []).append(b)
-        frame_list = sorted(groups.keys())
-        return [groups[f] for f in frame_list], frame_list
-    
-    frame_groups, keyframe_local_frames = _group_by_local_frame(manual_boxes)
-    
-    # STEP 4: Build SAM2 predictor
-    predictor = _build_sam2_predictor()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # STEP 5: Generate tracklets
-    tracklets = {}
-    max_frames_to_track = args.max_frames_to_track
-    
-    for k, (t_kf, boxes_at_t) in enumerate(zip(keyframe_local_frames, frame_groups)):
-        prev_kf = keyframe_local_frames[k - 1] if k > 0 else None
-        next_kf = keyframe_local_frames[k + 1] if k + 1 < len(keyframe_local_frames) else None
-        
-        fwd_end = _forward_end(t_kf, next_kf, max_frames_to_track, segment_len)
-        bwd_start = _backward_start(t_kf, prev_kf, max_frames_to_track)
-        
-        for seed in boxes_at_t:
-            fwd = _generate_forward_tracklet(predictor, seed, bwd_start, fwd_end, segment_frames_dir)
-            bwd = _generate_backward_tracklet(predictor, seed, bwd_start, fwd_end, segment_frames_dir)
-            tracklets[seed["temp_id"]] = {"fwd": fwd, "bwd": bwd}
-    
-    logger.info("Generated %d tracklets", len(tracklets))
-    
-    # STEP 6: Match tracklets between consecutive keyframes
-    dsu = _DSU()
-    iou_threshold = 0.40
-    cost_threshold = 1.0 - iou_threshold
-    
-    for g in range(len(frame_groups) - 1):
-        cur = frame_groups[g]
-        nxt = frame_groups[g + 1]
-        
-        cost = np.ones((len(cur), len(nxt)), dtype=np.float32)
-        for i, bi in enumerate(cur):
-            for j, bj in enumerate(nxt):
-                miou = _mean_iou_over_overlapped_frames(
-                    bi["temp_id"], bj["temp_id"], tracklets, device
+            for k, keyframe in enumerate(sequence):
+                if not isinstance(keyframe, dict) or not keyframe.get("enabled", True):
+                    continue
+                
+                # Convert 1-based LS frame to 0-based global
+                global_frame = int(keyframe.get("frame", 1)) - 1
+                
+                # Filter to segment range
+                if global_frame < global_start or global_frame > global_end:
+                    continue
+                
+                local_frame = global_frame - global_start  # segment-local index
+                
+                box_xyxy = _percent_xywh_to_xyxy_px(
+                    keyframe["x"], keyframe["y"], keyframe["width"], keyframe["height"], 
+                    width, height
                 )
-                cost[i, j] = 1.0 - miou
+                
+                # Capture labels from source region, fallback to prompt or default
+                region_labels = value.get("labels", [])
+                if not region_labels and prompt_label:
+                    region_labels = [prompt_label]
+                if not region_labels:
+                    region_labels = ["object"]
+
+                manual_boxes.append({
+                    "global_frame": global_frame,
+                    "frame_idx": local_frame,
+                    "box_xyxy": box_xyxy,
+                    "temp_id": f"{region_id}_kf{k}",
+                    "labels": region_labels,
+                })
         
-        matches = _hungarian_min_cost(cost)
-        for i, j in matches:
-            if cost[i, j] < cost_threshold:
-                dsu.union(cur[i]["temp_id"], nxt[j]["temp_id"])
-    
-    # STEP 7: Consolidate object IDs
-    root_to_gid = {}
-    gid = 1
-    for b in manual_boxes:
-        r = dsu.find(b["temp_id"])
-        if r not in root_to_gid:
-            root_to_gid[r] = gid
-            gid += 1
-        b["obj_id"] = root_to_gid[r]
-    
-    logger.info("Consolidated into %d object tracks", len(root_to_gid))
-    
-    # STEP 8: Merge tracklets into final tracks
-    logger.info("Merging tracklets into final object tracks...")
-    
-    # obj_id -> frame_idx -> list of boxes
-    merged_tracks: Dict[int, Dict[int, List[np.ndarray]]] = {}
-    
-    for b in manual_boxes:
-        obj_id = int(b["obj_id"])
-        temp_id = b["temp_id"]
+        manual_boxes.sort(key=lambda b: b["frame_idx"])
         
-        if temp_id not in tracklets:
-            continue
-            
-        t_data = tracklets[temp_id]
+        if len(manual_boxes) == 0:
+            raise InitialSeedingError("No keyframes found in specified segment")
         
-        if obj_id not in merged_tracks:
-            merged_tracks[obj_id] = {}
-            
-        # Collect forward boxes
-        for f_idx, box in t_data["fwd"].items():
-            if f_idx not in merged_tracks[obj_id]:
-                merged_tracks[obj_id][f_idx] = []
-            merged_tracks[obj_id][f_idx].append(box)
-            
-        # Collect backward boxes
-        for f_idx, box in t_data["bwd"].items():
-            if f_idx not in merged_tracks[obj_id]:
-                merged_tracks[obj_id][f_idx] = []
-            merged_tracks[obj_id][f_idx].append(box)
-            
-    # Collapse (average) overlaps and format results
-    obj_tracks = {}
-    
-    for obj_id, frames_dict in merged_tracks.items():
-        obj_tracks[obj_id] = []
+        logger.info("Found %d keyframe annotations in segment", len(manual_boxes))
         
-        sorted_frames = sorted(frames_dict.keys())
-        for f_idx in sorted_frames:
-            boxes = frames_dict[f_idx]
-            if not boxes:
+        # Group by frame
+        def _group_by_local_frame(sorted_boxes):
+            groups = {}
+            for b in sorted_boxes:
+                groups.setdefault(b["frame_idx"], []).append(b)
+            frame_list = sorted(groups.keys())
+            return [groups[f] for f in frame_list], frame_list
+        
+        frame_groups, keyframe_local_frames = _group_by_local_frame(manual_boxes)
+        
+        # STEP 4: Build SAM2 predictor
+        predictor = _build_sam2_predictor()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # STEP 5: Generate tracklets
+        tracklets = {}
+        max_frames_to_track = args.max_frames_to_track
+        
+        with tqdm(total=len(manual_boxes), desc="Generating tracklets", unit="seed") as pbar:
+            for k, (t_kf, boxes_at_t) in enumerate(zip(keyframe_local_frames, frame_groups)):
+                prev_kf = keyframe_local_frames[k - 1] if k > 0 else None
+                next_kf = keyframe_local_frames[k + 1] if k + 1 < len(keyframe_local_frames) else None
+                
+                fwd_end = _forward_end(t_kf, next_kf, max_frames_to_track, segment_len)
+                bwd_start = _backward_start(t_kf, prev_kf, max_frames_to_track)
+                
+                for seed in boxes_at_t:
+                    fwd = _generate_forward_tracklet(predictor, seed, bwd_start, fwd_end, segment_frames_dir)
+                    bwd = _generate_backward_tracklet(predictor, seed, bwd_start, fwd_end, segment_frames_dir)
+                    tracklets[seed["temp_id"]] = {"fwd": fwd, "bwd": bwd}
+                    pbar.update(1)
+        
+        logger.info("Generated %d tracklets", len(tracklets))
+        
+        # STEP 6: Match tracklets globally
+        dsu = _DSU()
+        # Lower threshold slightly to be more permissive with longer tracks
+        iou_threshold = 0.30 
+        cost_threshold = 1.0 - iou_threshold
+        merge_count = 0
+        
+        # Greedy matching across all valid pairs
+        edges = []
+        
+        # manual_boxes is sorted by frame_idx
+        for i in range(len(manual_boxes)):
+            for j in range(i + 1, len(manual_boxes)):
+                b_i = manual_boxes[i]
+                b_j = manual_boxes[j]
+                
+                # Skip if time gap is too large
+                if b_j["frame_idx"] - b_i["frame_idx"] > max_frames_to_track:
+                    break
+                
+                miou = _mean_iou_over_overlapped_frames(
+                    b_i["temp_id"], b_j["temp_id"], tracklets, device
+                )
+                
+                # Only consider meaningful overlaps
+                if miou > iou_threshold:
+                    edges.append({
+                        "u": i, 
+                        "v": j, 
+                        "cost": 1.0 - miou,
+                        "u_id": b_i["temp_id"],
+                        "v_id": b_j["temp_id"]
+                    })
+        
+        # Sort by best match (lowest cost/highest IoU)
+        edges.sort(key=lambda x: x["cost"])
+        
+        matched_u = set()
+        matched_v = set()
+        
+        for e in edges:
+            if e["u"] not in matched_u and e["v"] not in matched_v:
+                dsu.union(e["u_id"], e["v_id"])
+                matched_u.add(e["u"])
+                matched_v.add(e["v"])
+                merge_count += 1
+                
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Merged %s -> %s (cost=%.4f)", 
+                        e["u_id"], e["v_id"], e["cost"]
+                    )
+
+        logger.info("Merged %d pairs of tracklets based on global IoU overlap", merge_count)
+
+        # STEP 7: Consolidate object IDs
+        root_to_gid = {}
+        root_to_labels = {}
+        gid = 1
+        for b in manual_boxes:
+            r = dsu.find(b["temp_id"])
+            if r not in root_to_gid:
+                root_to_gid[r] = gid
+                root_to_labels[r] = b["labels"]
+                gid += 1
+            b["obj_id"] = root_to_gid[r]
+        
+        logger.info("Consolidated into %d object tracks", len(root_to_gid))
+        
+        # STEP 8: Merge tracklets into final tracks
+        logger.info("Merging tracklets into final object tracks...")
+        
+        # obj_id -> frame_idx -> list of boxes
+        merged_tracks: Dict[int, Dict[int, List[np.ndarray]]] = {}
+        
+        for b in manual_boxes:
+            obj_id = int(b["obj_id"])
+            temp_id = b["temp_id"]
+            
+            if temp_id not in tracklets:
                 continue
                 
-            # Average boxes if multiple (e.g. from overlapping forward/backward passes)
-            if len(boxes) == 1:
-                avg_box = boxes[0]
-            else:
-                avg_box = np.mean(np.stack(boxes), axis=0)
+            t_data = tracklets[temp_id]
+            
+            if obj_id not in merged_tracks:
+                merged_tracks[obj_id] = {}
                 
-            global_frame = f_idx
-            time_offset = global_frame / fps
+            # Collect forward boxes
+            for f_idx, box in t_data["fwd"].items():
+                if f_idx not in merged_tracks[obj_id]:
+                    merged_tracks[obj_id][f_idx] = []
+                merged_tracks[obj_id][f_idx].append(box)
+                
+            # Collect backward boxes
+            for f_idx, box in t_data["bwd"].items():
+                if f_idx not in merged_tracks[obj_id]:
+                    merged_tracks[obj_id][f_idx] = []
+                merged_tracks[obj_id][f_idx].append(box)
+                
+        # Collapse (average) overlaps and format results
+        obj_tracks = {}
+        
+        for b in manual_boxes:
+            # Retrieve consolidated labels for this object ID
+            # (lookup via the representative root)
+            r = dsu.find(b["temp_id"])
+            # Ensure we have the labels for this object
+            # (though we populated obj_tracks in loop below, we need labels)
+            pass 
+
+        # Reverse lookup for labels: gid -> labels
+        gid_to_labels = {gid: labels for r, (gid, labels) in zip(root_to_gid.keys(), zip(root_to_gid.values(), root_to_labels.values()))}
+
+        for obj_id, frames_dict in merged_tracks.items():
+            obj_tracks[obj_id] = []
             
-            # Convert pixel XYXY back to percent XYWH
-            x_percent = (avg_box[0] / width) * 100.0
-            y_percent = (avg_box[1] / height) * 100.0
-            width_percent = ((avg_box[2] - avg_box[0]) / width) * 100.0
-            height_percent = ((avg_box[3] - avg_box[1]) / height) * 100.0
+            sorted_frames = sorted(frames_dict.keys())
+            for f_idx in sorted_frames:
+                boxes = frames_dict[f_idx]
+                if not boxes:
+                    continue
+                    
+                # Average boxes if multiple (e.g. from overlapping forward/backward passes)
+                if len(boxes) == 1:
+                    avg_box = boxes[0]
+                else:
+                    avg_box = np.mean(np.stack(boxes), axis=0)
+                    
+                global_frame = global_start + f_idx
+                time_offset = global_frame / fps
+                
+                # Convert pixel XYXY back to percent XYWH
+                x_percent = float((avg_box[0] / width) * 100.0)
+                y_percent = float((avg_box[1] / height) * 100.0)
+                width_percent = float(((avg_box[2] - avg_box[0]) / width) * 100.0)
+                height_percent = float(((avg_box[3] - avg_box[1]) / height) * 100.0)
+                
+                obj_tracks[obj_id].append({
+                    "frame": int(global_frame + 1),  # LS uses 1-based frames
+                    "x": x_percent,
+                    "y": y_percent,
+                    "width": width_percent,
+                    "height": height_percent,
+                    "enabled": True,
+                    "rotation": 0,
+                    "time": float(time_offset),
+                })
+        
+        # Build Label Studio tracking results
+        results = []
+        for obj_id, sequence in obj_tracks.items():
+            # Use propagated labels or fallback
+            labels = gid_to_labels.get(obj_id, ["object"])
             
-            obj_tracks[obj_id].append({
-                "frame": global_frame + 1,  # LS uses 1-based frames
-                "x": x_percent,
-                "y": y_percent,
-                "width": width_percent,
-                "height": height_percent,
-                "enabled": True,
-                "rotation": 0,
-                "time": time_offset,
+            results.append({
+                "id": f"auto-track-{obj_id}",
+                "type": "videorectangle",
+                "from_name": "box",
+                "to_name": "video",
+                "value": {
+                    "sequence": sequence,
+                    "framesCount": frames_count,
+                    "duration": float(frames_count / fps),
+                    "labels": labels
+                }
             })
-    
-    # Build Label Studio prediction
-    results = []
-    for obj_id, sequence in obj_tracks.items():
-        results.append({
-            "id": f"auto-track-{obj_id}",
-            "type": "videorectangle",
-            "from_name": "box",
-            "to_name": "video",
-            "value": {
-                "sequence": sequence,
-                "framesCount": frames_count,
-                "duration": frames_count / fps,
-                "labels": [prompt_label] if prompt_label else ["object"]
-            }
-        })
-    
-    prediction = {
-        "result": results,
-        "score": 1.0,
-        "model_version": "sam2-video-boxes"
-    }
-    
-    logger.info("Generated prediction with %d tracks", len(results))
-    
-    return prediction
-    
+        
+        prediction = {
+            "result": results,
+            "score": 1.0,
+            "model_version": "sam2-video-boxes"
+        }
+        
+        logger.info("Generated tracking results with %d tracks", len(results))
+        
+        return prediction
+        
     finally:
         # Cleanup temp directories
         if os.path.exists(segment_frames_dir):

@@ -67,8 +67,8 @@ def check_gpu_health():
         return False
 
 DEVICE = os.getenv('DEVICE', 'cuda')
-MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'sam2_hiera_l.yaml')
-MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
+MODEL_CONFIG = os.getenv('MODEL_CONFIG', 'configs/sam2.1/sam2.1_hiera_l.yaml')
+MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2.1_hiera_large.pt')
 MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 1000))
 TRACK_FPS = float(os.getenv('TRACK_FPS', '0'))  # 0 means use original FPS (no temporal downsampling)
 

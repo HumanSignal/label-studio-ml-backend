@@ -15,6 +15,8 @@ This ML backend provides **zero-shot object detection and multi-object tracking*
 4. [CLI Reference](#cli-reference)
 5. [Configuration Reference](#configuration-reference)
 6. [Debugging](#debugging)
+7. [FPS Synchronization Utility](#fps-synchronization-utility)
+8. [Development](#development)
 
 ---
 
@@ -34,20 +36,23 @@ environment:
 ### 2. Run with Docker
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### 3. Run Predictions via CLI
 
 ```bash
 # Basic usage
-python cli.py --project 123 --tasks 456,457,458
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --project 123 --tasks 456,457,458'
 
 # With tracking preset for UAV footage (applies env thresholds)
-python cli.py --preset uav+long_video --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset uav+long_video --project 123 --tasks 456'
 
 # With debugging output (saves annotated frames)
-python cli.py --preset uav --save-frames --output-dir ./debug --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset uav --save-frames --output-dir ./debug --project 123 --tasks 456'
 ```
 
 ---
@@ -71,23 +76,26 @@ Presets provide pre-configured detection and tracking parameters optimized for d
 
 ```bash
 # UAV footage with fast-moving subjects in a long video
-python cli.py --preset uav+fast_motion+long_video --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset uav+fast_motion+long_video --project 123 --tasks 456'
 
 # Thermal imagery with crowded scene, prioritizing precision
-python cli.py --preset thermal+crowded+high_precision --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset thermal+crowded+high_precision --project 123 --tasks 456'
 
 # Ground vehicle with slow-moving subjects
-python cli.py --preset ugv+slow_motion --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset ugv+slow_motion --project 123 --tasks 456'
 ```
 
 ### Preset Commands
 
 ```bash
 # List all available preset layers
-python cli.py --list-presets
+docker compose exec grounding_dino_video bash -lc 'python /app/cli.py --list-presets'
 
 # Show computed parameter values for a preset combination
-python cli.py --describe-preset uav+fast_motion+long_video
+docker compose exec grounding_dino_video bash -lc 'python /app/cli.py --describe-preset uav+fast_motion+long_video'
 ```
 
 ### Example Output: `--describe-preset uav+fast_motion+long_video`
@@ -197,13 +205,16 @@ python cli.py [OPTIONS]
 
 ```bash
 # Process specific tasks with UAV preset
-python cli.py --preset uav --project 123 --tasks 456,457,458
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset uav --project 123 --tasks 456,457,458'
 
 # Compose multiple presets
-python cli.py --preset uav+fast_motion+long_video --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset uav+fast_motion+long_video --project 123 --tasks 456'
 
 # Debug with saved frames
-python cli.py --preset thermal --save-frames --output-dir ./debug --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --preset thermal --save-frames --output-dir ./debug --project 123 --tasks 456'
 ```
 
 ---
@@ -250,7 +261,8 @@ All preset parameters are validated and clamped to sensible bounds:
 ### Save Annotated Frames
 
 ```bash
-python cli.py --save-frames --output-dir ./debug --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+python /app/cli.py --save-frames --output-dir ./debug --project 123 --tasks 456'
 ```
 
 Each frame is saved as `frame_XXXXXX.jpg` with:
@@ -263,7 +275,8 @@ Each frame is saved as `frame_XXXXXX.jpg` with:
 
 ```bash
 # Enable debug logging
-LOG_LEVEL=DEBUG python cli.py --project 123 --tasks 456
+docker compose exec grounding_dino_video bash -lc '
+LOG_LEVEL=DEBUG python /app/cli.py --project 123 --tasks 456'
 ```
 
 ### Common Issues
@@ -319,6 +332,95 @@ Use the `<VideoRectangle>` control tag for video object tracking:
 | Presets | `tracking_presets.py` | Composable preset system |
 | Detection | `utils/grounding.py` | Grounding DINO inference for detection/tracking |
 | Tracking | `control_models/video_rectangle.py` | ByteTrack integration |
+| FPS Sync | `update_fps.py` | Utility to synchronize FPS values for video tasks |
+
+---
+
+## FPS Synchronization Utility
+
+The `update_fps.py` utility synchronizes accurate FPS values for Label Studio video tasks by reading video metadata and updating task data.
+
+### Usage
+
+```bash
+# Update specific tasks (comma-separated IDs)
+docker compose exec grounding_dino_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/update_fps.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 123 \
+  --tasks 10,11,12'
+
+# Update specific tasks (JSON file)
+docker compose exec grounding_dino_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/update_fps.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 123 \
+  --tasks my_tasks.json'
+
+# Update ALL tasks in a project
+docker compose exec grounding_dino_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/update_fps.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 123'
+
+# With overwrite flag (updates existing FPS values)
+docker compose exec grounding_dino_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/update_fps.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 123 \
+  --overwrite'
+
+# With explicit data key
+docker compose exec grounding_dino_video bash -lc '
+export LABEL_STUDIO_HOST=https://app.heartex.com
+export LABEL_STUDIO_URL=https://app.heartex.com
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+python /app/update_fps.py \
+  --ls-url https://app.heartex.com \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project 123 \
+  --data-key video_path'
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--ls-url` | `$LABEL_STUDIO_URL` | Label Studio URL |
+| `--ls-api-key` | `$LABEL_STUDIO_API_KEY` | Label Studio API key |
+| `--project` | `None` | Project ID (required if --tasks not provided) |
+| `--tasks` | `None` | Task IDs (comma-separated) or JSON file |
+| `--data-key` | `None` | Explicit key in task['data'] storing video path |
+| `--overwrite` | `false` | Overwrite existing FPS values |
+| `--quiet` | `false` | Reduce log verbosity |
+
+### Notes
+
+- If `--tasks` is not provided, the script requires `--project` and will fetch all tasks from that project
+- FPS values are extracted using OpenCV and rounded to 6 decimal places
+- Existing FPS values are preserved unless `--overwrite` is specified
+- Supports various video formats: MP4, MOV, AVI, MKV, WebM, M4V, MPG, MPEG
 
 ---
 
@@ -339,8 +441,8 @@ label-studio-ml start .
 
 ```bash
 # List all presets
-python -c "from tracking_presets import list_presets; print(list_presets())"
+docker compose exec grounding_dino_video bash -lc 'python -c "from tracking_presets import list_presets; print(list_presets())"'
 
 # Describe a preset
-python -c "from tracking_presets import describe_preset; print(describe_preset('uav+long_video'))"
+docker compose exec grounding_dino_video bash -lc 'python -c "from tracking_presets import describe_preset; print(describe_preset(\"uav+long_video\"))"'
 ```

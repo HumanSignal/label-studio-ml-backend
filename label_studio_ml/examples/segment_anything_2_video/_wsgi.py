@@ -54,7 +54,7 @@ def validate_startup_environment():
             raise RuntimeError('PyTorch is required')
 
     # Check SAM2 model checkpoint exists
-    model_checkpoint = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
+    model_checkpoint = os.getenv('MODEL_CHECKPOINT', 'sam2.1_hiera_large.pt')
     checkpoint_path = f'/sam2/checkpoints/{model_checkpoint}'
     if not os.path.exists(checkpoint_path):
         logger.warning(f'⚠️  SAM2 checkpoint not found at {checkpoint_path}')

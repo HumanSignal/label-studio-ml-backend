@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import requests
 import torch
 from joblib import Memory
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
@@ -135,6 +136,29 @@ def _detect_video_key(task_data: Dict[str, Any]) -> Tuple[str, str]:
     )
 
 
+def _manual_download_video(url: str, dest_path: str) -> None:
+    """Manually download video with Authorization header if needed."""
+    api_key = os.getenv("LABEL_STUDIO_API_KEY")
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Token {api_key}"
+    
+    logger.info("Starting manual download from %s to %s", url, dest_path)
+    try:
+        with requests.get(url, headers=headers, stream=True, timeout=300) as r:
+            r.raise_for_status()
+            with open(dest_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        logger.info("Manual download completed")
+    except Exception as e:
+        logger.error("Manual download failed: %s", e)
+        # Clean up partial file
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+        raise
+
+
 def _get_video_path(task: Dict[str, Any]) -> Tuple[str, str]:
     data = task.get("data") or {}
     key, video_url = _detect_video_key(data)
@@ -150,11 +174,32 @@ def _get_video_path(task: Dict[str, Any]) -> Tuple[str, str]:
 
     logger.info("Downloading/caching video via get_local_path…")
     local_path = get_local_path(video_url, task_id=task["id"])
+    
+    # Check for empty or missing file
+    if os.path.exists(local_path) and os.path.getsize(local_path) == 0:
+        logger.warning("Cached video file is empty (0 bytes). Removing and attempting manual download...")
+        try:
+            os.remove(local_path)
+        except OSError:
+            pass
+            
+        try:
+            _manual_download_video(video_url, local_path)
+        except Exception:
+            # If manual failed, we already logged it. 
+            # We can try get_local_path one last time as last resort or just fail.
+            # But likely if manual failed, get_local_path won't work either if it's network/auth.
+            pass
+
     if not os.path.exists(local_path):
         raise InitialSeedingError(f"Video file not found after download: {local_path}")
 
     size_mb = os.path.getsize(local_path) / 1024**2
     logger.info("Video cached at: %s (%.2f MB)", local_path, size_mb)
+    
+    if size_mb == 0:
+        raise InitialSeedingError(f"Video file is empty (0 bytes) after download attempts: {local_path}")
+
     return local_path, key
 
 
