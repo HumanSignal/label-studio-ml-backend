@@ -14,6 +14,7 @@ import os
 import shutil
 import sys
 import uuid
+from collections import Counter
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import cv2
@@ -42,6 +43,83 @@ def _parse_track_ids(raw: Optional[str]) -> Optional[Set[str]]:
     if not parts:
         return None
     return set(parts)
+
+
+def _export_segment_to_frames_dir(
+    cap: cv2.VideoCapture,
+    out_dir: str,
+    global_start: int,
+    global_end: int,
+    show_progress: bool,
+) -> Tuple[int, List[int], Dict[int, int]]:
+    os.makedirs(out_dir, exist_ok=True)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, float(global_start))
+    total_frames = max(0, global_end - global_start + 1)
+
+    iterator = range(global_start, global_end + 1)
+    if show_progress:
+        iterator = tqdm(iterator, desc="Extracting frames", unit="frame")
+
+    local_idx = 0
+    sampled_to_global: List[int] = []
+    global_to_sampled: Dict[int, int] = {}
+    for _global_idx in iterator:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        out_path = os.path.join(out_dir, f"{local_idx:05d}.jpg")
+        cv2.imwrite(out_path, frame)
+        sampled_to_global.append(_global_idx)
+        global_to_sampled[_global_idx] = local_idx
+        local_idx += 1
+
+    if show_progress and hasattr(iterator, "close"):
+        iterator.close()
+
+    if local_idx != total_frames:
+        logger.info("Exported %d/%d frames for segment", local_idx, total_frames)
+    return local_idx, sampled_to_global, global_to_sampled
+
+
+def _export_segment_with_stride(
+    cap: cv2.VideoCapture,
+    out_dir: str,
+    global_start: int,
+    global_end: int,
+    frame_stride: int,
+    manual_frames: Set[int],
+    show_progress: bool,
+) -> Tuple[int, List[int], Dict[int, int]]:
+    os.makedirs(out_dir, exist_ok=True)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, float(global_start))
+    total_frames = max(0, global_end - global_start + 1)
+
+    iterator = range(global_start, global_end + 1)
+    if show_progress:
+        iterator = tqdm(iterator, desc="Extracting frames", unit="frame")
+
+    local_idx = 0
+    sampled_to_global: List[int] = []
+    global_to_sampled: Dict[int, int] = {}
+    for global_idx in iterator:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        offset = global_idx - global_start
+        if (offset % frame_stride) != 0 and global_idx not in manual_frames:
+            continue
+        out_path = os.path.join(out_dir, f"{local_idx:05d}.jpg")
+        cv2.imwrite(out_path, frame)
+        sampled_to_global.append(global_idx)
+        global_to_sampled[global_idx] = local_idx
+        local_idx += 1
+
+    if show_progress and hasattr(iterator, "close"):
+        iterator.close()
+
+    if local_idx != total_frames:
+        logger.info("Exported %d/%d frames for segment", local_idx, total_frames)
+    return local_idx, sampled_to_global, global_to_sampled
 
 
 def _mask_logits_to_box_and_score(mask_logits: torch.Tensor, threshold: float = 0.0) -> Tuple[Optional[np.ndarray], Optional[float]]:
@@ -245,7 +323,9 @@ def _run_sam2_tracking(
         raise InitialSeedingError(f"Invalid frame range: start={global_start} > end={global_end}")
 
     segment_len = global_end - global_start + 1
+    frame_stride = max(1, int(args.frame_stride))
     logger.info("Processing segment frames [%d, %d] (length=%d)", global_start, global_end, segment_len)
+    logger.info("Frame stride: %d", frame_stride)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -254,22 +334,70 @@ def _run_sam2_tracking(
     segment_frames_dir = f"/tmp/sam2_segment_frames_{uuid.uuid4().hex}"
 
     try:
-        written = base_boxes._export_segment_to_frames_dir(cap, segment_frames_dir, global_start, global_end)
+        manual_frames: Set[int] = set()
+        results = annotation.get("result", []) if isinstance(annotation, dict) else getattr(annotation, "result", [])
+        for region in results:
+            if not isinstance(region, dict) or region.get("type") != "videorectangle":
+                continue
+            value = region.get("value", {}) or {}
+            sequence = value.get("sequence", []) or []
+            for keyframe in sequence:
+                if not isinstance(keyframe, dict):
+                    continue
+                frame_value = keyframe.get("frame")
+                if frame_value is None:
+                    time_value = keyframe.get("time")
+                    if time_value is None:
+                        continue
+                    global_frame = int(round(float(time_value) * fps))
+                else:
+                    global_frame = int(frame_value) - 1
+                if global_start <= global_frame <= global_end:
+                    manual_frames.add(global_frame)
+
+        if frame_stride > 1:
+            written, sampled_to_global, global_to_sampled = _export_segment_with_stride(
+                cap,
+                segment_frames_dir,
+                global_start,
+                global_end,
+                frame_stride,
+                manual_frames,
+                show_progress=not args.no_progress,
+            )
+        else:
+            written, sampled_to_global, global_to_sampled = _export_segment_to_frames_dir(
+                cap,
+                segment_frames_dir,
+                global_start,
+                global_end,
+                show_progress=not args.no_progress,
+            )
         cap.release()
-        if written != segment_len:
+        if written != segment_len and frame_stride == 1:
             logger.warning("Expected %d frames but got %d, adjusting end frame", segment_len, written)
             global_end = global_start + written - 1
             segment_len = written
 
+        sampled_len = len(sampled_to_global)
         manual_boxes: List[Dict[str, Any]] = []
-        results = annotation.get("result", []) if isinstance(annotation, dict) else getattr(annotation, "result", [])
 
         available_ids: Set[str] = set()
+        region_type_counts: Counter[str] = Counter()
+        total_keyframes = 0
+        total_disabled = 0
         for region in results:
             if not isinstance(region, dict) or region.get("type") != "videorectangle":
+                if isinstance(region, dict):
+                    region_type_counts[str(region.get("type"))] += 1
                 continue
             region_id = str(region.get("id", "unknown_region"))
             available_ids.add(region_id)
+            region_type_counts["videorectangle"] += 1
+            value = region.get("value", {}) or {}
+            sequence = value.get("sequence", []) or []
+            total_keyframes += len(sequence)
+            total_disabled += sum(1 for keyframe in sequence if isinstance(keyframe, dict) and not keyframe.get("enabled", True))
 
         if track_id_filter is not None:
             missing = sorted(track_id_filter - available_ids)
@@ -288,14 +416,23 @@ def _run_sam2_tracking(
             sequence = value.get("sequence", []) or []
 
             for k, keyframe in enumerate(sequence):
-                if not isinstance(keyframe, dict) or not keyframe.get("enabled", True):
+                if not isinstance(keyframe, dict):
                     continue
 
-                global_frame = int(keyframe.get("frame", 1)) - 1
+                frame_value = keyframe.get("frame")
+                if frame_value is None:
+                    time_value = keyframe.get("time")
+                    if time_value is None:
+                        continue
+                    global_frame = int(round(float(time_value) * fps))
+                else:
+                    global_frame = int(frame_value) - 1
                 if global_frame < global_start or global_frame > global_end:
                     continue
 
-                local_frame = global_frame - global_start
+                sampled_frame = global_to_sampled.get(global_frame)
+                if sampled_frame is None:
+                    continue
                 box_xyxy = base_boxes._percent_xywh_to_xyxy_px(
                     keyframe["x"], keyframe["y"], keyframe["width"], keyframe["height"], width, height
                 )
@@ -309,7 +446,7 @@ def _run_sam2_tracking(
                 manual_boxes.append(
                     {
                         "global_frame": global_frame,
-                        "frame_idx": local_frame,
+                        "frame_idx": sampled_frame,
                         "box_xyxy": box_xyxy,
                         "temp_id": f"{region_id}_kf{k}",
                         "region_id": region_id,
@@ -319,7 +456,15 @@ def _run_sam2_tracking(
 
         manual_boxes.sort(key=lambda b: b["frame_idx"])
         if len(manual_boxes) == 0:
-            logger.warning("No keyframes found in specified segment for requested track ids.")
+            logger.warning(
+                "No keyframes found in specified segment for requested track ids. "
+                "Regions=%d, types=%s, videorectangle=%d, keyframes=%d, disabled=%d",
+                len(results) if isinstance(results, list) else 0,
+                dict(region_type_counts),
+                region_type_counts.get("videorectangle", 0),
+                total_keyframes,
+                total_disabled,
+            )
             return None
 
         logger.info("Found %d keyframe annotations in segment", len(manual_boxes))
@@ -329,12 +474,17 @@ def _run_sam2_tracking(
         tracklets: Dict[str, Dict[str, Dict[int, Any]]] = {}
         max_frames_to_track = args.max_frames_to_track
 
-        with tqdm(total=len(manual_boxes), desc="Generating tracklets", unit="seed") as pbar:
+        with tqdm(
+            total=len(manual_boxes),
+            desc="Generating tracklets",
+            unit="seed",
+            disable=args.no_progress,
+        ) as pbar:
             for k, seed in enumerate(manual_boxes):
                 prev_kf = manual_boxes[k - 1]["frame_idx"] if k > 0 else None
                 next_kf = manual_boxes[k + 1]["frame_idx"] if k + 1 < len(manual_boxes) else None
 
-                fwd_end = base_boxes._forward_end(seed["frame_idx"], next_kf, max_frames_to_track, segment_len)
+                fwd_end = base_boxes._forward_end(seed["frame_idx"], next_kf, max_frames_to_track, sampled_len)
                 bwd_start = base_boxes._backward_start(seed["frame_idx"], prev_kf, max_frames_to_track)
 
                 if seed["frame_idx"] == fwd_end:
@@ -397,7 +547,9 @@ def _run_sam2_tracking(
                 if resolved is None:
                     continue
 
-                global_frame = global_start + f_idx
+                if f_idx >= len(sampled_to_global):
+                    continue
+                global_frame = sampled_to_global[f_idx]
                 time_offset = global_frame / fps
                 x_percent = float((resolved[0] / width) * 100.0)
                 y_percent = float((resolved[1] / height) * 100.0)
@@ -416,6 +568,9 @@ def _run_sam2_tracking(
                         "time": float(time_offset),
                     }
                 )
+
+            if sequence:
+                sequence[-1]["enabled"] = False
 
             if not sequence:
                 continue
@@ -483,6 +638,12 @@ def main() -> None:
         help="Maximum frames to track in each direction from a keyframe",
     )
     parser.add_argument(
+        "--frame-stride",
+        type=int,
+        default=1,
+        help="Sample one frame every N frames for tracking (default: 1 = no downsampling)",
+    )
+    parser.add_argument(
         "--overlap-mode",
         default="iou-weighted",
         choices=["iou-weighted", "weighted", "winner"],
@@ -493,6 +654,11 @@ def main() -> None:
         type=float,
         default=0.3,
         help="IoU threshold for iou-weighted overlap resolution",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress bars for frame export and tracking",
     )
     args = parser.parse_args()
 

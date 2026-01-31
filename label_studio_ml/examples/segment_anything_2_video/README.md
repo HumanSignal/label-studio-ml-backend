@@ -146,13 +146,15 @@ python /app/initial_seeding_video_boxes_manual_merge.py \
   --global-start 1000 \
   --global-end 1800 \
   --max-frames-to-track 300 \
+  --frame-stride 1 \
   --overlap-mode iou-weighted \
   --overlap-iou-threshold 0.3
 '
 ```
 *   `--track-id`: (Optional) Comma-separated list of region IDs to use as anchors. If omitted, all manual keyframes are used.
 *   `--global-start` / `--global-end`: Same semantics as above (0-indexed, inclusive).
-*   `--max-frames-to-track`: Tracks N frames backward and N frames forward from each seed.
+*   `--max-frames-to-track`: Tracks N sampled frames backward and N sampled frames forward from each seed.
+*   `--frame-stride`: (Optional) Sample one frame every N frames while always keeping manual keyframes (default: 1 = no downsampling).
 *   `--overlap-mode`: Resolve overlaps within the same region (`iou-weighted`, `weighted`, `winner`). Default: `iou-weighted`.
 *   `--overlap-iou-threshold`: IoU threshold for `iou-weighted` (default: 0.3).
 *   `--overlap-mode` / `--overlap-iou-threshold` are optional; omit them to use the defaults shown above.
@@ -321,6 +323,42 @@ export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
   --output /app/exports/annotation.json
 '
 ```
+
+**Summary output:** The bash script also writes a per-casualty summary JSON next to the
+exported annotation. If the output is `annotation.json`, the summary is written to
+`annotation.summary.json`. The summary includes frame/time ranges per `meta.text` ID.
+
+### 6a. Generate Casualty Snippets (`generate_casualty_snippets.sh`)
+**Use case:** Download the raw video and create MP4 snippets per casualty ID based on
+the summary JSON ranges.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+export LABEL_STUDIO_HOST="https://app.heartex.com"
+export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
+
+/app/generate_casualty_snippets.sh \
+  --ls-url "$LABEL_STUDIO_HOST" \
+  --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <PROJECT_ID> \
+  --task <TASK_ID> \
+  --annotation <ANNOTATION_ID> \
+  --summary /app/exports/annotation.summary.json \
+  --person-id 31 \
+  --min-seconds 2 \
+  --fps 10
+'
+```
+
+*   `--summary`: Path to the summary JSON produced by `export_interpolated_annotation.sh`.
+*   `--person-id`: Optional; if omitted, snippets for all casualties are generated.
+*   `--min-frames` / `--min-seconds`: Optional and **mutually exclusive**; skip ranges
+    that are shorter than the minimum.
+*   `--fps`: Optional; if omitted, the original FPS is used and stream-copy is applied
+    to avoid re-encoding. If a different FPS is provided, the snippet is re-encoded.
+*   Output folder name defaults to `snippets_proj{project}_task{task}_ann{ann}_YYYYmmddTHHMMSSZ`.
+    Each snippet is named `casualty_<id>_f<start>-<end>_fps<fpsInt>.mp4` and a README
+    in the folder captures the parameters used.
 
 ### 7. Deletion Utilities (`delete_annotation_or_prediction.py`)
 **Use case:** surgically delete a specific annotation or prediction by ID. Useful for cleanup scripts or resetting a task state.

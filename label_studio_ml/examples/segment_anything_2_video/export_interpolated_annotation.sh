@@ -254,6 +254,78 @@ extract_annotation() {
   ' "$json_file" > "$output_file"
 }
 
+generate_summary() {
+  local source_file="$1"
+  local summary_file="$2"
+  jq -e '
+    def parse_id:
+      (.meta.text // [])
+      | map(select(type == "string" and test("id:[0-9]+")))
+      | map(match("id:([0-9]+)").captures[0].string)
+      | first;
+
+    def seq_ranges($seq):
+      ($seq | sort_by(.frame)) as $sorted
+      | if ($sorted | length) == 0 then [] else
+          reduce $sorted[] as $item (
+            {ranges: [], current: null};
+            if .current == null then
+              .current = {
+                start_frame: $item.frame,
+                end_frame: $item.frame,
+                start_time: ($item.time // null),
+                end_time: ($item.time // null)
+              }
+            else
+              if ($item.frame == (.current.end_frame + 1)) then
+                .current.end_frame = $item.frame
+                | .current.end_time = ($item.time // .current.end_time)
+              else
+                .ranges += [.current]
+                | .current = {
+                  start_frame: $item.frame,
+                  end_frame: $item.frame,
+                  start_time: ($item.time // null),
+                  end_time: ($item.time // null)
+                }
+              end
+            end
+          )
+          | (.ranges + (if .current == null then [] else [.current] end))
+        end;
+
+    def result_items:
+      if .source_type == "annotation" then
+        .annotation.result // []
+      elif .source_type == "prediction" then
+        .prediction.result // []
+      else [] end;
+
+    {
+      project_id,
+      task_id,
+      annotation_id,
+      prediction_id,
+      source_type,
+      video_url,
+      fps,
+      casualties: (
+        reduce (result_items | map(select(.type == "videorectangle")) | map(. + {casualty_id: (parse_id)}))[] as $item (
+          {};
+          if ($item.casualty_id == null) then
+            .
+          else
+            .[$item.casualty_id] = (
+              (.[$item.casualty_id] // []) + (seq_ranges($item.value.sequence // []))
+            )
+          end
+        )
+        | with_entries({key: .key, value: {ranges: .value}})
+      )
+    }
+  ' "$source_file" > "$summary_file"
+}
+
 log_export_summary() {
   local json_file="$1"
   local target_task="$2"
@@ -314,6 +386,15 @@ main() {
   mkdir -p "$(dirname "$OUTPUT_PATH")"
   extract_annotation "$download_path" "$OUTPUT_PATH"
   echo "[info] Saved filtered annotation to $OUTPUT_PATH"
+
+  local summary_path
+  if [[ "$OUTPUT_PATH" == *.json ]]; then
+    summary_path="${OUTPUT_PATH%.json}.summary.json"
+  else
+    summary_path="${OUTPUT_PATH}.summary.json"
+  fi
+  generate_summary "$OUTPUT_PATH" "$summary_path"
+  echo "[info] Saved summary to $summary_path"
 }
 
 main "$@"
