@@ -152,12 +152,14 @@ python /app/initial_seeding_video_boxes_manual_merge.py \
 '
 ```
 *   `--track-id`: (Optional) Comma-separated list of region IDs to use as anchors. If omitted, all manual keyframes are used.
-*   `--global-start` / `--global-end`: Same semantics as above (0-indexed, inclusive).
+*   `--global-start` / `--global-end`: Same semantics as above (0-indexed, inclusive). When both are provided with `--track-id`, only the specified range is replaced and the rest of the track is preserved.
 *   `--max-frames-to-track`: Tracks N sampled frames backward and N sampled frames forward from each seed.
 *   `--frame-stride`: (Optional) Sample one frame every N frames while always keeping manual keyframes (default: 1 = no downsampling).
 *   `--overlap-mode`: Resolve overlaps within the same region (`iou-weighted`, `weighted`, `winner`). Default: `iou-weighted`.
 *   `--overlap-iou-threshold`: IoU threshold for `iou-weighted` (default: 0.3).
 *   `--overlap-mode` / `--overlap-iou-threshold` are optional; omit them to use the defaults shown above.
+*   `--dump-payload`: (Optional) Write the submission payload JSON to disk before upload/patch.
+*   Submission behavior: if `--track-id`, `--global-start`, and `--global-end` are all provided, the script patches the existing annotation; otherwise it creates a new prediction.
 
 ### 3. Simple Forward Tracking (`cli.py`)
 **Use case:** Simple "predict" functionality similar to the UI button. Tracks from start to finish linearly.
@@ -328,37 +330,56 @@ export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
 exported annotation. If the output is `annotation.json`, the summary is written to
 `annotation.summary.json`. The summary includes frame/time ranges per `meta.text` ID.
 
-### 6a. Generate Casualty Snippets (`generate_casualty_snippets.sh`)
-**Use case:** Download the raw video and create MP4 snippets per casualty ID based on
-the summary JSON ranges.
+### 6a. Generate Casualty Snippets (integrated into `export_interpolated_annotation.sh`)
+**Use case:** Export the interpolated annotation, create summary JSON, and generate
+per-casualty snippets plus per-snippet bbox JSON outputs in one step.
 
 ```bash
 docker compose exec segment_anything_2_video bash -lc '
 export LABEL_STUDIO_HOST="https://app.heartex.com"
 export LABEL_STUDIO_API_KEY="$LABEL_STUDIO_API_KEY"
 
-/app/generate_casualty_snippets.sh \
+/app/export_interpolated_annotation.sh \
   --ls-url "$LABEL_STUDIO_HOST" \
   --ls-api-key "$LABEL_STUDIO_API_KEY" \
   --project <PROJECT_ID> \
   --task <TASK_ID> \
   --annotation <ANNOTATION_ID> \
-  --summary /app/exports/annotation.summary.json \
+  --output /app/exports/annotation.json \
+  --snippets \
   --person-id 31 \
   --min-seconds 2 \
   --fps 10
 '
 ```
 
-*   `--summary`: Path to the summary JSON produced by `export_interpolated_annotation.sh`.
+*   `--snippets`: Enable snippet generation.
+*   `--snippets-dir`: Optional; output directory for snippets. Defaults to
+    `snippets_proj{project}_task{task}_ann{ann}_YYYYmmddTHHMMSSZ`.
 *   `--person-id`: Optional; if omitted, snippets for all casualties are generated.
 *   `--min-frames` / `--min-seconds`: Optional and **mutually exclusive**; skip ranges
     that are shorter than the minimum.
 *   `--fps`: Optional; if omitted, the original FPS is used and stream-copy is applied
     to avoid re-encoding. If a different FPS is provided, the snippet is re-encoded.
-*   Output folder name defaults to `snippets_proj{project}_task{task}_ann{ann}_YYYYmmddTHHMMSSZ`.
-    Each snippet is named `casualty_<id>_f<start>-<end>_fps<fpsInt>.mp4` and a README
-    in the folder captures the parameters used.
+*   Output files include:
+    * `casualty_<id>_f<start>-<end>_fps<fpsInt>.mp4`
+    * `casualty_<id>_f<start>-<end>_fps<fpsInt>.json` with frame-level bbox entries
+      (`original_frame`, `snippet_frame`, `time`, `x`, `y`, `width`, `height`, ...).
+    * `README.txt` in the output folder capturing parameters used.
+
+### 6b. Overlay BBoxes on Snippets (`overlay_snippet_bboxes.sh`)
+**Use case:** Draw bbox overlays on an existing snippet using its bbox JSON.
+
+```bash
+docker compose exec segment_anything_2_video bash -lc '
+/app/overlay_snippet_bboxes.sh \
+  --snippet /app/exports/casualty_31_f1000-2400_fps10.mp4 \
+  --bbox-json /app/exports/casualty_31_f1000-2400_fps10.json
+'
+```
+
+*   `--output`: Optional; defaults to `<snippet>_bbox_overlaid.mp4`.
+*   `--chunk-size`: Optional; defaults to 1000 frames (for large snippets).
 
 ### 7. Deletion Utilities (`delete_annotation_or_prediction.py`)
 **Use case:** surgically delete a specific annotation or prediction by ID. Useful for cleanup scripts or resetting a task state.

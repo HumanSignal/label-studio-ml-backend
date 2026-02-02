@@ -315,9 +315,8 @@ def _run_sam2_tracking(
     prompt_label: Optional[str],
     track_id_filter: Optional[Set[str]],
 ) -> Optional[Dict[str, Any]]:
-    global_start = max(0, args.global_start)
-    global_end = args.global_end if args.global_end is not None else frames_count - 1
-    global_end = min(frames_count - 1, global_end)
+    global_start = 0 if args.global_start is None else max(0, args.global_start)
+    global_end = frames_count - 1 if args.global_end is None else min(frames_count - 1, args.global_end)
 
     if global_start > global_end:
         raise InitialSeedingError(f"Invalid frame range: start={global_start} > end={global_end}")
@@ -624,7 +623,17 @@ def main() -> None:
     parser.add_argument("--track-id", default=None, help="Comma-separated list of track region ids to use as anchors")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("--dry-run", action="store_true", help="Print prediction JSON instead of upload")
-    parser.add_argument("--global-start", type=int, default=0, help="Starting frame index (0-based inclusive)")
+    parser.add_argument(
+        "--dump-payload",
+        default=None,
+        help="Optional path to write the submission payload JSON before upload",
+    )
+    parser.add_argument(
+        "--global-start",
+        type=int,
+        default=None,
+        help="Starting frame index (0-based inclusive, defaults to 0 when omitted)",
+    )
     parser.add_argument(
         "--global-end",
         type=int,
@@ -759,41 +768,159 @@ def main() -> None:
         if current_result is None:
             current_result = []
 
-        seed_region_ids: Set[str]
+        has_global_start = args.global_start is not None
+        has_global_end = args.global_end is not None
+        range_provided = has_global_start and has_global_end
+
+        new_tracks = prediction.get("result", [])
+        existing_meta_by_id: Dict[str, Dict[str, Any]] = {}
         if track_id_filter is not None:
-            seed_region_ids = set(track_id_filter)
-        else:
+            for region in current_result:
+                if not isinstance(region, dict) or region.get("type") != "videorectangle":
+                    continue
+                region_id = str(region.get("id", "unknown_region"))
+                if region_id not in track_id_filter:
+                    continue
+                meta = region.get("meta")
+                if isinstance(meta, dict):
+                    existing_meta_by_id[region_id] = dict(meta)
+
+            for region in new_tracks:
+                if not isinstance(region, dict):
+                    continue
+                region_id = str(region.get("id", "unknown_region"))
+                existing_meta = existing_meta_by_id.get(region_id)
+                if not existing_meta:
+                    continue
+                meta = region.get("meta")
+                if not isinstance(meta, dict):
+                    meta = {}
+                meta_text = existing_meta.get("text")
+                if meta_text is not None:
+                    meta["text"] = meta_text
+                region["meta"] = meta
+
+        merged_result: List[Dict[str, Any]] = []
+
+        if track_id_filter is None:
             seed_region_ids = {
                 str(region.get("id"))
                 for region in current_result
                 if isinstance(region, dict) and region.get("type") == "videorectangle"
             }
+            filtered_result = [
+                region
+                for region in current_result
+                if not (isinstance(region, dict) and str(region.get("id")) in seed_region_ids)
+            ]
+            merged_result = filtered_result + new_tracks
+            logger.info(
+                "Merging %d new tracks with %d existing regions (removed %d seed regions)",
+                len(new_tracks),
+                len(filtered_result),
+                len(seed_region_ids),
+            )
+        elif not range_provided:
+            filtered_result = [
+                region
+                for region in current_result
+                if not (
+                    isinstance(region, dict)
+                    and region.get("type") == "videorectangle"
+                    and str(region.get("id")) in track_id_filter
+                )
+            ]
+            merged_result = filtered_result + new_tracks
+            logger.info(
+                "Merging %d new tracks with %d existing regions (replaced %d target regions)",
+                len(new_tracks),
+                len(filtered_result),
+                len(track_id_filter),
+            )
+        else:
+            merge_start = max(0, args.global_start)
+            merge_end = min(frames_count - 1, args.global_end)
+            new_tracks_by_id = {
+                str(region.get("id")): region
+                for region in new_tracks
+                if isinstance(region, dict)
+            }
 
-        filtered_result = [
-            region
-            for region in current_result
-            if not (isinstance(region, dict) and str(region.get("id")) in seed_region_ids)
-        ]
+            for region in current_result:
+                if not isinstance(region, dict) or region.get("type") != "videorectangle":
+                    merged_result.append(region)
+                    continue
 
-        new_tracks = prediction.get("result", [])
-        merged_result = filtered_result + new_tracks
+                region_id = str(region.get("id", "unknown_region"))
+                if region_id not in track_id_filter:
+                    merged_result.append(region)
+                    continue
 
-        logger.info(
-            "Merging %d new tracks with %d existing regions (removed %d seed regions)",
-            len(new_tracks),
-            len(filtered_result),
-            len(seed_region_ids),
-        )
+                value = region.get("value", {}) or {}
+                sequence = value.get("sequence", []) or []
+                kept_sequence: List[Dict[str, Any]] = []
+                for item in sequence:
+                    frame_1b = int(item.get("frame", 1))
+                    frame_0b = frame_1b - 1
+                    if frame_0b < merge_start or frame_0b > merge_end:
+                        kept_sequence.append(item)
+
+                new_region = new_tracks_by_id.get(region_id)
+                new_sequence: List[Dict[str, Any]] = []
+                if isinstance(new_region, dict):
+                    new_value = new_region.get("value", {}) or {}
+                    new_sequence = list(new_value.get("sequence", []) or [])
+
+                merged_sequence = kept_sequence + new_sequence
+                if not merged_sequence:
+                    continue
+
+                merged_sequence.sort(key=lambda item: int(item.get("frame", 1)))
+                updated_region = dict(region)
+                updated_value = dict(value)
+                updated_value["sequence"] = merged_sequence
+                if not updated_value.get("labels") and isinstance(new_region, dict):
+                    new_labels = new_region.get("value", {}).get("labels")
+                    if new_labels:
+                        updated_value["labels"] = new_labels
+                updated_region["value"] = updated_value
+                if isinstance(new_region, dict) and new_region.get("score") is not None:
+                    updated_region["score"] = new_region.get("score")
+
+                merged_result.append(updated_region)
+
+            logger.info(
+                "Merged %d target regions within range [%d, %d]",
+                len(track_id_filter),
+                merge_start,
+                merge_end,
+            )
 
         if args.dry_run:
             print(json.dumps({"result": merged_result}, indent=2))
         else:
-            payload = {
-                "result": merged_result,
-                "score": prediction.get("score", 1.0),
-                "model_version": prediction.get("model_version", "sam2-video-boxes-manual-merge"),
-            }
-            base._upload_prediction(ls, task.get("id"), payload)
+            if track_id_filter is not None and range_provided:
+                payload = {"result": merged_result}
+            else:
+                payload = {
+                    "result": merged_result,
+                    "score": prediction.get("score", 1.0),
+                    "model_version": prediction.get("model_version", "sam2-video-boxes-manual-merge"),
+                }
+
+            if args.dump_payload:
+                dump_path = os.path.expanduser(args.dump_payload)
+                dump_dir = os.path.dirname(dump_path)
+                if dump_dir:
+                    os.makedirs(dump_dir, exist_ok=True)
+                with open(dump_path, "w", encoding="utf-8") as dump_file:
+                    json.dump(payload, dump_file, indent=2)
+                logger.info("Wrote submission payload to %s", dump_path)
+
+            if track_id_filter is not None and range_provided:
+                base_boxes._patch_annotation(args.ls_url, args.ls_api_key, args.annotation, merged_result)
+            else:
+                base._upload_prediction(ls, task.get("id"), payload)
 
     except InitialSeedingError as e:
         logger.error("Error: %s", e)

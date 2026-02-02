@@ -43,6 +43,8 @@ def arg_parser():
 
 class LabelStudioMLPredictor:
     def __init__(self, ls_url, ls_api_key):
+        os.environ.setdefault("LABEL_STUDIO_URL", ls_url)
+        os.environ.setdefault("LABEL_STUDIO_API_KEY", ls_api_key)
         self.ls = LabelStudio(base_url=ls_url, api_key=ls_api_key)
         logger.info(f"Successfully connected to Label Studio: {ls_url}")
 
