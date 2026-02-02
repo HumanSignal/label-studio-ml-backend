@@ -50,8 +50,8 @@ WORKDIR /app
 COPY . ./
 
 # Download the YOLO models
-RUN /bin/sh -c 'if [ ! -f /app/models/yolov8x.pt ]; then \
-    yolo predict model=/app/models/yolov8x.pt source=/app/tests/car.jpg \
+RUN /bin/sh -c 'if [ ! -f /app/models/yolov8m.pt ]; then \
+    yolo predict model=/app/models/yolov8m.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n-cls.pt source=/app/tests/car.jpg \
     && yolo predict model=/app/models/yolov8n-seg.pt source=/app/tests/car.jpg; \

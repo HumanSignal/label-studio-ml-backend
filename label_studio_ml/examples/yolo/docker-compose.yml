@@ -13,7 +13,7 @@ services:
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
       # set the log level for the model server
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=DEBUG
       # any other parameters that you want to pass to the model server
       - ANY=PARAMETER
       # specify the number of workers and threads for the model server
@@ -29,9 +29,8 @@ services:
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
-      - LABEL_STUDIO_HOST=https://app.heartex.com
-      - LABEL_STUDIO_URL=https://app.heartex.com
-      - LABEL_STUDIO_API_KEY=7d250b9f196375489cb474a4763219bf53318202
+      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://host.docker.internal:8080}
+      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
 
       # YOLO parameters
 
@@ -52,10 +51,3 @@ services:
       - "./data/server:/data"
       - "./models:/app/models"
       - "./cache_dir:/app/cache_dir"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]

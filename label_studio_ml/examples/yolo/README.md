@@ -13,7 +13,7 @@ categories:
     - Object Detection
     - Image Segmentation
     - YOLO
-image: "/tutorials/yolo.png"
+image: "/guide/ml_tutorials/yolo.png"
 ---
 -->
 
@@ -261,7 +261,7 @@ Here is an example of a prompt for this. It includes 1000 labels from YOLOv8 cla
     **Warning 1**: You must upgrade the `ultralytics` package to the latest version (`pip install -U ultralytics`) or rebuild the ML backend Docker from scratch (`docker-compose build --no-cache`) if you used it before the latest Ultralytics update on **Monday, September 30, 2024**.
 
     **Warning 2**: YOLO11 models do not use the `v` in their naming convention. For example, use **`yolo11n.pt`** instead of `yolov11n.pt`, unlike the naming convention in YOLOv8.
-
+-**YOLO26**: YOLO26 models have been successfully tested with this backend. Make sure to specify `model_path="yolo26n.pt"` or whatever model you'd like to use. 
 - For a full list of supported YOLO versions and models, refer to the Ultralytics documentation:
   [Ultralytics Supported YOLO Models](https://docs.ultralytics.com/models/)
 
@@ -515,7 +515,7 @@ For example:
 
 ### Default model
 
-`yolov8x.pt` is the default object detection model.
+`yolov8m.pt` is the default object detection model.
 `yolov8n-obb.pt` is the default OBB object detection model.
 
 ### Oriented Bounding Boxes (YOLO OBB)
@@ -972,8 +972,6 @@ All available parameters are listed there.
 This Command Line Interface (CLI) tool facilitates the integration of YOLO models with Label Studio for machine learning predictions. 
 It provides an alternative method for running YOLO predictions on tasks managed by Label Studio, 
 particularly useful for processing long videos or large datasets. 
-
-**Input:** Tasks containing raw image or video data. No prior annotations are required.
 
 Running the model predictions directly from the CLI helps to avoid issues 
 like connection timeouts between Label Studio and the ML backend, 

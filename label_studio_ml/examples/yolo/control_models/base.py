@@ -1,9 +1,5 @@
-import base64
-import logging
 import os
-import shutil
-from pathlib import Path
-from urllib.parse import parse_qs, urljoin, urlparse
+import logging
 
 from pydantic import BaseModel
 from typing import Optional, List, Dict, ClassVar
@@ -184,51 +180,12 @@ class ControlModel(BaseModel):
         if not isinstance(task_path, str):
             raise ValueError(f"Path should be a string, but got {task_path}")
 
-        if not task_path.startswith("http") and task_path.startswith("/"):
-            host = os.getenv("LABEL_STUDIO_HOST") or os.getenv("LABEL_STUDIO_URL")
-            if host:
-                task_path = urljoin(host.rstrip("/"), task_path)
-            else:
-                logger.debug(
-                    "Relative task path %s found but LABEL_STUDIO_HOST/LABEL_STUDIO_URL is not set",
-                    task_path,
-                )
-
-        download_source = task_path
-
         # try path as local file or try to load it from Label Studio instance/download via http
         path = (
             task_path
             if os.path.exists(task_path)
             else get_local_path(task_path, task_id=task.get("id"))
         )
-
-        if os.path.exists(path):
-            suffix = Path(path).suffix
-            parsed = urlparse(download_source)
-            if not suffix:
-                parsed_suffix = Path(parsed.path).suffix
-                if not parsed_suffix:
-                    query = parse_qs(parsed.query)
-                    fileuri = (query.get("fileuri") or [None])[0]
-                    if fileuri:
-                        padding = (-len(fileuri)) % 4
-                        fileuri_padded = fileuri + ("=" * padding)
-                        try:
-                            decoded = base64.urlsafe_b64decode(fileuri_padded).decode("utf-8")
-                        except (ValueError, UnicodeDecodeError):
-                            decoded = ""
-                        parsed_suffix = Path(decoded).suffix
-
-                if parsed_suffix:
-                    candidate_path = f"{path}{parsed_suffix}"
-                    if not os.path.exists(candidate_path):
-                        try:
-                            os.symlink(path, candidate_path)
-                        except OSError:
-                            shutil.copyfile(path, candidate_path)
-                    path = candidate_path
-
         logger.debug(f"load_image: {task_path} => {path}")
         return path
 

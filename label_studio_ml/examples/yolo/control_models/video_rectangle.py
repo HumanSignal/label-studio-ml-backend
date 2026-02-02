@@ -12,12 +12,6 @@ from typing import List, Dict, Union
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_LABELS = {
-    label.strip().lower()
-    for label in os.getenv("YOLO_ALLOWED_LABELS", "person").split(",")
-    if label.strip()
-}
-
 
 class VideoRectangleModel(ControlModel):
     """
@@ -25,7 +19,7 @@ class VideoRectangleModel(ControlModel):
     """
 
     type = "VideoRectangle"
-    model_path = "yolov8x.pt"
+    model_path = "yolov8n.pt"
 
     @classmethod
     def is_control_matched(cls, control: ControlTag) -> bool:
@@ -79,27 +73,17 @@ class VideoRectangleModel(ControlModel):
         tracker = tmp_yaml if tmp_yaml else original
 
         # run model track
-        track_kwargs = {}
-        imgsz_env = os.getenv("YOLO_IMGSZ")
-        if imgsz_env:
-            try:
-                track_kwargs["imgsz"] = int(imgsz_env)
-            except ValueError:
-                logger.warning(
-                    "Invalid YOLO_IMGSZ value '%s'; falling back to model default",
-                    imgsz_env,
-                )
-
         try:
             results = self.model.track(
-                path, conf=conf, iou=iou, tracker=tracker, stream=True, **track_kwargs
+                path, conf=conf, iou=iou, tracker=tracker, stream=True
             )
-            # convert model results to label studio regions while tracker config exists
-            return self.create_video_rectangles(results, path)
         finally:
-            # clean temporary file after inference completes
+            # clean temporary file
             if tmp_yaml and os.path.exists(tmp_yaml):
                 os.remove(tmp_yaml)
+
+        # convert model results to label studio regions
+        return self.create_video_rectangles(results, path)
 
     def create_video_rectangles(self, results, path):
         """Create regions of video rectangles from the yolo tracker results"""
@@ -126,8 +110,6 @@ class VideoRectangleModel(ControlModel):
                 if model_label not in self.label_map:
                     continue
                 output_label = self.label_map[model_label]
-                if output_label.strip().lower() not in ALLOWED_LABELS:
-                    continue
                 track_labels[track_id] = output_label
 
                 box = {
