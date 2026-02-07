@@ -1,0 +1,42 @@
+services:
+  segment_anything_3_video:
+    container_name: segment_anything_3_video
+    image: humansignal/segment_anything_3_video:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV:-}
+    ipc: host
+    environment:
+      - DEVICE=cuda
+      - MODEL_NAME=facebook/sam3
+      - HINTS=false
+      - PROCESSING_MODE=streaming
+      - PROMPT_TEXT=person
+      - HF_TOKEN=${HF_TOKEN}
+      - MAX_FRAMES_TO_TRACK=6000
+      - TRACK_FPS=2
+      - LABEL_STUDIO_HOST=https://app.heartex.com
+      - LABEL_STUDIO_URL=https://app.heartex.com
+      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
+      - LOG_LEVEL=DEBUG
+      - WORKERS=1
+      - THREADS=8
+      - MODEL_DIR=/data/models
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "9090:9090"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - "./data/server:/data"
+      - ".:/app"
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  hf_cache:

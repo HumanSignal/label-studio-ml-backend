@@ -1,0 +1,12 @@
+torch>=2.5.0
+torchvision>=0.20.0
+numpy==2.0.2
+accelerate==1.12.0
+git+https://github.com/huggingface/transformers.git@393b4b3d28e29b4b05b19b4b7f3242a7fc893637
+av==16.1.0
+imageio==2.37.2
+pillow==11.3.0
+matplotlib
+requests
+tqdm
+scipy
