@@ -291,7 +291,7 @@ generate_summary() {
   local summary_file="$2"
   jq -e '
     def parse_id:
-      (.meta.text // [])
+      ((.meta.text // []) | (if type == "array" then . else [.] end))
       | map(select(type == "string" and test("id:[0-9]+")))
       | map(match("id:([0-9]+)").captures[0].string)
       | first;
@@ -408,7 +408,7 @@ write_bbox_json() {
     --argjson keep_frames "$keep_frames_json" \
     --argjson fps "$source_fps" '
     def parse_id:
-      (.meta.text // [])
+      ((.meta.text // []) | (if type == "array" then . else [.] end))
       | map(select(type == "string" and test("id:[0-9]+")))
       | map(match("id:([0-9]+)").captures[0].string)
       | first;
