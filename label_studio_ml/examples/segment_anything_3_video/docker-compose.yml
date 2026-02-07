@@ -6,6 +6,9 @@ services:
       context: .
       args:
         TEST_ENV: ${TEST_ENV:-}
+        CUDA_VERSION: ${CUDA_VERSION:-12.6.0}
+        UBUNTU_VERSION: ${UBUNTU_VERSION:-24.04}
+        TORCH_CUDA_INDEX: ${TORCH_CUDA_INDEX:-cu126}
     ipc: host
     environment:
       - DEVICE=cuda

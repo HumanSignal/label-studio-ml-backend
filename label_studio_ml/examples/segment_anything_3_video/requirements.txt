@@ -1,5 +1,6 @@
-torch>=2.5.0
-torchvision>=0.20.0
+# torch and torchvision are installed separately in the Dockerfile
+# with architecture-specific CUDA index URLs (cu126/cu130).
+# See Dockerfile ARG TORCH_CUDA_INDEX for details.
 numpy==2.0.2
 accelerate==1.12.0
 git+https://github.com/huggingface/transformers.git@393b4b3d28e29b4b05b19b4b7f3242a7fc893637

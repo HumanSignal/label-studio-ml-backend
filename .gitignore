@@ -152,3 +152,5 @@ label_studio_ml/examples/segment_anything_2_video/project198563_task230834354_an
 .DS_Store
 label_studio_ml/.DS_Store
 label_studio_ml/examples/.DS_Store
+label_studio_ml/examples/segment_anything_3_video/update_video_paths.py
+label_studio_ml/examples/segment_anything_2_video/update_video_paths.py
