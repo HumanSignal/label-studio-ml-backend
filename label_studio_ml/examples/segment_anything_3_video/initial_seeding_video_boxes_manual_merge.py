@@ -361,6 +361,227 @@ def _generate_backward_tracklet_sam3(
 
 
 # ---------------------------------------------------------------------------
+# Batched tracking: all seeds at a keyframe share one init_video_session
+# ---------------------------------------------------------------------------
+
+def _generate_batched_forward_tracklets_sam3(
+    *,
+    frames_list: List[Image.Image],
+    frame_idx_map: Dict[int, int],  # session_idx -> global_idx
+    seed_session_idx: int,
+    seed_boxes: List[np.ndarray],
+    score_threshold: float = 0.1,
+) -> List[Tuple[Dict[int, np.ndarray], Dict[int, float]]]:
+    """Generate forward tracklets for multiple seeds in one shared session.
+
+    Instead of creating N separate init_video_session calls (each re-encoding
+    all frames through the vision encoder), this registers all seeds as
+    distinct obj_ids in a single session.  The vision encoder runs once.
+
+    Args:
+        frames_list: Decoded PIL frames for the window.
+        frame_idx_map: session_idx -> global_idx mapping.
+        seed_session_idx: Session-local index of the seed frame (same for all seeds).
+        seed_boxes: List of box_xyxy arrays, one per seed.
+        score_threshold: Per-object early termination threshold.
+
+    Returns:
+        List of (fwd_boxes, fwd_scores) tuples, one per seed, in input order.
+    """
+    n_seeds = len(seed_boxes)
+    if not frames_list or n_seeds == 0:
+        return [({}, {}) for _ in range(n_seeds)]
+
+    seed_global = frame_idx_map.get(seed_session_idx)
+
+    # Pre-fill seed frame with original annotation boxes (score 1.0)
+    results: List[Tuple[Dict[int, np.ndarray], Dict[int, float]]] = []
+    for i in range(n_seeds):
+        fwd_boxes: Dict[int, np.ndarray] = {}
+        fwd_scores: Dict[int, float] = {}
+        if seed_global is not None:
+            fwd_boxes[seed_global] = seed_boxes[i].copy()
+            fwd_scores[seed_global] = 1.0
+        results.append((fwd_boxes, fwd_scores))
+
+    # Nothing to propagate if seed is the last frame
+    if seed_session_idx >= len(frames_list) - 1:
+        return results
+
+    sam3_model, sam3_processor = base._get_sam3_tracker_model()
+
+    # Single session — vision encoder runs once for all seeds
+    session = sam3_processor.init_video_session(
+        video=frames_list,
+        inference_device=base.DEVICE,
+        dtype=base.DTYPE,
+    )
+
+    width_img = frames_list[0].size[0]
+    height_img = frames_list[0].size[1]
+    inputs = sam3_processor(images=frames_list[seed_session_idx], device=base.DEVICE, return_tensors="pt")
+
+    # Register all seeds as distinct obj_ids at the seed frame
+    for i, box in enumerate(seed_boxes):
+        sam3_processor.add_inputs_to_inference_session(
+            session,
+            frame_idx=seed_session_idx,
+            obj_ids=[i],
+            input_boxes=[[box.tolist()]],
+            original_size=inputs.original_sizes[0],
+        )
+
+    # Run model on seed frame to register all objects in the session
+    with torch.inference_mode():
+        sam3_model(inference_session=session, frame=inputs.pixel_values[0])
+
+    # Per-object early termination state
+    consecutive_below = [0] * n_seeds
+    terminated = [False] * n_seeds
+
+    with torch.inference_mode():
+        for output in sam3_model.propagate_in_video_iterator(session, reverse=False):
+            session_idx = output.frame_idx
+            if session_idx <= seed_session_idx:
+                continue
+
+            global_idx = frame_idx_map.get(session_idx)
+            if global_idx is None:
+                continue
+
+            masks = sam3_processor.post_process_masks(
+                [output.pred_masks],
+                original_sizes=[[height_img, width_img]],
+                binarize=True,
+            )[0]
+
+            if output.object_ids is not None and len(output.object_ids) > 0:
+                obj_logits = getattr(output, "object_score_logits", None)
+                for i, obj_id in enumerate(output.object_ids):
+                    oid = int(obj_id)
+                    if oid >= n_seeds or terminated[oid]:
+                        continue
+
+                    per_obj_logits = obj_logits[i] if obj_logits is not None else None
+                    box, score = _mask_to_xyxy(masks[i], object_score_logits=per_obj_logits)
+
+                    if score is not None and score < score_threshold:
+                        consecutive_below[oid] += 1
+                        if consecutive_below[oid] >= 3:
+                            terminated[oid] = True
+                        continue
+
+                    consecutive_below[oid] = 0
+                    if box is not None:
+                        results[oid][0][global_idx] = box
+                        if score is not None:
+                            results[oid][1][global_idx] = score
+
+            if all(terminated):
+                break
+
+    return results
+
+
+def _generate_batched_backward_tracklets_sam3(
+    *,
+    frames_list: List[Image.Image],
+    frame_idx_map: Dict[int, int],  # session_idx -> global_idx
+    seed_session_idx: int,
+    seed_boxes: List[np.ndarray],
+    score_threshold: float = 0.1,
+) -> List[Tuple[Dict[int, np.ndarray], Dict[int, float]]]:
+    """Generate backward tracklets for multiple seeds in one shared session.
+
+    Same as forward variant but propagates in reverse.  Seed frame is NOT
+    included (forward owns it).
+
+    Returns:
+        List of (bwd_boxes, bwd_scores) tuples, one per seed, in input order.
+    """
+    n_seeds = len(seed_boxes)
+    if not frames_list or n_seeds == 0:
+        return [({}, {}) for _ in range(n_seeds)]
+
+    # Nothing to propagate backward if seed is the first frame
+    if seed_session_idx <= 0:
+        return [({}, {}) for _ in range(n_seeds)]
+
+    sam3_model, sam3_processor = base._get_sam3_tracker_model()
+
+    session = sam3_processor.init_video_session(
+        video=frames_list,
+        inference_device=base.DEVICE,
+        dtype=base.DTYPE,
+    )
+
+    width_img = frames_list[0].size[0]
+    height_img = frames_list[0].size[1]
+    inputs = sam3_processor(images=frames_list[seed_session_idx], device=base.DEVICE, return_tensors="pt")
+
+    for i, box in enumerate(seed_boxes):
+        sam3_processor.add_inputs_to_inference_session(
+            session,
+            frame_idx=seed_session_idx,
+            obj_ids=[i],
+            input_boxes=[[box.tolist()]],
+            original_size=inputs.original_sizes[0],
+        )
+
+    with torch.inference_mode():
+        sam3_model(inference_session=session, frame=inputs.pixel_values[0])
+
+    results: List[Tuple[Dict[int, np.ndarray], Dict[int, float]]] = [
+        ({}, {}) for _ in range(n_seeds)
+    ]
+    consecutive_below = [0] * n_seeds
+    terminated = [False] * n_seeds
+
+    with torch.inference_mode():
+        for output in sam3_model.propagate_in_video_iterator(session, reverse=True):
+            session_idx = output.frame_idx
+            if session_idx >= seed_session_idx:
+                continue
+
+            global_idx = frame_idx_map.get(session_idx)
+            if global_idx is None:
+                continue
+
+            masks = sam3_processor.post_process_masks(
+                [output.pred_masks],
+                original_sizes=[[height_img, width_img]],
+                binarize=True,
+            )[0]
+
+            if output.object_ids is not None and len(output.object_ids) > 0:
+                obj_logits = getattr(output, "object_score_logits", None)
+                for i, obj_id in enumerate(output.object_ids):
+                    oid = int(obj_id)
+                    if oid >= n_seeds or terminated[oid]:
+                        continue
+
+                    per_obj_logits = obj_logits[i] if obj_logits is not None else None
+                    box, score = _mask_to_xyxy(masks[i], object_score_logits=per_obj_logits)
+
+                    if score is not None and score < score_threshold:
+                        consecutive_below[oid] += 1
+                        if consecutive_below[oid] >= 3:
+                            terminated[oid] = True
+                        continue
+
+                    consecutive_below[oid] = 0
+                    if box is not None:
+                        results[oid][0][global_idx] = box
+                        if score is not None:
+                            results[oid][1][global_idx] = score
+
+            if all(terminated):
+                break
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Detection oracle (Layer 2: cross-check tracker output against Sam3VideoModel)
 # ---------------------------------------------------------------------------
 
@@ -740,22 +961,29 @@ def _run_sam3_tracking(
 
             score_threshold = getattr(args, "score_threshold", 0.1)
 
-            for seed in seeds:
-                fwd_boxes, fwd_scores = _generate_forward_tracklet_sam3(
-                    frames_list=win_frames,
-                    frame_idx_map=win_idx_map,
-                    seed_session_idx=kf_session,
-                    seed_box_xyxy=seed["box_xyxy"],
-                    score_threshold=score_threshold,
-                )
+            # Batched tracking: all seeds share one session per direction
+            # (vision encoder runs once instead of N times)
+            all_seed_boxes = [seed["box_xyxy"] for seed in seeds]
 
-                bwd_boxes, bwd_scores = _generate_backward_tracklet_sam3(
-                    frames_list=win_frames,
-                    frame_idx_map=win_idx_map,
-                    seed_session_idx=kf_session,
-                    seed_box_xyxy=seed["box_xyxy"],
-                    score_threshold=score_threshold,
-                )
+            fwd_results = _generate_batched_forward_tracklets_sam3(
+                frames_list=win_frames,
+                frame_idx_map=win_idx_map,
+                seed_session_idx=kf_session,
+                seed_boxes=all_seed_boxes,
+                score_threshold=score_threshold,
+            )
+
+            bwd_results = _generate_batched_backward_tracklets_sam3(
+                frames_list=win_frames,
+                frame_idx_map=win_idx_map,
+                seed_session_idx=kf_session,
+                seed_boxes=all_seed_boxes,
+                score_threshold=score_threshold,
+            )
+
+            for si, seed in enumerate(seeds):
+                fwd_boxes, fwd_scores = fwd_results[si]
+                bwd_boxes, bwd_scores = bwd_results[si]
 
                 # Apply oracle validation if available
                 if oracle_detections is not None:
@@ -769,7 +997,6 @@ def _run_sam3_tracking(
                         oracle_detections=oracle_detections,
                         iou_threshold=getattr(args, "overlap_iou_threshold", 0.3),
                     )
-                    # Prune scores to match validated boxes
                     fwd_scores = {k: v for k, v in fwd_scores.items() if k in fwd_boxes}
                     bwd_scores = {k: v for k, v in bwd_scores.items() if k in bwd_boxes}
 

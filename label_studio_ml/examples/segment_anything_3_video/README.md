@@ -12,7 +12,7 @@ categories:
     - Video Annotation
     - Object Detection
     - Segment Anything Model
-image: "/tutorials/sam2-video.png"
+image: "/tutorials/sam3-video.png"
 ---
 -->
 
@@ -33,7 +33,7 @@ see the [segment_anything_2_image repository](https://github.com/HumanSignal/lab
 | Object detection | Grounding DINO (separate repo + weights) | `Sam3VideoModel` with text prompts (`HINTS=true`) |
 | Instance tracking | `build_sam2_video_predictor` + keypoints hack | `Sam3TrackerVideoModel` with native box prompts |
 | Video decoding | OpenCV `cv2.VideoCapture` + JPEG extraction to disk | PyAV in-memory streaming |
-| Dockerfile | 104 lines, `devel` base, CUDA compilation | 19 lines, `runtime` base |
+| Dockerfile | 104 lines, `devel` base, CUDA compilation | ~49 lines, parameterized `devel` base, multi-arch build args |
 | Prompt format | 5 synthetic keypoints from bbox | Native xyxy bounding boxes |
 | Processing modes | Single (all frames to disk) | `streaming` (constant memory) or `chunked_batch` (bidirectional context) |
 
@@ -52,11 +52,30 @@ cd label_studio_ml/examples/segment_anything_3_video
 export LABEL_STUDIO_API_KEY="your-api-key"
 export HF_TOKEN="your-huggingface-token"  # if model is gated
 
-# Build and start
+# Build and start (amd64 / CUDA 12.6 defaults)
 docker compose up --build
 ```
 
 The model weights are downloaded automatically on first startup via `from_pretrained()`.
+
+### Multi-architecture support
+
+The Dockerfile is parameterized for different GPU architectures via build args:
+
+| Build Arg | Default (amd64 / RTX 6000) | DGX Spark (arm64) | Purpose |
+|-----------|---------------------------|-------------------|---------|
+| `CUDA_VERSION` | `12.6.0` | `13.0.1` | NVIDIA CUDA base image version |
+| `UBUNTU_VERSION` | `24.04` | `24.04` | Ubuntu base image version |
+| `TORCH_CUDA_INDEX` | `cu126` | `cu130` | PyTorch wheel index suffix |
+
+For DGX Spark (arm64 / CUDA 13.0):
+
+```bash
+cp .env.dgx-spark .env
+docker compose up --build -d
+```
+
+Or inline: `CUDA_VERSION=13.0.1 TORCH_CUDA_INDEX=cu130 docker compose up --build -d`
 
 ## Running from source
 
@@ -67,6 +86,13 @@ git clone https://github.com/HumanSignal/label-studio-ml-backend.git
 cd label-studio-ml-backend
 pip install -e .
 cd label_studio_ml/examples/segment_anything_3_video
+
+# Install PyTorch with the correct CUDA index for your GPU:
+#   cu126 for CUDA 12.6 (e.g., RTX 6000 Ada)
+#   cu130 for CUDA 13.0 (e.g., DGX Spark)
+pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu126
+
+# Install remaining dependencies (torch/torchvision are NOT in requirements.txt)
 pip install -r requirements.txt
 ```
 
@@ -128,6 +154,50 @@ Decodes frames one at a time via PyAV. Constant memory usage regardless of video
 
 Decodes all frames in `[start_frame, end_frame]` into memory at once. Provides bidirectional temporal context for better tracking quality. Use for shorter clips or when you have ample GPU memory.
 
+## Interview UI (Active Learning)
+
+The Interview UI is a browser-based active learning workflow for generating seed annotations. It runs as a Flask Blueprint at `/interview/` alongside the ML backend.
+
+**Access:** After `docker compose up`, open `http://<host>:9090/interview/`
+
+### Workflow Phases
+
+| Phase | What happens | User action |
+|-------|-------------|-------------|
+| **Init** | Create session with project/task IDs | Enter LS project + task ID |
+| **Detection** | SAM3 text-based detection on sampled keyframes | Review detected crops |
+| **Classification** | Train MLP classifier on accepted/rejected crops, run recall strategies | Label crops as accept/reject, trigger training |
+| **ReID** | Cluster crops by identity using DINOv3 features, sample pairwise comparisons | Judge pairs: same person / different / unsure |
+| **Seeding** | Generate dense seeds across all frames, upload to Label Studio | Configure interval + threshold, review + upload |
+
+After upload, seeds are created with `enabled=false` keyframes in Label Studio. Run the tracking CLI to fill gaps:
+
+```bash
+docker compose exec segment_anything_3_video python /app/initial_seeding_video_boxes_manual_merge.py \
+  --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" \
+  --project <ID> --task <ID> --annotation <ID> --max-frames-to-track 300
+```
+
+### Architecture
+
+- **Backend:** Flask Blueprint (`interview/routes.py`) with background job executor for long-running operations
+- **Frontend:** Vanilla JS SPA with hash-based routing, no framework dependencies
+- **Models used:** SAM3 (text-based detection), DINOv3 (`facebook/dinov2-large` for feature extraction), MLP classifier (trained in-browser session)
+- **State:** In-memory sessions with optional disk persistence to `/data/adapters/`
+
+### Backend Modules
+
+| Module | Purpose |
+|--------|---------|
+| `interview/routes.py` | REST endpoints + SPA serving |
+| `interview/state.py` | Session state management (phases, crops, clusters) |
+| `interview/background.py` | Thread-based job executor with progress polling |
+| `interview/cache_manager.py` | Disk persistence for sessions, features, models |
+| `interview/detection.py` | SAM3 text-based detection pipeline + NMS |
+| `interview/dinov3_classifier.py` | DINOv3 feature extraction + MLP classifier + feature search |
+| `interview/reid_phase.py` | Spherical K-means clustering + pairwise comparison sampling |
+| `interview/seeding_phase.py` | Dense seed generation + Label Studio upload |
+
 ## Configuration
 
 ### Core Environment Variables
@@ -147,7 +217,7 @@ Decodes all frames in `[start_frame, end_frame]` into memory at once. Provides b
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MAX_FRAMES_TO_TRACK` | `1000` | Hard limit for frames to track from first keyframe. `0` = no limit |
+| `MAX_FRAMES_TO_TRACK` | `0` | Max frames to track from first keyframe. `0` = unlimited |
 | `TRACK_FPS` | `0` | Temporal downsampling target FPS. `0` = use original FPS |
 
 - **Example**: Set `TRACK_FPS=2` to track only 2 frames per second, reducing processing time for high-FPS videos.
@@ -234,6 +304,9 @@ docker compose exec segment_anything_3_video python /app/initial_seeding_video_b
 | `--global-end` | No | last frame | Ending frame index (0-based inclusive) |
 | `--max-frames-to-track` | No | `300` | Max frames to track in each direction from keyframe |
 | `--frame-stride` | No | `1` | Sample every N frames (1 = no downsampling) |
+| `--score-threshold` | No | `0.1` | Minimum `object_score_logits` sigmoid score; 3 consecutive frames below this terminates tracking |
+| `--enable-oracle` | No | `False` | Run Sam3VideoModel text detection per window to cross-check tracker output |
+| `--oracle-stride` | No | `30` | Check every N-th frame with the oracle (lower = more thorough, slower) |
 | `--no-refine-seeds` | No | — | Disable seed box refinement (enabled by default) |
 | `--refine-search-scale` | No | `1.3` | Search scale for refinement (1.3 = 30% expansion) |
 | `--dry-run` | No | `False` | Print prediction JSON instead of uploading |
@@ -274,6 +347,9 @@ docker compose exec segment_anything_3_video python /app/initial_seeding_video_b
 | `--frame-stride` | No | `1` | Sample every N frames (1 = no downsampling) |
 | `--overlap-mode` | No | `iou-weighted` | Overlap resolution: `iou-weighted`, `weighted`, `winner` |
 | `--overlap-iou-threshold` | No | `0.3` | IoU threshold for iou-weighted mode |
+| `--score-threshold` | No | `0.1` | Minimum `object_score_logits` sigmoid score; 3 consecutive frames below this terminates tracking |
+| `--enable-oracle` | No | `False` | Run Sam3VideoModel text detection per window to cross-check tracker output |
+| `--oracle-stride` | No | `30` | Check every N-th frame with the oracle (lower = more thorough, slower) |
 | `--no-refine-seeds` | No | — | Disable seed box refinement (enabled by default) |
 | `--refine-search-scale` | No | `1.3` | Search scale for refinement (1.3 = 30% expansion) |
 | `--dump-payload` | No | `None` | Path to write submission payload JSON before upload |
@@ -281,20 +357,17 @@ docker compose exec segment_anything_3_video python /app/initial_seeding_video_b
 | `--dry-run` | No | `False` | Print prediction JSON instead of uploading |
 | `--log-level` | No | `INFO` | Logging level: DEBUG, INFO, WARNING, ERROR |
 
+**Performance:** Seeds at the same keyframe are tracked in a single batched session (multi-object `obj_ids`), so the vision encoder runs once per direction per keyframe window instead of once per seed. This gives ~Nx speedup where N is the average seeds per keyframe.
+
 **Submission behavior:** If `--track-id`, `--global-start`, and `--global-end` are all provided, the script patches the existing annotation; otherwise it creates a new prediction.
 
 ### 3. Simple Forward Tracking (`cli.py`)
 
 **Status**: Migrated to SAM3
 
-**Use case:** Simple "predict" functionality similar to the UI button. Tracks from start to finish linearly.
+**Use case:** Simple "predict" functionality similar to the UI Submit/Update button. Tracks from start to finish linearly.
 **Input:** Video task with at least one manual keyframe (bounding box) to start tracking from.
 **Method:** Uses SAM3 via model.py to load the entire video and propagate all keyframes at once. Best for short clips.
-
-**Example:**
-```bash
-docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789
-```
 
 **Arguments:**
 
@@ -305,8 +378,35 @@ docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL
 | `--project` | Yes | — | Project ID |
 | `--task` | Yes | — | Task ID |
 | `--annotation` | Yes | — | Annotation ID with keyframes |
-| `--max-frames` | No | `0` | Max frames to track (0 = unlimited) |
-| `--log-level` | No | `INFO` | Logging level: DEBUG, INFO, WARNING, ERROR |
+| `--device` | No | env `DEVICE` or `cuda` | Compute device (`cuda` or `cpu`) |
+| `--hints` | No | env `HINTS` or `false` | `true` = Sam3VideoModel (text detection), `false` = Sam3TrackerVideoModel (box tracking) |
+| `--model-name` | No | env `MODEL_NAME` or `facebook/sam3` | HuggingFace model ID |
+| `--processing-mode` | No | env `PROCESSING_MODE` or `streaming` | `streaming` (constant memory) or `chunked_batch` (all frames in memory) |
+| `--track-fps` | No | env `TRACK_FPS` or `0` | Target FPS for temporal downsampling (`0` = no downsampling) |
+| `--prompt-text` | No | env `PROMPT_TEXT` or `person` | Text prompt for detection (only used when `--hints true`) |
+| `--max-frames` | No | env `MAX_FRAMES_TO_TRACK` or `0` | Max frames to track (`0` = unlimited) |
+| `--log-level` | No | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+> **Override semantics:** Optional flags only override the corresponding environment variable when explicitly provided. If omitted, the value from docker-compose.yml (or the system environment) is preserved. This lets you set defaults in docker-compose.yml and override per-run from the CLI.
+
+**Examples:**
+
+```bash
+# Basic tracking (uses env defaults from docker-compose.yml)
+docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789
+
+# Limit to 500 frames with debug logging
+docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789 --max-frames 500 --log-level DEBUG
+
+# Text-detection mode (Sam3VideoModel, no manual boxes required)
+docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789 --hints true --prompt-text "person"
+
+# Chunked batch mode with temporal downsampling to 5 FPS
+docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789 --processing-mode chunked_batch --track-fps 5
+
+# Run on CPU (e.g. for testing)
+docker compose exec segment_anything_3_video python /app/cli.py --ls-url "$LABEL_STUDIO_HOST" --ls-api-key "$LABEL_STUDIO_API_KEY" --project 123 --task 456 --annotation 789 --device cpu --max-frames 50
+```
 
 ### 4. Post-Processing Tools (`video_tools.py`)
 

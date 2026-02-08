@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
 
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
+# PEP 668: Ubuntu 24.04 marks system Python as externally-managed.
+# Safe to remove in a container — there are no OS packages to conflict with.
+RUN rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
 RUN pip install --upgrade pip setuptools wheel
 
 WORKDIR /app

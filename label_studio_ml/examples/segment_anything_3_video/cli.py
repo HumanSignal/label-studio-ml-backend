@@ -204,22 +204,46 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Track a video with keyframes
-  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY \\
-                --project 123 --task 456 --annotation 789
+  # Basic tracking (uses env defaults from docker-compose.yml)
+  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY --project 123 --task 456 --annotation 789
 
-  # Limit tracking to 100 frames
-  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY \\
-                --project 123 --task 456 --annotation 789 --max-frames 100
+  # Limit to 500 frames with debug logging
+  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY --project 123 --task 456 --annotation 789 --max-frames 500 --log-level DEBUG
+
+  # Text-detection mode (Sam3VideoModel with text prompts)
+  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY --project 123 --task 456 --annotation 789 --hints true --prompt-text "person"
+
+  # Chunked batch mode with temporal downsampling
+  python cli.py --ls-url https://app.heartex.com --ls-api-key YOUR_KEY --project 123 --task 456 --annotation 789 --processing-mode chunked_batch --track-fps 5
         """
     )
 
+    # -- Required: Label Studio connection --
     parser.add_argument('--ls-url', required=True, help='Label Studio URL (e.g., https://app.heartex.com)')
     parser.add_argument('--ls-api-key', required=True, help='Label Studio API key')
     parser.add_argument('--project', type=int, required=True, help='Project ID')
     parser.add_argument('--task', type=int, required=True, help='Task ID to process')
     parser.add_argument('--annotation', type=int, required=True, help='Annotation ID with keyframes')
-    parser.add_argument('--max-frames', type=int, default=0, help='Max frames to track (0 = unlimited)')
+
+    # -- Optional: model and tracking configuration --
+    parser.add_argument('--device', default=None,
+                       help='Compute device (default: env DEVICE or "cuda")')
+    parser.add_argument('--hints', choices=['true', 'false'], default=None,
+                       help='Text-detection mode: true=Sam3VideoModel, false=Sam3TrackerVideoModel '
+                            '(default: env HINTS or "false")')
+    parser.add_argument('--model-name', default=None,
+                       help='HuggingFace model ID (default: env MODEL_NAME or "facebook/sam3")')
+    parser.add_argument('--processing-mode', choices=['streaming', 'chunked_batch'], default=None,
+                       help='Processing mode (default: env PROCESSING_MODE or "streaming")')
+    parser.add_argument('--track-fps', type=float, default=None,
+                       help='Target FPS for temporal downsampling, 0=no downsampling '
+                            '(default: env TRACK_FPS or 0)')
+    parser.add_argument('--prompt-text', default=None,
+                       help='Text prompt for detection when --hints=true '
+                            '(default: env PROMPT_TEXT or "person")')
+    parser.add_argument('--max-frames', type=int, default=0,
+                       help='Max frames to track, 0=unlimited '
+                            '(default: env MAX_FRAMES_TO_TRACK or 0)')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
                        default='INFO', help='Logging level')
 
@@ -231,6 +255,29 @@ Examples:
     # Setup signal handlers
     setup_signal_handlers()
 
+    # ------------------------------------------------------------------
+    # Set environment variables from CLI args BEFORE any model imports.
+    # model.py reads env vars at module-import time, so these must be
+    # set before ``from model import NewModel`` and validate_environment.
+    # Only override when the user explicitly provided the flag; otherwise
+    # the existing env (e.g. from docker-compose.yml) is preserved.
+    # ------------------------------------------------------------------
+    if args.device is not None:
+        os.environ['DEVICE'] = args.device
+    if args.hints is not None:
+        os.environ['HINTS'] = args.hints
+    if args.model_name is not None:
+        os.environ['MODEL_NAME'] = args.model_name
+    if args.processing_mode is not None:
+        os.environ['PROCESSING_MODE'] = args.processing_mode
+    if args.track_fps is not None:
+        os.environ['TRACK_FPS'] = str(args.track_fps)
+    if args.prompt_text is not None:
+        os.environ['PROMPT_TEXT'] = args.prompt_text
+    if args.max_frames > 0:
+        os.environ['MAX_FRAMES_TO_TRACK'] = str(args.max_frames)
+
+    # Log effective configuration (CLI override → env → default)
     logger.info('='*80)
     logger.info('SAM3 VIDEO CLI STARTED')
     logger.info('='*80)
@@ -239,6 +286,12 @@ Examples:
     logger.info(f'   Project ID: {args.project}')
     logger.info(f'   Task ID: {args.task}')
     logger.info(f'   Annotation ID: {args.annotation}')
+    logger.info(f'   Device: {os.getenv("DEVICE", "cuda")}')
+    logger.info(f'   Hints: {os.getenv("HINTS", "false")}')
+    logger.info(f'   Model: {os.getenv("MODEL_NAME", "facebook/sam3")}')
+    logger.info(f'   Processing mode: {os.getenv("PROCESSING_MODE", "streaming")}')
+    logger.info(f'   Track FPS: {os.getenv("TRACK_FPS", "0")}')
+    logger.info(f'   Prompt text: {os.getenv("PROMPT_TEXT", "") or "(empty)"}')
     logger.info(f'   Max frames: {args.max_frames if args.max_frames > 0 else "unlimited"}')
     logger.info('='*80)
 
@@ -275,11 +328,6 @@ Examples:
         # Initialize model
         logger.info('Initializing SAM3 model...')
         from model import NewModel
-
-        # Override MAX_FRAMES_TO_TRACK if specified
-        if args.max_frames > 0:
-            os.environ['MAX_FRAMES_TO_TRACK'] = str(args.max_frames)
-            logger.info(f'Set MAX_FRAMES_TO_TRACK={args.max_frames}')
 
         model = NewModel(label_config=label_config)
         logger.info('Model initialized')

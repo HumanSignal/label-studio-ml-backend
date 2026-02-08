@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAM3 Interview UI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="top-nav">
+    <span class="nav-title">SAM3 Interview UI</span>
+    <ol class="phase-indicator">
+      <li class="phase-dot" data-phase="init">
+        <span class="dot"></span>
+        <span class="phase-label">Init</span>
+      </li>
+      <li class="phase-dot" data-phase="detection">
+        <span class="dot"></span>
+        <span class="phase-label">Detection</span>
+      </li>
+      <li class="phase-dot" data-phase="classification">
+        <span class="dot"></span>
+        <span class="phase-label">Classification</span>
+      </li>
+      <li class="phase-dot" data-phase="reid">
+        <span class="dot"></span>
+        <span class="phase-label">ReID</span>
+      </li>
+      <li class="phase-dot" data-phase="seeding">
+        <span class="dot"></span>
+        <span class="phase-label">Seeding</span>
+      </li>
+    </ol>
+  </nav>
+
+  <main id="app"></main>
+
+  <div id="toast-container" aria-live="polite"></div>
+
+  <div id="modal-container" aria-hidden="true"></div>
+
+  <script src="app.js" defer></script>
+  <script src="components.js" defer></script>
+  <script src="reid_ui.js" defer></script>
+  <script src="seeding_ui.js" defer></script>
+</body>
+</html>

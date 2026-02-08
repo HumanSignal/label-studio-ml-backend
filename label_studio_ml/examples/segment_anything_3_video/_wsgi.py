@@ -161,6 +161,14 @@ if __name__ == "__main__":
 
     app = init_app(model_class=NewModel, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
 
+    # Register Interview UI Blueprint
+    try:
+        from interview import interview_bp
+        app.register_blueprint(interview_bp)
+        logging.getLogger(__name__).info("Interview UI registered at /interview")
+    except Exception as e:
+        logging.getLogger(__name__).warning("Interview UI not available: %s", e)
+
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
@@ -172,3 +180,11 @@ else:
         # Continue anyway for uWSGI - errors will be caught on first request
 
     app = init_app(model_class=NewModel)
+
+    # Register Interview UI Blueprint
+    try:
+        from interview import interview_bp
+        app.register_blueprint(interview_bp)
+        logging.getLogger(__name__).info("Interview UI registered at /interview")
+    except Exception as e:
+        logging.getLogger(__name__).warning("Interview UI not available: %s", e)

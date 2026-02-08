@@ -72,7 +72,7 @@ def check_gpu_health():
 DEVICE = os.getenv('DEVICE', 'cuda')
 HINTS = os.getenv('HINTS', 'false').lower() == 'true'
 MODEL_NAME = os.getenv('MODEL_NAME', 'facebook/sam3')
-MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 1000))
+MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 0))
 TRACK_FPS = float(os.getenv('TRACK_FPS', '0'))
 PROCESSING_MODE = os.getenv('PROCESSING_MODE', 'streaming')
 PROMPT_TEXT = os.getenv('PROMPT_TEXT', '')

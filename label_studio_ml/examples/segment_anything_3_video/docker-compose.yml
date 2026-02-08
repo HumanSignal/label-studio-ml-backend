@@ -17,7 +17,7 @@ services:
       - PROCESSING_MODE=streaming
       - PROMPT_TEXT=person
       - HF_TOKEN=${HF_TOKEN}
-      - MAX_FRAMES_TO_TRACK=6000
+      - MAX_FRAMES_TO_TRACK=0
       - TRACK_FPS=2
       - LABEL_STUDIO_HOST=https://app.heartex.com
       - LABEL_STUDIO_URL=https://app.heartex.com
