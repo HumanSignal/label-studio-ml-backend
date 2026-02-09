@@ -544,7 +544,7 @@ def _embed_batch_sam3(
     out: List[np.ndarray] = []
     for frame in frames:
         embed = _extract_sam3_image_embedding(sam3_model, sam3_processor, frame)
-        out.append(embed.detach().cpu().numpy())
+        out.append(embed.detach().cpu().float().numpy())
     return np.concatenate(out, axis=0)
 
 

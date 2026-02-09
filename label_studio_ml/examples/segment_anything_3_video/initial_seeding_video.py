@@ -250,7 +250,7 @@ def _get_crop_embedding(
         return None
     crop = pil_image.crop((x1, y1, x2, y2))
     embed = base._extract_sam3_image_embedding(sam3_model, sam3_processor, crop)
-    return embed.detach().cpu().numpy().flatten()
+    return embed.detach().cpu().float().numpy().flatten()
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:

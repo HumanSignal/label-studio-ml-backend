@@ -731,7 +731,7 @@ def _compute_track_features_sam3(
             # fpn_hidden_states[0]: highest-res FPN feature (B, C, H, W)
             feat = vision_output.fpn_hidden_states[0]
             if hasattr(feat, "detach"):
-                emb_batch = feat.mean(dim=(2, 3)).detach().cpu().numpy()
+                emb_batch = feat.mean(dim=(2, 3)).detach().cpu().float().numpy()
             else:
                 emb_batch = feat.mean(axis=(2, 3))
 
