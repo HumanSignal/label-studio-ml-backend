@@ -578,6 +578,16 @@ def _embed_batch_sam3(
         return np.concatenate([a, b], axis=0)
 
 
+class _SuppressBelowWarning(logging.Filter):
+    """Filter that suppresses log records below WARNING.
+
+    Added temporarily to handlers during bulk embedding to reduce noise
+    without mutating global logger levels (which is not thread-safe).
+    """
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno >= logging.WARNING
+
+
 def _do_embed_all_frames(
     video_path: str,
     batch_size: int,
@@ -587,6 +597,11 @@ def _do_embed_all_frames(
 
     Uses a prefetch thread to decode frames via PyAV concurrently with GPU
     inference, keeping the GPU fed and avoiding decode-wait bottlenecks.
+
+    The decode thread owns the container lifecycle — it opens, decodes, and
+    closes the container.  The main thread never touches the container,
+    eliminating the race condition where ``container.close()`` could be
+    called while the decode thread is still reading.
 
     Args:
         video_path:        Path to the video file.
@@ -602,36 +617,38 @@ def _do_embed_all_frames(
 
     sam3_model, sam3_processor = _get_sam3_image_model()
 
-    container = av.open(video_path)
-    stream = container.streams.video[0]
-    total_frames = stream.frames
-    if not total_frames and stream.duration and stream.time_base:
-        fps_est = float(stream.average_rate) if stream.average_rate else 30.0
-        total_frames = int(float(stream.duration * stream.time_base) * fps_est)
+    # Probe total_frames from a quick container open (closed immediately).
+    probe = av.open(video_path)
+    probe_stream = probe.streams.video[0]
+    total_frames = probe_stream.frames
+    if not total_frames and probe_stream.duration and probe_stream.time_base:
+        fps_est = float(probe_stream.average_rate) if probe_stream.average_rate else 30.0
+        total_frames = int(float(probe_stream.duration * probe_stream.time_base) * fps_est)
+    probe.close()
 
-    # -- Prefetch thread: decode frames into a bounded queue --
+    # -- Prefetch thread: owns its own container, decodes into a bounded queue --
     frame_queue: queue.Queue = queue.Queue(maxsize=batch_size * 2)
     _SENTINEL = None  # signals end-of-video
 
     def _decode_worker():
+        container = av.open(video_path)
         try:
             for av_frame in container.decode(video=0):
                 frame_queue.put(av_frame.to_image())
         except Exception as exc:
             logger.error("Prefetch decode error: %s", exc)
         finally:
+            container.close()
             frame_queue.put(_SENTINEL)
 
     decode_thread = threading.Thread(target=_decode_worker, daemon=True, name="embed-prefetch")
     decode_thread.start()
 
-    # Suppress noisy logging during bulk embedding
+    # Suppress noisy logging during bulk embedding using a filter (thread-safe)
+    _suppress_filter = _SuppressBelowWarning()
     root_logger = logging.getLogger()
-    original_level = root_logger.level
-    original_handler_levels = [(h, h.level) for h in root_logger.handlers]
-    root_logger.setLevel(logging.WARNING)
     for h in root_logger.handlers:
-        h.setLevel(logging.WARNING)
+        h.addFilter(_suppress_filter)
 
     try:
         embeds: List[np.ndarray] = []
@@ -669,11 +686,9 @@ def _do_embed_all_frames(
     finally:
         decode_thread.join(timeout=30)
         if decode_thread.is_alive():
-            logger.warning("Prefetch decode thread did not finish in 30s, closing container anyway")
-        container.close()
-        root_logger.setLevel(original_level)
-        for h, lvl in original_handler_levels:
-            h.setLevel(lvl)
+            logger.warning("Prefetch decode thread did not finish in 30s")
+        for h in root_logger.handlers:
+            h.removeFilter(_suppress_filter)
 
 
 def _compute_sam3_frame_embeddings(

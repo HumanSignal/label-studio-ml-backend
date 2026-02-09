@@ -234,18 +234,29 @@ def uniform_indices(total: int, k: int) -> List[int]:
     return [int(round(i * (total - 1) / (k - 1))) for i in range(k)]
 
 
+_MAX_DECODE_AFTER_SEEK = int(os.getenv("INTERVIEW_MAX_DECODE_AFTER_SEEK", "500"))
+
+
 def _decode_frames_sequential(
     video_path: str,
     frame_indices: List[int],
+    max_decode_after_seek: int = _MAX_DECODE_AFTER_SEEK,
 ) -> Dict[int, Image.Image]:
-    """Decode specific frames via one sequential PyAV pass (no random seeking).
+    """Decode specific frames using keyframe-seeking for widely-spaced targets.
 
-    Much faster than N independent ``_read_frame_pyav`` calls which each
-    open/seek/close the container independently.
+    For each target frame, seeks to the nearest prior keyframe and then
+    decodes forward to the exact frame.  This avoids decoding every frame
+    in the video (which for 30K frames takes ~10 minutes) when only ~40
+    uniformly-spaced frames are needed.
+
+    A safety limit (``max_decode_after_seek``) caps how many frames we
+    decode after each seek.  If the target isn't found within that window
+    the frame is skipped and a warning is logged.
 
     Args:
-        video_path:    Path to video file.
-        frame_indices: Sorted list of 0-based frame indices to decode.
+        video_path:             Path to video file.
+        frame_indices:          List of 0-based frame indices to decode (need not be sorted).
+        max_decode_after_seek:  Maximum frames to decode after each seek before giving up.
 
     Returns:
         Dict mapping frame_idx -> PIL Image.
@@ -253,21 +264,63 @@ def _decode_frames_sequential(
     if not frame_indices:
         return {}
 
-    target_set = set(frame_indices)
     result: Dict[int, Image.Image] = {}
-    max_target = max(target_set)
+    sorted_targets = sorted(set(frame_indices))
 
     container = av.open(video_path)
     try:
-        frame_count = 0
-        for av_frame in container.decode(video=0):
-            if frame_count in target_set:
-                result[frame_count] = av_frame.to_image()
-                if len(result) == len(target_set):
-                    break  # got all we need
-            if frame_count > max_target:
-                break
-            frame_count += 1
+        stream = container.streams.video[0]
+        fps = float(stream.average_rate) if stream.average_rate else 30.0
+        time_base = stream.time_base
+
+        for target_idx in sorted_targets:
+            # Seek to just before the target frame.  PyAV seeks to the
+            # nearest prior keyframe, then we decode forward.
+            target_pts = int(target_idx / fps / time_base)
+            container.seek(target_pts, stream=stream)
+
+            frame_count_after_seek = None
+            decoded_count = 0
+            found = False
+            for av_frame in container.decode(video=0):
+                decoded_count += 1
+                # After seek, the first decoded frame is the keyframe at or
+                # before our target.  We figure out which frame index it is
+                # from its pts, then count forward.
+                if frame_count_after_seek is None:
+                    if av_frame.pts is not None and time_base:
+                        frame_count_after_seek = int(
+                            round(float(av_frame.pts * time_base) * fps)
+                        )
+                    else:
+                        # Fallback: assume seek landed on target (best effort)
+                        frame_count_after_seek = target_idx
+
+                if frame_count_after_seek == target_idx:
+                    result[target_idx] = av_frame.to_image()
+                    found = True
+                    break
+                elif frame_count_after_seek > target_idx:
+                    # Overshot (rare, can happen with some codecs) — take it
+                    result[target_idx] = av_frame.to_image()
+                    found = True
+                    break
+
+                frame_count_after_seek += 1
+
+                if decoded_count >= max_decode_after_seek:
+                    break
+
+            if not found:
+                logger.warning(
+                    "Could not find frame %d after decoding %d frames post-seek; skipping",
+                    target_idx, decoded_count,
+                )
+
+        logger.info(
+            "Decoded %d / %d target frames via seek from %s",
+            len(result), len(sorted_targets), video_path,
+        )
     finally:
         container.close()
 
@@ -284,10 +337,14 @@ def _detect_batch(
     nms_iou: float = DEFAULT_NMS_IOU_THRESHOLD,
     pad_frac: float = DEFAULT_PAD_FRAC,
 ) -> List[CropData]:
-    """Run batched detection on multiple pre-decoded frames.
+    """Run batched detection on pre-decoded frames.
 
-    Groups frames into batches of ``batch_size``, runs the Sam3 model in a
-    single forward pass per batch, then post-processes per-image.
+    Groups frames into batches of ``batch_size`` and runs the Sam3 model
+    in a single forward pass per batch.  The processor requires ``text``
+    to be a **list of prompts** (one per image) for batched inference —
+    we replicate the same prompt for every image in the batch.
+
+    Falls back to per-frame inference on OOM.
 
     Args:
         detector:   Sam3TextBasedDetector instance.
@@ -309,17 +366,22 @@ def _detect_batch(
         batch_indices = sorted_indices[batch_start:batch_start + batch_size]
         batch_images = [frames[idx] for idx in batch_indices]
 
-        # Batch preprocess + inference
+        # Key: text must be a list of prompts, one per image
+        text_prompts = [prompt] * len(batch_images)
+
         try:
             inputs = detector.processor(
-                images=batch_images, text=prompt, return_tensors="pt",
+                images=batch_images, text=text_prompts, return_tensors="pt",
             ).to(DEVICE)
 
             with torch.inference_mode(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
                 outputs = detector.model(**inputs)
 
-            # Build per-image target sizes
-            target_sizes = [[img.height, img.width] for img in batch_images]
+            # Use original_sizes from processor if available, else compute
+            if inputs.get("original_sizes") is not None:
+                target_sizes = inputs.get("original_sizes").tolist()
+            else:
+                target_sizes = [[img.height, img.width] for img in batch_images]
 
             batch_results = detector.processor.post_process_instance_segmentation(
                 outputs,
@@ -334,7 +396,6 @@ def _detect_batch(
                 "OOM during batch detection (batch_size=%d), falling back to per-frame",
                 len(batch_images),
             )
-            # Fallback: detect one frame at a time
             for idx in batch_indices:
                 crops = _detect_single_frame(
                     detector, frames[idx], prompt, idx, width, height,
