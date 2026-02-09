@@ -141,6 +141,9 @@ def save_session(session: InterviewSession) -> None:
         "training_epochs": session.training_epochs,
         "training_accuracy": session.training_accuracy,
         "n_identities": session.n_identities,
+        "embedding_job_id": session.embedding_job_id,
+        "embedding_complete": session.embedding_complete,
+        "change_keyframes": session.change_keyframes,
         "created_at": session.created_at,
         "updated_at": session.updated_at,
         "seed_config": {
@@ -209,6 +212,9 @@ def load_session(cache_key: str) -> Optional[InterviewSession]:
         training_epochs=config.get("training_epochs", 0),
         training_accuracy=config.get("training_accuracy", 0.0),
         n_identities=config.get("n_identities", 0),
+        embedding_job_id=config.get("embedding_job_id"),
+        embedding_complete=config.get("embedding_complete", False),
+        change_keyframes=config.get("change_keyframes", []),
         created_at=config.get("created_at", time.time()),
         updated_at=config.get("updated_at", time.time()),
     )

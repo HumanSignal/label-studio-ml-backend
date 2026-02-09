@@ -540,12 +540,140 @@ def _embed_batch_sam3(
     sam3_processor,
     frames: List[Image.Image],
 ) -> np.ndarray:
-    """Embed a batch of PIL frames using Sam3Model."""
-    out: List[np.ndarray] = []
-    for frame in frames:
-        embed = _extract_sam3_image_embedding(sam3_model, sam3_processor, frame)
-        out.append(embed.detach().cpu().float().numpy())
-    return np.concatenate(out, axis=0)
+    """Embed a batch of PIL frames using Sam3Model with true GPU batching.
+
+    Preprocesses all frames in `frames` into a single tensor and runs one
+    forward pass through the vision encoder, then global-average-pools each
+    FPN feature map to produce (B, C) embeddings.
+
+    Falls back to half-batch on OOM, recursively, until batch_size=1 at
+    which point the single-image path is used.
+    """
+    if len(frames) == 0:
+        return np.zeros((0, 1), dtype=np.float32)
+
+    if len(frames) == 1:
+        embed = _extract_sam3_image_embedding(sam3_model, sam3_processor, frames[0])
+        return embed.detach().cpu().float().numpy()
+
+    try:
+        inputs = sam3_processor(images=frames, return_tensors="pt").to(DEVICE)
+        with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
+            vision_output = sam3_model.get_vision_features(
+                pixel_values=inputs.pixel_values
+            )
+        feat = vision_output.fpn_hidden_states[0]  # (B, C, H, W)
+        pooled = _global_pool_embed(feat)           # (B, C)
+        return pooled.detach().cpu().float().numpy()
+    except torch.cuda.OutOfMemoryError:
+        if DEVICE == "cuda":
+            torch.cuda.empty_cache()
+        half = len(frames) // 2
+        logger.warning(
+            "OOM with batch_size=%d, retrying with two halves of %d and %d",
+            len(frames), half, len(frames) - half,
+        )
+        a = _embed_batch_sam3(sam3_model, sam3_processor, frames[:half])
+        b = _embed_batch_sam3(sam3_model, sam3_processor, frames[half:])
+        return np.concatenate([a, b], axis=0)
+
+
+def _do_embed_all_frames(
+    video_path: str,
+    batch_size: int,
+    progress_callback: Optional[Any] = None,
+) -> np.ndarray:
+    """Embed every frame of a video using GPU-batched SAM3 vision encoder.
+
+    Uses a prefetch thread to decode frames via PyAV concurrently with GPU
+    inference, keeping the GPU fed and avoiding decode-wait bottlenecks.
+
+    Args:
+        video_path:        Path to the video file.
+        batch_size:        Number of frames per GPU forward pass.
+        progress_callback: Optional callable(current: int, total: int) for
+                           progress reporting (e.g. from Interview UI).
+
+    Returns:
+        (N, C) float16 numpy array of per-frame embeddings.
+    """
+    import queue
+    import threading
+
+    sam3_model, sam3_processor = _get_sam3_image_model()
+
+    container = av.open(video_path)
+    stream = container.streams.video[0]
+    total_frames = stream.frames
+    if not total_frames and stream.duration and stream.time_base:
+        fps_est = float(stream.average_rate) if stream.average_rate else 30.0
+        total_frames = int(float(stream.duration * stream.time_base) * fps_est)
+
+    # -- Prefetch thread: decode frames into a bounded queue --
+    frame_queue: queue.Queue = queue.Queue(maxsize=batch_size * 2)
+    _SENTINEL = None  # signals end-of-video
+
+    def _decode_worker():
+        try:
+            for av_frame in container.decode(video=0):
+                frame_queue.put(av_frame.to_image())
+        except Exception as exc:
+            logger.error("Prefetch decode error: %s", exc)
+        finally:
+            frame_queue.put(_SENTINEL)
+
+    decode_thread = threading.Thread(target=_decode_worker, daemon=True, name="embed-prefetch")
+    decode_thread.start()
+
+    # Suppress noisy logging during bulk embedding
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    original_handler_levels = [(h, h.level) for h in root_logger.handlers]
+    root_logger.setLevel(logging.WARNING)
+    for h in root_logger.handlers:
+        h.setLevel(logging.WARNING)
+
+    try:
+        embeds: List[np.ndarray] = []
+        frames_batch: List[Image.Image] = []
+        frames_done = 0
+
+        while True:
+            item = frame_queue.get()
+            if item is _SENTINEL:
+                break
+            frames_batch.append(item)
+
+            if len(frames_batch) >= batch_size:
+                embeds.append(_embed_batch_sam3(sam3_model, sam3_processor, frames_batch))
+                frames_done += len(frames_batch)
+                frames_batch = []
+                if progress_callback is not None:
+                    progress_callback(frames_done, total_frames or frames_done)
+
+        if frames_batch:
+            embeds.append(_embed_batch_sam3(sam3_model, sam3_processor, frames_batch))
+            frames_done += len(frames_batch)
+            if progress_callback is not None:
+                progress_callback(frames_done, total_frames or frames_done)
+
+        if not embeds:
+            raise InitialSeedingError("No frames read from video for embedding computation")
+
+        stacked = np.concatenate(embeds, axis=0).astype("float16")
+        logger.info(
+            "Computed SAM3 embeddings for %d frames (shape=%s)",
+            stacked.shape[0], stacked.shape,
+        )
+        return stacked
+    finally:
+        decode_thread.join(timeout=30)
+        if decode_thread.is_alive():
+            logger.warning("Prefetch decode thread did not finish in 30s, closing container anyway")
+        container.close()
+        root_logger.setLevel(original_level)
+        for h, lvl in original_handler_levels:
+            h.setLevel(lvl)
 
 
 def _compute_sam3_frame_embeddings(
@@ -553,66 +681,32 @@ def _compute_sam3_frame_embeddings(
     video_path: str,
     batch_size: int,
     cache_dir: str,
+    progress_callback: Optional[Any] = None,
 ) -> np.ndarray:
-    """Compute per-frame SAM3 image embeddings with joblib caching and PyAV decode."""
+    """Compute per-frame SAM3 image embeddings with joblib caching.
+
+    Delegates to :func:`_do_embed_all_frames` which uses a prefetch thread
+    for PyAV decoding and GPU-batched inference.
+
+    Args:
+        video_id:          Stable cache key for this video.
+        video_path:        Filesystem path to video.
+        batch_size:        Frames per GPU batch.
+        cache_dir:         Joblib cache directory.
+        progress_callback: Optional callable(current, total) for UI progress.
+    """
     memory = Memory(cache_dir, verbose=0)
 
-    @memory.cache(ignore=["video_path_arg", "batch_size_arg"])
-    def _cached_compute(video_id_key: str, video_path_arg: str, batch_size_arg: int) -> np.ndarray:
-        from tqdm import tqdm
+    @memory.cache(ignore=["video_path_arg", "batch_size_arg", "progress_cb"])
+    def _cached_compute(
+        video_id_key: str,
+        video_path_arg: str,
+        batch_size_arg: int,
+        progress_cb: Optional[Any] = None,
+    ) -> np.ndarray:
+        return _do_embed_all_frames(video_path_arg, batch_size_arg, progress_cb)
 
-        sam3_model, sam3_processor = _get_sam3_image_model()
-
-        container = av.open(video_path_arg)
-        stream = container.streams.video[0]
-        total_frames = stream.frames
-        if not total_frames and stream.duration and stream.time_base:
-            fps_est = float(stream.average_rate) if stream.average_rate else 30.0
-            total_frames = int(float(stream.duration * stream.time_base) * fps_est)
-
-        # Suppress logging during batch embedding
-        root_logger = logging.getLogger()
-        original_level = root_logger.level
-        original_handler_levels = [(h, h.level) for h in root_logger.handlers]
-        root_logger.setLevel(logging.WARNING)
-        for h in root_logger.handlers:
-            h.setLevel(logging.WARNING)
-
-        try:
-            embeds: List[np.ndarray] = []
-            frames_batch: List[Image.Image] = []
-
-            with tqdm(total=total_frames, desc="Embedding frames", unit="frame") as pbar:
-                for frame in container.decode(video=0):
-                    pil_img = frame.to_image()
-                    frames_batch.append(pil_img)
-
-                    if len(frames_batch) >= batch_size_arg:
-                        embeds.append(_embed_batch_sam3(sam3_model, sam3_processor, frames_batch))
-                        pbar.update(len(frames_batch))
-                        frames_batch = []
-
-                if frames_batch:
-                    embeds.append(_embed_batch_sam3(sam3_model, sam3_processor, frames_batch))
-                    pbar.update(len(frames_batch))
-
-            if not embeds:
-                raise InitialSeedingError("No frames read from video for embedding computation")
-
-            stacked = np.concatenate(embeds, axis=0).astype("float16")
-            logger.info(
-                "Computed SAM3 embeddings for %d frames (shape=%s)",
-                stacked.shape[0],
-                stacked.shape,
-            )
-            return stacked
-        finally:
-            container.close()
-            root_logger.setLevel(original_level)
-            for h, lvl in original_handler_levels:
-                h.setLevel(lvl)
-
-    return _cached_compute(video_id, video_path, batch_size)
+    return _cached_compute(video_id, video_path, batch_size, progress_callback)
 
 
 # ---------------------------------------------------------------------------

@@ -234,7 +234,12 @@ def session_video_info(session_id: str):
 
 @interview_bp.route("/api/detect/start", methods=["POST"])
 def detect_start():
-    """Start detection job: sample frames, detect, NMS, extract features, cluster."""
+    """Start two-phase detection: fast Stage 1 + background embedding.
+
+    Stage 1 (fast): uniform-sample ~40 frames, batch-detect, return crops.
+    Background: GPU-batch embed all frames, run change detection.
+    Returns both job IDs so the frontend can poll each independently.
+    """
     data = request.get_json(force=True)
     session_id = data["session_id"]
     prompt = data.get("prompt", "person")
@@ -243,12 +248,57 @@ def detect_start():
     if session is None:
         return jsonify({"error": "Session not found"}), 404
 
-    def _detect(progress):
-        from .detection import run_detection_pipeline
-        return run_detection_pipeline(session, prompt, progress)
+    # Stage 1: fast detection on uniform frames
+    def _detect_stage1(progress):
+        from .detection import run_detection_stage1
+        return run_detection_stage1(session, prompt, progress)
 
-    job_id = submit_job(_detect, name="detection")
-    return jsonify({"job_id": job_id}), 202
+    detect_job_id = submit_job(_detect_stage1, name="detection_stage1")
+
+    # Background: embed all frames + change detection (concurrent)
+    def _embed_bg(progress):
+        from .detection import run_embedding_background
+        return run_embedding_background(session, progress)
+
+    embed_job_id = submit_job(_embed_bg, name="embedding_background")
+
+    # Store embedding job ID on session for status polling
+    with session._lock:
+        session.embedding_job_id = embed_job_id
+        session.touch()
+
+    return jsonify({
+        "job_id": detect_job_id,
+        "embedding_job_id": embed_job_id,
+    }), 202
+
+
+@interview_bp.route("/api/detect/embedding_status", methods=["GET"])
+def detect_embedding_status():
+    """Poll background embedding progress."""
+    session_id = request.args.get("session_id")
+    session = get_session(session_id)
+    if session is None:
+        return jsonify({"error": "Session not found"}), 404
+
+    result = {
+        "embedding_complete": session.embedding_complete,
+        "change_keyframes_count": len(session.change_keyframes),
+    }
+
+    # Include job progress if available
+    if session.embedding_job_id:
+        progress = get_job_progress(session.embedding_job_id)
+        if progress:
+            result["progress"] = {
+                "current": progress.get("current", 0),
+                "total": progress.get("total", 0),
+                "percent": progress.get("percent", 0),
+                "step": progress.get("step", ""),
+                "status": progress.get("status", "unknown"),
+            }
+
+    return jsonify(result)
 
 
 @interview_bp.route("/api/detect/crops", methods=["GET"])

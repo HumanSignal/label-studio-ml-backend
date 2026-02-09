@@ -206,6 +206,11 @@ function updatePhaseIndicator(activePhase) {
  * @param {string} phase - Phase name.
  */
 function navigate(phase) {
+    // Cancel background polls before changing phase
+    if (AppState._embeddingPollCancel) {
+        AppState._embeddingPollCancel();
+        AppState._embeddingPollCancel = null;
+    }
     window.location.hash = `/${phase}`;
     AppState.phase = phase;
     renderPhase(phase);
@@ -506,17 +511,21 @@ async function _startSession(mode) {
         const status = await API.get(`/session/${AppState.sessionId}/status`);
         _applyStats(status);
 
-        // 4) Run detection
-        progressEl.textContent = 'Running detection...';
+        // 4) Run detection (Stage 1 = fast, embedding = background)
+        progressEl.textContent = 'Running detection on sampled frames...';
         const prompt = document.getElementById('setup-prompt').value.trim() || 'person';
-        const detectJob = await API.post('/detect/start', {
+        const detectResult = await API.post('/detect/start', {
             session_id: AppState.sessionId,
             prompt,
         });
 
+        // Store embedding job ID for background polling
+        AppState._embeddingJobId = detectResult.embedding_job_id || null;
+
+        // Wait only for the fast Stage 1 detection job
         await new Promise((resolve, reject) => {
             pollJob(
-                detectJob.job_id,
+                detectResult.job_id,
                 (p) => {
                     const pct = p.percent > 0 ? ` (${Math.round(p.percent)}%)` : '';
                     progressEl.textContent = (p.step || 'Detecting...') + pct;
@@ -531,8 +540,13 @@ async function _startSession(mode) {
             );
         });
 
-        showToast('Detection complete', 'success');
+        showToast('Detection complete — crops ready for labeling', 'success');
         navigate('detection');
+
+        // Start background embedding status polling (non-blocking)
+        if (AppState._embeddingJobId) {
+            _startEmbeddingPoll();
+        }
     } catch (err) {
         showToast(`Setup failed: ${err.message}`, 'error');
         actionsEl.querySelectorAll('.btn').forEach((b) => (b.disabled = false));
@@ -1486,6 +1500,82 @@ async function _uploadSeeds() {
         );
     } catch (err) {
         // Already toasted
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Background Embedding Progress
+// ---------------------------------------------------------------------------
+
+/** Start polling embedding status and show a progress banner. */
+function _startEmbeddingPoll() {
+    if (AppState._embeddingPollCancel) {
+        AppState._embeddingPollCancel();
+    }
+
+    _showEmbeddingBanner('Embedding frames in background...');
+
+    const cancel = setInterval(async () => {
+        try {
+            const status = await API.get('/detect/embedding_status', {
+                session_id: AppState.sessionId,
+            });
+
+            if (status.embedding_complete) {
+                clearInterval(cancel);
+                AppState._embeddingPollCancel = null;
+                _hideEmbeddingBanner();
+                showToast(
+                    `Change detection ready (${status.change_keyframes_count} keyframes)`,
+                    'success'
+                );
+                return;
+            }
+
+            if (status.progress) {
+                const p = status.progress;
+                const current = (p.current || 0).toLocaleString();
+                const total = (p.total || 0).toLocaleString();
+                const pct = p.percent > 0 ? ` (${Math.round(p.percent)}%)` : '';
+                _showEmbeddingBanner(
+                    `Background: Embedding frames ${current} / ${total}${pct}`
+                );
+            }
+        } catch (err) {
+            // Silently retry
+        }
+    }, 2000);
+
+    AppState._embeddingPollCancel = () => clearInterval(cancel);
+}
+
+/** Show or update the embedding progress banner. */
+function _showEmbeddingBanner(text) {
+    let banner = document.getElementById('embedding-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'embedding-banner';
+        banner.style.cssText =
+            'position:fixed;bottom:0;left:0;right:0;z-index:100;' +
+            'background:var(--bg-surface,#1a1a2e);' +
+            'border-top:1px solid var(--border-default,#333);' +
+            'padding:6px 16px;font-size:0.8rem;' +
+            'color:var(--text-secondary,#aaa);text-align:center;' +
+            'transition:opacity 0.3s;';
+        document.body.appendChild(banner);
+    }
+    banner.textContent = text;
+    banner.style.opacity = '1';
+}
+
+/** Remove the embedding progress banner. */
+function _hideEmbeddingBanner() {
+    const banner = document.getElementById('embedding-banner');
+    if (banner) {
+        banner.style.opacity = '0';
+        setTimeout(() => {
+            if (banner.parentNode) banner.parentNode.removeChild(banner);
+        }, 300);
     }
 }
 

@@ -34,11 +34,14 @@ from PIL import Image
 # Parent-directory imports (seeding_common lives one level up)
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import av  # noqa: E402
+
 from seeding_common import (  # noqa: E402
     _get_sam3_image_model,
     _read_frame_pyav,
     _get_video_info_pyav,
     _compute_sam3_frame_embeddings,
+    _do_embed_all_frames,
     compute_change_scores,
     smooth_change_scores,
     select_keyframes,
@@ -58,8 +61,12 @@ logger = logging.getLogger(__name__)
 # Keyframe sampling
 DEFAULT_KEYFRAME_FRAC = float(os.getenv("INTERVIEW_KEYFRAME_FRAC", "0.04"))
 DEFAULT_MIN_SPACING = int(os.getenv("INTERVIEW_MIN_SPACING", "30"))
-DEFAULT_EMBEDDING_BATCH = int(os.getenv("INTERVIEW_EMBEDDING_BATCH", "4"))
+DEFAULT_EMBEDDING_BATCH = int(os.getenv("INTERVIEW_EMBEDDING_BATCH", "32"))
 EMBEDDING_CACHE_DIR = os.getenv("INTERVIEW_EMBEDDING_CACHE", "/tmp/interview_embed_cache")
+INITIAL_KEYFRAME_COUNT = int(os.getenv("INTERVIEW_INITIAL_KEYFRAMES", "40"))
+
+# Batch detection
+DEFAULT_DETECT_BATCH = int(os.getenv("INTERVIEW_DETECT_BATCH", "8"))
 
 # Detection
 DEFAULT_DETECTION_THRESHOLD = float(os.getenv("INTERVIEW_DETECT_THRESHOLD", "0.3"))
@@ -207,6 +214,167 @@ def pad_boxes(
     padded[:, 3] = np.clip(padded[:, 3], 0, height)
 
     return padded
+
+
+# ===========================================================================
+# Batch decode + detect helpers
+# ===========================================================================
+
+def uniform_indices(total: int, k: int) -> List[int]:
+    """Return *k* uniformly-spaced frame indices in [0, total).
+
+    Always includes the first and last frame when k >= 2.
+    """
+    if total <= 0 or k <= 0:
+        return []
+    if k >= total:
+        return list(range(total))
+    if k == 1:
+        return [total // 2]
+    return [int(round(i * (total - 1) / (k - 1))) for i in range(k)]
+
+
+def _decode_frames_sequential(
+    video_path: str,
+    frame_indices: List[int],
+) -> Dict[int, Image.Image]:
+    """Decode specific frames via one sequential PyAV pass (no random seeking).
+
+    Much faster than N independent ``_read_frame_pyav`` calls which each
+    open/seek/close the container independently.
+
+    Args:
+        video_path:    Path to video file.
+        frame_indices: Sorted list of 0-based frame indices to decode.
+
+    Returns:
+        Dict mapping frame_idx -> PIL Image.
+    """
+    if not frame_indices:
+        return {}
+
+    target_set = set(frame_indices)
+    result: Dict[int, Image.Image] = {}
+    max_target = max(target_set)
+
+    container = av.open(video_path)
+    try:
+        frame_count = 0
+        for av_frame in container.decode(video=0):
+            if frame_count in target_set:
+                result[frame_count] = av_frame.to_image()
+                if len(result) == len(target_set):
+                    break  # got all we need
+            if frame_count > max_target:
+                break
+            frame_count += 1
+    finally:
+        container.close()
+
+    return result
+
+
+def _detect_batch(
+    detector: "Sam3TextBasedDetector",
+    frames: Dict[int, Image.Image],
+    prompt: str,
+    width: int,
+    height: int,
+    batch_size: int = DEFAULT_DETECT_BATCH,
+    nms_iou: float = DEFAULT_NMS_IOU_THRESHOLD,
+    pad_frac: float = DEFAULT_PAD_FRAC,
+) -> List[CropData]:
+    """Run batched detection on multiple pre-decoded frames.
+
+    Groups frames into batches of ``batch_size``, runs the Sam3 model in a
+    single forward pass per batch, then post-processes per-image.
+
+    Args:
+        detector:   Sam3TextBasedDetector instance.
+        frames:     Dict of frame_idx -> PIL Image (from _decode_frames_sequential).
+        prompt:     Text prompt.
+        width:      Video width in pixels.
+        height:     Video height in pixels.
+        batch_size: Frames per GPU forward pass.
+        nms_iou:    NMS IoU threshold.
+        pad_frac:   Box padding fraction.
+
+    Returns:
+        List of CropData across all frames.
+    """
+    all_crops: List[CropData] = []
+    sorted_indices = sorted(frames.keys())
+
+    for batch_start in range(0, len(sorted_indices), batch_size):
+        batch_indices = sorted_indices[batch_start:batch_start + batch_size]
+        batch_images = [frames[idx] for idx in batch_indices]
+
+        # Batch preprocess + inference
+        try:
+            inputs = detector.processor(
+                images=batch_images, text=prompt, return_tensors="pt",
+            ).to(DEVICE)
+
+            with torch.inference_mode(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
+                outputs = detector.model(**inputs)
+
+            # Build per-image target sizes
+            target_sizes = [[img.height, img.width] for img in batch_images]
+
+            batch_results = detector.processor.post_process_instance_segmentation(
+                outputs,
+                threshold=detector.threshold,
+                mask_threshold=detector.mask_threshold,
+                target_sizes=target_sizes,
+            )
+        except torch.cuda.OutOfMemoryError:
+            if DEVICE == "cuda":
+                torch.cuda.empty_cache()
+            logger.warning(
+                "OOM during batch detection (batch_size=%d), falling back to per-frame",
+                len(batch_images),
+            )
+            # Fallback: detect one frame at a time
+            for idx in batch_indices:
+                crops = _detect_single_frame(
+                    detector, frames[idx], prompt, idx, width, height,
+                    nms_iou=nms_iou, pad_frac=pad_frac,
+                )
+                all_crops.extend(crops)
+            continue
+
+        # Post-process each image in the batch
+        for i, frame_idx in enumerate(batch_indices):
+            results_i = batch_results[i]
+            dets = Sam3TextBasedDetector._parse_results(results_i, prompt)
+
+            if not dets:
+                continue
+
+            boxes = np.array([d["xyxy"] for d in dets], dtype=np.float32)
+            scores = np.array([d["score"] for d in dets], dtype=np.float32)
+
+            keep_idx = nms_numpy(boxes, scores, iou_threshold=nms_iou)
+            if len(keep_idx) == 0:
+                continue
+
+            boxes = boxes[keep_idx]
+            scores = scores[keep_idx]
+            boxes = pad_boxes(boxes, width, height, pad_frac=pad_frac)
+
+            for j in range(len(boxes)):
+                crop = CropData(
+                    crop_id=str(uuid.uuid4())[:12],
+                    frame_idx=frame_idx,
+                    xyxy=boxes[j],
+                    score=float(scores[j]),
+                    label=CropLabel.PENDING,
+                    source=CropSource.TEXT_DETECT,
+                    prompt=prompt,
+                )
+                all_crops.append(crop)
+
+    return all_crops
 
 
 # ===========================================================================
@@ -690,6 +858,162 @@ def run_detection_pipeline(
     logger.info(
         "Detection pipeline finished: %d crops on %d keyframes in %.1fs",
         total_crops, len(keyframes), elapsed,
+    )
+    return summary
+
+
+# ===========================================================================
+# Stage 1: fast detection on uniform frames (no embeddings)
+# ===========================================================================
+
+def run_detection_stage1(
+    session: InterviewSession,
+    prompt: str,
+    progress: Any,
+) -> Dict[str, Any]:
+    """Fast initial detection: uniform frame sampling + batched inference.
+
+    Selects ``INITIAL_KEYFRAME_COUNT`` uniformly-spaced frames, pre-decodes
+    them in a single PyAV pass, runs batched Sam3 detection, and stores
+    crops on the session.  No embedding computation — the user can start
+    labeling within ~30-60 seconds.
+
+    Args:
+        session:  InterviewSession with video_path already set.
+        prompt:   Text prompt for detection.
+        progress: JobProgress object.
+
+    Returns:
+        Summary dict with detection statistics.
+    """
+    t0 = time.time()
+
+    if prompt not in session.prompts:
+        session.prompts.append(prompt)
+
+    frames_count = session.frames_count
+    k = min(INITIAL_KEYFRAME_COUNT, frames_count) if frames_count > 0 else INITIAL_KEYFRAME_COUNT
+    keyframe_indices = uniform_indices(frames_count, k)
+
+    # Step 1: decode target frames in one sequential pass
+    progress.step = f"Decoding {len(keyframe_indices)} frames..."
+    progress.total = 3
+    progress.current = 0
+
+    frame_images = _decode_frames_sequential(session.video_path, keyframe_indices)
+    if not frame_images:
+        raise RuntimeError(
+            f"Failed to decode any of the {len(keyframe_indices)} target keyframes from {session.video_path}"
+        )
+    progress.current = 1
+
+    # Step 2: batched detection
+    progress.step = f"Running batched detection on {len(frame_images)} frames..."
+    progress.current = 1
+
+    detector = Sam3TextBasedDetector()
+    crops = _detect_batch(
+        detector, frame_images, prompt,
+        session.width, session.height,
+        batch_size=DEFAULT_DETECT_BATCH,
+    )
+    detector.clear_cache()
+    progress.current = 2
+
+    # Step 3: store crops, advance phase
+    progress.step = "Saving results..."
+    total_crops = 0
+    with session._lock:
+        session.sampled_frames = sorted(frame_images.keys())
+        for crop in crops:
+            session.add_crop(crop)
+            total_crops += 1
+        session.advance_to(Phase.DETECTION)
+        save_session(session)
+
+    elapsed = time.time() - t0
+    progress.step = "Detection complete."
+    progress.current = progress.total
+
+    summary = {
+        "keyframes": len(keyframe_indices),
+        "total_crops": total_crops,
+        "prompt": prompt,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+    logger.info(
+        "Stage 1 detection: %d crops on %d uniform keyframes in %.1fs",
+        total_crops, len(keyframe_indices), elapsed,
+    )
+    return summary
+
+
+# ===========================================================================
+# Background embedding + change detection
+# ===========================================================================
+
+def run_embedding_background(
+    session: InterviewSession,
+    progress: Any,
+) -> Dict[str, Any]:
+    """Compute GPU-batched frame embeddings and change-detected keyframes.
+
+    Runs concurrently with the user's labeling session.  When complete,
+    stores the change-detected keyframe indices on the session for use
+    by subsequent active-learning rounds and recall strategies.
+
+    Args:
+        session:  InterviewSession with video_path already set.
+        progress: JobProgress object.
+
+    Returns:
+        Summary dict with embedding stats.
+    """
+    t0 = time.time()
+
+    video_path = session.video_path
+    if not video_path:
+        raise RuntimeError("Session has no video_path set.")
+
+    def _progress_cb(current: int, total: int):
+        progress.step = f"Embedding frames {current:,} / {total:,}..."
+        progress.current = current
+        progress.total = total
+
+    progress.step = "Computing frame embeddings..."
+    embeds = _do_embed_all_frames(
+        video_path, DEFAULT_EMBEDDING_BATCH, progress_callback=_progress_cb,
+    )
+
+    # Change detection
+    progress.step = "Running change detection..."
+    frames_count = embeds.shape[0]
+    diff = compute_change_scores(embeds)
+    smooth = smooth_change_scores(diff, kernel_size=5)
+    change_keyframes = select_keyframes(
+        frames_count, DEFAULT_KEYFRAME_FRAC, smooth,
+        min_spacing=DEFAULT_MIN_SPACING,
+    )
+
+    # Store on session
+    with session._lock:
+        session.embedding_complete = True
+        session.change_keyframes = change_keyframes
+        session.touch()
+        save_session(session)
+
+    elapsed = time.time() - t0
+    progress.step = "Embedding complete."
+    progress.current = progress.total
+
+    summary = {
+        "frames_embedded": int(frames_count),
+        "change_keyframes": len(change_keyframes),
+        "elapsed_seconds": round(elapsed, 1),
+    }
+    logger.info(
+        "Background embedding: %d frames, %d change keyframes in %.1fs",
+        frames_count, len(change_keyframes), elapsed,
     )
     return summary
 

@@ -43,6 +43,7 @@ class CropSource(str, Enum):
     MULTI_PROMPT = "multi_prompt"     # Strategy A
     FEATURE_SEARCH = "feature_search" # Strategy B
     HUMAN_DRAWN = "human_drawn"       # Strategy C (draw mode)
+    CHANGE_DETECT = "change_detect"   # Detection on change-detected keyframes
 
 
 @dataclass
@@ -139,6 +140,11 @@ class InterviewSession:
     prompts: List[str] = field(default_factory=list)
     sampled_frames: List[int] = field(default_factory=list)
     crops: Dict[str, CropData] = field(default_factory=dict)
+
+    # Background embedding state
+    embedding_job_id: Optional[str] = None
+    embedding_complete: bool = False
+    change_keyframes: List[int] = field(default_factory=list)
 
     # Classification
     model_trained: bool = False
