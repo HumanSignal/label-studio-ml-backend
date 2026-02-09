@@ -519,11 +519,20 @@ def _extract_sam3_image_embedding(
     sam3_processor,
     pil_image: Image.Image,
 ) -> torch.Tensor:
-    """Extract image embedding from Sam3Model's vision encoder."""
+    """Extract image embedding from Sam3Model's vision encoder.
+
+    Sam3Model exposes ``get_vision_features(pixel_values=...)`` which returns
+    a ``Sam3VisionEncoderOutput`` with FPN feature maps.  We take the
+    highest-resolution FPN map and global-average-pool it to a flat vector.
+    """
     inputs = sam3_processor(images=pil_image, return_tensors="pt").to(DEVICE)
     with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
-        outputs = sam3_model.get_image_embeddings(inputs.pixel_values)
-    return _global_pool_embed(outputs)
+        vision_output = sam3_model.get_vision_features(
+            pixel_values=inputs.pixel_values
+        )
+    # fpn_hidden_states[0] is highest-resolution FPN feature: (B, C, H, W)
+    feat = vision_output.fpn_hidden_states[0]
+    return _global_pool_embed(feat)
 
 
 def _embed_batch_sam3(

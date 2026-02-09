@@ -724,13 +724,16 @@ def _compute_track_features_sam3(
             ).to(base.DEVICE)
 
             with torch.inference_mode():
-                outputs = sam3_model.get_image_embeddings(inputs.pixel_values)
+                vision_output = sam3_model.get_vision_features(
+                    pixel_values=inputs.pixel_values
+                )
 
-            # outputs: (B, C, H, W) tensor; pool spatial dims
-            if hasattr(outputs, "detach"):
-                emb_batch = outputs.mean(dim=(2, 3)).detach().cpu().numpy()
+            # fpn_hidden_states[0]: highest-res FPN feature (B, C, H, W)
+            feat = vision_output.fpn_hidden_states[0]
+            if hasattr(feat, "detach"):
+                emb_batch = feat.mean(dim=(2, 3)).detach().cpu().numpy()
             else:
-                emb_batch = outputs.mean(axis=(2, 3))
+                emb_batch = feat.mean(axis=(2, 3))
 
             for region_id, vec in zip(owners, emb_batch):
                 v = vec.astype("float32")

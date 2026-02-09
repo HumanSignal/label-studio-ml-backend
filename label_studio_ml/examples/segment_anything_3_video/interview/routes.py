@@ -36,6 +36,20 @@ interview_bp = Blueprint(
 )
 
 
+@interview_bp.after_request
+def _fix_passthrough(response):
+    """Convert direct-passthrough file responses to buffered responses.
+
+    The label_studio_ml logging middleware calls response.get_data() on
+    every response, which crashes on send_from_directory's streaming
+    responses with 'RuntimeError: Attempted implicit sequence conversion
+    but the response object is in direct passthrough mode'.
+    """
+    if response.direct_passthrough:
+        response.direct_passthrough = False
+    return response
+
+
 # ===========================================================================
 # SPA entry point
 # ===========================================================================
