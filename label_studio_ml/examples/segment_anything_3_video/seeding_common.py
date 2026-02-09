@@ -443,23 +443,38 @@ def _get_video_info_pyav(video_path: str) -> Tuple[int, int, int, float]:
 
 
 def _read_frame_pyav(video_path: str, frame_idx: int) -> Optional[Image.Image]:
-    """Read a single frame by index via PyAV, return as PIL RGB Image."""
+    """Read a single frame by index via PyAV, return as PIL RGB Image.
+
+    Uses seek + PTS comparison for O(GOP) decode instead of linear scan.
+    """
     container = av.open(video_path)
     try:
         stream = container.streams.video[0]
-
-        # Seek near target frame
         fps = float(stream.average_rate) if stream.average_rate else 30.0
-        if frame_idx > 0 and stream.time_base:
-            target_ts = int(frame_idx / fps / stream.time_base)
+        tb = float(stream.time_base) if stream.time_base else None
+
+        if frame_idx > 0 and tb:
+            target_ts = int(frame_idx / fps / tb)
             container.seek(target_ts, stream=stream)
 
-        current_idx = 0
+        # After seek, compare decoded frame PTS against target PTS.
+        # This avoids the old bug where current_idx started at 0 after seek,
+        # causing ~frame_idx extra decodes.
+        target_pts = (frame_idx / fps / tb) if tb else None
+        decoded = 0
         for frame in container.decode(video=0):
-            if current_idx >= frame_idx:
-                pil_img = frame.to_image()
-                return pil_img
-            current_idx += 1
+            decoded += 1
+            if target_pts is not None:
+                if frame.pts is not None and frame.pts >= target_pts:
+                    return frame.to_image()
+            else:
+                # No time_base — fall back to counting from 0 (no seek)
+                if decoded - 1 >= frame_idx:
+                    return frame.to_image()
+            # Safety: don't decode more than 500 frames past seek
+            if decoded > 500:
+                logger.warning("_read_frame_pyav: exceeded 500 frames for idx %d", frame_idx)
+                break
 
         return None
     finally:

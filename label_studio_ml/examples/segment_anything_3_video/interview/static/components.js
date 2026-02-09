@@ -238,21 +238,26 @@ class FrameViewer {
      * @param {number} frameIdx - 0-based frame index.
      * @param {string} sessionId - Current session ID.
      * @param {boolean} [annotated=true] - Whether to load the annotated version.
+     * @param {string|null} [highlightCropId=null] - Crop ID to highlight with thick border.
      */
-    loadFrame(frameIdx, sessionId, annotated = true) {
+    loadFrame(frameIdx, sessionId, annotated = true, highlightCropId = null) {
         this._currentFrameIdx = frameIdx;
-        const endpoint = annotated ? 'annotated' : '';
-        const path = endpoint
-            ? `/interview/api/detect/frame/${frameIdx}/annotated?session_id=${sessionId}`
-            : `/interview/api/detect/frame/${frameIdx}?session_id=${sessionId}`;
-        this.img.src = path;
+        if (annotated) {
+            let path = `/interview/api/detect/frame/${frameIdx}/annotated?session_id=${sessionId}`;
+            if (highlightCropId) {
+                path += `&highlight=${encodeURIComponent(highlightCropId)}`;
+            }
+            this.img.src = path;
+        } else {
+            this.img.src = `/interview/api/detect/frame/${frameIdx}?session_id=${sessionId}`;
+        }
         this.badge.textContent = `Frame ${frameIdx}`;
     }
 
     /** Reload the currently displayed frame. */
-    reload(sessionId) {
+    reload(sessionId, highlightCropId = null) {
         if (this._currentFrameIdx >= 0 && sessionId) {
-            this.loadFrame(this._currentFrameIdx, sessionId);
+            this.loadFrame(this._currentFrameIdx, sessionId, true, highlightCropId);
         }
     }
 
@@ -324,6 +329,7 @@ class CropLabeler {
         this.container = container;
         this._acceptCallbacks = [];
         this._rejectCallbacks = [];
+        this._skipCallbacks = [];
         this._currentCrop = null;
         this._render();
     }
@@ -354,12 +360,19 @@ class CropLabeler {
         this.rejectBtn.textContent = 'Reject';
         this.rejectBtn.addEventListener('click', () => this._fireReject());
 
+        this.skipBtn = document.createElement('button');
+        this.skipBtn.className = 'btn btn-skip';
+        this.skipBtn.textContent = 'Skip';
+        this.skipBtn.style.cssText = 'background:var(--text-secondary, #888);';
+        this.skipBtn.addEventListener('click', () => this._fireSkip());
+
         this.acceptBtn = document.createElement('button');
         this.acceptBtn.className = 'btn btn-accept';
         this.acceptBtn.textContent = 'Accept';
         this.acceptBtn.addEventListener('click', () => this._fireAccept());
 
         this.actionsEl.appendChild(this.rejectBtn);
+        this.actionsEl.appendChild(this.skipBtn);
         this.actionsEl.appendChild(this.acceptBtn);
         this.el.appendChild(this.actionsEl);
 
@@ -368,6 +381,7 @@ class CropLabeler {
         this.hintsEl.className = 'keyboard-hints';
         this.hintsEl.innerHTML =
             '<span><kbd>Enter</kbd> Accept</span>' +
+            '<span><kbd>S</kbd> Skip</span>' +
             '<span><kbd>Backspace</kbd> Reject</span>' +
             '<span><kbd>&larr;</kbd><kbd>&rarr;</kbd> Navigate</span>';
         this.el.appendChild(this.hintsEl);
@@ -392,9 +406,9 @@ class CropLabeler {
             (crop.uncertainty != null ? ` | Unc ${crop.uncertainty.toFixed(2)}` : '');
 
         // Visually disable buttons if already labeled
-        const isLabeled = crop.label === 'accepted' || crop.label === 'rejected';
         this.acceptBtn.disabled = crop.label === 'accepted';
         this.rejectBtn.disabled = crop.label === 'rejected';
+        this.skipBtn.disabled = crop.label === 'skipped';
     }
 
     /** Clear the crop preview. */
@@ -427,6 +441,14 @@ class CropLabeler {
         this._rejectCallbacks.push(callback);
     }
 
+    /**
+     * Register a callback for when the Skip button is clicked.
+     * @param {Function} callback - Receives the current crop object.
+     */
+    onSkip(callback) {
+        this._skipCallbacks.push(callback);
+    }
+
     _fireAccept() {
         if (!this._currentCrop) return;
         for (const cb of this._acceptCallbacks) {
@@ -437,6 +459,13 @@ class CropLabeler {
     _fireReject() {
         if (!this._currentCrop) return;
         for (const cb of this._rejectCallbacks) {
+            cb(this._currentCrop);
+        }
+    }
+
+    _fireSkip() {
+        if (!this._currentCrop) return;
+        for (const cb of this._skipCallbacks) {
             cb(this._currentCrop);
         }
     }
@@ -559,14 +588,14 @@ class CropGrid {
     /**
      * Update a single crop card's label status in place.
      * @param {number} index
-     * @param {string} label - 'accepted', 'rejected', or 'pending'.
+     * @param {string} label - 'accepted', 'rejected', 'skipped', or 'pending'.
      */
     updateCardLabel(index, label) {
         if (index < 0 || index >= this._crops.length) return;
         this._crops[index].label = label;
         const cards = this.el.querySelectorAll('.crop-card');
         if (cards[index]) {
-            cards[index].classList.remove('accepted', 'rejected', 'pending');
+            cards[index].classList.remove('accepted', 'rejected', 'pending', 'skipped');
             cards[index].classList.add(label);
         }
     }
@@ -853,7 +882,7 @@ class Toolbar {
             'padding:3px 6px;font-size:0.75rem;background:var(--bg-body);' +
             'color:var(--text-primary);border:1px solid var(--border-default);' +
             'border-radius:var(--radius-sm);';
-        ['all', 'pending', 'accepted', 'rejected'].forEach((f) => {
+        ['all', 'pending', 'accepted', 'rejected', 'skipped'].forEach((f) => {
             const opt = document.createElement('option');
             opt.value = f;
             opt.textContent = f.charAt(0).toUpperCase() + f.slice(1);
@@ -877,6 +906,7 @@ class Toolbar {
             const s = options.stats;
             statsEl.textContent =
                 `${s.accepted || 0} accepted | ${s.rejected || 0} rejected | ` +
+                `${s.skipped || 0} skipped | ` +
                 `${s.pending || 0} pending | ${s.total_crops || 0} total`;
             this.el.appendChild(statsEl);
         }

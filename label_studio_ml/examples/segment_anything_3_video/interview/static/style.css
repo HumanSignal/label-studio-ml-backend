@@ -18,6 +18,7 @@
   /* semantic crop-card borders */
   --color-accepted: #2ecc71;
   --color-rejected: #e74c3c;
+  --color-skipped: #888888;
   --color-pending: #f1c40f;
   --color-human-drawn: #e67e22;
   --color-feature-search: #9b59b6;
@@ -389,6 +390,7 @@ body {
 
 .crop-card.accepted  { border-color: var(--color-accepted); }
 .crop-card.rejected  { border-color: var(--color-rejected); }
+.crop-card.skipped   { border-color: var(--color-skipped); opacity: 0.6; }
 .crop-card.pending   { border-color: var(--color-pending); }
 .crop-card.human     { border-color: var(--color-human-drawn); }
 .crop-card.feature   { border-color: var(--color-feature-search); }

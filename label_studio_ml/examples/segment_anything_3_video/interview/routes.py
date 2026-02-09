@@ -9,6 +9,8 @@ from __future__ import annotations
 import io
 import logging
 import os
+import threading
+from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 from flask import Blueprint, jsonify, request, send_from_directory, abort
@@ -25,6 +27,51 @@ from .cache_manager import (
 from .background import submit_job, get_job_progress, get_job_result
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# LRU frame cache — avoids re-decoding the same frames on every HTTP request.
+# Keyed by (video_path, frame_idx).  Default 64 entries ≈ 64 × 6 MB ≈ 384 MB.
+# ---------------------------------------------------------------------------
+_FRAME_CACHE_SIZE = int(os.getenv("INTERVIEW_FRAME_CACHE_SIZE", "64"))
+_frame_cache: OrderedDict = OrderedDict()
+_frame_cache_lock = threading.Lock()
+
+
+def _get_cached_frame(video_path: str, frame_idx: int):
+    """Return cached PIL Image or None."""
+    key = (video_path, frame_idx)
+    with _frame_cache_lock:
+        if key in _frame_cache:
+            _frame_cache.move_to_end(key)
+            return _frame_cache[key]
+    return None
+
+
+def _put_cached_frame(video_path: str, frame_idx: int, pil_img):
+    """Store a PIL Image in the LRU cache."""
+    key = (video_path, frame_idx)
+    with _frame_cache_lock:
+        _frame_cache[key] = pil_img
+        _frame_cache.move_to_end(key)
+        while len(_frame_cache) > _FRAME_CACHE_SIZE:
+            _frame_cache.popitem(last=False)
+
+
+def _read_frame_cached(video_path: str, frame_idx: int):
+    """Read a frame with LRU caching."""
+    cached = _get_cached_frame(video_path, frame_idx)
+    if cached is not None:
+        return cached
+
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from seeding_common import _read_frame_pyav
+
+    pil_img = _read_frame_pyav(video_path, frame_idx)
+    if pil_img is not None:
+        _put_cached_frame(video_path, frame_idx, pil_img)
+    return pil_img
+
 
 # Blueprint with static files served from interview/static/
 interview_bp = Blueprint(
@@ -345,42 +392,43 @@ def detect_crops():
 
 @interview_bp.route("/api/detect/frame/<int:frame_idx>", methods=["GET"])
 def detect_frame(frame_idx: int):
-    """Serve a frame as JPEG."""
+    """Serve a frame as JPEG (raw, no annotations)."""
     session_id = request.args.get("session_id")
     session = get_session(session_id)
     if session is None:
         abort(404)
 
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-    from seeding_common import _read_frame_pyav
-
-    pil_img = _read_frame_pyav(session.video_path, frame_idx)
+    pil_img = _read_frame_cached(session.video_path, frame_idx)
     if pil_img is None:
         abort(404)
 
     buf = io.BytesIO()
     pil_img.save(buf, format="JPEG", quality=85)
     buf.seek(0)
-    return buf.getvalue(), 200, {"Content-Type": "image/jpeg"}
+    return buf.getvalue(), 200, {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=86400",
+    }
 
 
 @interview_bp.route("/api/detect/frame/<int:frame_idx>/annotated", methods=["GET"])
 def detect_frame_annotated(frame_idx: int):
-    """Frame with color-coded boxes drawn."""
+    """Frame with color-coded boxes drawn.
+
+    Optional query param ``highlight`` — crop_id to draw with a thick border.
+    """
     session_id = request.args.get("session_id")
+    highlight_id = request.args.get("highlight")
     session = get_session(session_id)
     if session is None:
         abort(404)
 
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-    from seeding_common import _read_frame_pyav
-
-    pil_img = _read_frame_pyav(session.video_path, frame_idx)
+    pil_img = _read_frame_cached(session.video_path, frame_idx)
     if pil_img is None:
         abort(404)
 
+    # Draw on a copy so the LRU-cached original stays clean
+    pil_img = pil_img.copy()
     from PIL import ImageDraw
     draw = ImageDraw.Draw(pil_img)
 
@@ -388,6 +436,7 @@ def detect_frame_annotated(frame_idx: int):
         CropLabel.ACCEPTED: "#00ff00",
         CropLabel.REJECTED: "#ff0000",
         CropLabel.PENDING: "#ffff00",
+        CropLabel.SKIPPED: "#888888",
     }
     source_color_override = {
         CropSource.HUMAN_DRAWN: "#ff8800",
@@ -395,13 +444,19 @@ def detect_frame_annotated(frame_idx: int):
     }
 
     for crop in session.get_crops_by_frame(frame_idx):
+        is_highlighted = (highlight_id and crop.crop_id == highlight_id)
         color = source_color_override.get(crop.source, color_map.get(crop.label, "#ffff00"))
         x1, y1, x2, y2 = crop.xyxy
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
+        if is_highlighted:
+            # Thick cyan border + semi-transparent fill for highlighted crop
+            draw.rectangle([x1, y1, x2, y2], outline="#00ffff", width=4)
+        else:
+            draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
 
     buf = io.BytesIO()
     pil_img.save(buf, format="JPEG", quality=85)
     buf.seek(0)
+    # No long cache — box colors change with labels
     return buf.getvalue(), 200, {"Content-Type": "image/jpeg"}
 
 
@@ -417,11 +472,7 @@ def detect_crop_image(crop_id: str):
     if crop is None:
         abort(404)
 
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-    from seeding_common import _read_frame_pyav
-
-    pil_img = _read_frame_pyav(session.video_path, crop.frame_idx)
+    pil_img = _read_frame_cached(session.video_path, crop.frame_idx)
     if pil_img is None:
         abort(404)
 
@@ -435,7 +486,10 @@ def detect_crop_image(crop_id: str):
     buf = io.BytesIO()
     cropped.save(buf, format="JPEG", quality=90)
     buf.seek(0)
-    return buf.getvalue(), 200, {"Content-Type": "image/jpeg"}
+    return buf.getvalue(), 200, {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=86400",
+    }
 
 
 @interview_bp.route("/api/detect/label", methods=["POST"])

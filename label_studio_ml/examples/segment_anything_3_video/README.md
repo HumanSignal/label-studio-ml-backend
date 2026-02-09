@@ -165,10 +165,10 @@ The Interview UI is a browser-based active learning workflow for generating seed
 | Phase | What happens | User action |
 |-------|-------------|-------------|
 | **Init** | Create session with project/task IDs | Enter LS project + task ID |
-| **Detection** | SAM3 text-based detection on sampled keyframes | Review detected crops |
-| **Classification** | Train MLP classifier on accepted/rejected crops, run recall strategies | Label crops as accept/reject, trigger training |
-| **ReID** | Cluster crops by identity using DINOv3 features, sample pairwise comparisons | Judge pairs: same person / different / unsure |
-| **Seeding** | Generate dense seeds across all frames, upload to Label Studio | Configure interval + threshold, review + upload |
+| **Detection** | Stage 1: SAM3 text detection on ~40 uniform keyframes (~30-60s). Stage 2: GPU-batched frame embeddings run in background (~3-5 min) | Review detected crops as they appear |
+| **Classification** | MLP quality-gate classifier trains on accepted/rejected crops. Active learning picks most uncertain crops for next labeling round | Label crops: Accept (good box) / Reject (bad box or not target) / Skip (ambiguous) |
+| **ReID** | Spherical K-means clustering on DINOv3 features. Calibrated pair sampling (60% ambiguous, 20% confident same, 20% confident different) | Judge pairs: same person / different / unsure |
+| **Seeding** | Three-path dual-proposer pipeline generates dense seeds across all frames, filtered by MLP quality gate. Upload to Label Studio | Configure frame interval + confidence threshold, review + upload |
 
 After upload, seeds are created with `enabled=false` keyframes in Label Studio. Run the tracking CLI to fill gaps:
 
@@ -182,21 +182,65 @@ docker compose exec segment_anything_3_video python /app/initial_seeding_video_b
 
 - **Backend:** Flask Blueprint (`interview/routes.py`) with background job executor for long-running operations
 - **Frontend:** Vanilla JS SPA with hash-based routing, no framework dependencies
-- **Models used:** SAM3 (text-based detection), DINOv3 (`facebook/dinov2-large` for feature extraction), MLP classifier (trained in-browser session)
+- **Models used:** SAM3 (text-based detection + box-prompted refinement), DINOv3 (`facebook/dinov2-large` for feature extraction + 3-scale grid search), MLP classifier (trained per session on Accept/Reject labels)
 - **State:** In-memory sessions with optional disk persistence to `/data/adapters/`
+
+### Detection Pipeline
+
+Detection runs in two decoupled stages so the user can start labeling immediately:
+
+1. **Stage 1 (fast, ~30-60s):** Selects ~40 uniformly-spaced keyframes, batch-decodes them via PyAV, runs SAM3 text detection in GPU batches, stores crops on the session. User sees crops and can start labeling.
+2. **Stage 2 (background, ~3-5 min):** GPU-batched SAM3 frame embeddings with prefetch threading. Computes temporal change scores and selects change-detected keyframes for active learning rounds. A progress banner shows completion in the UI.
+
+### Seeding Pipeline (Dual-Proposer)
+
+Dense seeding uses three paths for maximum coverage (~80-90% of frames):
+
+| Path | Source | Flow |
+|------|--------|------|
+| **A** (primary) | SAM3 text detection | Detect on frame → NMS → crop → DINOv3 features → MLP quality gate → seed |
+| **B** (refinement) | Sam3Model box+text | Medium-confidence Path A boxes → expand 20% → Sam3Model with text+box prompts → tight box from mask → MLP gate → seed |
+| **C** (grid search) | DINOv3 similarity | Zero-detection frames → tile into grid cells → DINOv3 features per cell → cosine similarity to accepted crops → top-K cells → Sam3Model refinement → MLP gate → seed |
+
+Frames are processed in chunks of 100 (configurable) to bound memory. Each seed includes a `"source"` field (`"path_a"`, `"path_b"`, `"path_c"`) for provenance tracking.
+
+### Classification: Accept / Reject / Skip
+
+The MLP classifier acts as a **quality gate** during dense seeding. It does NOT propose boxes — SAM3 does. The MLP only says Yes/No to SAM3's proposals. Labels encode **box quality**, not just "is there a person?"
+
+| Label | Meaning | MLP learns |
+|-------|---------|------------|
+| **Accept** | Good-quality, tight bounding box relative to what's visible | "Pass this box through during seeding" |
+| **Reject** | Not a person, OR person is fully visible but box is partial/sloppy | "Block this box during seeding" |
+| **Skip** | Too ambiguous to judge; excluded from training entirely | (nothing — ignored) |
+
+**Critical distinction:** A person partially visible in the frame (walking out of frame edge) with a tight box around whatever IS visible is **Accept**. A person fully visible but only partially boxed is **Reject**. The judgment is always relative to what's visible.
 
 ### Backend Modules
 
 | Module | Purpose |
 |--------|---------|
-| `interview/routes.py` | REST endpoints + SPA serving |
+| `interview/routes.py` | REST endpoints, LRU frame cache, SPA serving |
 | `interview/state.py` | Session state management (phases, crops, clusters) |
 | `interview/background.py` | Thread-based job executor with progress polling |
 | `interview/cache_manager.py` | Disk persistence for sessions, features, models |
-| `interview/detection.py` | SAM3 text-based detection pipeline + NMS |
-| `interview/dinov3_classifier.py` | DINOv3 feature extraction + MLP classifier + feature search |
-| `interview/reid_phase.py` | Spherical K-means clustering + pairwise comparison sampling |
-| `interview/seeding_phase.py` | Dense seed generation + Label Studio upload |
+| `interview/detection.py` | Two-stage detection pipeline: batch SAM3 inference + background embeddings |
+| `interview/dinov3_classifier.py` | DINOv3 feature extraction, MLP quality-gate classifier, 3-scale grid search |
+| `interview/reid_phase.py` | Spherical K-means clustering, calibrated pair sampling, burden-of-proof merge |
+| `interview/seeding_phase.py` | Three-path dual-proposer dense seeding + Label Studio upload |
+
+### Interview Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INTERVIEW_INITIAL_KEYFRAMES` | `40` | Number of uniformly-sampled keyframes for Stage 1 detection |
+| `INTERVIEW_REFINE_THRESHOLD` | `0.3` | Path A score below which Path B refinement activates |
+| `INTERVIEW_ENABLE_REFINEMENT` | `true` | Enable/disable Path B (Sam3Model box refinement) |
+| `INTERVIEW_ENABLE_GRID_SEARCH` | `true` | Enable/disable Path C (DINOv3 grid search) |
+| `INTERVIEW_GRID_SCALE` | `0.10` | Grid cell size as fraction of frame dimensions |
+| `INTERVIEW_GRID_SIM_THRESHOLD` | `0.5` | Cosine similarity threshold for grid cell match |
+| `INTERVIEW_GRID_TOP_K` | `5` | Max grid cells to refine per frame |
+| `INTERVIEW_SEED_CHUNK_SIZE` | `100` | Frames per processing chunk in seeding |
 
 ## Configuration
 
@@ -693,11 +737,32 @@ docker compose exec segment_anything_3_video python /app/complete_reid.py --ls-u
 
 All CLI tools now run in the `segment_anything_3_video` container. OpenCV (cv2) has been completely removed; video decoding uses PyAV and image processing uses PIL/numpy/scipy.
 
+## Testing
+
+Tests run without GPU or model weights using lightweight mocks. All tests are in the `segment_anything_3_video/` directory.
+
+```bash
+# Run all tests (82 total)
+python -m pytest test_interview_detection.py test_tracking_fixes.py -v
+
+# Detection + Interview tests only (57 tests)
+python -m pytest test_interview_detection.py -v
+
+# Tracking tests only (25 tests)
+python -m pytest test_tracking_fixes.py -v
+```
+
+| Test file | Tests | Coverage |
+|-----------|-------|----------|
+| `test_interview_detection.py` | 57 | NMS, batch detection, embedding pipeline, dual-proposer seeding (3 paths), mock isolation |
+| `test_tracking_fixes.py` | 25 | Seed frame handling, score extraction, early termination, oracle validation, batched sessions |
+
 ## Known Limitations
 
 - SAM3 is designed to run on GPU servers; CPU execution is not recommended for practical video workloads.
 - Currently, we do not support video segmentation (only bounding boxes).
 - For very long videos (40,000+ frames), tracking may take significant time. Consider using `MAX_FRAMES_TO_TRACK` to process in chunks.
+- The Interview UI stores sessions in memory; they are lost on container restart unless disk persistence is enabled via `cache_manager.py`.
 
 ## Customization
 

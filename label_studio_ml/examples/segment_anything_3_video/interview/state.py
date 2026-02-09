@@ -35,6 +35,7 @@ class CropLabel(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    SKIPPED = "skipped"  # Excluded from classifier training
 
 
 class CropSource(str, Enum):
@@ -209,6 +210,7 @@ class InterviewSession:
         accepted = len(self.get_crops_by_label(CropLabel.ACCEPTED))
         rejected = len(self.get_crops_by_label(CropLabel.REJECTED))
         pending = len(self.get_crops_by_label(CropLabel.PENDING))
+        skipped = len(self.get_crops_by_label(CropLabel.SKIPPED))
         return {
             "session_id": self.session_id,
             "phase": self.phase.value,
@@ -219,6 +221,7 @@ class InterviewSession:
             "total_crops": len(self.crops),
             "accepted": accepted,
             "rejected": rejected,
+            "skipped": skipped,
             "pending": pending,
             "model_trained": self.model_trained,
             "training_accuracy": self.training_accuracy,

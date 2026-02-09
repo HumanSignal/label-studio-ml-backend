@@ -633,6 +633,7 @@ function renderDetection(app) {
     // Wire up crop labeler callbacks
     cropLabeler.onAccept((crop) => _labelCrop(crop, 'accepted'));
     cropLabeler.onReject((crop) => _labelCrop(crop, 'rejected'));
+    cropLabeler.onSkip((crop) => _labelCrop(crop, 'skipped'));
 
     // Wire up crop grid selection
     cropGrid.onCropSelect((crop, index) => {
@@ -772,7 +773,7 @@ async function _refreshCrops() {
 /**
  * Label a crop and advance to the next one.
  * @param {Object} crop
- * @param {string} label - 'accepted' or 'rejected'.
+ * @param {string} label - 'accepted', 'rejected', or 'skipped'.
  */
 async function _labelCrop(crop, label) {
     try {
@@ -791,11 +792,7 @@ async function _labelCrop(crop, label) {
             grid.updateCardLabel(AppState.currentCropIndex, label);
         }
 
-        // Refresh the frame viewer (annotations changed)
-        const fv = AppState._components.frameViewer;
-        if (fv) fv.reload(AppState.sessionId);
-
-        // Auto-advance to next pending crop
+        // Auto-advance to next pending crop (reloads frame with highlight)
         _advanceToNextPending();
 
         // Update toolbar stats
@@ -827,6 +824,11 @@ function _advanceToNextPending() {
     // No pending crops left -- just move to next
     if (start + 1 < crops.length) {
         _selectCropByIndex(start + 1);
+    } else {
+        // Stay on current crop but refresh frame to show updated label color
+        const fv = AppState._components.frameViewer;
+        const crop = crops[start];
+        if (fv && crop) fv.reload(AppState.sessionId, crop.crop_id);
     }
 }
 
@@ -845,8 +847,10 @@ function _selectCropByIndex(index) {
 
     if (grid) grid.select(index);
     if (labeler) labeler.showCrop(crop, AppState.sessionId);
-    if (fv && crop.frame_idx !== fv.getCurrentFrame()) {
-        fv.loadFrame(crop.frame_idx, AppState.sessionId);
+    if (fv) {
+        // Always reload annotated frame with highlight — even on same frame,
+        // the highlight target may have changed.
+        fv.loadFrame(crop.frame_idx, AppState.sessionId, true, crop.crop_id);
     }
 }
 
@@ -1598,6 +1602,9 @@ document.addEventListener('keydown', (e) => {
         } else if (e.key === 'Backspace') {
             e.preventDefault();
             _rejectCurrentCrop();
+        } else if (e.key === 's' || e.key === 'S') {
+            e.preventDefault();
+            _skipCurrentCrop();
         } else if (e.key === 'ArrowRight') {
             e.preventDefault();
             _nextCrop();
@@ -1645,6 +1652,14 @@ function _rejectCurrentCrop() {
     const crop = AppState.crops[AppState.currentCropIndex];
     if (crop && crop.label === 'pending') {
         _labelCrop(crop, 'rejected');
+    }
+}
+
+/** Skip the current crop via keyboard (excluded from training). */
+function _skipCurrentCrop() {
+    const crop = AppState.crops[AppState.currentCropIndex];
+    if (crop && crop.label === 'pending') {
+        _labelCrop(crop, 'skipped');
     }
 }
 
