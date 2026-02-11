@@ -6,14 +6,8 @@ from typing import List, Dict, Optional
 from werkzeug.utils import secure_filename
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk import LabelStudio
 from deepgram import DeepgramClient
 import boto3
-
-ls = LabelStudio(
-    base_url=os.getenv('LABEL_STUDIO_URL'),
-    api_key=os.getenv('LABEL_STUDIO_API_KEY')
-)
 
 
 class DeepgramModel(LabelStudioMLBase):
@@ -92,7 +86,10 @@ class DeepgramModel(LabelStudioMLBase):
             if self.test_mode:
                 print(f"[TEST MODE] Would update task {task_id} with audio {s3_url}")
             else:
-                ls.tasks.update(id=task_id, data={"text": text, "audio": s3_url})
+                ls_client = self.get_label_studio_client()
+                if not ls_client:
+                    raise RuntimeError("Unable to initialize Label Studio SDK client")
+                ls_client.tasks.update(id=task_id, data={"text": text, "audio": s3_url})
         except Exception as e:
             print(f"Error uploading to S3: {e}")
             raise
