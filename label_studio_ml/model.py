@@ -239,26 +239,23 @@ class LabelStudioMLBase(ABC):
             return _update_fn(event, data, helper=self, **additional_params)
 
     def _get_label_studio_client(self):
-        if self._label_studio_client is not None:
-            return self._label_studio_client
-        if not self._label_studio_client:
-            return None
 
-        try:
-            # Keep a single SDK client per backend instance.
-            label_studio_base_url = (
-                os.getenv('LABEL_STUDIO_URL')
-                or os.getenv('LABEL_STUDIO_HOST')
-                or os.getenv('HOSTNAME')
-            )
-            self._label_studio_client = LabelStudio(base_url=label_studio_base_url)
-        except Exception as exc:
-            logger.warning(
-                "Unable to initialize Label Studio SDK client with base URL '%s': %s",
-                label_studio_base_url,
-                exc
-            )
-            self._label_studio_client = False
+        if self._label_studio_client is None:
+            try:
+                # Keep a single SDK client per backend instance.
+                label_studio_base_url = (
+                    os.getenv('LABEL_STUDIO_URL')
+                    or os.getenv('LABEL_STUDIO_HOST')
+                    or os.getenv('HOSTNAME')
+                )
+                self._label_studio_client = LabelStudio(base_url=label_studio_base_url)
+            except Exception as exc:
+                logger.warning(
+                    "Unable to initialize Label Studio SDK client with base URL '%s': %s",
+                    label_studio_base_url,
+                    exc
+                )
+                self._label_studio_client = False
         return self._label_studio_client
 
     def get_label_studio_access_token(self):

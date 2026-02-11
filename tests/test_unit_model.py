@@ -1,6 +1,6 @@
 import copy
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, MagicMock
 from label_studio_ml.model import LabelStudioMLBase
 
 
@@ -65,3 +65,39 @@ def test_preload_task_data_complex_structure(mock_get_local_path, mock_file, mod
     mock_get_local_path.assert_called_with(url=url, task_id=task["id"])
     mock_file.assert_called_with("path", "r")
     print(result)
+
+
+@patch("label_studio_ml.model.LabelStudio")
+def test_label_studio_client_initialized_and_cached(mock_label_studio, model):
+    client_instance = MagicMock()
+    mock_label_studio.return_value = client_instance
+
+    with patch.dict("os.environ", {"LABEL_STUDIO_URL": "http://localhost:8080"}, clear=False):
+        # First access should initialize SDK client
+        first = model._get_label_studio_client()
+        # Second access should reuse cached client
+        second = model._get_label_studio_client()
+
+    assert first is client_instance
+    assert second is client_instance
+    mock_label_studio.assert_called_once_with(base_url="http://localhost:8080")
+
+
+@patch("label_studio_ml.model.LabelStudio", side_effect=RuntimeError("boom"))
+def test_label_studio_client_init_failure_falls_back_to_env_token(mock_label_studio, model):
+    with patch.dict(
+        "os.environ",
+        {
+            "LABEL_STUDIO_URL": "http://localhost:8080",
+            "LABEL_STUDIO_API_KEY": "legacy-token",
+        },
+        clear=False,
+    ):
+        # Initialization failure should not crash token retrieval
+        token = model.get_label_studio_access_token()
+        token_second = model.get_label_studio_access_token()
+
+    assert token == "legacy-token"
+    assert token_second == "legacy-token"
+    # Failed init should be remembered, so constructor is only attempted once.
+    mock_label_studio.assert_called_once_with(base_url="http://localhost:8080")
