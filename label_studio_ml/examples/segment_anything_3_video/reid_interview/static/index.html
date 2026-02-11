@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReID Interview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="top-nav">
+    <span class="nav-title">ReID Interview</span>
+    <ol class="phase-indicator" id="phase-indicator">
+      <li class="phase-dot active" data-phase="load">
+        <span class="dot"></span><span class="phase-label">Load</span>
+      </li>
+      <li class="phase-dot" data-phase="review">
+        <span class="dot"></span><span class="phase-label">Review</span>
+      </li>
+      <li class="phase-dot" data-phase="writeback">
+        <span class="dot"></span><span class="phase-label">Write-Back</span>
+      </li>
+    </ol>
+    <div class="accuracy-badge" id="accuracy-badge" style="display:none">
+      Accuracy: <span id="accuracy-value">--</span>%
+    </div>
+  </nav>
+  <main id="app"></main>
+  <div id="toast-container" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+  <script src="swipe_ui.js" defer></script>
+  <script src="cluster_map.js" defer></script>
+  <script src="confetti.js" defer></script>
+</body>
+</html>

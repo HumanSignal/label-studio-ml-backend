@@ -169,6 +169,14 @@ if __name__ == "__main__":
     except Exception as e:
         logging.getLogger(__name__).warning("Interview UI not available: %s", e)
 
+    # Register ReID Interview UI Blueprint
+    try:
+        from reid_interview import reid_interview_bp
+        app.register_blueprint(reid_interview_bp)
+        logging.getLogger(__name__).info("ReID Interview UI registered at /ReID-Interview")
+    except Exception as e:
+        logging.getLogger(__name__).warning("ReID Interview UI not available: %s", e)
+
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
@@ -188,3 +196,11 @@ else:
         logging.getLogger(__name__).info("Interview UI registered at /interview")
     except Exception as e:
         logging.getLogger(__name__).warning("Interview UI not available: %s", e)
+
+    # Register ReID Interview UI Blueprint
+    try:
+        from reid_interview import reid_interview_bp
+        app.register_blueprint(reid_interview_bp)
+        logging.getLogger(__name__).info("ReID Interview UI registered at /ReID-Interview")
+    except Exception as e:
+        logging.getLogger(__name__).warning("ReID Interview UI not available: %s", e)
