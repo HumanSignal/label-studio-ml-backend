@@ -14,7 +14,7 @@ from label_studio_ml.utils import (
     get_single_tag_keys,
     DATA_UNDEFINED_NAME,
 )
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_data_dir, get_local_path
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_data_dir
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -163,7 +163,7 @@ class MMDetection(LabelStudioMLBase):
 
     def predict_one_task(self, task: Dict):
         image_url = self._get_image_url(task)
-        image_path = get_local_path(image_url, task_id=task.get('id'))
+        image_path = self.get_local_path(image_url, task_id=task.get('id'))
         model_results = inference_detector(model, image_path).pred_instances
         results = []
         all_scores = []

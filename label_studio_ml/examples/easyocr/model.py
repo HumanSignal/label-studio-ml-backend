@@ -10,7 +10,6 @@ from typing import List, Dict, Optional
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import get_image_size, DATA_UNDEFINED_NAME
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 
@@ -31,9 +30,6 @@ class EasyOCR(LabelStudioMLBase):
     HEIGHT_THS = float(os.getenv('HEIGHT_THS', 0.8))
     # Label Studio image upload folder:
     # should be used only in case you use direct file upload into Label Studio instead of URLs
-    LABEL_STUDIO_ACCESS_TOKEN = (
-        os.environ.get("LABEL_STUDIO_ACCESS_TOKEN") or os.environ.get("LABEL_STUDIO_API_KEY")
-    )
     LABEL_STUDIO_HOST = (
             os.environ.get("LABEL_STUDIO_HOST") or os.environ.get("LABEL_STUDIO_URL")
     )
@@ -100,11 +96,10 @@ class EasyOCR(LabelStudioMLBase):
         cache_dir = os.path.join(self.MODEL_DIR, '.file-cache')
         os.makedirs(cache_dir, exist_ok=True)
         logger.debug(f'Using cache dir: {cache_dir}')
-        image_path = get_local_path(
+        image_path = self.get_local_path(
             image_url,
             cache_dir=cache_dir,
-            hostname=self.LABEL_STUDIO_HOST,
-            access_token=self.LABEL_STUDIO_ACCESS_TOKEN,
+            ls_host=self.LABEL_STUDIO_HOST,
             task_id=task.get('id')
         )
         model_results = self.model.readtext(image_path, height_ths=self.HEIGHT_THS)

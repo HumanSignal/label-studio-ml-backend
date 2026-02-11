@@ -23,6 +23,10 @@ from typing import Tuple, Callable, Union, List, Dict, Optional
 from abc import ABC
 from colorama import Fore
 
+try:
+    from label_studio_sdk import LabelStudio
+except Exception:  # pragma: no cover - fallback for older SDKs
+    LabelStudio = None
 from label_studio_sdk.label_interface import LabelInterface
 from label_studio_sdk._extensions.label_studio_tools.core.label_config import parse_config
 from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
@@ -78,6 +82,7 @@ class LabelStudioMLBase(ABC):
             project_id (str, optional): The project ID. Defaults to None.
         """
         self.project_id = project_id or ''
+        self._label_studio_client = None
         if label_config is not None:
             self.use_label_config(label_config)
         else:
@@ -233,6 +238,40 @@ class LabelStudioMLBase(ABC):
         if _update_fn:
             return _update_fn(event, data, helper=self, **additional_params)
 
+    def _get_label_studio_client(self):
+        if self._label_studio_client is not None:
+            return self._label_studio_client
+        if not self._label_studio_client:
+            return None
+
+        try:
+            # Keep a single SDK client per backend instance.
+            label_studio_base_url = (
+                os.getenv('LABEL_STUDIO_URL')
+                or os.getenv('LABEL_STUDIO_HOST')
+                or os.getenv('HOSTNAME')
+            )
+            self._label_studio_client = LabelStudio(base_url=label_studio_base_url)
+        except Exception as exc:
+            logger.warning(
+                "Unable to initialize Label Studio SDK client with base URL '%s': %s",
+                label_studio_base_url,
+                exc
+            )
+            self._label_studio_client = False
+        return self._label_studio_client
+
+    def get_label_studio_access_token(self):
+        """Get a fresh LS access or legacy token from persistent SDK client."""
+        client = self._get_label_studio_client()
+        if client:
+            return client._client_wrapper._tokens_client.api_key
+
+        return (
+            os.getenv('LABEL_STUDIO_API_KEY')
+            or os.getenv('LABEL_STUDIO_ACCESS_TOKEN')
+        )
+
     def get_local_path(self, url, project_dir=None, ls_host=None, ls_access_token=None, task_id=None, *args, **kwargs):
         """
         Return the local path for a given URL.
@@ -249,6 +288,9 @@ class LabelStudioMLBase(ABC):
         Returns:
           The local path for the given URL.
         """
+        if ls_access_token is None:
+            ls_access_token = self.get_label_studio_access_token()
+
         return get_local_path(
             url,
             project_dir=project_dir,

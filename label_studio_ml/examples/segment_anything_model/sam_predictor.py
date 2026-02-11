@@ -7,7 +7,6 @@ import numpy as np
 
 from typing import List, Dict, Optional
 from label_studio_ml.utils import InMemoryLRUDictCache
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 
 # Monkey-patch torch.as_tensor to handle numpy 2.x compatibility
 _original_as_tensor = torch.as_tensor
@@ -61,8 +60,6 @@ _MODELS_DIR = pathlib.Path(__file__).parent / "models"
 VITH_CHECKPOINT = os.environ.get("VITH_CHECKPOINT", _MODELS_DIR / "sam_vit_h_4b8939.pth")
 ONNX_CHECKPOINT = os.environ.get("ONNX_CHECKPOINT", _MODELS_DIR / "sam_onnx_quantized_example.onnx")
 MOBILESAM_CHECKPOINT = os.environ.get("MOBILESAM_CHECKPOINT", _MODELS_DIR / "mobile_sam.pt")
-LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
-LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 
 class SAMPredictor(object):
@@ -124,17 +121,14 @@ class SAMPredictor(object):
     def model_name(self):
         return f'{self.model_choice}:{self.model_checkpoint}:{self.device}'
 
-    def set_image(self, img_path, calculate_embeddings=True, task=None):
+    def set_image(self, img_path, calculate_embeddings=True, task=None, path_resolver=None):
         payload = self.cache.get(img_path)
         if payload is None:
             # Get image and embeddings
             logger.debug(f'Payload not found for {img_path} in `IN_MEM_CACHE`: calculating from scratch')
-            image_path = get_local_path(
-                img_path,
-                access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                hostname=LABEL_STUDIO_HOST,
-                task_id=task.get('id')
-            )
+            if path_resolver is None:
+                raise ValueError("path_resolver is required for resolving local paths")
+            image_path = path_resolver(img_path, task_id=task.get('id'))
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             # Ensure image is contiguous and properly typed for numpy 2.x compatibility
@@ -158,10 +152,16 @@ class SAMPredictor(object):
         point_coords: Optional[List[List]] = None,
         point_labels: Optional[List] = None,
         input_box: Optional[List] = None,
-        task: Optional[Dict] = None
+        task: Optional[Dict] = None,
+        path_resolver=None
     ):
         # calculate embeddings
-        payload = self.set_image(img_path, calculate_embeddings=True, task=task)
+        payload = self.set_image(
+            img_path,
+            calculate_embeddings=True,
+            task=task,
+            path_resolver=path_resolver
+        )
         image_shape = payload['image_shape']
         image_embedding = payload['image_embedding']
 
@@ -216,9 +216,15 @@ class SAMPredictor(object):
         point_coords: Optional[List[List]] = None,
         point_labels: Optional[List] = None,
         input_box: Optional[List] = None,
-        task: Optional[Dict] = None
+        task: Optional[Dict] = None,
+        path_resolver=None
     ):
-        self.set_image(img_path, calculate_embeddings=False, task=task)
+        self.set_image(
+            img_path,
+            calculate_embeddings=False,
+            task=task,
+            path_resolver=path_resolver
+        )
         point_coords = np.array(point_coords, dtype=np.float32) if point_coords else None
         point_labels = np.array(point_labels, dtype=np.float32) if point_labels else None
         input_box = np.array(input_box, dtype=np.float32) if input_box else None
@@ -242,12 +248,17 @@ class SAMPredictor(object):
         point_coords: Optional[List[List]] = None,
         point_labels: Optional[List] = None,
         input_box: Optional[List] = None,
-        task: Optional[Dict] = None
+        task: Optional[Dict] = None,
+        path_resolver=None
     ):
         if self.model_choice == 'ONNX':
-            return self.predict_onnx(img_path, point_coords, point_labels, input_box, task)
+            return self.predict_onnx(
+                img_path, point_coords, point_labels, input_box, task, path_resolver
+            )
         elif self.model_choice in ('SAM', 'MobileSAM'):
-            return self.predict_sam(img_path, point_coords, point_labels, input_box, task)
+            return self.predict_sam(
+                img_path, point_coords, point_labels, input_box, task, path_resolver
+            )
         else:
             raise NotImplementedError(f"Model choice {self.model_choice} is not supported yet")
 
