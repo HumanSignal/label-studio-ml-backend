@@ -41,14 +41,19 @@ def patched_clients(monkeypatch):
     mock_s3_client = MagicMock(name='S3Client')
     monkeypatch.setattr(deepgram_module.boto3, 'client', MagicMock(return_value=mock_s3_client))
 
-    mock_ls = MagicMock(name='LabelStudio')
-    monkeypatch.setattr(deepgram_module, 'ls', mock_ls)
+    mock_ls_client = MagicMock(name='LabelStudioClient')
+    monkeypatch.setattr(
+        DeepgramModelCls,
+        'get_label_studio_client',
+        MagicMock(return_value=mock_ls_client),
+        raising=False,
+    )
 
     return {
         'deepgram_client': mock_deepgram_client,
         'deepgram_ctor': mock_deepgram_ctor,
         's3_client': mock_s3_client,
-        'ls': mock_ls,
+        'ls_client': mock_ls_client,
     }
 
 
@@ -151,7 +156,7 @@ def test_predict_generates_audio_uploads_to_s3_and_updates_task(env_settings, pa
     assert patched_clients['s3_client'].upload_file.call_args.args[2] == expected_key
 
     expected_url = f"https://{env_settings['S3_BUCKET']}.s3.{env_settings['AWS_DEFAULT_REGION']}.amazonaws.com/{expected_key}"
-    patched_clients['ls'].tasks.update.assert_called_once_with(
+    patched_clients['ls_client'].tasks.update.assert_called_once_with(
         id=123,
         data={'text': 'Hello Deepgram', 'audio': expected_url},
     )
@@ -182,7 +187,7 @@ def test_predict_s3_failure_raises_and_cleans_up_temp_file(env_settings, patched
 
     local_path = patched_clients['s3_client'].upload_file.call_args.args[0]
     assert not os.path.exists(local_path)
-    patched_clients['ls'].tasks.update.assert_not_called()
+    patched_clients['ls_client'].tasks.update.assert_not_called()
 
 
 def test_setup_in_test_mode_uses_stub_clients(monkeypatch):
@@ -214,8 +219,9 @@ def test_predict_test_mode_skips_label_studio_update(monkeypatch):
     """
     monkeypatch.setenv('TEST_ENV', '1')
     model = DeepgramModelCls()
-    mocked_update = MagicMock()
-    monkeypatch.setattr(deepgram_module.ls.tasks, 'update', mocked_update)
+    mocked_ls_client = MagicMock()
+    mocked_get_client = MagicMock(return_value=mocked_ls_client)
+    monkeypatch.setattr(model, 'get_label_studio_client', mocked_get_client, raising=False)
 
     tasks = [{'id': 321}]
     context = {
@@ -225,5 +231,6 @@ def test_predict_test_mode_skips_label_studio_update(monkeypatch):
 
     model.predict(tasks=tasks, context=context)
 
-    mocked_update.assert_not_called()
+    mocked_get_client.assert_not_called()
+    mocked_ls_client.tasks.update.assert_not_called()
 
