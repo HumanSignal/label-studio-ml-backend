@@ -1,0 +1,12 @@
+<View> 
+    <Image name="image" value="$image"/> 
+    <RectangleLabels name="label" toName="image"> 
+    <Label value="door_single" background="#f8b3af"/>
+        <Label value="door_double" background="#11d30d"/> 
+        <Label value="tables" background="#6beeff"/> 
+        <Label value="drawings" background="#AD8B00"/> 
+        <Label value="text_box" background="#5f68f2"/> 
+        <Label value="title_block" background="#389E0D"/> 
+        <Label value="symbol_legend" background="#db5cc0"/> 
+    </RectangleLabels> 
+</View>

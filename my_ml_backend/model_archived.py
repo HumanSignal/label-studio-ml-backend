@@ -15,24 +15,29 @@ API_KEY = ""
 print('=> LABEL STUDIO HOSTNAME = ', HOSTNAME)
 print('=> MODEL_DIR = ', MODEL_DIR)
 
-
 class Yolov8Backend(LabelStudioMLBase):
-    def __init__(self, project_id=None, **kwargs):
+    def __init__(self, project_id=None,**kwargs):
         # Call base class constructor
         super(Yolov8Backend, self).__init__(**kwargs)
-        # replace 7 label config with your annitation template
-        with open("config/7_label_config.xml", 'r') as f:
-            label_config_string = f.read()
-        self.conifg = self.use_label_config(label_config_string)
+        # Initialize self variables
+        self.conifg=self.use_label_config('''
+        <View>
+            <Image name="image" value="$image" zoom="false"/>
+            <RectangleLabels name="label" toName="image">
+                <Label value="single_door" background="#FFA39E"/>
+                <Label value="double_door" background="##25d30d"/>
+            </RectangleLabels>
+        </View>
+            ''')
         self.from_name, self.to_name, self.value, self.classes = get_single_tag_keys(
             self.parsed_label_config, 'RectangleLabels', 'Image')
         self.labels = ['single_door', 'double_door']
 
         # Load model
-        # model_path=os.path.join(MODEL_DIR,"best.pt")
+        #model_path=os.path.join(MODEL_DIR,"best.pt")
         current_path = os.getcwd()
         print(current_path)
-        model_path = './my_ml_backend/best.pt'
+        model_path='./my_ml_backend/best.pt'
         self.model = YOLO(model_path)
 
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> List[Dict]:
@@ -47,44 +52,45 @@ class Yolov8Backend(LabelStudioMLBase):
         # Header to get request
         header = {
             "Authorization": "Token " + API_KEY}
-
+        
         # Getting URL and loading image
         image = Image.open(BytesIO(requests.get(
             full_url, headers=header).content))
         # Height and width of image
         original_width, original_height = image.size
-
+        
         # Creating list for predictions and variable for scores
         predictions = []
         score = 0
 
-        # Getting prediction using model
+    # Getting prediction using model
         results = self.model.predict(image)
 
         # Getting mask segments, boxes from model prediction
         for result in results:
             for i, box in enumerate(result.boxes):
+                
                 # 2D array with box xyxy posistions
                 box_pos = box.xyxy.cpu().tolist()
                 box_conf = box.conf.cpu()
                 box_cls = box.cls.cpu()
-                x1 = box_pos[0][0]
-                y1 = box_pos[0][1]
-                x2 = box_pos[0][2]
-                y2 = box_pos[0][3]
-                # x= x1
+                x1=box_pos[0][0]
+                y1=box_pos[0][1]
+                x2=box_pos[0][2]
+                y2=box_pos[0][3]
+                # x= x1 
                 # y= y1
                 # width=x2-x1
                 # height=y2-y1
-                x = x1 / original_width * 100.0
-                y = y1 / original_height * 100.0
-                width = (x2 - x1) / original_width * 100.0
-                height = (y2 - y1) / original_height * 100.0
+                x= x1 / original_width * 100.0
+                y= y1 / original_height * 100.0
+                width=(x2-x1)/ original_width * 100.0
+                height=(y2-y1)/ original_height *100.0
 
                 # Adding dict to prediction
                 predictions.append({
-                    "from_name": self.from_name,
-                    "to_name": self.to_name,
+                    "from_name" : self.from_name,
+                    "to_name" : self.to_name,
                     "id": str(i),
                     "type": "rectanglelabels",
                     "score": box_conf.item(),
@@ -92,17 +98,18 @@ class Yolov8Backend(LabelStudioMLBase):
                     "original_height": original_height,
                     "image_rotation": 0,
                     "value": {
-                        "x": x,
-                        "y": y,
-                        "width": width,
-                        "height": height,
+                        "x":x,
+                        "y":y,
+                        "width":width,
+                        "height":height,
                         "rectanglelabels": [self.labels[int(box_cls.item())]]
                     }})
 
                 # Calculating score
                 score += box.conf.item()
 
-        print(10 * "#", "Returned Prediction", 10 * "#")
+
+        print(10*"#", "Returned Prediction", 10*"#")
 
         # Dict with final dicts with predictions
         if predictions:
@@ -118,3 +125,30 @@ class Yolov8Backend(LabelStudioMLBase):
             }]
 
         return final_prediction
+
+
+        
+
+
+
+
+# if __name__ == '__main__':
+#     # test the model
+#     model = Yolov8Backend()
+#     model.use_label_config('''
+# <View>
+#     <Image name="image" value="$image" zoom="false"/>
+#     <RectangleLabels name="label" toName="image">
+#         <Label value="single_door" background="#FFA39E"/>
+#         <Label value="double_door" background="#D4380D"/>
+#     </RectangleLabels>
+# </View>
+#     ''')
+#     results = model.predict(
+#         tasks=[{
+#             'data': {
+#                 'image': 'https://s3.amazonaws.com/htx-pub/datasets/images/125245483_152578129892066_7843809718842085333_n.jpg'
+#             }}]
+#     )
+#     import json
+#     print(json.dumps(results, indent=2))

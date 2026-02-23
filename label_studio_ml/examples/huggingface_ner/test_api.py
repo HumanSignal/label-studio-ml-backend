@@ -6,7 +6,7 @@ This file contains tests for the API of your model. You can run these tests by i
     ```
 Then execute `pytest` in the directory of this file.
 
-- Change `NewModel` to the name of the class in your model.py file.
+- Change `NewModel` to the name of the class in your model_archived.py file.
 - Change the `request` and `expected_response` variables to match the input and output of your model.
 """
 

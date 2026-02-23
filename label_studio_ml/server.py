@@ -103,7 +103,7 @@ def create_dir(args):
 
     # extract script name and model class
     if not args.script:
-        script_path = os.path.join(default_configs_dir, 'model.py')
+        script_path = os.path.join(default_configs_dir, 'model_archived.py')
         print(f'You don\'t specify script path: by default, "{script_path}" is used')
     else:
         script_path = args.script

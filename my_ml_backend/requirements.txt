@@ -1,3 +1,3 @@
-gunicorn==20.1.0
+gunicorn
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git
-ultralytics==8.0.65
+ultralytics
