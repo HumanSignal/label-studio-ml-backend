@@ -14,7 +14,7 @@ categories:
     - Image Annotation
     - OpenMMLab
     - MMDetection
-image: "/tutorials/openmmlab.png"
+image: "/guide/ml_tutorials/openmmlab.png"
 ---
 -->
 
@@ -45,7 +45,7 @@ docker-compose up -d
 
 See the tutorial in the documentation for building your own image and advanced usage:
 
-https://github.com/HumanSignal/label-studio/blob/master/docs/source/tutorials/object-detector.md
+https://github.com/HumanSignal/label-studio/blob/master/docs/source/guide/ml_tutorials/object-detector.md
 
 
 ## Labeling config

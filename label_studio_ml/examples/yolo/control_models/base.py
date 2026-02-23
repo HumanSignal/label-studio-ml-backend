@@ -7,7 +7,6 @@ from ultralytics import YOLO
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import DATA_UNDEFINED_NAME
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface.control_tags import ControlTag
 from label_studio_sdk.label_interface import LabelInterface
 
@@ -184,7 +183,7 @@ class ControlModel(BaseModel):
         path = (
             task_path
             if os.path.exists(task_path)
-            else get_local_path(task_path, task_id=task.get("id"))
+            else self.label_studio_ml_backend.get_local_path(task_path, task_id=task.get("id"))
         )
         logger.debug(f"load_image: {task_path} => {path}")
         return path

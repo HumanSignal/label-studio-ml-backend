@@ -15,7 +15,7 @@ categories:
     - Segment Anything Model
     - Facebook
     - ONNX
-image: "/tutorials/segment-anything.png"
+image: "/guide/ml_tutorials/segment-anything.png"
 ---
 -->
 
@@ -272,12 +272,12 @@ Log into your Label Studio instance and perform the following steps.
 
 You can now upload images into your project and begin annotating.
 
-[The video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) also goes over this process, but does part of it while in the newly created project menu.
+[The video](https://hs-sandbox-pub.s3.us-east-1.amazonaws.com/ml-backend-docs/SAM_video_tutorial.mp4) also goes over this process, but does part of it while in the newly created project menu.
 
 
 ## Creating annotations
 
-See [this video tutorial](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing)
+See [this video tutorial](https://hs-sandbox-pub.s3.us-east-1.amazonaws.com/ml-backend-docs/SAM_video_tutorial.mp4)
 to get a better understanding of the workflow when annotating with SAM.
 
 Use the `Alt` hotkey to alter keypoint positive and negative labels.
@@ -290,7 +290,7 @@ https://github.com/user-attachments/assets/28acf6ae-a83f-4919-9722-3c82a4b6dab6
 
 ### Notes for AdvancedSAM
 
-* _**Please watch [this video](https://drive.google.com/file/d/1OMV1qLHc0yYRachPPb8et7dUBjxUsmR1/view?usp=sharing) first**_
+* _**Please watch [this video](https://hs-sandbox-pub.s3.us-east-1.amazonaws.com/ml-backend-docs/SAM_video_tutorial.mp4) first**_
 * For the best experience, follow the video tutorial above and _**uncheck 'Auto
   accept annotation suggestions'**_ when running predictions.
 * After generating the prediction from an assortment of inputs, make sure you _**click the

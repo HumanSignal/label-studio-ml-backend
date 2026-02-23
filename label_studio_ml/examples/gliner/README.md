@@ -14,7 +14,7 @@ categories:
     - GLiNER
     - BERT
     - Hugging Face
-image: "/tutorials/gliner.png"
+image: "/guide/ml_tutorials/gliner.png"
 ---
 -->
 

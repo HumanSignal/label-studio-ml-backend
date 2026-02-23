@@ -14,7 +14,7 @@ categories:
     - Google
     - OpenAI
     - Langchain
-image: "/tutorials/langchain.png"
+image: "/guide/ml_tutorials/langchain.png"
 ---
 -->
 

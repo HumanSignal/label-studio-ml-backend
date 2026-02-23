@@ -10,7 +10,6 @@ from typing import List, Dict, Optional
 from uuid import uuid4
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from label_studio_sdk.label_interface.objects import PredictionValue
 from PIL import Image
 from sam2.build_sam import build_sam2, build_sam2_video_predictor
@@ -224,7 +223,7 @@ class NewModel(LabelStudioMLBase):
         video_url = task['data'][value]
 
         # cache the video locally
-        video_path = get_local_path(video_url, task_id=task_id)
+        video_path = self.get_local_path(video_url, task_id=task_id)
         logger.debug(f'Video path: {video_path}')
 
         # get prompts from context

@@ -12,7 +12,7 @@ categories:
     - Natural Language Processing
     - Text Classification
     - Scikit-learn
-image: "/tutorials/scikit-learn.png"
+image: "/guide/ml_tutorials/scikit-learn.png"
 ---
 -->
 

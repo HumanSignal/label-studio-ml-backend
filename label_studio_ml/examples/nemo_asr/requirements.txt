@@ -2,3 +2,4 @@ nemo-toolkit[all]==1.23.0
 huggingface-hub==0.23.5
 numpy<2
 werkzeug==3.0.6
+

@@ -1,0 +1,109 @@
+name: "Build PYPI"
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version'
+        type: string
+        required: true
+      ref:
+        description: 'Ref'
+        type: string
+        required: true
+      upload_to_pypi:
+        description: "Upload to PyPi"
+        type: boolean
+        required: false
+        default: false
+      release-id:
+        description: "Attach Artifact to Release"
+        type: string
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        type: string
+        required: true
+      ref:
+        description: 'Ref'
+        type: string
+        required: true
+      upload_to_pypi:
+        description: "Upload to PyPi"
+        type: boolean
+        required: false
+        default: false
+      release-id:
+        description: "Attach Artifact to Release"
+        type: string
+        required: false
+
+jobs:
+  pypi:
+    name: "PyPI"
+    runs-on: ubuntu-latest
+    outputs:
+      pipy-artifact-url: ${{ steps.pypi-package-details.outputs.pipy-artifact-url }}
+      pipy-artifact-digests-sha256: ${{ steps.pypi-package-details.outputs.pipy-artifact-digests-sha256 }}
+    steps:
+      - uses: hmarr/debug-action@v3.0.0
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: "Set up Python"
+        id: setup_python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Build dependencies
+        run: pip install --upgrade setuptools wheel twine
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build
+        env:
+          VERSION_OVERRIDE: ${{ inputs.version }}
+        run: python setup.py sdist bdist_wheel
+
+      - name: Attach artifacts to release
+        if: inputs.release-id
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GIT_PAT }}
+          script: |
+            const { repo, owner } = context.repo;
+            const fs = require('fs');
+            const release_id = '${{ inputs.release-id }}';
+            for (let file of await fs.readdirSync('./dist/')) {
+               console.log('uploadReleaseAsset', file);
+               await github.rest.repos.uploadReleaseAsset({
+                  owner,
+                  repo,
+                  release_id: release_id,
+                  name: file,
+                  data: await fs.readFileSync(`./dist/${file}`)
+               });
+            }
+
+      - name: Upload to PYPI
+        if: inputs.upload_to_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ inputs.upload_to_pypi && secrets.PYPI_APIKEY || secrets.PYPI_APIKEY_TEST }}
+          TWINE_REPOSITORY_URL: ${{ inputs.upload_to_pypi && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+        run: twine upload dist/*
+
+      - name: Upload to artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Dist
+          path: dist/

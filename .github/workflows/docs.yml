@@ -27,7 +27,7 @@ jobs:
       - uses: hmarr/debug-action@v3.0.0
 
       - name: Checkout Actions Hub
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: "${{ secrets.GIT_PAT }}"
           repository: "HumanSignal/actions-hub"
@@ -48,13 +48,13 @@ jobs:
           github_token: "${{ secrets.GIT_PAT }}"
 
       - name: Checkout ML
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: "${{ secrets.GIT_PAT }}"
           path: "${{ env.ML_REPO_PATH }}"
 
       - name: Checkout LSO
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: "${{ secrets.GIT_PAT }}"
           repository: "${{ github.repository_owner }}/${{ env.DOCS_REPO_NAME }}"
@@ -70,7 +70,7 @@ jobs:
       - name: Git Commit
         working-directory: "${{ env.DOCS_REPO_PATH }}"
         run: |
-          git add 'docs/source/tutorials' || true
+          git add 'docs/source/guide/ml_tutorials' || true
           git add 'docs/source/guide/ml_tutorials.html' || true
           git status -s
           git commit -m '${{ env.COMMIT_MESSAGE }}' -m 'Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' || true

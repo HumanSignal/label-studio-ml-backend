@@ -1,3 +1,5 @@
 gliner==0.2.16
-torch==2.2.0
+torch==2.7.1
 accelerate>=0.26.0
+transformers==4.38.2
+huggingface-hub==0.21.4

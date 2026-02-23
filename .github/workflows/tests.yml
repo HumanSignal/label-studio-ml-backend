@@ -58,16 +58,16 @@ jobs:
           echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF})" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: "${{ env.GITHUB_SHA }}"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         name: Configure pip cache
         id: pip-cache
         with:
@@ -113,6 +113,7 @@ jobs:
         if: ${{ matrix.skip_pytests != 'true' }}
         env:
           ML_BACKEND: ${{ matrix.backend_dir_name }}
+          TEST_ENV: "true"
         run: |
           docker compose -f label_studio_ml/examples/${{ matrix.backend_dir_name }}/docker-compose.yml exec -T ${{ matrix.backend_dir_name }} pytest -vvv --cov --cov-report=xml:/tmp/coverage.xml
 
@@ -129,7 +130,7 @@ jobs:
 
       - name: "Upload general coverage to Codecov"
         if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.5.2
         with:
           name: codecov-general
           files: ./tests/${{ matrix.backend_dir_name }}_coverage.xml
@@ -138,7 +139,7 @@ jobs:
 
       - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
         if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.5.2
         with:
           name: codecov-${{ matrix.backend_dir_name }}
           files: ./label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
@@ -157,7 +158,7 @@ jobs:
 
       - name: Build matrix
         id: matrix
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           BASE_REF: "${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD_REF: "${{ github.event.pull_request.head.sha || github.event.after || github.sha }}"
@@ -252,7 +253,7 @@ jobs:
     steps:
       - name: Send Slack Notification
         if: always()
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@v2.1.1
         env:
           WORKFLOW: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow>"
         with:

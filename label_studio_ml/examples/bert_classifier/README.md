@@ -13,7 +13,7 @@ categories:
     - Text Classification
     - BERT
     - Hugging Face
-image: "/tutorials/bert.png"
+image: "/guide/ml_tutorials/bert.png"
 ---
 -->
 

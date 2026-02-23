@@ -20,7 +20,7 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get update; \
     apt-get upgrade -y; \
     apt install --no-install-recommends -y  \
-        git libglib2.0-0 libgl1-mesa-glx; \
+        git libglib2.0-0 libgl1 libglx-mesa0; \
     apt-get autoremove -y
 
 # install base requirements

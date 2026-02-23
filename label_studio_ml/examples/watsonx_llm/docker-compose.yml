@@ -55,7 +55,8 @@ services:
       # The name of the schema within the catalog that you'll insert your data into
       - WATSONX_SCHEMA=
       - WATSONX_TABLE=
-
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix
 
     ports:
       - "9090:9090"

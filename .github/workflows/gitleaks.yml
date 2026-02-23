@@ -4,7 +4,6 @@ on:
   pull_request:
 
 env:
-  GIT_GITLEAKS_VERSION: 8.18.4
   ACTIONS_STEP_DEBUG: '${{ secrets.ACTIONS_STEP_DEBUG }}'
 
 jobs:
@@ -14,22 +13,35 @@ jobs:
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
-      - name: Configure gitleaks binary cache
-        id: cache
-        uses: actions/cache@v4
+      - name: Install
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch="$(uname)_$(uname -m)"
+          platform=$(echo $arch | tr '[:upper:]' '[:lower:]' )
+          echo "PLATFORM=$platform" >> $GITHUB_ENV
+          echo "GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')" >> $GITHUB_ENV
+
+      - name: Cache gitleaks archive
+        id: cache_gitleaks
+        uses: actions/cache@v5
         with:
           path: /usr/local/bin/gitleaks
-          key: gitleaks-${{ env.GIT_GITLEAKS_VERSION }}
+          key: gitleaks-${{ env.PLATFORM }}-${{ env.GITLEAKS_VERSION }}
 
-      - name: Install tools
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Download and configure gitleaks
+        shell: bash
         run: |
-          wget -O - \
-          "https://github.com/zricethezav/gitleaks/releases/download/v${{ env.GIT_GITLEAKS_VERSION }}/gitleaks_${{ env.GIT_GITLEAKS_VERSION }}_linux_x64.tar.gz" \
-            | sudo tar xzf - -C /usr/local/bin
+          set -euo pipefail
+          if [[ "${{ steps.cache_gitleaks.outputs.cache-hit }}" != "true" ]]; then
+            DOWNLOAD_URL="https://github.com/gitleaks/gitleaks/releases/download/v${{ env.GITLEAKS_VERSION }}/gitleaks_${{ env.GITLEAKS_VERSION }}_linux_x64.tar.gz"
+            echo "Download Gitleaks ${{ env.GITLEAKS_VERSION }} for ${{ env.PLATFORM }} from ${DOWNLOAD_URL}"
+            curl -fsSL "$DOWNLOAD_URL" | tar xzf - -C /usr/local/bin
+          fi
+          chmod +x /usr/local/bin/gitleaks
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.event.after }}
@@ -51,7 +63,7 @@ jobs:
 
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: GitLeaks results
           path: results.sarif

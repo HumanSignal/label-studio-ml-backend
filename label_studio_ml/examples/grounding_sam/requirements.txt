@@ -1,4 +1,4 @@
-gunicorn==22.0.0
+gunicorn==23.0.0
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
 mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 # torch -- inherited from GroundingDINO repo
@@ -7,3 +7,6 @@ mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
 segment-anything==1.0
 olefile==0.47
 # networkx==2.8.8
+accelerate==1.6.0
+
+

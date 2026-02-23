@@ -13,7 +13,7 @@ categories:
     - Image Annotation
     - Object Detection
     - Grounding DINO
-image: "/tutorials/grounding-dino.png"
+image: "/guide/ml_tutorials/grounding-dino.png"
 ---
 -->
 

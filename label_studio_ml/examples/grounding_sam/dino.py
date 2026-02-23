@@ -82,12 +82,6 @@ groundingdino_model = load_model(
 
 BOX_THRESHOLD = os.environ.get("BOX_THRESHOLD", 0.3)
 TEXT_THRESHOLD = os.environ.get("TEXT_THRESHOLD", 0.25)
-LABEL_STUDIO_ACCESS_TOKEN = (
-        os.environ.get("LABEL_STUDIO_ACCESS_TOKEN") or os.environ.get("LABEL_STUDIO_API_KEY")
-)
-LABEL_STUDIO_HOST = (
-        os.environ.get("LABEL_STUDIO_HOST") or os.environ.get("LABEL_STUDIO_URL")
-)
 
 USE_SAM = get_bool_env("USE_SAM", default=False)
 USE_MOBILE_SAM = get_bool_env("USE_MOBILE_SAM", default=False)
@@ -165,8 +159,6 @@ class DINOBackend(LabelStudioMLBase):
         try:
             img_path = self.get_local_path(
                 raw_img_path,
-                ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                ls_host=LABEL_STUDIO_HOST,
                 task_id=task.get('id')
             )
         except Exception as e:
@@ -215,8 +207,6 @@ class DINOBackend(LabelStudioMLBase):
             try:
                 img_path = self.get_local_path(
                     raw_img_path,
-                    ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
-                    ls_host=LABEL_STUDIO_HOST,
                     task_id=task.get('id')
                 )
             except Exception as e:

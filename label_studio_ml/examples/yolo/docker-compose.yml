@@ -29,8 +29,8 @@ services:
       # Use prefix 'http://' or 'https://' for the URL always.
       # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
       # or you can try http://host.docker.internal:<label-studio-port> if you run LS on the same machine
-      - LABEL_STUDIO_URL=http://host.docker.internal:8080
-      - LABEL_STUDIO_API_KEY=
+      - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-http://host.docker.internal:8080}
+      - LABEL_STUDIO_API_KEY=${LABEL_STUDIO_API_KEY}
 
       # YOLO parameters
 
@@ -43,6 +43,8 @@ services:
       - MODEL_SCORE_THRESHOLD=0.5
       # Model root directory, where the YOLO model files are stored
       - MODEL_ROOT=/app/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # for macos and unix      
     ports:
       - "9090:9090"
     volumes:

@@ -1,3 +1,5 @@
 pytesseract==0.3.10
 openai==1.58.1
 tenacity==8.2.2
+
+

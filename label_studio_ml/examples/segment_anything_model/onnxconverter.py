@@ -55,13 +55,24 @@ def convert(checkpoint_path):
                 dynamic_axes=dynamic_axes,
             )
 
-    quantize_dynamic(
-        model_input=onnx_model_path,
-        model_output=onnx_model_quantized_path,
-        optimize_model=True,
-        per_channel=False,
-        reduce_range=False,
-        weight_type=QuantType.QUInt8,
-    )
+    # Newer versions of onnxruntime don't have optimize_model parameter
+    try:
+        quantize_dynamic(
+            model_input=onnx_model_path,
+            model_output=onnx_model_quantized_path,
+            optimize_model=True,
+            per_channel=False,
+            reduce_range=False,
+            weight_type=QuantType.QUInt8,
+        )
+    except TypeError:
+        # Fallback for newer onnxruntime versions without optimize_model
+        quantize_dynamic(
+            model_input=onnx_model_path,
+            model_output=onnx_model_quantized_path,
+            per_channel=False,
+            reduce_range=False,
+            weight_type=QuantType.QUInt8,
+        )
 
 convert(VITH_CHECKPOINT)

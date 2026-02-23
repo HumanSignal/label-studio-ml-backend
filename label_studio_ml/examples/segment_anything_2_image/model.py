@@ -8,7 +8,6 @@ from uuid import uuid4
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_sdk.converter import brush
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_local_path
 from PIL import Image
 
 ROOT_DIR = os.getcwd()
@@ -77,7 +76,7 @@ class NewModel(LabelStudioMLBase):
         }]
 
     def set_image(self, image_url, task_id):
-        image_path = get_local_path(image_url, task_id=task_id)
+        image_path = self.get_local_path(image_url, task_id=task_id)
         image = Image.open(image_path)
         image = np.array(image.convert("RGB"))
         predictor.set_image(image)

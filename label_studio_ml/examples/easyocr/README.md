@@ -12,7 +12,7 @@ categories:
     - Computer Vision
     - Optical Character Recognition
     - EasyOCR
-image: "/tutorials/easyocr.png"
+image: "/guide/ml_tutorials/easyocr.png"
 ---
 -->
 

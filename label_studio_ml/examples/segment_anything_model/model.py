@@ -53,7 +53,8 @@ class SamMLBackend(LabelStudioMLBase):
             point_coords=point_coords or None,
             point_labels=point_labels or None,
             input_box=input_box,
-            task=tasks[0]
+            task=tasks[0],
+            path_resolver=self.get_local_path
         )
 
         predictions = self.get_results(

@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 global OCR_config
 OCR_config = "--psm 6 -l chi_sim+eng+deu"
 
-LABEL_STUDIO_ACCESS_TOKEN = os.environ.get("LABEL_STUDIO_ACCESS_TOKEN")
 LABEL_STUDIO_HOST = os.environ.get("LABEL_STUDIO_HOST")
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -54,7 +53,6 @@ class BBOXOCR(LabelStudioMLBase):
             filepath = self.get_local_path(
                 img_path_url,
                 cache_dir=cache_dir,
-                ls_access_token=LABEL_STUDIO_ACCESS_TOKEN,
                 ls_host=LABEL_STUDIO_HOST,
                 task_id=task_id
             )
