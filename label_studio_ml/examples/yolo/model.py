@@ -9,6 +9,7 @@ from control_models.choices import ChoicesModel
 from control_models.rectangle_labels import RectangleLabelsModel
 from control_models.rectangle_labels_obb import RectangleLabelsObbModel
 from control_models.polygon_labels import PolygonLabelsModel
+from control_models.brush_labels import BrushLabelsModel
 from control_models.keypoint_labels import KeypointLabelsModel
 from control_models.video_rectangle import VideoRectangleModel
 from control_models.timeline_labels import TimelineLabelsModel
@@ -25,6 +26,7 @@ available_model_classes = [
     RectangleLabelsModel,
     RectangleLabelsObbModel,
     PolygonLabelsModel,
+    BrushLabelsModel,
     KeypointLabelsModel,
     VideoRectangleModel,
     TimelineLabelsModel,
@@ -110,7 +112,6 @@ class YOLO(LabelStudioMLBase):
 
         predictions = []
         for task in tasks:
-
             regions = []
             for model in control_models:
                 path = model.get_path(task)
