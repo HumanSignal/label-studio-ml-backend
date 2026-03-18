@@ -17,7 +17,7 @@ IMPORTANT NOTE: YOU MUST REFRESH THE PAGE AFTER SUBMITTING THE TEXT TO SEE THE A
       - `AWS_DEFAULT_REGION` - the region you want to use for S3
       - `S3_BUCKET` -- the name of the bucket where you'd like to store the created audio files
       - `S3_FOLDER` -- the name of the folder within the specified bucket where you'd like to store the audio files. 
-3. Label Studio -- make sure you set your `LABEL_STUDIO_URL` and your `LABEL_STUDIO_API_KEY` in `docker_compose.yml`. As of 11/12/25, you must use the LEGACY TOKEN. 
+3. Label Studio -- make sure you set your `LABEL_STUDIO_URL` and your `LABEL_STUDIO_API_KEY` in `docker_compose.yml`. 
 
 ## Labeling Config 
 This is the base labeling config to be used with this backend. Note that you may add additional annotations to the document after the audio without breaking anything!
