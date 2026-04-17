@@ -2,12 +2,12 @@ import torch
 import numpy as np
 import os
 import sys
+import cv2
 import pathlib
 from typing import List, Dict, Optional
 from uuid import uuid4
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
-from label_studio_sdk.converter import brush
 from PIL import Image
 
 ROOT_DIR = os.getcwd()
@@ -46,12 +46,32 @@ class NewModel(LabelStudioMLBase):
         results = []
         total_prob = 0
         for mask, prob in zip(masks, probs):
-            # creates a random ID for your label everytime so no chance for errors
             label_id = str(uuid4())[:4]
-            # converting the mask from the model to RLE format which is usable in Label Studio
-            mask = mask * 255
-            rle = brush.mask2rle(mask)
             total_prob += prob
+
+            # Convert binary mask to polygon using cv2
+            mask_uint8 = (mask * 255).astype(np.uint8)
+            contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if not contours:
+                continue
+
+            # Use the largest contour
+            largest = max(contours, key=cv2.contourArea)
+
+            # Simplify polygon to reduce number of points
+            epsilon = 0.005 * cv2.arcLength(largest, True)
+            approx = cv2.approxPolyDP(largest, epsilon, True)
+
+            if len(approx) < 3:
+                continue
+
+            # Convert to Label Studio percentage format
+            points = [
+                [float(pt[0][0]) / width * 100, float(pt[0][1]) / height * 100]
+                for pt in approx
+            ]
+
             results.append({
                 'id': label_id,
                 'from_name': from_name,
@@ -60,12 +80,11 @@ class NewModel(LabelStudioMLBase):
                 'original_height': height,
                 'image_rotation': 0,
                 'value': {
-                    'format': 'rle',
-                    'rle': rle,
-                    'brushlabels': [label],
+                    'points': points,
+                    'polygonlabels': [label],
                 },
                 'score': prob,
-                'type': 'brushlabels',
+                'type': 'polygonlabels',
                 'readonly': False
             })
 
@@ -108,7 +127,7 @@ class NewModel(LabelStudioMLBase):
     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         """ Returns the predicted mask for a smart keypoint that has been placed."""
 
-        from_name, to_name, value = self.get_first_tag_occurence('BrushLabels', 'Image')
+        from_name, to_name, value = self.get_first_tag_occurence('PolygonLabels', 'Image')
 
         if not context or not context.get('result'):
             # if there is no context, no interaction has happened yet
