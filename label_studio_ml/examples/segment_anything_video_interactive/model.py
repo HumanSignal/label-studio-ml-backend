@@ -22,6 +22,7 @@ import os
 import pathlib
 import tempfile
 import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -50,14 +51,25 @@ WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
 MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
 
 # How long a single `track_progress` call may hold the HTTP request waiting
-# for new frames before returning an empty batch. Long polling here turns
-# the FE's per-300ms poll loop into a "poll, wait at server, return on
-# signal" pattern — the effective latency becomes ~(backbone forward pass +
-# network) and the request count drops ~10-20x.
+# for the *first* new frame before returning an empty batch. Long polling
+# eliminates idle-state spam: the FE's next request won't fire until data
+# is ready or this timeout hits.
 #
-# Tune downward if gunicorn sync workers become scarce (each active tracking
-# session ties up one worker for up to this many seconds at a time).
+# Tune downward if gunicorn sync workers become scarce (each idle tracker
+# ties up one worker for up to this many seconds at a time).
 TRACK_PROGRESS_WAIT_SECONDS = float(os.getenv("TRACK_PROGRESS_WAIT_SECONDS", "5.0"))
+
+# Once the first frame is ready, keep the response open for a short grace
+# window so rapidly-produced frames pile up in the same response. Without
+# this, active tracking spams at SAM2's per-frame cadence (~20-30 req/s)
+# because each poll drains 1 frame and returns immediately.
+#
+# Total frames per response ≈ BATCH_WINDOW_SECONDS × frame_rate. Larger
+# window = fewer requests, slightly higher per-frame latency.
+TRACK_PROGRESS_BATCH_WINDOW_SECONDS = float(
+    os.getenv("TRACK_PROGRESS_BATCH_WINDOW_SECONDS", "0.25")
+)
+TRACK_PROGRESS_MAX_BATCH = int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32"))
 
 # Stop-tracking thresholds (see _run_tracking).
 # SAM2's mask decoder emits a per-frame object_score_logits; convention is
@@ -402,6 +414,13 @@ class SamVideoInteractive(LabelStudioMLBase):
         context = context or {}
         event = context.get("event", "predict")
 
+        # `capabilities` is task-agnostic: the FE polls it once per backend
+        # to discover which control tags this model can drive, so that SAM
+        # interactions can be wired automatically instead of requiring a
+        # <SegmentAnything> tag in the config.
+        if event == "capabilities":
+            return ModelResponse(predictions=[self._handle_capabilities()])
+
         task = tasks[0]
         task_id = str(task.get("id"))
         from_name, to_name, object_type, control_type = _detect_control(self.label_interface)
@@ -414,6 +433,36 @@ class SamVideoInteractive(LabelStudioMLBase):
                                         from_name, to_name, control_type)
 
         return ModelResponse(predictions=[result])
+
+    # --- capability discovery -------------------------------------------
+
+    def _handle_capabilities(self) -> PredictionValue:
+        """Static capability declaration so LS can auto-bind this backend to
+        any compatible control tags in the project without user config.
+
+        The FE reads this once per backend and builds `InteractiveBinding`s
+        for each (backend × control-tag) pair where `tag` matches a control
+        present in the annotation config."""
+        return PredictionValue(result=[{
+            "id": str(uuid4())[:8],
+            "type": "capabilities",
+            "origin": "manual",
+            "value": {
+                "prompts": ["point", "box"],
+                "targets": [
+                    {"tag": "BitmaskLabels",      "output": "mask"},
+                    {"tag": "RectangleLabels",    "output": "bbox"},
+                    {"tag": "PolygonLabels",      "output": "polygon"},
+                    {"tag": "VectorLabels",       "output": "polygon"},
+                    {"tag": "VideoRectangle",     "output": "bbox",    "features": ["track"]},
+                    {"tag": "VideoVectorLabels",  "output": "polygon", "features": ["track"]},
+                ],
+                "model_info": {
+                    "name": "SAM2",
+                    "version": os.getenv("MODEL_CHECKPOINT", "sam2_hiera_large.pt"),
+                },
+            },
+        }])
 
     # --- image path ------------------------------------------------------
 
@@ -816,6 +865,25 @@ class SamVideoInteractive(LabelStudioMLBase):
         if not new_frames and not done and session.error is None:
             session.wait_for_new_data(TRACK_PROGRESS_WAIT_SECONDS)
             new_frames, total_produced, done = session.drain_new()
+
+        # Micro-batch: once we have at least one frame and the session is
+        # still running, hold the response for a short window so more frames
+        # coalesce into this response. Without this, active tracking yields
+        # ~SAM2_fps requests/s because each poll drains 1 frame and returns
+        # immediately. With a 0.25 s window we send ~4 responses/s instead,
+        # each carrying multiple frames.
+        if new_frames and not done and session.error is None:
+            deadline = time.monotonic() + TRACK_PROGRESS_BATCH_WINDOW_SECONDS
+            while len(new_frames) < TRACK_PROGRESS_MAX_BATCH:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if not session.wait_for_new_data(remaining):
+                    break  # timeout
+                more, total_produced, done = session.drain_new()
+                new_frames.extend(more)
+                if done or session.error is not None or session.cancelled:
+                    break
 
         if done:
             with _tracking_lock:
