@@ -49,6 +49,16 @@ MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2_hiera_large.pt")
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
 MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
 
+# How long a single `track_progress` call may hold the HTTP request waiting
+# for new frames before returning an empty batch. Long polling here turns
+# the FE's per-300ms poll loop into a "poll, wait at server, return on
+# signal" pattern — the effective latency becomes ~(backbone forward pass +
+# network) and the request count drops ~10-20x.
+#
+# Tune downward if gunicorn sync workers become scarce (each active tracking
+# session ties up one worker for up to this many seconds at a time).
+TRACK_PROGRESS_WAIT_SECONDS = float(os.getenv("TRACK_PROGRESS_WAIT_SECONDS", "5.0"))
+
 # Stop-tracking thresholds (see _run_tracking).
 # SAM2's mask decoder emits a per-frame object_score_logits; convention is
 # `> 0` = object present, `<= 0` = occluded/absent. We debounce across a few
@@ -154,10 +164,14 @@ class TrackingSession:
         self.error: Optional[str] = None
         self.cancelled = False
         self.lock = threading.RLock()
+        # Signaled whenever there's something new for a poller to see:
+        # a frame was appended, the session finished, errored, or was cancelled.
+        self.new_data_event = threading.Event()
 
     def append_frame(self, frame_data: Dict[str, Any]):
         with self.lock:
             self.frames.append(frame_data)
+        self.new_data_event.set()
 
     def drain_new(self) -> Tuple[List[Dict[str, Any]], int, bool]:
         """Return (new_frames, total_produced, is_done)."""
@@ -169,9 +183,21 @@ class TrackingSession:
     def finish(self):
         with self.lock:
             self.done = True
+        self.new_data_event.set()
 
     def cancel(self):
         self.cancelled = True
+        self.new_data_event.set()
+
+    def wait_for_new_data(self, timeout: float) -> bool:
+        """Block until `new_data_event` fires or `timeout` elapses. Returns
+        True if signalled, False on timeout. Callers drain afterwards."""
+        signalled = self.new_data_event.wait(timeout)
+        # Clear immediately so the next wait starts fresh. It's fine if we
+        # miss a set here — the caller drains after wake and the next wait
+        # will re-fire as soon as the producer signals again.
+        self.new_data_event.clear()
+        return signalled
 
 
 _tracking_sessions: Dict[str, TrackingSession] = {}
@@ -782,7 +808,14 @@ class SamVideoInteractive(LabelStudioMLBase):
                 "value": {"error": "session not found", "done": True},
             }])
 
+        # Long polling: drain once; if there's nothing yet and the session is
+        # still running, block up to TRACK_PROGRESS_WAIT_SECONDS for the
+        # background thread to signal (frame produced, finished, errored, or
+        # cancelled), then drain again.
         new_frames, total_produced, done = session.drain_new()
+        if not new_frames and not done and session.error is None:
+            session.wait_for_new_data(TRACK_PROGRESS_WAIT_SECONDS)
+            new_frames, total_produced, done = session.drain_new()
 
         if done:
             with _tracking_lock:
