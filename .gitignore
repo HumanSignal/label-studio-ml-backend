@@ -132,3 +132,4 @@ dmypy.json
 .github/actions-hub
 
 .idea/
+label_studio_ml/examples/segment_anything_video_interactive/segment-anything-2
