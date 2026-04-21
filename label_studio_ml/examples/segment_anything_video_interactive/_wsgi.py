@@ -105,7 +105,7 @@ if __name__ == "__main__":
         basic_auth_pass=args.basic_auth_pass,
     )
 
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
 
 else:
     app = init_app(model_class=SamVideoInteractive)
