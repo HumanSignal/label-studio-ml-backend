@@ -402,8 +402,62 @@ def _lookup_labels(label_interface, from_name: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+def _is_loopback_host(host: str) -> bool:
+    """LS sends its own `settings.HOSTNAME` in `/setup` — if the LS admin
+    didn't set it, LS's own api_connector falls through to `http://localhost:<port>`.
+    That value is never useful to an ML backend (even on the same box,
+    operators set `LABEL_STUDIO_URL` explicitly), so we refuse to cache it."""
+    if not host:
+        return False
+    h = host.lower()
+    return "localhost" in h or "127.0.0.1" in h or "://0.0.0.0" in h
+
+
+def _capture_ls_context_from_request() -> None:
+    """Cache `hostname` + `access_token` from a `/setup` payload.
+
+    Label Studio sends both fields in every `/setup` request, but the
+    `label-studio-ml-backend` base class only persists `extra_params` — so
+    by default the ML backend has no way to learn the LS URL except via the
+    `LABEL_STUDIO_URL` env var. Reading the Flask request here makes LS a
+    fallback source of truth when the env var isn't set (env var still wins
+    in `_ls_host_token`).
+    """
+    try:
+        from flask import request, has_request_context
+    except Exception:
+        return
+    if not has_request_context():
+        return
+    data = request.get_json(silent=True) or {}
+    host = (data.get("hostname") or "").rstrip("/")
+    token = data.get("access_token") or ""
+    if host and not _is_loopback_host(host):
+        LS_CONTEXT["url"] = host
+    elif host:
+        logger.info(
+            "ignoring loopback hostname from /setup (%s) — set LABEL_STUDIO_URL "
+            "on the ML backend to point at a reachable LS URL",
+            host,
+        )
+    if token:
+        LS_CONTEXT["token"] = token
+
+
+# Module-level cache populated by `/setup` and read by `_resolve_video_source`.
+LS_CONTEXT: Dict[str, Optional[str]] = {"url": None, "token": None}
+
+
 class SamVideoInteractive(LabelStudioMLBase):
     """Interactive SAM2 backend with prewarm + sticky frame cache."""
+
+    def setup(self) -> None:
+        # Base `LabelStudioMLBase.setup` is an empty hook; this override runs
+        # on every model instantiation (the backend creates a fresh instance
+        # per HTTP request, so this fires on both `/setup` and `/predict`).
+        # `/setup` carries the LS hostname + token; `/predict` doesn't, so
+        # we just keep whatever was cached on the last setup call.
+        _capture_ls_context_from_request()
 
     def predict(
         self,
@@ -483,7 +537,10 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         image_predictor = make_image_predictor()
         image_url = self._image_url_from_task(task, to_name)
-        local_path = self.get_local_path(image_url, task_id=task_id)
+        ls_host, ls_token = self._ls_host_token()
+        local_path = self.get_local_path(
+            image_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
+        )
 
         bgr = cv2.imread(local_path)
         if bgr is None:
@@ -554,7 +611,10 @@ class SamVideoInteractive(LabelStudioMLBase):
             if cached is not None:
                 video = cached
             else:
-                local_path = self.get_local_path(raw_url, task_id=task_id)
+                ls_host, ls_token = self._ls_host_token()
+                local_path = self.get_local_path(
+                    raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
+                )
                 video = VIDEOS.get_or_create(task_id, local_path)
 
         # Prefer `time` (seconds) — the only quantity FE and BE can agree on
@@ -629,6 +689,25 @@ class SamVideoInteractive(LabelStudioMLBase):
         mask = (masks[0] > 0).astype(np.uint8)
         return self._mask_response(mask, w, h, from_name, to_name)
 
+    def _ls_host_token(self) -> Tuple[Optional[str], Optional[str]]:
+        """Return (ls_host, ls_token) using env vars first, then the cache
+        populated from `/setup`. Either may be None; callers pass them into
+        `self.get_local_path(ls_host=..., ls_access_token=...)` which lets
+        the SDK skip its `http://localhost:8000` default fallback.
+
+        LS's own `/setup` payload can carry `http://localhost:<port>` when
+        the LS side doesn't have `HOSTNAME` configured — that's useless to a
+        remote ML backend. The env-var-first ordering means an operator can
+        always override LS's guess via `.env` / `docker-compose`.
+        """
+        env_host = (os.getenv("LABEL_STUDIO_URL") or "").rstrip("/")
+        env_token = os.getenv("LABEL_STUDIO_API_KEY") or ""
+        cached_host = (LS_CONTEXT.get("url") or "").rstrip("/")
+        cached_token = LS_CONTEXT.get("token") or ""
+        host = env_host or cached_host
+        token = env_token or cached_token
+        return (host or None, token or None)
+
     def _resolve_video_source(self, raw_url: str, task_id: str):
         """Resolve a task video URL to a streamable source + auth headers.
 
@@ -637,9 +716,16 @@ class SamVideoInteractive(LabelStudioMLBase):
         * LS-hosted URLs, whether absolute or relative → attach the LS API
           token; LS guards the /data/upload/* path and returns 401 without it.
         * No LS url / key configured → fall back to local download.
+
+        Resolution order for the LS hostname:
+          1. `LABEL_STUDIO_URL` env var (explicit operator override)
+          2. Cached value from the last `/setup` payload (LS is the source
+             of truth when the env var isn't set — avoids the SDK's
+             `http://localhost:8000` default).
         """
-        ls_url = os.getenv("LABEL_STUDIO_URL", "").rstrip("/")
-        api_key = os.getenv("LABEL_STUDIO_API_KEY", "")
+        ls_url_opt, api_key_opt = self._ls_host_token()
+        ls_url = ls_url_opt or ""
+        api_key = api_key_opt or ""
 
         def _auth_headers():
             return {"Authorization": f"Token {api_key}"} if api_key else None
@@ -658,7 +744,9 @@ class SamVideoInteractive(LabelStudioMLBase):
             return full_url, _auth_headers()
 
         logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
-        local_path = self.get_local_path(raw_url, task_id=task_id)
+        local_path = self.get_local_path(
+            raw_url, task_id=task_id, ls_host=ls_url_opt, ls_access_token=api_key_opt,
+        )
         return local_path, None
 
     def _mask_response(self, mask, w, h, from_name, to_name):
