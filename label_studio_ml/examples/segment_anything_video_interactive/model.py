@@ -547,8 +547,15 @@ class SamVideoInteractive(LabelStudioMLBase):
             video = VIDEOS.get_or_create(task_id, source, headers=headers)
         except Exception as e:
             logger.warning("streaming failed (%s), falling back to download", e)
-            local_path = self.get_local_path(raw_url, task_id=task_id)
-            video = VIDEOS.get_or_create(task_id, local_path)
+            # A previously-resolved handle for the same task is still usable
+            # — don't force another probe / download cycle (which can 429 on
+            # the LS token-refresh endpoint under load).
+            cached = VIDEOS._handles.get(task_id)
+            if cached is not None:
+                video = cached
+            else:
+                local_path = self.get_local_path(raw_url, task_id=task_id)
+                video = VIDEOS.get_or_create(task_id, local_path)
 
         # Prefer `time` (seconds) — the only quantity FE and BE can agree on
         # without knowing each other's fps. Fall back to `frame` (FE 1-indexed)
@@ -625,21 +632,30 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _resolve_video_source(self, raw_url: str, task_id: str):
         """Resolve a task video URL to a streamable source + auth headers.
 
-        For absolute URLs (cloud storage), returns the URL directly.
-        For relative URLs (LS-hosted uploads), constructs the full URL with
-        LABEL_STUDIO_URL and auth token. Falls back to local download if
-        LABEL_STUDIO_URL is not configured.
+        * Cloud storage URLs (don't look like LS's own host) → stream directly,
+          no headers.
+        * LS-hosted URLs, whether absolute or relative → attach the LS API
+          token; LS guards the /data/upload/* path and returns 401 without it.
+        * No LS url / key configured → fall back to local download.
         """
         ls_url = os.getenv("LABEL_STUDIO_URL", "").rstrip("/")
         api_key = os.getenv("LABEL_STUDIO_API_KEY", "")
 
+        def _auth_headers():
+            return {"Authorization": f"Token {api_key}"} if api_key else None
+
+        def _points_at_ls(url: str) -> bool:
+            if not ls_url:
+                return False
+            return url.startswith(f"{ls_url}/") or url == ls_url
+
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
-            return raw_url, None
+            # Absolute URL — attach auth iff it's an LS-hosted URL.
+            return raw_url, _auth_headers() if _points_at_ls(raw_url) else None
 
         if ls_url and api_key:
             full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
-            headers = {"Authorization": f"Token {api_key}"}
-            return full_url, headers
+            return full_url, _auth_headers()
 
         logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
         local_path = self.get_local_path(raw_url, task_id=task_id)
@@ -692,7 +708,7 @@ class SamVideoInteractive(LabelStudioMLBase):
         thread = threading.Thread(
             target=self._run_tracking,
             args=(session, video, prompts, start_frame, end_frame,
-                  prompt_frame, max_frames, w, h),
+                  prompt_frame, max_frames, w, h, direction),
             daemon=True,
         )
         thread.start()
@@ -714,7 +730,7 @@ class SamVideoInteractive(LabelStudioMLBase):
         }])
 
     def _run_tracking(self, session, video, prompts, start_frame, end_frame,
-                      prompt_frame, max_frames, w, h):
+                      prompt_frame, max_frames, w, h, direction="forward"):
         """Background thread: extract frames, run SAM2 propagation, push
         mask PNGs into the session as they're produced."""
         try:
@@ -775,6 +791,7 @@ class SamVideoInteractive(LabelStudioMLBase):
                     inference_state=inference_state,
                     start_frame_idx=relative_prompt_frame,
                     max_frame_num_to_track=max_frames,
+                    reverse=(direction == "backward"),
                 ):
                     if session.cancelled:
                         logger.info("track bg: cancelled session=%s", session.session_id)
