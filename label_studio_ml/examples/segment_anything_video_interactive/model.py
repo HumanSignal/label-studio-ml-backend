@@ -167,7 +167,7 @@ class TrackingSession:
     """Holds state for an async tracking job. The background thread appends
     frame masks; the frontend polls for new ones via track_progress."""
 
-    def __init__(self, session_id: str, total_frames: int):
+    def __init__(self, session_id: str, total_frames: int, producers: int = 1):
         self.session_id = session_id
         self.total_frames = total_frames
         self.frames: List[Dict[str, Any]] = []
@@ -175,6 +175,9 @@ class TrackingSession:
         self.done = False
         self.error: Optional[str] = None
         self.cancelled = False
+        # Bidirectional tracking runs two producer threads sharing this
+        # session; we only flip `done` after all of them report in.
+        self._remaining_producers = max(1, producers)
         self.lock = threading.RLock()
         # Signaled whenever there's something new for a poller to see:
         # a frame was appended, the session finished, errored, or was cancelled.
@@ -193,8 +196,21 @@ class TrackingSession:
             return new, len(self.frames), self.done
 
     def finish(self):
+        """Single-producer shorthand: mark the session done immediately."""
         with self.lock:
             self.done = True
+            self._remaining_producers = 0
+        self.new_data_event.set()
+
+    def producer_done(self):
+        """One of N parallel producers reports completion. The session only
+        flips to `done=True` after every producer has called this — the FE
+        long-poller keeps getting fresh frames from any still-running
+        direction until then."""
+        with self.lock:
+            self._remaining_producers = max(0, self._remaining_producers - 1)
+            if self._remaining_producers == 0:
+                self.done = True
         self.new_data_event.set()
 
     def cancel(self):
@@ -402,6 +418,44 @@ def _lookup_labels(label_interface, from_name: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+_MORPH_KERNEL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+
+
+def _pick_best_mask(masks: np.ndarray, scores: Optional[np.ndarray]) -> np.ndarray:
+    """Select the highest-scoring candidate from a `multimask_output=True`
+    prediction. SAM typically returns 3 masks at (small / medium / large)
+    granularity; the FE fragments badly when the small-scale one wins on a
+    high-detail object, so we go by the model's own IoU-style score."""
+    if masks.ndim == 2:
+        return masks
+    if scores is None or len(scores) == 0:
+        return masks[0]
+    idx = int(np.argmax(scores))
+    return masks[idx]
+
+
+def _clean_mask(mask: np.ndarray) -> np.ndarray:
+    """Post-process a raw SAM binary mask before sending it to the FE:
+
+    - Morphological close with a 5×5 ellipse seals pinhole gaps SAM
+      occasionally leaves on textured objects.
+    - Keep only the largest 8-connected component so stray speckles outside
+      the main object don't survive. Works as a belt with FE's
+      `keepLargestComponent` for when older FE clients consume the mask.
+    """
+    binary = (mask > 0).astype(np.uint8)
+    if not binary.any():
+        return binary
+    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, _MORPH_KERNEL)
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
+    if num <= 1:
+        return closed
+    # Skip background (label 0); pick the largest foreground component by area.
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    best_label = 1 + int(np.argmax(areas))
+    return (labels == best_label).astype(np.uint8)
+
+
 def _is_loopback_host(host: str) -> bool:
     """LS sends its own `settings.HOSTNAME` in `/setup` — if the LS admin
     didn't set it, LS's own api_connector falls through to `http://localhost:<port>`.
@@ -557,9 +611,9 @@ class SamVideoInteractive(LabelStudioMLBase):
             point_coords=points_abs,
             point_labels=prompts["labels"] if prompts["labels"] is not None else None,
             box=box_abs,
-            multimask_output=False,
+            multimask_output=True,
         )
-        mask = (masks[0] > 0).astype(np.uint8)
+        mask = _clean_mask(_pick_best_mask(masks, scores))
         return self._mask_response(mask, w, h, from_name, to_name)
 
     def _image_url_from_task(self, task, to_name: str) -> str:
@@ -680,13 +734,13 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         points_abs = (prompts["points"] * np.array([w, h], dtype=np.float32)) if prompts["points"] is not None else None
         box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)) if prompts["box"] is not None else None
-        masks, _, _ = image_predictor.predict(
+        masks, scores, _ = image_predictor.predict(
             point_coords=points_abs,
             point_labels=prompts["labels"] if prompts["labels"] is not None else None,
             box=box_abs,
-            multimask_output=False,
+            multimask_output=True,
         )
-        mask = (masks[0] > 0).astype(np.uint8)
+        mask = _clean_mask(_pick_best_mask(masks, scores))
         return self._mask_response(mask, w, h, from_name, to_name)
 
     def _ls_host_token(self) -> Tuple[Optional[str], Optional[str]]:
@@ -768,7 +822,15 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _handle_track(self, task_id, context, video, prompt_frame,
                       from_name, to_name, control_type):
         """Start async SAM2 video propagation. Returns a session_id immediately;
-        the frontend polls track_progress to get results incrementally."""
+        the frontend polls track_progress to get results incrementally.
+
+        `direction` supports "forward", "backward", and "both". For "both"
+        we spawn two independent producer threads sharing the session —
+        each direction has its own `propagate_in_video` iterator and its
+        own auto-stop state, so one side can terminate on object loss while
+        the other continues until it also loses the object or hits the end
+        of the video.
+        """
         prompts = _extract_prompts(context)
         max_duration_ms = context.get("max_duration_ms")
         if max_duration_ms is not None and video.fps:
@@ -776,33 +838,41 @@ class SamVideoInteractive(LabelStudioMLBase):
         else:
             max_frames = int(context.get("max_frames", MAX_FRAMES_TO_TRACK))
         direction = context.get("direction", "forward")
+        if direction not in ("forward", "backward", "both"):
+            direction = "forward"
 
         h, w = video.height, video.width
 
-        if direction == "backward":
-            start_frame = max(0, prompt_frame - max_frames)
-            end_frame = prompt_frame + 1
-        else:
-            start_frame = prompt_frame
-            end_frame = min(video.frame_count, prompt_frame + max_frames + 1)
+        # Each direction gets its own frame range. "both" covers the full
+        # [prompt - max_frames, prompt + max_frames] span.
+        fwd_start, fwd_end = prompt_frame, min(video.frame_count, prompt_frame + max_frames + 1)
+        bwd_start, bwd_end = max(0, prompt_frame - max_frames), prompt_frame + 1
 
-        total = end_frame - start_frame
+        if direction == "forward":
+            ranges = [("forward", fwd_start, fwd_end)]
+        elif direction == "backward":
+            ranges = [("backward", bwd_start, bwd_end)]
+        else:  # "both"
+            ranges = [("forward", fwd_start, fwd_end), ("backward", bwd_start, bwd_end)]
+
+        total = sum(end - start for _, start, end in ranges)
         session_id = str(uuid4())[:12]
-        session = TrackingSession(session_id, total)
+        session = TrackingSession(session_id, total, producers=len(ranges))
 
         with _tracking_lock:
             _tracking_sessions[session_id] = session
 
-        thread = threading.Thread(
-            target=self._run_tracking,
-            args=(session, video, prompts, start_frame, end_frame,
-                  prompt_frame, max_frames, w, h, direction),
-            daemon=True,
-        )
-        thread.start()
+        for d, start_frame, end_frame in ranges:
+            t = threading.Thread(
+                target=self._run_tracking,
+                args=(session, video, prompts, start_frame, end_frame,
+                      prompt_frame, max_frames, w, h, d),
+                daemon=True,
+            )
+            t.start()
 
-        logger.info("track: started session=%s task=%s frames=%d..%d",
-                     session_id, task_id, start_frame, end_frame - 1)
+        logger.info("track: started session=%s task=%s direction=%s ranges=%s",
+                     session_id, task_id, direction, ranges)
 
         return PredictionValue(result=[{
             "id": str(uuid4())[:8],
@@ -860,17 +930,32 @@ class SamVideoInteractive(LabelStudioMLBase):
                         labels=prompts["labels"],
                     )
                 elif prompts["box"] is not None:
-                    box_abs = prompts["box"] * np.array([w, h, w, h], dtype=np.float32)
-                    x1, y1, x2, y2 = box_abs
-                    points_abs = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
-                    box_labels = np.array([2, 3], dtype=np.int32)
-                    video_predictor.add_new_points(
-                        inference_state=inference_state,
-                        frame_idx=relative_prompt_frame,
-                        obj_id=0,
-                        points=points_abs,
-                        labels=box_labels,
-                    )
+                    box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)).astype(np.float32)
+                    # Prefer the modern SAM2 API which takes `box` as a
+                    # dedicated parameter. The legacy "two points with
+                    # labels [2, 3]" encoding is interpreted as two
+                    # unknown-label points by current SAM2 builds — that
+                    # was producing a degenerate mask at the prompt
+                    # frame, which then propagated as a tiny region at
+                    # the top-left of the video.
+                    if hasattr(video_predictor, "add_new_points_or_box"):
+                        video_predictor.add_new_points_or_box(
+                            inference_state=inference_state,
+                            frame_idx=relative_prompt_frame,
+                            obj_id=0,
+                            box=box_abs,
+                        )
+                    else:
+                        x1, y1, x2, y2 = box_abs
+                        points_abs = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
+                        box_labels = np.array([2, 3], dtype=np.int32)
+                        video_predictor.add_new_points(
+                            inference_state=inference_state,
+                            frame_idx=relative_prompt_frame,
+                            obj_id=0,
+                            points=points_abs,
+                            labels=box_labels,
+                        )
 
                 total_pixels = w * h
                 consecutive_lost = 0
@@ -943,12 +1028,12 @@ class SamVideoInteractive(LabelStudioMLBase):
                         break
 
         except Exception as e:
-            logger.exception("track bg: error session=%s", session.session_id)
+            logger.exception("track bg: error session=%s direction=%s", session.session_id, direction)
             session.error = str(e)
         finally:
-            session.finish()
-            logger.info("track bg: finished session=%s frames=%d",
-                         session.session_id, len(session.frames))
+            session.producer_done()
+            logger.info("track bg: finished session=%s direction=%s frames=%d",
+                         session.session_id, direction, len(session.frames))
 
     def _handle_track_progress(self, context, from_name, to_name):
         session_id = context.get("session_id", "")
