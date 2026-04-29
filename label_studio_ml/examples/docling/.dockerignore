@@ -1,0 +1,20 @@
+# Exclude everything
+**
+
+# Build / compose
+!Dockerfile
+!docker-compose.yml
+
+# Application
+!*.py
+
+# Requirements
+!requirements*.txt
+
+# Optional local config for kwargs
+!config.json
+
+# Tests (optional in image when TEST_ENV=true)
+!test_api.py
+
+!label_mappings.json

@@ -1,0 +1,4 @@
+# Runtime caches (Docker volume targets); keep directory placeholders only
+data/.file-cache/*
+!data/.file-cache/.gitkeep
+data/**/cache.db

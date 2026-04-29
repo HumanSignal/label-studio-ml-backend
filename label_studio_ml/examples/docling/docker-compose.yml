@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  docling:
+    container_name: docling
+    image: heartexlabs/label-studio-ml-backend:docling-master
+    init: true
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      - LOG_LEVEL=INFO
+      - WORKERS=1
+      - THREADS=8
+      - MODEL_DIR=/data/models
+
+      # Full IBM Docling SaaS URL from Workbench (ends in /v1). model.py strips trailing /v1 so DoclingServiceClient does not call …/v1/v1/…
+      - DOCLING_SERVICE_URL=https://api.aws-c1.dcls.saas.ibm.com/YOUR_INSTANCE_SEGMENT/v1
+      - DOCLING_SERVE_API_KEY=your-docling-api-key
+
+      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_API_KEY=your-label-studio-token
+
+      # Optional: pass task HTTPS URL straight to SaaS (skip Label Studio download). Requires public URL.
+      # - DOCLING_CONVERT_REMOTE_URL_ONLY=false
+
+      # Optional headers merged into convert() when fetching remote URLs (JSON object).
+      # - DOCLING_CONVERT_SOURCE_HEADERS_JSON={}
+
+      # - DOCLING_SERVE_TIMEOUT=600
+      # - DOCLING_HTTP_CONNECT_TIMEOUT=30
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
+      - "./data/.file-cache:/data/models/.file-cache"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
