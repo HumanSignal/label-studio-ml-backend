@@ -127,6 +127,10 @@ Both should return JSON including **`"status":"UP"`**.
 
 Check **`LABEL_STUDIO_URL`** / **`LABEL_STUDIO_API_KEY`** and logs for `Docling task … local_path=… size=…`. A size of **0** or failed stat (`-1` in logs) usually means the file did not download correctly before conversion.
 
+### Tests in Docker (`TEST_ENV=true`)
+
+`requirements-test.txt` pins **`pytest>=8`** so **`pytest-cov`** stays compatible (older pytest can raise **`ModuleNotFoundError: _pytest.scope`**). CI installs test deps inside the example image when building with **`TEST_ENV=true`**.
+
 ## Layout of this example
 
 Like other backends under `label_studio_ml/examples/` (for example `easyocr/`), this directory includes `_wsgi.py`, `model.py`, `requirements-base.txt`, `requirements.txt`, `Dockerfile`, `docker-compose.yml`, and tests. **`docker-compose.yml`** bind-mounts `./data/server` and `./data/.file-cache` for runtime caches; Docker creates those paths on the host when you first run Compose—they are not checked into git (see `.gitignore`).
