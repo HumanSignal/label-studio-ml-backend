@@ -1,4 +1,2 @@
-# Runtime caches (Docker volume targets); keep directory placeholders only
-data/.file-cache/*
-!data/.file-cache/.gitkeep
-data/**/cache.db
+# Docker Compose bind mounts (created on first `docker compose up`)
+data/
