@@ -129,4 +129,4 @@ Check **`LABEL_STUDIO_URL`** / **`LABEL_STUDIO_API_KEY`** and logs for `Docling 
 
 ## Layout of this example
 
-Like other backends under `label_studio_ml/examples/` (for example `easyocr/`), this directory includes `_wsgi.py`, `model.py`, `requirements-base.txt`, `requirements.txt`, `Dockerfile`, `docker-compose.yml`, and tests.
+Like other backends under `label_studio_ml/examples/` (for example `easyocr/`), this directory includes `_wsgi.py`, `model.py`, `requirements-base.txt`, `requirements.txt`, `Dockerfile`, `docker-compose.yml`, and tests. **`docker-compose.yml`** bind-mounts `./data/server` and `./data/.file-cache` for runtime caches; Docker creates those paths on the host when you first run Compose—they are not checked into git (see `.gitignore`).
