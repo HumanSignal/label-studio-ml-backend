@@ -10,28 +10,50 @@ services:
       args:
         TEST_ENV: ${TEST_ENV}
     environment:
+      # ML backend server settings
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
       - LOG_LEVEL=INFO
+      - PORT=9090
       - WORKERS=1
       - THREADS=8
       - MODEL_DIR=/data/models
 
-      # Full IBM Docling SaaS URL from Workbench (ends in /v1). model.py strips trailing /v1 so DoclingServiceClient does not call …/v1/v1/…
+      # IBM Docling SaaS (required). Paste the Workbench URL as-is (usually ends in /v1);
+      # model.py strips trailing /v1 before creating DoclingServiceClient so routes are not doubled.
       - DOCLING_SERVICE_URL=https://api.aws-c1.dcls.saas.ibm.com/YOUR_INSTANCE_SEGMENT/v1
       - DOCLING_SERVE_API_KEY=your-docling-api-key
+      # Backward-compatible aliases:
+      # - DOCLING_SERVE_URL=
+      # - DOCLING_API_KEY=
 
+      # Label Studio access (required for uploads, /storage-data/ URLs, and private cloud-storage files).
       - LABEL_STUDIO_URL=http://host.docker.internal:8080
       - LABEL_STUDIO_API_KEY=your-label-studio-token
+      # Backward-compatible aliases:
+      # - LABEL_STUDIO_HOST=
+      # - LABEL_STUDIO_ACCESS_TOKEN=
+      # Use false only for self-signed Label Studio HTTPS certificates.
+      # - VERIFY_SSL=true
 
-      # Optional: pass task HTTPS URL straight to SaaS (skip Label Studio download). Requires public URL.
+      # File source / request options
+      # Pass task HTTPS URLs straight to SaaS (skip Label Studio download). Requires public URLs.
       # - DOCLING_CONVERT_REMOTE_URL_ONLY=false
-
-      # Optional headers merged into convert() when fetching remote URLs (JSON object).
+      # Extra source headers merged into DoclingServiceClient.convert(...).
       # - DOCLING_CONVERT_SOURCE_HEADERS_JSON={}
-
       # - DOCLING_SERVE_TIMEOUT=600
       # - DOCLING_HTTP_CONNECT_TIMEOUT=30
+
+      # Labeling-config overrides. Leave empty unless your project uses non-default tag/data names.
+      # - DOCLING_REACTCODE_FROM_NAME=docling
+      # - DOCLING_REACTCODE_TO_NAME=docling
+      # - DOCLING_TASK_DATA_KEY=undefined
+
+      # Output filtering / enrichment
+      # - DOCLING_PAGE_NO=
+      # - DOCLING_PREDICT_READING_ORDER=false
+      # - DOCLING_READING_ORDER_LEVEL=1
+      # - DOCLING_CONTENT_LAYERS=
     ports:
       - "9090:9090"
     volumes:
