@@ -44,6 +44,9 @@ jobs:
       LOG_DIR: pytest_logs
       collect_analytics: false
       TEST_WITH_CPU: ${{ matrix.backend_dir_name == 'segment_anything_model' }}
+      # Keep the repo on pytest 6.x while preventing newer transitive anyio from auto-loading
+      # a pytest plugin that imports _pytest.scope (pytest 8+ only).
+      PYTEST_ADDOPTS: "-p no:anyio"
     steps:
       - uses: hmarr/debug-action@v3.0.0
 
