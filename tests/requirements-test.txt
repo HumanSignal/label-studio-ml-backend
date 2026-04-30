@@ -1,4 +1,2 @@
-# pytest>=8 provides _pytest.scope (required by anyio's pytest plugin and current pytest-cov).
-# pytest==6.x + transitive anyio -> ModuleNotFoundError: No module named '_pytest.scope'
-pytest>=8.0.0,<10
-pytest-cov>=4.1.0,<8
+pytest==6.2.5
+pytest-cov==3.0.0
