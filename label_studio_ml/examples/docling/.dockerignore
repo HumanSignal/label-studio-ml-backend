@@ -13,3 +13,4 @@
 
 # Tests (optional in image when TEST_ENV=true)
 !test_api.py
+!pytest.ini
