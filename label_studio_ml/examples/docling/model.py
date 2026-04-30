@@ -29,6 +29,7 @@ from docling_to_reactcode import (
 
 logger = logging.getLogger(__name__)
 
+# Avoid repeating the same configuration warning on every prediction request.
 _PLACEHOLDER_URL_WARNED = False
 
 
@@ -45,9 +46,12 @@ def _docling_service_client_base_url(raw: str) -> str:
 class Docling(LabelStudioMLBase):
     """Use Docling SaaS through ``DoclingServiceClient.convert`` (URL or local ``Path``)."""
 
+    # Model state and temporary downloads live under MODEL_DIR so Docker volumes can persist cache files
+    # without polluting the example directory.
     MODEL_DIR = os.getenv("MODEL_DIR", ".")
 
-    # Full service URL including tenant path, e.g. https://api....ibm.com/<id>/v1
+    # Workbench provides a tenant-specific URL, typically ending in /v1. We keep the raw value here
+    # and normalize only when constructing DoclingServiceClient.
     DOCLING_SERVICE_URL = (
         os.getenv("DOCLING_SERVICE_URL", "").strip().rstrip("/")
         or os.getenv("DOCLING_SERVE_URL", "").strip().rstrip("/")
@@ -57,10 +61,15 @@ class Docling(LabelStudioMLBase):
     _client: Optional[DoclingServiceClient] = None
 
     def __init__(self, project_id: Optional[str] = None, label_config: Optional[str] = None, **kwargs):
+        # Allow environment variables to override the ReactCode control/object tag names when the
+        # labeling config is unavailable or uses non-default names.
         self._react_from = os.getenv("DOCLING_REACTCODE_FROM_NAME")
         self._react_to = os.getenv("DOCLING_REACTCODE_TO_NAME")
         self._data_key = os.getenv("DOCLING_TASK_DATA_KEY")
 
+        # Some ReactCode labeling configs are not understood by label_studio_sdk's parser. In that
+        # case we still want the ML backend to start, so we validate opportunistically and fall back
+        # to parsing only the tag names we need below.
         label_config_for_sdk = label_config
         if label_config:
             try:
@@ -77,6 +86,8 @@ class Docling(LabelStudioMLBase):
         self._apply_label_config_tags(label_config)
 
     def _apply_label_config_tags(self, label_config: Optional[str]) -> None:
+        # Prefer explicit env overrides; otherwise infer ReactCode names and task data key from
+        # the project labeling config. The final defaults match the sample config used by this example.
         if label_config:
             rf, rt = parse_reactcode_tag_names(label_config)
             if not self._react_from:
@@ -90,6 +101,8 @@ class Docling(LabelStudioMLBase):
         self._data_key = self._data_key or "undefined"
 
     def setup(self) -> None:
+        # Expose the installed docling package version in predictions so users can trace which client
+        # library produced a result.
         try:
             import docling as dl
 
@@ -99,6 +112,8 @@ class Docling(LabelStudioMLBase):
         self.set("model_version", f"DoclingService-{ver}")
 
     def _ensure_client(self) -> DoclingServiceClient:
+        # DoclingServiceClient keeps HTTP clients/watchers open, so reuse one client per process
+        # instead of recreating it for every task.
         if self._client is not None:
             return self._client
         if not self.DOCLING_SERVICE_URL:
@@ -137,6 +152,8 @@ class Docling(LabelStudioMLBase):
         return client.convert(source=source, headers=headers or None)
 
     def _task_file_url(self, task: Dict[str, Any]) -> Optional[str]:
+        # Label Studio task data can use a project-specific key, a conventional key, or the legacy
+        # DATA_UNDEFINED_NAME value. Check likely keys first so unrelated string fields are ignored.
         data = task.get("data") or {}
         keys_to_try: List[Optional[str]] = [
             self._data_key,
@@ -155,6 +172,8 @@ class Docling(LabelStudioMLBase):
         legacy = data.get(DATA_UNDEFINED_NAME)
         if legacy:
             return str(legacy)
+        # Last resort: scan for values that look like files. This keeps the backend usable even when
+        # the task data key and labeling config do not agree.
         for _k, val in data.items():
             if isinstance(val, str) and (
                 val.startswith("http://")
@@ -176,12 +195,18 @@ class Docling(LabelStudioMLBase):
 
     @staticmethod
     def _needs_label_studio_download(url: str) -> bool:
+        # Relative LS upload/storage URLs and cloud-storage URIs require Label Studio to resolve or
+        # presign the file. Public HTTP(S) URLs can be downloaded directly or sent to Docling SaaS.
         u = url.strip()
         if u.startswith(("http://", "https://")):
             return False
         return u.startswith("/") or u.startswith("s3://")
 
     def predict_single(self, task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        This method is called for each task in the batch.
+        It is used to predict the regions of the document.
+        """
         url_raw = self._task_file_url(task)
         url = (url_raw or "").strip()
         if not url:
@@ -199,6 +224,8 @@ class Docling(LabelStudioMLBase):
         )
         path: Optional[Path] = None
         if not use_remote_url or not url.lower().startswith(("http://", "https://")):
+            # Default to downloading through Label Studio first. This handles private uploads,
+            # storage proxy URLs, and cloud storage integrations that Docling SaaS cannot fetch directly.
             ls_hostname = self._label_studio_hostname_for_download()
             needs_ls = self._needs_label_studio_download(url)
             if needs_ls and not ls_hostname:
@@ -222,8 +249,8 @@ class Docling(LabelStudioMLBase):
                 return None
             cache_dir = os.path.join(self.MODEL_DIR, ".file-cache")
             os.makedirs(cache_dir, exist_ok=True)
-            # Call SDK directly so hostname, token, and cache_dir are always applied (some label-studio-ml
-            # versions wire get_local_path kwargs inconsistently).
+            # Call the SDK directly so hostname, token, and cache_dir are always applied. Some
+            # label-studio-ml wrapper versions wire get_local_path kwargs inconsistently.
             try:
                 local = ls_sdk_get_local_path(
                     url,
@@ -271,6 +298,8 @@ class Docling(LabelStudioMLBase):
                 return None
             path = Path(local)
 
+        # Log source and resolved file size before conversion; this is the fastest way to spot bad
+        # Label Studio URL/token settings (missing or tiny downloads).
         try:
             sz = path.stat().st_size if path else -1
         except OSError:
@@ -290,6 +319,8 @@ class Docling(LabelStudioMLBase):
             logger.error("%s", exc)
             return None
 
+        # When remote-only mode is enabled, pass public HTTP(S) URLs straight to SaaS just like the
+        # Workbench snippet. Otherwise send the cached local Path that we downloaded from Label Studio.
         convert_source: Path | str = url if use_remote_url and url.lower().startswith(("http://", "https://")) else (path if path is not None else url)
 
         try:
@@ -304,6 +335,8 @@ class Docling(LabelStudioMLBase):
             logger.exception("Docling convert raised for task %s", task.get("id"))
             return None
 
+        # Treat partial success as usable: Docling may still return a document with page-level issues
+        # that can be mapped into Label Studio predictions.
         if result.status not in (ConversionStatus.SUCCESS, ConversionStatus.PARTIAL_SUCCESS):
             logger.error(
                 "Docling conversion status for task %s: %s errors=%s",
@@ -318,6 +351,8 @@ class Docling(LabelStudioMLBase):
             logger.error("Docling returned no document for task %s", task.get("id"))
             return None
 
+        # Optional conversion filters/toggles let users reduce output volume or include reading-order
+        # metadata without changing code.
         page_raw = os.getenv("DOCLING_PAGE_NO", "").strip()
         page_no: Optional[int] = int(page_raw) if page_raw.isdigit() else None
 
@@ -332,6 +367,8 @@ class Docling(LabelStudioMLBase):
             content_layers=os.getenv("DOCLING_CONTENT_LAYERS"),
         )
 
+        # ReactCode results need original dimensions. For URL-only conversion there is no local image
+        # to inspect, so use a neutral fallback size; coordinates are still stored as percentages.
         size_path = str(path) if path is not None else None
         try:
             if size_path:
@@ -344,6 +381,8 @@ class Docling(LabelStudioMLBase):
         from_name = self._react_from
         to_name = self._react_to
 
+        # Wrap each ReactCode payload in the Label Studio prediction result envelope expected by the
+        # ReactCode control.
         ls_results: List[Dict[str, Any]] = []
         for payload in regions:
             ls_results.append(
@@ -359,6 +398,8 @@ class Docling(LabelStudioMLBase):
                 }
             )
 
+        # Use a simple confidence proxy so non-empty predictions sort above empty ones without implying
+        # calibrated model probabilities.
         score = min(1.0, 0.5 + 0.01 * len(regions)) if regions else 0.0
         return {
             "result": ls_results,
@@ -369,6 +410,8 @@ class Docling(LabelStudioMLBase):
     def predict(self, tasks: List[Dict[str, Any]], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         global _PLACEHOLDER_URL_WARNED
 
+        # Log the batch shape up front; Label Studio often shows only a generic "no response" when
+        # the backend returns an empty prediction list.
         tasks = tasks or []
         logger.info(
             "Docling predict: %s task(s), ids=%s data_keys=%s",
@@ -378,6 +421,8 @@ class Docling(LabelStudioMLBase):
         )
 
         svc = self.DOCLING_SERVICE_URL
+        # The compose template intentionally ships with a placeholder; warn once so repeated predict
+        # requests do not flood logs.
         if svc and "YOUR_INSTANCE" in svc and not _PLACEHOLDER_URL_WARNED:
             logger.error(
                 "DOCLING_SERVICE_URL still contains a placeholder — set the full SaaS URL from Workbench."
@@ -389,10 +434,13 @@ class Docling(LabelStudioMLBase):
 
         predictions = []
         for task in tasks:
+            # Process tasks independently so one bad file or conversion does not fail the whole batch.
             prediction = self.predict_single(task)
             if prediction:
                 predictions.append(prediction)
 
+        # Empty predictions are valid HTTP responses, but usually mean configuration or file resolution
+        # failed; make logs actionable for users debugging from Docker output.
         if tasks and not predictions:
             logger.warning(
                 "Docling produced zero predictions for %s task(s). "
