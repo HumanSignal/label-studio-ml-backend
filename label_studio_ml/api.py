@@ -54,16 +54,6 @@ def _predict():
     Predictions in LS format
     """
     data = request.json
-    if data is None:
-        logger.warning("POST /predict without JSON body (Content-Type=%s)", request.content_type)
-        return jsonify({"error": "Expected JSON body", "detail": "Send Content-Type: application/json"}), 400
-
-    logger.info(
-        "POST /predict tasks=%s project=%s",
-        len(data.get("tasks") or []),
-        data.get("project"),
-    )
-
     tasks = data.get('tasks')
     label_config = data.get('label_config')
     project = str(data.get('project'))

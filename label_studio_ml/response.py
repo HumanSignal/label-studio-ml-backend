@@ -22,24 +22,14 @@ class ModelResponse(BaseModel):
         return bool(self.model_version)
 
     def update_predictions_version(self) -> None:
-        """Attach model_version to each prediction (SDK objects or plain dicts)."""
-        mv = self.model_version
-        if not mv:
-            return
+        """
+        """
         for prediction in self.predictions:
-            if isinstance(prediction, dict):
-                if not prediction.get("model_version"):
-                    prediction["model_version"] = mv
-                continue
             if isinstance(prediction, PredictionValue):
-                pred_list: List = [prediction]
-            elif isinstance(prediction, list):
-                pred_list = prediction
-            else:
-                continue
-            for p in pred_list:
-                if isinstance(p, PredictionValue) and not p.model_version:
-                    p.model_version = mv
+                prediction = [prediction]
+            for p in prediction:
+                if not p.model_version:
+                    p.model_version = self.model_version
     
     def set_version(self, version: str) -> None:
         """
