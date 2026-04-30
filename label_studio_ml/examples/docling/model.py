@@ -20,6 +20,7 @@ from docling.service_client.exceptions import ConversionError, DoclingServiceCli
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_image_size
+from label_studio_sdk.label_interface.objects import PredictionValue
 
 from docling_to_reactcode import (
     docling_document_to_reactcode_regions,
@@ -202,7 +203,7 @@ class Docling(LabelStudioMLBase):
             return False
         return u.startswith("/") or u.startswith("s3://")
 
-    def predict_single(self, task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def predict_single(self, task: Dict[str, Any]) -> Optional[PredictionValue]:
         """
         This method is called for each task in the batch.
         It is used to predict the regions of the document.
@@ -401,11 +402,7 @@ class Docling(LabelStudioMLBase):
         # Use a simple confidence proxy so non-empty predictions sort above empty ones without implying
         # calibrated model probabilities.
         score = min(1.0, 0.5 + 0.01 * len(regions)) if regions else 0.0
-        return {
-            "result": ls_results,
-            "score": score,
-            "model_version": self.get("model_version"),
-        }
+        return PredictionValue(result=ls_results, score=score)
 
     def predict(self, tasks: List[Dict[str, Any]], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
         global _PLACEHOLDER_URL_WARNED
