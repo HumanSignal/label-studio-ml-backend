@@ -1,0 +1,6 @@
+pytest==6.2.5
+pytest-cov==3.0.0
+responses==0.13.0
+# anyio>=4 auto-loads a pytest plugin that imports _pytest.scope (pytest>=8 only).
+# Pin anyio for this example because docling/httpx can otherwise install a newer transitive version.
+anyio<4

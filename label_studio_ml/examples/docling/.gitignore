@@ -1,0 +1,2 @@
+# Docker Compose bind mounts (created on first `docker compose up`)
+data/

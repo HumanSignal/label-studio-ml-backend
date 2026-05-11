@@ -1,0 +1,3 @@
+# IBM Docling SaaS uses DoclingServiceClient (docling.service_client); pin high enough for service_client.
+docling>=2.90.0,<3
+numpy<2

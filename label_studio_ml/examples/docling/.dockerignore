@@ -1,0 +1,15 @@
+# Exclude everything
+**
+
+# Build / compose
+!Dockerfile
+!docker-compose.yml
+
+# Application
+!*.py
+
+# Requirements
+!requirements*.txt
+
+# Tests (optional in image when TEST_ENV=true)
+!test_api.py
