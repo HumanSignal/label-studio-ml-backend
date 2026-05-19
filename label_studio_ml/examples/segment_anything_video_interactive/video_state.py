@@ -15,6 +15,7 @@ import subprocess
 import threading
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -22,14 +23,38 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _validate_probe_source(source: str) -> str:
+    """Validate and normalize ffprobe input source from task data."""
+    if not isinstance(source, str):
+        raise ValueError("video source must be a string")
+    source = source.strip()
+    if not source:
+        raise ValueError("video source is empty")
+    if source.startswith("-"):
+        raise ValueError("video source cannot start with '-'")
+
+    if source.startswith("http://") or source.startswith("https://"):
+        parsed = urlparse(source)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("invalid video URL")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("video URL must not include credentials")
+        if any(ch in source for ch in ("\r", "\n", "\x00")):
+            raise ValueError("video source contains invalid control characters")
+        return source
+
+    return os.path.abspath(source)
+
+
 def _probe_video(source: str, headers: Optional[Dict[str, str]] = None) -> dict:
     """Run ffprobe on a local path or URL, return parsed JSON."""
+    source = _validate_probe_source(source)
     cmd = ["ffprobe", "-v", "error", "-print_format", "json",
            "-show_streams", "-show_format"]
     if headers:
         hdr_str = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
         cmd.extend(["-headers", hdr_str])
-    cmd.append(source)
+    cmd.extend(["--", source])
     source_kind = "url" if source.startswith("http://") or source.startswith("https://") else "local"
     logger.info("ffprobe started (source_kind=%s)", source_kind)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
