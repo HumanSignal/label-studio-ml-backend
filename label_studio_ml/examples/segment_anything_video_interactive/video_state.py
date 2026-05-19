@@ -63,8 +63,8 @@ def _probe_video(source: str, headers: Optional[Dict[str, str]] = None) -> dict:
                       result.returncode, result.stderr[:500], result.stdout[:200])
         raise RuntimeError(f"ffprobe failed (rc={result.returncode}): {result.stderr[:500]}")
     if not result.stdout.strip():
-        logger.error("ffprobe returned empty output for %s", source[:120])
-        raise RuntimeError(f"ffprobe returned empty output for {source[:120]}")
+        logger.error("ffprobe returned empty output (source_kind=%s)", source_kind)
+        raise RuntimeError(f"ffprobe returned empty output (source_kind={source_kind})")
     return json.loads(result.stdout)
 
 
