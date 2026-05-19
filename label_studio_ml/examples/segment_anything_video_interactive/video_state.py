@@ -30,7 +30,8 @@ def _probe_video(source: str, headers: Optional[Dict[str, str]] = None) -> dict:
         hdr_str = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
         cmd.extend(["-headers", hdr_str])
     cmd.append(source)
-    logger.info("ffprobe cmd: %s", " ".join(cmd[:6]) + f" ... {source[:120]}")
+    source_kind = "url" if source.startswith("http://") or source.startswith("https://") else "local"
+    logger.info("ffprobe started (source_kind=%s)", source_kind)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         logger.error("ffprobe failed: returncode=%s stderr=%s stdout=%s",
@@ -249,9 +250,10 @@ class VideoRegistry:
             )
             self._handles[task_id] = handle
             mode = "streaming" if is_streaming else "local"
+            source_kind = "url" if is_streaming else "local"
             logger.info(
-                "video registered [%s] task_id=%s source=%s w=%s h=%s frames=%s fps=%.2f",
-                mode, task_id, source[:120], w, h, frame_count, fps,
+                "video registered [%s] task_id=%s source_kind=%s w=%s h=%s frames=%s fps=%.2f",
+                mode, task_id, source_kind, w, h, frame_count, fps,
             )
             return handle
 
