@@ -33,6 +33,7 @@ from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_sdk.label_interface.objects import PredictionValue
 
+from control_detect import control_to_type, detect_control
 from frame_cache import FrameCache
 from mask_encoding import (
     mask_to_bbox_percent,
@@ -308,44 +309,10 @@ def _extract_prompts(context: Dict[str, Any]) -> Dict[str, Any]:
             "box": np.array(box, dtype=np.float32) if box is not None else None}
 
 
-def _detect_control(label_interface) -> Tuple[str, str, str, str]:
-    """Return (from_name, to_name, object_type, control_type).
-
-    `object_type` ∈ {'Image', 'Video'}, `control_type` is the xml-lowercased
-    type we'll emit.
-    """
-    # Image control tags
-    for candidate in ("BitmaskLabels", "RectangleLabels",
-                      "PolygonLabels", "VectorLabels"):
-        try:
-            from_name, to_name, value = label_interface.get_first_tag_occurence(
-                candidate, "Image"
-            )
-            return from_name, to_name, "Image", _control_to_type(candidate)
-        except Exception:
-            pass
-    # Video control tags
-    for candidate, obj_tag in (
-        ("VideoVectorLabels", "Video"),
-        ("VideoRectangle", "Video"),
-    ):
-        try:
-            from_name, to_name, _ = label_interface.get_first_tag_occurence(candidate, obj_tag)
-            return from_name, to_name, "Video", _control_to_type(candidate)
-        except Exception:
-            pass
-    raise ValueError("no supported control tag found in label config")
-
-
-def _control_to_type(control: str) -> str:
-    return {
-        "BitmaskLabels": "bitmap",
-        "RectangleLabels": "rectanglelabels",
-        "PolygonLabels": "polygonlabels",
-        "VectorLabels": "vectorlabels",
-        "VideoRectangle": "videorectangle",
-        "VideoVectorLabels": "videovectorlabels",
-    }[control]
+# Control-tag detection lives in the dependency-free `control_detect` module so
+# it can be unit-tested without torch/cv2 (see test_control_detect.py).
+_detect_control = detect_control
+_control_to_type = control_to_type
 
 
 # ---------------------------------------------------------------------------
