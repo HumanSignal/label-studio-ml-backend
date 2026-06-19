@@ -34,6 +34,7 @@ from label_studio_ml.response import ModelResponse
 from label_studio_sdk.label_interface.objects import PredictionValue
 
 from frame_cache import FrameCache
+from frame_resolve import resolve_frame_index
 from mask_encoding import (
     mask_to_bbox_percent,
     mask_to_bitmap_png_base64,
@@ -236,21 +237,15 @@ def _resolve_be_frame(context: Dict[str, Any], video) -> int:
     """Translate a frontend-supplied timestamp (ms) or 1-indexed frame into
     the BE's 0-indexed frame space using the video's own fps.
 
-    `time_ms` wins over `frame`: timestamps are fps-agnostic, while `frame`
-    carries the FE's config-fps assumption. If only `frame` is provided we
-    fall back to the legacy N-1 mapping (FE is 1-indexed).
+    Delegates to the dependency-free :func:`resolve_frame_index` so the
+    conversion can be unit-tested without torch/cv2 (see test_frame_resolve.py).
     """
-    raw_ms = context.get("time_ms")
-    if raw_ms is not None:
-        try:
-            ms = float(raw_ms)
-        except (TypeError, ValueError):
-            ms = None
-        if ms is not None and video.fps:
-            idx = int(round((ms / 1000.0) * video.fps))
-            max_idx = max(0, video.frame_count - 1)
-            return max(0, min(idx, max_idx))
-    return max(0, int(context.get("frame", 1)) - 1)
+    return resolve_frame_index(
+        context.get("time_ms"),
+        context.get("frame", 1),
+        video.fps,
+        video.frame_count,
+    )
 
 
 def _object_score(inference_state, obj_idx: int, frame_idx: int) -> Optional[float]:
