@@ -65,14 +65,25 @@ project's control tag.
 | Variable | Default | Description |
 |---|---|---|
 | `DEVICE` | `cuda` | `cuda`, `mps`, or `cpu` |
-| `MODEL_CONFIG` | `sam2_hiera_l.yaml` | SAM2 config name inside the SAM2 repo |
-| `MODEL_CHECKPOINT` | `sam2_hiera_large.pt` | SAM2 checkpoint filename |
+| `MODEL_CONFIG` | `configs/sam2.1/sam2.1_hiera_l.yaml` | SAM2 config name (Hydra path inside the SAM2 repo). Size must match the checkpoint |
+| `MODEL_CHECKPOINT` | `sam2.1_hiera_large.pt` | SAM2 checkpoint filename. For tiny: config `configs/sam2.1/sam2.1_hiera_t.yaml` + checkpoint `sam2.1_hiera_tiny.pt` |
 | `WINDOW_SIZE` | `20` | default prewarm window if client omits `window` |
 | `MAX_CACHED_FRAMES_PER_TASK` | `500` | hard frame-count ceiling per task |
 | `MAX_TASK_CACHE_MB` | `2048` | hard byte ceiling per task |
 | `MAX_GLOBAL_CACHE_MB` | `8192` | hard byte ceiling across all tasks |
 | `TASK_CACHE_TTL_SECONDS` | `1800` | drop idle task caches after this long |
+| `LS_FETCH_RETRY_ATTEMPTS` | `4` | ffmpeg/ffprobe retries on an LS HTTP 429 |
+| `LS_FETCH_RETRY_BASE_DELAY` | `1.0` | base backoff (s) between 429 retries (exponential + jitter) |
+| `LS_FETCH_RETRY_MAX_DELAY` | `30.0` | cap (s) on a single backoff delay |
 | `LABEL_STUDIO_URL` / `LABEL_STUDIO_API_KEY` | — | needed to fetch task assets from LS |
+
+`LABEL_STUDIO_API_KEY` accepts either token type:
+
+- **Legacy token** — sent as-is (`Authorization: Token …`).
+- **Personal Access Token (PAT)** — a JWT refresh token; the backend exchanges
+  it at `LABEL_STUDIO_URL/api/token/refresh` for a short-lived access JWT
+  (`Authorization: Bearer …`), caching and auto-refreshing it before expiry.
+  Requires `LABEL_STUDIO_URL` to be set so the refresh endpoint is reachable.
 
 ## Running locally (no Docker)
 
