@@ -36,6 +36,7 @@ from label_studio_sdk.label_interface.objects import PredictionValue
 from control_detect import control_to_type, detect_control
 from frame_cache import FrameCache
 from frame_resolve import resolve_frame_index
+from ls_auth import ls_auth_headers
 from mask_encoding import (
     mask_to_bbox_percent,
     mask_to_bitmap_png_base64,
@@ -47,8 +48,11 @@ logger = logging.getLogger(__name__)
 
 DEVICE = os.getenv("DEVICE", "cuda")
 SEGMENT_ANYTHING_2_REPO_PATH = os.getenv("SEGMENT_ANYTHING_2_REPO_PATH", "segment-anything-2")
-MODEL_CONFIG = os.getenv("MODEL_CONFIG", "sam2_hiera_l.yaml")
-MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2_hiera_large.pt")
+# SAM 2.1 by default — `download_ckpts.sh` now fetches only sam2.1_* weights,
+# and the matching configs live under the `configs/sam2.1/` Hydra group. Config
+# size must match the checkpoint size.
+MODEL_CONFIG = os.getenv("MODEL_CONFIG", "configs/sam2.1/sam2.1_hiera_l.yaml")
+MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2.1_hiera_large.pt")
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
 MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
 
@@ -529,7 +533,7 @@ class SamVideoInteractive(LabelStudioMLBase):
                 ],
                 "model_info": {
                     "name": "SAM2",
-                    "version": os.getenv("MODEL_CHECKPOINT", "sam2_hiera_large.pt"),
+                    "version": MODEL_CHECKPOINT,
                 },
             },
         }])
@@ -642,9 +646,19 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         if event == "prewarm":
             frame_range = self._window_range(frame, window, direction, video.frame_count)
-            cached, pending = FRAME_CACHE.submit(
-                task_id, frame_range, lambda idx: self._encode_frame(task_id, idx)
-            )
+            # Fetch the whole window in ONE ffmpeg pass (one HTTP request to LS)
+            # rather than one request per frame, which trips LS's rate limit.
+            # The encode step pulls decoded frames from this buffer, falling
+            # back to a per-frame read only for any the prefetch missed.
+            prefetched = self._prefetch_window(video, frame_range)
+
+            def _encode(idx, _video=video, _frames=prefetched):
+                bgr = _frames.get(idx)
+                if bgr is None:
+                    bgr = _video.read_frame(idx)
+                return self._encode_bgr(bgr)
+
+            cached, pending = FRAME_CACHE.submit(task_id, frame_range, _encode)
             return PredictionValue(result=[{
                 "value": {"status": "ok", "cached": cached, "pending": pending,
                           "frame_count": video.frame_count},
@@ -744,7 +758,9 @@ class SamVideoInteractive(LabelStudioMLBase):
         api_key = api_key_opt or ""
 
         def _auth_headers():
-            return {"Authorization": f"Token {api_key}"} if api_key else None
+            # Handles both legacy tokens (`Token <key>`) and Personal Access
+            # Tokens (exchanged for a short-lived `Bearer <access>` JWT).
+            return ls_auth_headers(ls_url, api_key)
 
         def _points_at_ls(url: str) -> bool:
             if not ls_url:
@@ -1074,9 +1090,14 @@ class SamVideoInteractive(LabelStudioMLBase):
         video = VIDEOS._handles.get(task_id)
         if video is None:
             raise RuntimeError(f"no video handle for task {task_id}")
-        frame_bgr = video.read_frame(frame_idx)
-        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        return self._encode_bgr(video.read_frame(frame_idx))
 
+    def _encode_bgr(self, frame_bgr):
+        """Encode an already-decoded BGR frame into a SAM2 image embedding.
+        Split out from `_encode_frame` so prewarm can fetch a whole window in
+        one ffmpeg pass (one HTTP request) and feed the frames in here, instead
+        of one network read per frame (which trips LS rate limits)."""
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         image_predictor = make_image_predictor()
         image_predictor.set_image(rgb)
         return {
@@ -1084,6 +1105,25 @@ class SamVideoInteractive(LabelStudioMLBase):
             "original_size": image_predictor._orig_hw,
             "is_image_set": True,
         }
+
+    def _prefetch_window(self, video, frame_range: List[int]) -> Dict[int, Any]:
+        """Fetch a contiguous frame window in a single ffmpeg pass to collapse
+        one-HTTP-request-per-frame into one request for the whole window.
+
+        Best-effort: returns {frame_idx: bgr_frame}; on any failure returns the
+        frames it managed to get (possibly empty) and the encode step falls back
+        to per-frame reads for the rest.
+        """
+        if not frame_range:
+            return {}
+        start = min(frame_range)
+        count = max(frame_range) - start + 1
+        try:
+            frames = video.read_frame_range(start, count)
+        except Exception as e:
+            logger.warning("window prefetch failed (%s); falling back to per-frame", e)
+            return {}
+        return {start + i: f for i, f in enumerate(frames)}
 
     def _window_range(self, frame: int, window: int, direction: str, frame_count: int):
         if direction == "backward":
