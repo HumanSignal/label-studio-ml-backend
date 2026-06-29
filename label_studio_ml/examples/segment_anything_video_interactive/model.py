@@ -37,6 +37,7 @@ from control_detect import control_to_type, detect_control
 from frame_cache import FrameCache
 from frame_resolve import resolve_frame_index
 from ls_auth import ls_auth_headers
+from url_auth import should_attach_ls_auth
 from mask_encoding import (
     mask_to_bbox_percent,
     mask_to_bitmap_png_base64,
@@ -631,10 +632,7 @@ class SamVideoInteractive(LabelStudioMLBase):
             if cached is not None:
                 video = cached
             else:
-                ls_host, ls_token = self._ls_host_token()
-                local_path = self.get_local_path(
-                    raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
-                )
+                local_path = self._download_valid_video(raw_url, task_id)
                 video = VIDEOS.get_or_create(task_id, local_path)
 
         # Prefer `time` (seconds) — the only quantity FE and BE can agree on
@@ -738,6 +736,34 @@ class SamVideoInteractive(LabelStudioMLBase):
         token = env_token or cached_token
         return (host or None, token or None)
 
+    def _download_valid_video(self, raw_url: str, task_id: str) -> str:
+        """Download via the LS SDK, but verify the file actually decodes.
+
+        `get_local_path` caches downloads by URL hash with no integrity check,
+        so a truncated download of a large video gets reused forever and cv2
+        then dies with an opaque "failed to open video" (surfaced as a 503).
+        On a bad cache hit, drop the file and re-download once.
+        """
+        ls_host, ls_token = self._ls_host_token()
+        for attempt in range(2):
+            local_path = self.get_local_path(
+                raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
+            )
+            cap = cv2.VideoCapture(local_path)
+            ok = cap.isOpened() and cap.read()[0]
+            cap.release()
+            if ok:
+                return local_path
+            logger.warning(
+                "cached video unreadable (attempt %d/2), re-downloading: %s",
+                attempt + 1, local_path,
+            )
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+        raise RuntimeError(f"video failed to decode after re-download: {raw_url}")
+
     def _resolve_video_source(self, raw_url: str, task_id: str):
         """Resolve a task video URL to a streamable source + auth headers.
 
@@ -762,14 +788,14 @@ class SamVideoInteractive(LabelStudioMLBase):
             # Tokens (exchanged for a short-lived `Bearer <access>` JWT).
             return ls_auth_headers(ls_url, api_key)
 
-        def _points_at_ls(url: str) -> bool:
-            if not ls_url:
-                return False
-            return url.startswith(f"{ls_url}/") or url == ls_url
-
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
-            # Absolute URL — attach auth iff it's an LS-hosted URL.
-            return raw_url, _auth_headers() if _points_at_ls(raw_url) else None
+            # Absolute URL — attach auth iff its host matches the known LS host
+            # (LS returns 404, not 401, to an unauthenticated /data or /upload
+            # fetch, which is how ffprobe streaming fails). Never attach to any
+            # other host: task data can carry external/presigned cloud URLs and
+            # we must not leak the LS token to them.
+            attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
+            return raw_url, _auth_headers() if attach else None
 
         if ls_url and api_key:
             full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
