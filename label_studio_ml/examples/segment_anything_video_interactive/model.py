@@ -789,10 +789,11 @@ class SamVideoInteractive(LabelStudioMLBase):
             return ls_auth_headers(ls_url, api_key)
 
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
-            # Absolute URL — attach auth iff it's an LS-hosted asset (LS returns
-            # 404, not 401, to an unauthenticated /data or /upload fetch, which
-            # is how ffprobe streaming fails). Never attach to presigned cloud
-            # URLs — that leaks the token and can break the signature.
+            # Absolute URL — attach auth iff its host matches the known LS host
+            # (LS returns 404, not 401, to an unauthenticated /data or /upload
+            # fetch, which is how ffprobe streaming fails). Never attach to any
+            # other host: task data can carry external/presigned cloud URLs and
+            # we must not leak the LS token to them.
             attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
             return raw_url, _auth_headers() if attach else None
 
