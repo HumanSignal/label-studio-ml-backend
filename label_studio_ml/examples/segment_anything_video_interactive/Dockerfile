@@ -14,12 +14,6 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-# conda's Pillow/libLerc requires GLIBCXX_3.4.29, which the base image's system
-# libstdc++ (Ubuntu 20.04 / gcc 9, max GLIBCXX_3.4.28) doesn't provide. conda
-# ships a newer libstdc++ in /opt/conda/lib — point the system soname at it.
-# libstdc++ is forward-compatible, so this is safe for system tools too.
-RUN ln -sf /opt/conda/lib/libstdc++.so.6 /lib/x86_64-linux-gnu/libstdc++.so.6
-
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_CACHE_DIR=/.cache \
@@ -30,7 +24,8 @@ ENV PYTHONUNBUFFERED=1 \
     SEGMENT_ANYTHING_2_REPO_PATH=/segment-anything-2
 
 ENV CUDA_HOME=/opt/conda \
-    TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
+    TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0" \
+    LD_LIBRARY_PATH=/opt/conda/lib
 
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
