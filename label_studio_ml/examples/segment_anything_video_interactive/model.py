@@ -36,7 +36,7 @@ from label_studio_sdk.label_interface.objects import PredictionValue
 from control_detect import control_to_type, detect_control
 from frame_cache import FrameCache
 from frame_resolve import resolve_frame_index
-from ls_auth import ls_auth_headers
+from ls_auth import ls_auth_headers, ls_token_for_sdk
 from url_auth import should_attach_ls_auth
 from mask_encoding import (
     mask_to_bbox_percent,
@@ -560,7 +560,10 @@ class SamVideoInteractive(LabelStudioMLBase):
         image_url = self._image_url_from_task(task, to_name)
         ls_host, ls_token = self._ls_host_token()
         local_path = self.get_local_path(
-            image_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
+            image_url,
+            task_id=task_id,
+            ls_host=ls_host,
+            ls_access_token=ls_token_for_sdk(ls_host, ls_token),
         )
 
         bgr = cv2.imread(local_path)
@@ -718,22 +721,31 @@ class SamVideoInteractive(LabelStudioMLBase):
         return self._mask_response(mask, w, h, from_name, to_name)
 
     def _ls_host_token(self) -> Tuple[Optional[str], Optional[str]]:
-        """Return (ls_host, ls_token) using env vars first, then the cache
-        populated from `/setup`. Either may be None; callers pass them into
-        `self.get_local_path(ls_host=..., ls_access_token=...)` which lets
-        the SDK skip its `http://localhost:8000` default fallback.
+        """Return (ls_host, ls_token) for authenticated LS asset fetches.
+
+        Host resolution is env first, then the cache populated from `/setup`.
+        Token resolution is cache first, then env. Either may be None; callers
+        pass them into `self.get_local_path(ls_host=..., ls_access_token=...)`
+        which lets the SDK skip its `http://localhost:8000` default fallback.
 
         LS's own `/setup` payload can carry `http://localhost:<port>` when
         the LS side doesn't have `HOSTNAME` configured — that's useless to a
-        remote ML backend. The env-var-first ordering means an operator can
-        always override LS's guess via `.env` / `docker-compose`.
+        remote ML backend. The host remains env-var-first so operators can
+        override LS's guess via `.env` / `docker-compose`. The token is
+        cache-first: `/setup` sends the ML-backend access token that LS itself
+        wants us to use, while env tokens are often stale or a frontend refresh
+        JWT that this LS deployment may not accept for API/file downloads.
         """
-        env_host = (os.getenv("LABEL_STUDIO_URL") or "").rstrip("/")
-        env_token = os.getenv("LABEL_STUDIO_API_KEY") or ""
+        env_host = (os.getenv("LABEL_STUDIO_URL") or os.getenv("LABEL_STUDIO_HOST") or "").rstrip("/")
+        env_token = (
+            os.getenv("LABEL_STUDIO_API_KEY")
+            or os.getenv("LABEL_STUDIO_ACCESS_TOKEN")
+            or ""
+        )
         cached_host = (LS_CONTEXT.get("url") or "").rstrip("/")
         cached_token = LS_CONTEXT.get("token") or ""
         host = env_host or cached_host
-        token = env_token or cached_token
+        token = cached_token or env_token
         return (host or None, token or None)
 
     def _download_valid_video(self, raw_url: str, task_id: str) -> str:
@@ -745,9 +757,10 @@ class SamVideoInteractive(LabelStudioMLBase):
         On a bad cache hit, drop the file and re-download once.
         """
         ls_host, ls_token = self._ls_host_token()
+        sdk_token = ls_token_for_sdk(ls_host, ls_token)
         for attempt in range(2):
             local_path = self.get_local_path(
-                raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=ls_token,
+                raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=sdk_token,
             )
             cap = cv2.VideoCapture(local_path)
             ok = cap.isOpened() and cap.read()[0]
@@ -783,10 +796,10 @@ class SamVideoInteractive(LabelStudioMLBase):
         ls_url = ls_url_opt or ""
         api_key = api_key_opt or ""
 
-        def _auth_headers():
-            # Handles both legacy tokens (`Token <key>`) and Personal Access
-            # Tokens (exchanged for a short-lived `Bearer <access>` JWT).
-            return ls_auth_headers(ls_url, api_key)
+        def _auth_headers(target_url: str):
+            # Reuses the LS SDK token/header handling for streaming ffmpeg
+            # requests, including refresh-JWT normalization.
+            return ls_auth_headers(ls_url, api_key, target_url=target_url)
 
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
             # Absolute URL — attach auth iff its host matches the known LS host
@@ -795,15 +808,18 @@ class SamVideoInteractive(LabelStudioMLBase):
             # other host: task data can carry external/presigned cloud URLs and
             # we must not leak the LS token to them.
             attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
-            return raw_url, _auth_headers() if attach else None
+            return raw_url, _auth_headers(raw_url) if attach else None
 
         if ls_url and api_key:
             full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
-            return full_url, _auth_headers()
+            return full_url, _auth_headers(full_url)
 
         logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
         local_path = self.get_local_path(
-            raw_url, task_id=task_id, ls_host=ls_url_opt, ls_access_token=api_key_opt,
+            raw_url,
+            task_id=task_id,
+            ls_host=ls_url_opt,
+            ls_access_token=ls_token_for_sdk(ls_url_opt, api_key_opt),
         )
         return local_path, None
 
