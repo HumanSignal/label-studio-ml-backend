@@ -1,4 +1,11 @@
-"""Docling SaaS (IBM) via DoclingServiceClient -> Label Studio ReactCode predictions."""
+"""Docling SaaS (IBM) via DoclingServiceClient -> Label Studio predictions.
+
+Predictions target the **HumanSignal Interfaces** Docling annotator
+(``docling-ls-implementation/docling_interface.jsx``), which reads results
+through ``parseResults``. Output is canonical Label Studio result shapes —
+``rectanglelabels`` and ``polygonlabels`` — built by
+:mod:`docling_to_ls_results`.
+"""
 
 from __future__ import annotations
 
@@ -22,11 +29,7 @@ from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_image_size
 from label_studio_sdk.label_interface.objects import PredictionValue
 
-from docling_to_reactcode import (
-    docling_document_to_reactcode_regions,
-    parse_image_data_key,
-    parse_reactcode_tag_names,
-)
+from docling_to_ls_results import docling_document_to_ls_results, page_raster_size
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +65,30 @@ class Docling(LabelStudioMLBase):
     _client: Optional[DoclingServiceClient] = None
 
     def __init__(self, project_id: Optional[str] = None, label_config: Optional[str] = None, **kwargs):
-        # Allow environment variables to override the ReactCode control/object tag names when the
-        # labeling config is unavailable or uses non-default names.
-        self._react_from = os.getenv("DOCLING_REACTCODE_FROM_NAME")
-        self._react_to = os.getenv("DOCLING_REACTCODE_TO_NAME")
-        self._data_key = os.getenv("DOCLING_TASK_DATA_KEY")
+        # Optional overrides. The Docling Interface (docling_interface.jsx) hardcodes
+        # from_name="docling" / to_name="docling" and reads task.data.image, so the
+        # defaults below match — set these env vars only if your project overrides
+        # those names.
+        # DOCLING_REACTCODE_FROM_NAME / _TO_NAME are the legacy env var names kept
+        # for backward compatibility; DOCLING_FROM_NAME / _TO_NAME are the preferred
+        # names going forward.
+        self._from_name = (
+            os.getenv("DOCLING_FROM_NAME")
+            or os.getenv("DOCLING_REACTCODE_FROM_NAME")
+            or "docling"
+        )
+        self._to_name = (
+            os.getenv("DOCLING_TO_NAME")
+            or os.getenv("DOCLING_REACTCODE_TO_NAME")
+            or "docling"
+        )
+        self._data_key = os.getenv("DOCLING_TASK_DATA_KEY") or "image"
 
-        # Some ReactCode labeling configs are not understood by label_studio_sdk's parser. In that
-        # case we still want the ML backend to start, so we validate opportunistically and fall back
-        # to parsing only the tag names we need below.
+        # HumanSignal Interfaces projects ship a near-empty ``<View></View>`` label_config
+        # and load the actual interface from ``custom_interface_code`` (which the ML
+        # backend never sees). We still validate opportunistically so the SDK schema
+        # loads when a project happens to ship a parseable one, but a parse failure
+        # is not fatal — the backend has all it needs from env vars and defaults.
         label_config_for_sdk = label_config
         if label_config:
             try:
@@ -84,22 +102,6 @@ class Docling(LabelStudioMLBase):
                 )
                 label_config_for_sdk = None
         super().__init__(project_id=project_id, label_config=label_config_for_sdk, **kwargs)
-        self._apply_label_config_tags(label_config)
-
-    def _apply_label_config_tags(self, label_config: Optional[str]) -> None:
-        # Prefer explicit env overrides; otherwise infer ReactCode names and task data key from
-        # the project labeling config. The final defaults match the sample config used by this example.
-        if label_config:
-            rf, rt = parse_reactcode_tag_names(label_config)
-            if not self._react_from:
-                self._react_from = rf
-            if not self._react_to:
-                self._react_to = rt
-            if not self._data_key:
-                self._data_key = parse_image_data_key(label_config)
-        self._react_from = self._react_from or "docling"
-        self._react_to = self._react_to or "docling"
-        self._data_key = self._data_key or "undefined"
 
     def setup(self) -> None:
         # Expose the installed docling package version in predictions so users can trace which client
@@ -153,13 +155,20 @@ class Docling(LabelStudioMLBase):
         return client.convert(source=source, headers=headers or None)
 
     def _task_file_url(self, task: Dict[str, Any]) -> Optional[str]:
-        # Label Studio task data can use a project-specific key, a conventional key, or the legacy
-        # DATA_UNDEFINED_NAME value. Check likely keys first so unrelated string fields are ignored.
+        # Match docling_interface.jsx's resolveImageUrl fallback chain so the ML backend reads from
+        # the same place the labeling iframe does — including LSE's ``$undefined$`` direct-upload key
+        # (lowercase, with a leading and trailing dollar sign).
         data = task.get("data") or {}
+        # DATA_UNDEFINED_NAME is "$undefined$"; keep it in the chain rather than as a separate
+        # fallback below, so it goes through the same dict handling as every other key.
         keys_to_try: List[Optional[str]] = [
             self._data_key,
-            "undefined",
             "image",
+            "url",
+            "ocr",
+            DATA_UNDEFINED_NAME,
+            "$undefined",
+            "undefined",
             "pdf",
             "document",
             "file",
@@ -169,10 +178,13 @@ class Docling(LabelStudioMLBase):
                 continue
             val = data.get(key)
             if val:
+                # Mirrors the interface's "object with a .url field" affordance.
+                if isinstance(val, dict):
+                    inner = val.get("url") or val.get("URL")
+                    if inner:
+                        return str(inner)
+                    continue
                 return str(val)
-        legacy = data.get(DATA_UNDEFINED_NAME)
-        if legacy:
-            return str(legacy)
         # Last resort: scan for values that look like files. This keeps the backend usable even when
         # the task data key and labeling config do not agree.
         for _k, val in data.items():
@@ -359,49 +371,64 @@ class Docling(LabelStudioMLBase):
 
         include_ro = os.getenv("DOCLING_PREDICT_READING_ORDER", "").lower() in ("1", "true", "yes")
         ro_level = int(os.getenv("DOCLING_READING_ORDER_LEVEL", "1") or "1")
+        content_layers = os.getenv("DOCLING_CONTENT_LAYERS")
 
-        regions = docling_document_to_reactcode_regions(
+        # original_width / original_height must describe the raster the percentages were
+        # measured against, because LS-native consumers multiply the two back together to
+        # recover pixels. Docling's own page raster is that source and is always available —
+        # unlike get_image_size, which cannot open a PDF (the primary input for this backend).
+        iw = ih = 0
+        raster = page_raster_size(doc, page_no)
+        if raster:
+            iw, ih = raster
+        elif path is not None:
+            # No page raster (unusual): fall back to probing the downloaded file, which only
+            # works when the task file is itself an image.
+            try:
+                iw, ih = get_image_size(str(path))
+            except Exception as exc:
+                logger.warning(
+                    "Could not read image size for task %s from %s: %s", task.get("id"), path, exc
+                )
+        if not iw or not ih:
+            iw, ih = 100, 100
+            logger.warning(
+                "Task %s: no page raster or image size available; emitting placeholder "
+                "original_width/original_height=%sx%s. Percent coordinates stay correct, but "
+                "consumers converting them back to pixels will be wrong.",
+                task.get("id"),
+                iw,
+                ih,
+            )
+
+        # Canonical Label Studio result shapes (rectanglelabels / polygonlabels),
+        # matching docling_interface.jsx's parseResults contract.
+        canonical_results = docling_document_to_ls_results(
             doc,
             page_no=page_no,
             include_reading_order=include_ro,
             reading_order_level=ro_level,
-            content_layers=os.getenv("DOCLING_CONTENT_LAYERS"),
+            content_layers=content_layers,
+            from_name=self._from_name,
+            to_name=self._to_name,
         )
-
-        # ReactCode results need original dimensions. For URL-only conversion there is no local image
-        # to inspect, so use a neutral fallback size; coordinates are still stored as percentages.
-        size_path = str(path) if path is not None else None
-        try:
-            if size_path:
-                iw, ih = get_image_size(size_path)
-            else:
-                iw, ih = 100, 100
-        except Exception:
-            iw, ih = 100, 100
-
-        from_name = self._react_from
-        to_name = self._react_to
-
-        # Wrap each ReactCode payload in the Label Studio prediction result envelope expected by the
-        # ReactCode control.
         ls_results: List[Dict[str, Any]] = []
-        for payload in regions:
+        for entry in canonical_results:
+            # Each canonical entry already carries id / from_name / to_name / type / value /
+            # origin. The ML backend only needs to bolt on the image dimensions.
             ls_results.append(
                 {
+                    **entry,
                     "original_width": iw,
                     "original_height": ih,
                     "image_rotation": 0,
-                    "value": {"reactcode": payload},
-                    "from_name": from_name,
-                    "to_name": to_name,
-                    "type": "reactcode",
-                    "origin": "prediction",
                 }
             )
+        region_count = len(canonical_results)
 
         # Use a simple confidence proxy so non-empty predictions sort above empty ones without implying
         # calibrated model probabilities.
-        score = min(1.0, 0.5 + 0.01 * len(regions)) if regions else 0.0
+        score = min(1.0, 0.5 + 0.01 * region_count) if region_count else 0.0
         return PredictionValue(result=ls_results, score=score)
 
     def predict(self, tasks: List[Dict[str, Any]], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
