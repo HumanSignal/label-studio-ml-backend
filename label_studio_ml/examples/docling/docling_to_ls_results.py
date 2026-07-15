@@ -1,25 +1,18 @@
 """Map DoclingDocument items to canonical Label Studio result entries.
 
-Why this exists
----------------
-The original ``docling_to_reactcode.py`` produces region payloads wrapped in
-the legacy ReactCode envelope (``type: "reactcode"``,
-``value: { "reactcode": <payload> }``). That format only renders inside the
-old ``<ReactCode>`` XML labeling config.
+The Docling Interface (``docling-ls-implementation/docling_interface.jsx``,
+a HumanSignal Interfaces project) reads predictions through its
+``parseResults`` function and expects canonical Label Studio result shapes:
 
-The current Docling Interface (HumanSignal Interfaces format,
-``docling-ls-implementation/docling_interface.jsx``) reads predictions through
-its ``parseResults`` function and expects canonical Label Studio result
-shapes — ``rectanglelabels`` for rectangles, ``polygonlabels`` for polylines
-(reading order / merge / group / link relations rendered as paths),
-``textarea`` for the doclang XML snapshot, and ``relation`` for region-to-
-region links. The interface's ``getResults`` uses the same shapes when
-serializing manual annotations, so emitting canonical results from the ML
-backend means predictions and human edits round-trip through the same code
-paths.
+  * ``rectanglelabels`` for layout regions,
+  * ``polygonlabels`` for polylines (reading order / merge / group / link
+    relations rendered as paths),
+  * ``textarea`` for the doclang XML snapshot,
+  * ``relation`` for region-to-region links.
 
-This module is additive: ``docling_to_reactcode.py`` is retained for any
-deployment still pointed at the old labeling config.
+The interface's ``getResults`` uses the same shapes when serializing manual
+annotations, so predictions and human edits round-trip through the same code
+paths without any shape gymnastics on either side.
 """
 
 from __future__ import annotations
@@ -98,8 +91,9 @@ def _bbox_to_percent_rect(
 ) -> Optional[Tuple[float, float, float, float, int]]:
     """Return ``(x%, y%, width%, height%, page_no)`` in top-left page raster coordinates.
 
-    Mirrors the existing ReactCode converter so manual edits and predictions
-    share the same coordinate convention.
+    Top-left / percentage coordinates match the interface's spatial-region
+    format, so predictions and manual edits share the same coordinate
+    convention and round-trip through the same code paths.
     """
     if not item.prov or prov_index >= len(item.prov):
         return None
@@ -297,12 +291,9 @@ def docling_document_to_ls_results(
 def parse_image_data_key(label_config: Optional[str]) -> str:
     """Return the task.data key the labeling iframe reads from.
 
-    The new Interface's default ``params.imageField`` is ``image``. ML backends
-    talking to the new interface should default to ``image`` and fall back
-    through the same chain (``image``, ``url``, ``ocr``, ``$undefined``,
-    ``$undefined$``, ``undefined``) before giving up.
-
-    The legacy ReactCode XML parser remains in
-    ``docling_to_reactcode.parse_image_data_key`` for old-config compatibility.
+    The Docling Interface's default ``params.imageField`` is ``image``. ML
+    backends should default to ``image`` and fall back through the same chain
+    (``image``, ``url``, ``ocr``, ``$undefined``, ``$undefined$``,
+    ``undefined``) before giving up.
     """
     return "image"

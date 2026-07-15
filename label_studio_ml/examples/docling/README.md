@@ -4,7 +4,7 @@
 
 This backend connects Label Studio to **IBM Docling SaaS** using the Python **`DoclingServiceClient`** from the **`docling`** package (`from docling.service_client import DoclingServiceClient`). **Conversion runs on Docling’s servers**, not inside this container. For each task it resolves the file (usually via Label Studio–hosted storage), calls **`client.convert(source=…)`** with a local **`Path`** or an **`https://` URL string**, then maps **`result.document`** into Label Studio predictions for the annotator.
 
-By default predictions are emitted as **canonical Label Studio result envelopes** (`type: "rectanglelabels"` / `type: "polygonlabels"`) matching the **HumanSignal Interfaces** Docling annotator at `docling-ls-implementation/docling_interface.jsx`. Set `DOCLING_RESULT_FORMAT=reactcode` if the project still uses the legacy ReactCode XML labeling config.
+Predictions are emitted as **canonical Label Studio result envelopes** (`type: "rectanglelabels"` / `type: "polygonlabels"`) matching the **HumanSignal Interfaces** Docling annotator at `docling-ls-implementation/docling_interface.jsx`.
 
 Use the **exact service URL** your tenant gives you (Integrate / Python snippet), including the path segment ending in **`/v1`**—for example  
 `https://api.aws-c1.dcls.saas.ibm.com/<instance>/v1`.
@@ -14,7 +14,7 @@ The **`docling`** `DoclingServiceClient` builds paths like **`/v1/convert/...`**
 Typical workflow:
 
 1. Tasks include a **file URL** (PDF, image, etc.)—often an upload or storage URL managed by Label Studio.
-2. Annotators run predictions (or batch predict); this ML backend fetches the file (unless you use remote-URL-only mode), calls **`DoclingServiceClient.convert`**, and returns layout as reactcode regions.
+2. Annotators run predictions (or batch predict); this ML backend fetches the file (unless you use remote-URL-only mode), calls **`DoclingServiceClient.convert`**, and returns the layout as canonical Label Studio regions.
 3. Reviewers adjust regions or labels on top of Docling’s structure.
 
 You need the **full SaaS service URL** and API key from Workbench. Separately, the backend must often **download task files** through Label Studio when URLs point at your instance—see **Label Studio URL and API key** below.
@@ -59,14 +59,9 @@ The ML backend listens on **`http://localhost:9090`**. Register that URL in your
 | `DOCLING_SERVE_TIMEOUT` | No | Job / read timeout in seconds (default `600`). |
 | `DOCLING_HTTP_CONNECT_TIMEOUT` | No | Connect timeout (default `30`). |
 
-Optional tuning: `DOCLING_PAGE_NO`, `DOCLING_PREDICT_READING_ORDER`, `DOCLING_READING_ORDER_LEVEL`, `DOCLING_CONTENT_LAYERS`, `DOCLING_REACTCODE_FROM_NAME`, `DOCLING_REACTCODE_TO_NAME`, `DOCLING_TASK_DATA_KEY`, `DOCLING_RESULT_FORMAT`.
+Optional tuning: `DOCLING_PAGE_NO`, `DOCLING_PREDICT_READING_ORDER`, `DOCLING_READING_ORDER_LEVEL`, `DOCLING_CONTENT_LAYERS`, `DOCLING_FROM_NAME`, `DOCLING_TO_NAME`, `DOCLING_TASK_DATA_KEY`.
 
-`DOCLING_RESULT_FORMAT` controls the prediction shape. **You usually don't need to set it** — the backend auto-detects from the project's labeling config:
-
-- A `<ReactCode>` tag in the config → legacy `reactcode` envelope (`type: "reactcode"`, `value: {"reactcode": <payload>}`).
-- Anything else (including the near-empty `<View></View>` used by HumanSignal Interfaces projects) → canonical Label Studio envelopes (`type: "rectanglelabels"` / `type: "polygonlabels"`), matching `docling-ls-implementation/docling_interface.jsx`'s `parseResults`.
-
-Explicit values override detection: set `DOCLING_RESULT_FORMAT=canonical` or `DOCLING_RESULT_FORMAT=reactcode` to force a format. The chosen format is logged at the start of every predict batch with its source (env var vs. auto-detected) so you can confirm what's being sent.
+`DOCLING_FROM_NAME` / `DOCLING_TO_NAME` override the `from_name` / `to_name` on emitted predictions (defaults `"docling"` / `"docling"` — matches the interface). The older `DOCLING_REACTCODE_FROM_NAME` / `DOCLING_REACTCODE_TO_NAME` env var names are still read as fallbacks for backward compatibility.
 
 The **`docling`** PyPI package (**≥2.90**) provides **`DoclingServiceClient`**; behavior follows **your SaaS tenant**, not necessarily open-source Docling docs.
 
@@ -77,7 +72,7 @@ The **`docling`** PyPI package (**≥2.90**) provides **`DoclingServiceClient`**
 | `LABEL_STUDIO_URL` | Base URL of Label Studio, reachable from this backend (see above). |
 | `LABEL_STUDIO_API_KEY` | Token so the backend can download task attachments when needed. |
 
-Predictions default to **canonical** shape — `type: "rectanglelabels"` for layout regions and `type: "polygonlabels"` for reading-order polylines, with percent coordinates — matching the HumanSignal Interfaces Docling annotator (`docling-ls-implementation/docling_interface.jsx`). Switch to `DOCLING_RESULT_FORMAT=reactcode` for legacy ReactCode XML projects (see `docling_labeling_config.xml` in this folder).
+Predictions are emitted in **canonical Label Studio shape** — `type: "rectanglelabels"` for layout regions and `type: "polygonlabels"` for reading-order polylines, with percent coordinates — matching the HumanSignal Interfaces Docling annotator (`docling-ls-implementation/docling_interface.jsx`).
 
 ## Running locally (without Docker)
 
