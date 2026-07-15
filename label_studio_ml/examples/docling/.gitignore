@@ -1,2 +1,5 @@
 # Docker Compose bind mounts (created on first `docker compose up`)
 data/
+
+# Created by the ML backend cache at runtime / when running the tests
+cache.db

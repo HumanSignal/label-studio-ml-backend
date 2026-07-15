@@ -44,15 +44,20 @@ services:
       # - DOCLING_SERVE_TIMEOUT=600
       # - DOCLING_HTTP_CONNECT_TIMEOUT=30
 
-      # Labeling-config overrides. Leave empty unless your project uses non-default tag/data names.
-      # - DOCLING_REACTCODE_FROM_NAME=docling
-      # - DOCLING_REACTCODE_TO_NAME=docling
-      # - DOCLING_TASK_DATA_KEY=undefined
+      # Prediction target overrides. Leave empty unless your project uses non-default
+      # tag/data names; the defaults match docling_interface.jsx.
+      # - DOCLING_FROM_NAME=docling
+      # - DOCLING_TO_NAME=docling
+      # - DOCLING_TASK_DATA_KEY=image
+      # Legacy aliases, still read as fallbacks:
+      # - DOCLING_REACTCODE_FROM_NAME=
+      # - DOCLING_REACTCODE_TO_NAME=
 
       # Output filtering / enrichment
       # - DOCLING_PAGE_NO=
       # - DOCLING_PREDICT_READING_ORDER=false
       # - DOCLING_READING_ORDER_LEVEL=1
+      # Comma-separated: body, furniture, background, invisible, notes (default: body).
       # - DOCLING_CONTENT_LAYERS=
     ports:
       - "9090:9090"

@@ -63,6 +63,10 @@ Optional tuning: `DOCLING_PAGE_NO`, `DOCLING_PREDICT_READING_ORDER`, `DOCLING_RE
 
 `DOCLING_FROM_NAME` / `DOCLING_TO_NAME` override the `from_name` / `to_name` on emitted predictions (defaults `"docling"` / `"docling"` — matches the interface). The older `DOCLING_REACTCODE_FROM_NAME` / `DOCLING_REACTCODE_TO_NAME` env var names are still read as fallbacks for backward compatibility.
 
+`DOCLING_CONTENT_LAYERS` takes a comma-separated list of `body`, `furniture`, `background`, `invisible`, `notes` (Docling's default is `body` only). Unrecognized values are logged and ignored. Note that the interface only renders `BODY` / `FURNITURE` / `BACKGROUND`, so `invisible` and `notes` regions are emitted tagged as `BODY`.
+
+`DOCLING_PAGE_NO` restricts predictions to a single page. Leave it unset only for single-page documents: the annotator draws on one image, so regions from every page of a multi-page PDF are emitted as percentages of their own page and land stacked on that one raster.
+
 The **`docling`** PyPI package (**≥2.90**) provides **`DoclingServiceClient`**; behavior follows **your SaaS tenant**, not necessarily open-source Docling docs.
 
 ## Label Studio configuration

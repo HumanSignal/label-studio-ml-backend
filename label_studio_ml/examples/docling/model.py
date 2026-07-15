@@ -29,7 +29,7 @@ from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_image_size
 from label_studio_sdk.label_interface.objects import PredictionValue
 
-from docling_to_ls_results import docling_document_to_ls_results
+from docling_to_ls_results import docling_document_to_ls_results, page_raster_size
 
 logger = logging.getLogger(__name__)
 
@@ -159,12 +159,14 @@ class Docling(LabelStudioMLBase):
         # the same place the labeling iframe does — including LSE's ``$undefined$`` direct-upload key
         # (lowercase, with a leading and trailing dollar sign).
         data = task.get("data") or {}
+        # DATA_UNDEFINED_NAME is "$undefined$"; keep it in the chain rather than as a separate
+        # fallback below, so it goes through the same dict handling as every other key.
         keys_to_try: List[Optional[str]] = [
             self._data_key,
             "image",
             "url",
             "ocr",
-            "$undefined$",
+            DATA_UNDEFINED_NAME,
             "$undefined",
             "undefined",
             "pdf",
@@ -183,9 +185,6 @@ class Docling(LabelStudioMLBase):
                         return str(inner)
                     continue
                 return str(val)
-        legacy = data.get(DATA_UNDEFINED_NAME)
-        if legacy:
-            return str(legacy)
         # Last resort: scan for values that look like files. This keeps the backend usable even when
         # the task data key and labeling config do not agree.
         for _k, val in data.items():
@@ -374,21 +373,36 @@ class Docling(LabelStudioMLBase):
         ro_level = int(os.getenv("DOCLING_READING_ORDER_LEVEL", "1") or "1")
         content_layers = os.getenv("DOCLING_CONTENT_LAYERS")
 
-        # All the per-result fields (original_width / original_height / image_rotation) that
-        # Label Studio expects on the prediction envelope. For URL-only conversion there is no
-        # local image to inspect, so use a neutral fallback size; coordinates are stored as
-        # percentages so the iframe rescales them at render time.
-        size_path = str(path) if path is not None else None
-        try:
-            if size_path:
-                iw, ih = get_image_size(size_path)
-            else:
-                iw, ih = 100, 100
-        except Exception:
+        # original_width / original_height must describe the raster the percentages were
+        # measured against, because LS-native consumers multiply the two back together to
+        # recover pixels. Docling's own page raster is that source and is always available —
+        # unlike get_image_size, which cannot open a PDF (the primary input for this backend).
+        iw = ih = 0
+        raster = page_raster_size(doc, page_no)
+        if raster:
+            iw, ih = raster
+        elif path is not None:
+            # No page raster (unusual): fall back to probing the downloaded file, which only
+            # works when the task file is itself an image.
+            try:
+                iw, ih = get_image_size(str(path))
+            except Exception as exc:
+                logger.warning(
+                    "Could not read image size for task %s from %s: %s", task.get("id"), path, exc
+                )
+        if not iw or not ih:
             iw, ih = 100, 100
+            logger.warning(
+                "Task %s: no page raster or image size available; emitting placeholder "
+                "original_width/original_height=%sx%s. Percent coordinates stay correct, but "
+                "consumers converting them back to pixels will be wrong.",
+                task.get("id"),
+                iw,
+                ih,
+            )
 
-        # Canonical Label Studio result shapes (rectanglelabels / polygonlabels /
-        # relation), matching docling_interface.jsx's parseResults contract.
+        # Canonical Label Studio result shapes (rectanglelabels / polygonlabels),
+        # matching docling_interface.jsx's parseResults contract.
         canonical_results = docling_document_to_ls_results(
             doc,
             page_no=page_no,

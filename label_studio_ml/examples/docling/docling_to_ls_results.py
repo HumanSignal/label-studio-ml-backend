@@ -2,13 +2,15 @@
 
 The Docling Interface (``docling-ls-implementation/docling_interface.jsx``,
 a HumanSignal Interfaces project) reads predictions through its
-``parseResults`` function and expects canonical Label Studio result shapes:
+``parseResults`` function and expects canonical Label Studio result shapes.
+This module emits the two that Docling can populate from a converted document:
 
   * ``rectanglelabels`` for layout regions,
-  * ``polygonlabels`` for polylines (reading order / merge / group / link
-    relations rendered as paths),
-  * ``textarea`` for the doclang XML snapshot,
-  * ``relation`` for region-to-region links.
+  * ``polygonlabels`` for the reading-order polyline.
+
+The interface understands two further shapes — ``textarea`` for the doclang XML
+snapshot and ``relation`` for region-to-region links — which only ever come from
+manual annotation, so nothing here produces them.
 
 The interface's ``getResults`` uses the same shapes when serializing manual
 annotations, so predictions and human edits round-trip through the same code
@@ -84,6 +86,24 @@ def _content_layer_to_ls(layer: ContentLayer) -> str:
     return "BODY"
 
 
+# Percentages are emitted at this precision; every coordinate goes through _clip_pct so
+# the rounded values themselves satisfy the 0-100 bounds, not just their inputs.
+_PCT_DIGITS = 4
+
+
+def _clip_pct(value_px: float, extent_px: float) -> float:
+    """Convert a pixel edge to a page percentage, clipped to [0, 100] and rounded."""
+    return round(min(max(value_px / extent_px * 100.0, 0.0), 100.0), _PCT_DIGITS)
+
+
+def _page_raster_size(page: Any) -> Optional[Any]:
+    """Return the raster ``Size`` the emitted percentages are relative to."""
+    size = page.image.size if getattr(page, "image", None) is not None else page.size
+    if not size or not size.width or not size.height:
+        return None
+    return size
+
+
 def _bbox_to_percent_rect(
     doc: DoclingDocument,
     item: NodeItem,
@@ -94,6 +114,11 @@ def _bbox_to_percent_rect(
     Top-left / percentage coordinates match the interface's spatial-region
     format, so predictions and manual edits share the same coordinate
     convention and round-trip through the same code paths.
+
+    The rect is clipped to the page: a bbox that overhangs an edge is trimmed to
+    the page boundary rather than keeping its full extent, so ``x + width`` and
+    ``y + height`` always stay within 0–100. A bbox that lies entirely off the
+    page clips to nothing and returns ``None``.
     """
     if not item.prov or prov_index >= len(item.prov):
         return None
@@ -102,18 +127,34 @@ def _bbox_to_percent_rect(
     if page is None:
         return None
 
-    bbox_tl = prov.bbox.to_top_left_origin(page_height=page.size.height)
-    target_size = page.image.size if page.image is not None else page.size
-    if not target_size.width or not target_size.height:
+    # scale_to_size divides by old_size, so page.size must be non-degenerate too.
+    if not page.size or not page.size.width or not page.size.height:
+        return None
+    target_size = _page_raster_size(page)
+    if target_size is None:
         return None
 
+    bbox_tl = prov.bbox.to_top_left_origin(page_height=page.size.height)
     scaled = bbox_tl.scale_to_size(old_size=page.size, new_size=target_size)
     w_px, h_px = target_size.width, target_size.height
-    x_pct = max(0.0, min(100.0, scaled.l / w_px * 100.0))
-    y_pct = max(0.0, min(100.0, scaled.t / h_px * 100.0))
-    width_pct = max(0.0, min(100.0, scaled.width / w_px * 100.0))
-    height_pct = max(0.0, min(100.0, scaled.height / h_px * 100.0))
-    return (x_pct, y_pct, width_pct, height_pct, prov.page_no)
+
+    # Normalize the edges before clipping. BoundingBox.width is a signed r-l and .height an
+    # unsigned abs(t-b), so neither tells us which edge is which; sort them instead.
+    left, right = sorted((scaled.l, scaled.r))
+    top, bottom = sorted((scaled.t, scaled.b))
+    # Round the edges, then derive the size from the rounded edges. Rounding x and width
+    # independently would let a sub-precision box round to width 0, and let x + width land
+    # just past 100 — the two things the clip below is here to prevent.
+    x0 = _clip_pct(left, w_px)
+    x1 = _clip_pct(right, w_px)
+    y0 = _clip_pct(top, h_px)
+    y1 = _clip_pct(bottom, h_px)
+    if x1 <= x0 or y1 <= y0:
+        # Nothing of the box survives on the page (or it was degenerate to begin with).
+        # Emitting it would put an invisible zero-area region on the canvas and a stray
+        # point in the reading-order polyline.
+        return None
+    return (x0, y0, round(x1 - x0, _PCT_DIGITS), round(y1 - y0, _PCT_DIGITS), prov.page_no)
 
 
 def _ls_label_for_item(item: NodeItem) -> str:
@@ -154,22 +195,43 @@ def _item_text(item: NodeItem) -> str:
     return str(t)
 
 
+_CONTENT_LAYER_BY_NAME = {
+    "body": ContentLayer.BODY,
+    "furniture": ContentLayer.FURNITURE,
+    "background": ContentLayer.BACKGROUND,
+    "invisible": ContentLayer.INVISIBLE,
+    "notes": ContentLayer.NOTES,
+}
+
+
 def _parse_content_layers(raw: Optional[str]) -> Optional[Set[ContentLayer]]:
+    """Parse DOCLING_CONTENT_LAYERS; ``None`` means "use Docling's default (body only)"."""
     if not raw:
         return None
     out: Set[ContentLayer] = set()
+    unknown: List[str] = []
     for part in raw.lower().split(","):
         part = part.strip()
-        if part == "body":
-            out.add(ContentLayer.BODY)
-        elif part == "furniture":
-            out.add(ContentLayer.FURNITURE)
-        elif part == "background":
-            out.add(ContentLayer.BACKGROUND)
-        elif part == "invisible":
-            out.add(ContentLayer.INVISIBLE)
-        elif part == "notes":
-            out.add(ContentLayer.NOTES)
+        if not part:
+            continue
+        layer = _CONTENT_LAYER_BY_NAME.get(part)
+        if layer is None:
+            unknown.append(part)
+        else:
+            out.add(layer)
+    if unknown:
+        # Silently falling back to the default here reads as "my filter did nothing";
+        # name the bad value so a typo is obvious from the logs.
+        logger.warning(
+            "Ignoring unknown DOCLING_CONTENT_LAYERS value(s) %s; supported layers are %s",
+            ", ".join(sorted(unknown)),
+            ", ".join(sorted(_CONTENT_LAYER_BY_NAME)),
+        )
+    if not out:
+        logger.warning(
+            "DOCLING_CONTENT_LAYERS=%r selected no known layer; using Docling's default (body only)",
+            raw,
+        )
     return out or None
 
 
@@ -189,8 +251,9 @@ def docling_document_to_ls_results(
     Output is a flat list ready to drop into ``PredictionValue.result``. Each
     entry is a complete envelope (``id``, ``from_name``, ``to_name``, ``type``,
     ``value``) — the caller still needs to attach ``original_width`` /
-    ``original_height`` / ``image_rotation`` per Label Studio's prediction
-    format requirements (the model envelope, not the per-result envelope).
+    ``original_height`` / ``image_rotation`` to every entry, since Label Studio
+    carries those per result rather than on the prediction as a whole. Use
+    :func:`page_raster_size` for dimensions consistent with these percentages.
 
     Returns:
       * ``rectanglelabels`` entries for every Docling layout item with a
@@ -215,12 +278,20 @@ def docling_document_to_ls_results(
     for item, level in doc.iterate_items(**iter_kw):
         if not item.prov:
             continue
-        rect = _bbox_to_percent_rect(doc, item, prov_index=0)
+        # An item straddling a page break carries one provenance per page, and
+        # iterate_items(page_no=N) yields it if *any* of them is on page N. Measure the
+        # provenance actually on the requested page instead of assuming it is prov[0].
+        prov_index = 0
+        if page_no is not None:
+            prov_index = next(
+                (i for i, p in enumerate(item.prov) if p.page_no == page_no), -1
+            )
+            if prov_index < 0:
+                continue
+        rect = _bbox_to_percent_rect(doc, item, prov_index=prov_index)
         if rect is None:
             continue
         x_pct, y_pct, w_pct, h_pct, p_no = rect
-        if page_no is not None and p_no != page_no:
-            continue
 
         ls_label = _ls_label_for_item(item)
         layer = _content_layer_to_ls(getattr(item, "content_layer", ContentLayer.BODY))
@@ -236,10 +307,12 @@ def docling_document_to_ls_results(
             "type": "rectanglelabels",
             "origin": "prediction",
             "value": {
-                "x": round(x_pct, 4),
-                "y": round(y_pct, 4),
-                "width": round(w_pct, 4),
-                "height": round(h_pct, 4),
+                # Already clipped and rounded by _bbox_to_percent_rect; rounding again here
+                # would reintroduce the x + width > 100 drift it exists to prevent.
+                "x": x_pct,
+                "y": y_pct,
+                "width": w_pct,
+                "height": h_pct,
                 "rotation": 0,
                 "rectanglelabels": [ls_label],
                 "content_layer": layer,
@@ -288,12 +361,31 @@ def docling_document_to_ls_results(
     return results
 
 
-def parse_image_data_key(label_config: Optional[str]) -> str:
-    """Return the task.data key the labeling iframe reads from.
+def page_raster_size(
+    doc: DoclingDocument, page_no: Optional[int] = None
+) -> Optional[Tuple[int, int]]:
+    """Return ``(width, height)`` in px of the raster the percentages are relative to.
 
-    The Docling Interface's default ``params.imageField`` is ``image``. ML
-    backends should default to ``image`` and fall back through the same chain
-    (``image``, ``url``, ``ocr``, ``$undefined``, ``$undefined$``,
-    ``undefined``) before giving up.
+    This is the right source for a result's ``original_width`` / ``original_height``:
+    it is the same raster :func:`docling_document_to_ls_results` measured against, and
+    unlike probing the downloaded file it works for PDFs, which are not images.
+
+    ``page_no`` defaults to the document's first page. Returns ``None`` rather than a
+    degenerate size, so the caller can fall back instead of emitting a zero dimension.
     """
-    return "image"
+    pages = getattr(doc, "pages", None) or {}
+    if not pages:
+        return None
+    page = pages.get(page_no) if page_no is not None else pages.get(min(pages))
+    if page is None:
+        return None
+    size = _page_raster_size(page)
+    if size is None:
+        return None
+    # Label Studio wants ints here; round rather than truncate so a fractional page size
+    # (595.5 -> 596, not 595) stays as close as possible to the raster the percentages
+    # were measured against.
+    width, height = round(size.width), round(size.height)
+    if width < 1 or height < 1:
+        return None
+    return width, height
