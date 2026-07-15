@@ -1,125 +1,112 @@
-"""Label Studio API authentication helpers.
+"""Label Studio API authentication helpers for streaming video assets.
 
-Label Studio Enterprise has two token types and they authenticate differently:
+Most ML backends can delegate asset auth entirely to ``get_local_path()``. This
+backend is different because ffprobe/ffmpeg stream LS-hosted videos directly, so
+we need headers outside of the SDK downloader. Keep the token semantics aligned
+with the SDK instead of reimplementing JWT parsing / refresh logic here:
 
-  * Legacy token → an opaque ~40-char string, sent as ``Token <token>``
-    (DRF ``TokenAuthentication``).
-  * Personal Access Token (PAT) → a JWT *refresh* token. It can't be used
-    directly; it must be exchanged at ``/api/token/refresh`` for a short-lived
-    access JWT, which is then sent as ``Bearer <access>``.
-
-``ls_auth_headers`` hides that difference: hand it the LS host + whatever token
-the operator configured, and it returns the right ``Authorization`` header,
-minting and caching access tokens from a PAT as needed.
-
-Dependency-free apart from ``requests`` so it can be unit-tested without torch
-/ cv2 / sam2 (mirrors ``control_detect`` / ``mask_encoding``).
+* ``TokensClientExt.resolve_x_api_key_header_value`` normalizes refresh JWTs
+  (PATs) into access JWTs and leaves legacy/access tokens unchanged.
+* ``io._build_headers`` applies the same Authorization scheme selection used by
+  ``get_local_path`` (JWT => Bearer, opaque token => Token) and only attaches it
+  for matching LS hosts.
 """
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
 import threading
-import time
 from typing import Dict, Optional, Tuple
 
-import requests
+from label_studio_sdk import LabelStudio
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import _build_headers
+
+from url_auth import should_attach_ls_auth
 
 logger = logging.getLogger(__name__)
 
-# Access tokens minted from a PAT, cached per (host, pat) until they near
-# expiry.
-_PAT_LOCK = threading.Lock()
-_PAT_ACCESS_CACHE: Dict[Tuple[str, str], Tuple[str, float]] = {}
-# Refresh this many seconds before the access token's `exp` to avoid racing
-# expiry mid-request.
-_PAT_REFRESH_MARGIN = 60.0
-# If an access token's `exp` can't be read, cache it this long so we don't
-# hammer the refresh endpoint.
-_PAT_FALLBACK_TTL = 300.0
-# Timeout for the token-refresh HTTP call.
-_EXCHANGE_TIMEOUT = 10.0
+_CLIENT_LOCK = threading.Lock()
+_SDK_CLIENT_CACHE: Dict[Tuple[str, str], LabelStudio] = {}
 
 
-def _looks_like_jwt(token: str) -> bool:
-    """A PAT is a JWT: three base64url segments joined by dots, whose header
-    base64-encodes to a leading ``eyJ``. Legacy LS tokens are opaque strings
-    with no dots, so this cleanly distinguishes the two."""
-    return token.count(".") == 2 and token.startswith("eyJ")
+def _sdk_client(ls_url: Optional[str], token: Optional[str]) -> Optional[LabelStudio]:
+    """Return a cached SDK client so token refresh/caching stays inside SDK.
 
-
-def _jwt_exp(token: str) -> Optional[float]:
-    """Best-effort read of a JWT's ``exp`` claim (epoch seconds) WITHOUT
-    verifying the signature — we only need the expiry to schedule a refresh.
-    Returns None if the token can't be parsed."""
-    try:
-        payload_b64 = token.split(".")[1]
-        payload_b64 += "=" * (-len(payload_b64) % 4)  # restore base64 padding
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        exp = payload.get("exp")
-        return float(exp) if exp is not None else None
-    except Exception:
+    The client wrapper owns ``TokensClientExt``; using it here means the
+    streaming path shares the SDK's JWT token-type detection, refresh exchange,
+    expiry handling, and locking instead of duplicating that code locally.
+    """
+    if not ls_url or not token:
         return None
+    key = (ls_url.rstrip("/"), token)
+    with _CLIENT_LOCK:
+        client = _SDK_CLIENT_CACHE.get(key)
+        if client is None:
+            client = LabelStudio(base_url=key[0], api_key=token)
+            _SDK_CLIENT_CACHE[key] = client
+        return client
 
 
-def _exchange_pat(ls_url: str, pat: str) -> Optional[str]:
-    """Exchange a PAT (JWT refresh token) for a short-lived access JWT via
-    LSE's ``/api/token/refresh``. Returns the access token, or None on
-    failure."""
+def _resolve_token_with_sdk(ls_url: Optional[str], token: str) -> str:
+    """Normalize a token using the SDK token client when available.
+
+    Legacy tokens and access JWTs are returned unchanged. Refresh JWTs are
+    exchanged for access JWTs by the SDK. If SDK normalization is unavailable or
+    fails, return the original token so callers preserve the previous fallback
+    behavior and surface the eventual 401 from LS rather than hiding it here.
+    """
     try:
-        resp = requests.post(
-            f"{ls_url}/api/token/refresh", json={"refresh": pat},
-            timeout=_EXCHANGE_TIMEOUT,
-        )
-        resp.raise_for_status()
-        access = (resp.json() or {}).get("access")
-        if not access:
-            logger.warning("PAT exchange returned no access token (host=%s)", ls_url)
-            return None
-        return access
+        client = _sdk_client(ls_url, token)
+        if client is None:
+            return token
+        tokens_client = client._client_wrapper._tokens_client
+        return tokens_client.resolve_x_api_key_header_value(token)
     except Exception as e:
-        logger.warning("PAT exchange failed (host=%s): %s", ls_url, e)
-        return None
+        logger.warning("SDK token normalization failed (host=%s): %s", ls_url, e)
+        return token
 
 
-def _access_token_for_pat(ls_url: str, pat: str) -> Optional[str]:
-    """Return a valid access JWT for ``pat``, minting or refreshing as needed.
-    Cached per (host, pat) and reused until shortly before it expires."""
-    key = (ls_url, pat)
-    now = time.time()
-    with _PAT_LOCK:
-        cached = _PAT_ACCESS_CACHE.get(key)
-        if cached is not None and now < cached[1] - _PAT_REFRESH_MARGIN:
-            return cached[0]
-    # Exchange outside the lock (network I/O); a rare concurrent double-exchange
-    # is harmless — last writer wins and both tokens are valid.
-    access = _exchange_pat(ls_url, pat)
-    if access is None:
-        return None
-    exp = _jwt_exp(access)
-    expires_at = exp if exp is not None else now + _PAT_FALLBACK_TTL
-    with _PAT_LOCK:
-        _PAT_ACCESS_CACHE[key] = (access, expires_at)
-    return access
+def ls_token_for_sdk(ls_url: Optional[str], token: Optional[str]) -> Optional[str]:
+    """Return the token value to hand to ``get_local_path``.
 
-
-def ls_auth_headers(ls_url: Optional[str], token: Optional[str]) -> Optional[Dict[str, str]]:
-    """Build the ``Authorization`` header for an LS-hosted asset fetch.
-
-    * Legacy token → ``Token <token>``.
-    * PAT (JWT) → exchanged for a short-lived access JWT, sent as
-      ``Bearer <access>``. Falls back to ``Token <pat>`` if the exchange fails
-      or the LS host is unknown, so legacy deployments still behave as before.
-
-    Returns None when no token is configured.
+    ``get_local_path`` already knows how to choose ``Token`` vs ``Bearer`` for a
+    token value, but older downloader code does not exchange refresh JWTs first.
+    Passing the SDK-normalized value lets download fallback and streaming use the
+    same credential.
     """
     if not token:
         return None
-    if ls_url and _looks_like_jwt(token):
-        access = _access_token_for_pat(ls_url, token)
-        if access:
-            return {"Authorization": f"Bearer {access}"}
-        logger.warning("PAT exchange unavailable — falling back to Token scheme")
-    return {"Authorization": f"Token {token}"}
+    return _resolve_token_with_sdk(ls_url, token.strip())
+
+
+def ls_auth_headers(
+    ls_url: Optional[str],
+    token: Optional[str],
+    target_url: Optional[str] = None,
+) -> Optional[Dict[str, str]]:
+    """Build SDK-compatible auth headers for an LS-hosted streaming URL.
+
+    ``target_url`` is optional for existing callers, but should be supplied for
+    streaming so SDK header construction can enforce the same host match as
+    ``get_local_path``. Host/token leakage prevention still lives in
+    ``url_auth.should_attach_ls_auth`` before this helper is called.
+    """
+    wire_token = ls_token_for_sdk(ls_url, token)
+    if not wire_token:
+        return None
+
+    if ls_url and target_url and not should_attach_ls_auth(target_url, ls_url, True):
+        headers = _build_headers(target_url, ls_url, wire_token)
+        return headers or None
+
+    # `should_attach_ls_auth` is intentionally scheme/port-insensitive so the
+    # operator can configure `LABEL_STUDIO_URL=http://host:80` while LS returns
+    # `https://host/...` asset URLs. The SDK's `_build_headers` uses exact
+    # netloc equality, so after our guard says the target is safe, build against
+    # `ls_url` itself to reuse the SDK's Token-vs-Bearer choice without losing
+    # auth on benign scheme/port differences.
+    if ls_url:
+        headers = _build_headers(ls_url, ls_url, wire_token)
+        return headers or None
+
+    return None
