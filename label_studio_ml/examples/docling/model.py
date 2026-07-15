@@ -5,11 +5,6 @@ Predictions target the **HumanSignal Interfaces** Docling annotator
 through ``parseResults``. Output is canonical Label Studio result shapes —
 ``rectanglelabels`` and ``polygonlabels`` — built by
 :mod:`docling_to_ls_results`.
-
-The legacy ``reactcode`` envelope (``docling_to_reactcode``) is still
-imported for backward compatibility with deployments still using the old
-ReactCode XML labeling config; switch by setting
-``DOCLING_RESULT_FORMAT=reactcode``.
 """
 
 from __future__ import annotations
@@ -17,7 +12,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,11 +29,6 @@ from label_studio_ml.response import ModelResponse
 from label_studio_ml.utils import DATA_UNDEFINED_NAME, get_image_size
 from label_studio_sdk.label_interface.objects import PredictionValue
 
-from docling_to_reactcode import (
-    docling_document_to_reactcode_regions,
-    parse_image_data_key as _parse_legacy_image_data_key,
-    parse_reactcode_tag_names,
-)
 from docling_to_ls_results import docling_document_to_ls_results
 
 logger = logging.getLogger(__name__)
@@ -56,30 +45,6 @@ def _docling_service_client_base_url(raw: str) -> str:
     if base.endswith("/v1"):
         return base[: -len("/v1")].rstrip("/")
     return base
-
-
-def detect_result_format(label_config: Optional[str]) -> str:
-    """Auto-pick a Label Studio result format from the project labeling config.
-
-    - Returns ``"reactcode"`` when the config contains a ``<ReactCode>`` tag.
-      That's the legacy XML labeling config whose UI reads predictions wrapped
-      in ``type: "reactcode"`` envelopes (``value: {"reactcode": <payload>}``).
-    - Returns ``"canonical"`` otherwise. The new HumanSignal Interface projects
-      ship a near-empty ``<View></View>`` config and load the actual interface
-      from ``custom_interface_code`` (which the ML backend can't see); absence
-      of ``<ReactCode>`` is the reliable signal that those projects need
-      canonical ``rectanglelabels`` / ``polygonlabels`` envelopes.
-
-    Exposed at module level (not as a class method) so the format detector
-    can be imported and unit-tested without pulling in ``label_studio_ml``.
-    """
-    if not label_config:
-        return "canonical"
-    # Match ``<ReactCode`` followed by a tag delimiter so we don't trip on
-    # e.g. ``<ReactCodeBlock>`` if anything similar ever ships.
-    if re.search(r"<ReactCode[\s/>]", label_config, re.IGNORECASE):
-        return "reactcode"
-    return "canonical"
 
 
 class Docling(LabelStudioMLBase):
@@ -100,20 +65,30 @@ class Docling(LabelStudioMLBase):
     _client: Optional[DoclingServiceClient] = None
 
     def __init__(self, project_id: Optional[str] = None, label_config: Optional[str] = None, **kwargs):
-        # Allow environment variables to override the ReactCode control/object tag names when the
-        # labeling config is unavailable or uses non-default names.
-        self._react_from = os.getenv("DOCLING_REACTCODE_FROM_NAME")
-        self._react_to = os.getenv("DOCLING_REACTCODE_TO_NAME")
-        self._data_key = os.getenv("DOCLING_TASK_DATA_KEY")
-        # Result format auto-derives from label_config below; an explicit
-        # DOCLING_RESULT_FORMAT env var always wins.
-        env_format = (os.getenv("DOCLING_RESULT_FORMAT") or "").strip().lower()
-        self._explicit_result_format: Optional[str] = env_format or None
-        self._auto_result_format: str = "canonical"
+        # Optional overrides. The Docling Interface (docling_interface.jsx) hardcodes
+        # from_name="docling" / to_name="docling" and reads task.data.image, so the
+        # defaults below match — set these env vars only if your project overrides
+        # those names.
+        # DOCLING_REACTCODE_FROM_NAME / _TO_NAME are the legacy env var names kept
+        # for backward compatibility; DOCLING_FROM_NAME / _TO_NAME are the preferred
+        # names going forward.
+        self._from_name = (
+            os.getenv("DOCLING_FROM_NAME")
+            or os.getenv("DOCLING_REACTCODE_FROM_NAME")
+            or "docling"
+        )
+        self._to_name = (
+            os.getenv("DOCLING_TO_NAME")
+            or os.getenv("DOCLING_REACTCODE_TO_NAME")
+            or "docling"
+        )
+        self._data_key = os.getenv("DOCLING_TASK_DATA_KEY") or "image"
 
-        # Some ReactCode labeling configs are not understood by label_studio_sdk's parser. In that
-        # case we still want the ML backend to start, so we validate opportunistically and fall back
-        # to parsing only the tag names we need below.
+        # HumanSignal Interfaces projects ship a near-empty ``<View></View>`` label_config
+        # and load the actual interface from ``custom_interface_code`` (which the ML
+        # backend never sees). We still validate opportunistically so the SDK schema
+        # loads when a project happens to ship a parseable one, but a parse failure
+        # is not fatal — the backend has all it needs from env vars and defaults.
         label_config_for_sdk = label_config
         if label_config:
             try:
@@ -127,27 +102,6 @@ class Docling(LabelStudioMLBase):
                 )
                 label_config_for_sdk = None
         super().__init__(project_id=project_id, label_config=label_config_for_sdk, **kwargs)
-        self._apply_label_config_tags(label_config)
-
-    def _apply_label_config_tags(self, label_config: Optional[str]) -> None:
-        # Prefer explicit env overrides; otherwise infer ReactCode names and task data key from
-        # the project labeling config (legacy XML configs only — new HumanSignal Interface
-        # projects ship a near-empty ``<View></View>`` config and rely on hardcoded names).
-        if label_config:
-            rf, rt = parse_reactcode_tag_names(label_config)
-            if not self._react_from:
-                self._react_from = rf
-            if not self._react_to:
-                self._react_to = rt
-            if not self._data_key:
-                self._data_key = _parse_legacy_image_data_key(label_config)
-        # Hardcoded defaults match the new docling_interface.jsx, which always emits results under
-        # ``from_name="docling"`` / ``to_name="docling"`` and reads ``task.data.image`` first
-        # (with a fallback chain through ``url``, ``ocr``, ``$undefined``, ``$undefined$``, ``undefined``).
-        self._react_from = self._react_from or "docling"
-        self._react_to = self._react_to or "docling"
-        self._data_key = self._data_key or "image"
-        self._auto_result_format = detect_result_format(label_config)
 
     def setup(self) -> None:
         # Expose the installed docling package version in predictions so users can trace which client
@@ -433,67 +387,30 @@ class Docling(LabelStudioMLBase):
         except Exception:
             iw, ih = 100, 100
 
-        from_name = self._react_from
-        to_name = self._react_to
-
-        # Explicit env override > auto-detection from the project label_config.
-        # See ``_detect_result_format`` for the heuristic.
-        result_format = (self._explicit_result_format or self._auto_result_format).lower()
-
+        # Canonical Label Studio result shapes (rectanglelabels / polygonlabels /
+        # relation), matching docling_interface.jsx's parseResults contract.
+        canonical_results = docling_document_to_ls_results(
+            doc,
+            page_no=page_no,
+            include_reading_order=include_ro,
+            reading_order_level=ro_level,
+            content_layers=content_layers,
+            from_name=self._from_name,
+            to_name=self._to_name,
+        )
         ls_results: List[Dict[str, Any]] = []
-        if result_format in ("canonical", "rectanglelabels", "labels", ""):
-            # Default path. Canonical Label Studio result shapes (rectanglelabels / polygonlabels /
-            # relation), matching docling_interface.jsx's parseResults contract.
-            canonical_results = docling_document_to_ls_results(
-                doc,
-                page_no=page_no,
-                include_reading_order=include_ro,
-                reading_order_level=ro_level,
-                content_layers=content_layers,
-                from_name=from_name,
-                to_name=to_name,
+        for entry in canonical_results:
+            # Each canonical entry already carries id / from_name / to_name / type / value /
+            # origin. The ML backend only needs to bolt on the image dimensions.
+            ls_results.append(
+                {
+                    **entry,
+                    "original_width": iw,
+                    "original_height": ih,
+                    "image_rotation": 0,
+                }
             )
-            for entry in canonical_results:
-                # Each canonical entry already carries id / from_name / to_name / type / value /
-                # origin. The ML backend only needs to bolt on the image dimensions.
-                ls_results.append(
-                    {
-                        **entry,
-                        "original_width": iw,
-                        "original_height": ih,
-                        "image_rotation": 0,
-                    }
-                )
-            region_count = len(canonical_results)
-        elif result_format == "reactcode":
-            # Backward-compatible path for projects still using the ReactCode XML labeling config.
-            payloads = docling_document_to_reactcode_regions(
-                doc,
-                page_no=page_no,
-                include_reading_order=include_ro,
-                reading_order_level=ro_level,
-                content_layers=content_layers,
-            )
-            for payload in payloads:
-                ls_results.append(
-                    {
-                        "original_width": iw,
-                        "original_height": ih,
-                        "image_rotation": 0,
-                        "value": {"reactcode": payload},
-                        "from_name": from_name,
-                        "to_name": to_name,
-                        "type": "reactcode",
-                        "origin": "prediction",
-                    }
-                )
-            region_count = len(payloads)
-        else:
-            logger.error(
-                "DOCLING_RESULT_FORMAT=%r is not recognized; expected 'canonical' or 'reactcode'.",
-                result_format,
-            )
-            return None
+        region_count = len(canonical_results)
 
         # Use a simple confidence proxy so non-empty predictions sort above empty ones without implying
         # calibrated model probabilities.
@@ -506,15 +423,11 @@ class Docling(LabelStudioMLBase):
         # Log the batch shape up front; Label Studio often shows only a generic "no response" when
         # the backend returns an empty prediction list.
         tasks = tasks or []
-        resolved_format = self._explicit_result_format or self._auto_result_format
-        format_source = "env DOCLING_RESULT_FORMAT" if self._explicit_result_format else "auto-detected from label_config"
         logger.info(
-            "Docling predict: %s task(s), ids=%s data_keys=%s result_format=%s (%s)",
+            "Docling predict: %s task(s), ids=%s data_keys=%s",
             len(tasks),
             [t.get("id") for t in tasks],
             [list((t.get("data") or {}).keys()) for t in tasks],
-            resolved_format,
-            format_source,
         )
 
         svc = self.DOCLING_SERVICE_URL
