@@ -137,15 +137,23 @@ jobs:
       - name: Build matrix
         id: matrix
         uses: actions/github-script@v8
+        env:
+          BASE_REF: "${{ github.event.before }}"
+          HEAD_REF: "${{ github.event.after || github.sha }}"
+          EVENT_NAME: "${{ github.event_name }}"
         with:
           script: |
             const yaml = require('js-yaml');
 
             const {owner, repo} = context.repo;
-            
+
             const default_branch = process.env.DOCKER_BUILD_CONFIG_BRANCH;
             const docker_build_config_path = process.env.DOCKER_BUILD_CONFIG_PATH;
-            
+            const docker_examples_directory = process.env.DOCKER_EXAMPLES_DIRECTORY;
+            const base_ref = process.env.BASE_REF;
+            const head_ref = process.env.HEAD_REF;
+            const event_name = process.env.EVENT_NAME;
+
             const docker_build_config_blob = await github.rest.repos.getContent({
               owner: owner,
               repo: repo,
@@ -154,8 +162,38 @@ jobs:
             });
             const docker_build_config_content = Buffer.from(docker_build_config_blob.data.content, docker_build_config_blob.data.encoding).toString("utf8");
             const docker_build_config = yaml.load(docker_build_config_content);
-            
-            core.setOutput("matrix-include", docker_build_config);
+
+            let backends;
+            if (event_name === 'workflow_dispatch') {
+              // Manual trigger: (re)build every configured backend.
+              backends = new Set(docker_build_config.map(e => e.backend_dir_name));
+            } else {
+              // Push: only build backends whose files changed in this push.
+              const {data: compare} = await github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base: base_ref,
+                head: head_ref,
+              });
+              backends = new Set(compare.files.filter(e => e.filename.startsWith(docker_examples_directory)).map(e => e.filename.split('/')[2]));
+            }
+
+            let matrixInclude = [];
+            for (const backend of backends) {
+              const config = docker_build_config.find(e => e.backend_dir_name === backend);
+              if (!config) {
+                console.log(`Could not find config for ${backend}, skipping`);
+                continue;
+              }
+              matrixInclude.push({
+                "backend_dir_name": backend,
+                "backend_tag_prefix": config.backend_tag_prefix,
+                "runs_on": config.runs_on ?? "ubuntu-latest",
+              });
+            }
+            console.log(`Matrix calculation result:`);
+            console.log(matrixInclude);
+            core.setOutput("matrix-include", matrixInclude);
 
   notification:
     name: "Send Slack Notification"
