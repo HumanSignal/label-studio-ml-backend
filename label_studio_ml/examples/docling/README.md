@@ -59,7 +59,13 @@ The ML backend listens on **`http://localhost:9090`**. Register that URL in your
 | `DOCLING_SERVE_TIMEOUT` | No | Job / read timeout in seconds (default `600`). |
 | `DOCLING_HTTP_CONNECT_TIMEOUT` | No | Connect timeout (default `30`). |
 
-Optional tuning: `DOCLING_PAGE_NO`, `DOCLING_PREDICT_READING_ORDER`, `DOCLING_READING_ORDER_LEVEL`, `DOCLING_CONTENT_LAYERS`, `DOCLING_FROM_NAME`, `DOCLING_TO_NAME`, `DOCLING_TASK_DATA_KEY`.
+Optional tuning: `DOCLING_PAGE_NO`, `DOCLING_PREDICT_READING_ORDER`, `DOCLING_READING_ORDER_LEVEL`, `DOCLING_INCLUDE_TABLE_STRUCTURE`, `DOCLING_INCLUDE_RELATIONS`, `DOCLING_CONTENT_LAYERS`, `DOCLING_FROM_NAME`, `DOCLING_TO_NAME`, `DOCLING_TASK_DATA_KEY`.
+
+The three shape toggles below default to `true` (opt-out) because that's what makes the prediction render meaningfully in the interface out of the box:
+
+- `DOCLING_PREDICT_READING_ORDER` — emit a `reading_order` polyline per page tracing item centroids in Docling's iteration order. Without one, the DocLang preview pane renders nothing. Set to `false` to skip.
+- `DOCLING_INCLUDE_TABLE_STRUCTURE` — for every `TableItem`, emit one child rectangle per cell (`table_cell` / `column_header` / `row_header` / `row_section` / `table_merged_cell`) with `parentId` set to the enclosing table. Set to `false` to keep tables as a single flat rect.
+- `DOCLING_INCLUDE_RELATIONS` — emit `to_caption` / `to_footnote` / `to_value` linking polylines from `FloatingItem.captions` / `FloatingItem.footnotes` / `KeyValueItem.graph.links[TO_VALUE]`. Without these, captions become detached free-floating text and key/value fields lose their pairing. Set to `false` to skip.
 
 `DOCLING_FROM_NAME` / `DOCLING_TO_NAME` override the `from_name` / `to_name` on emitted predictions (defaults `"docling"` / `"docling"` — matches the interface). The older `DOCLING_REACTCODE_FROM_NAME` / `DOCLING_REACTCODE_TO_NAME` env var names are still read as fallbacks for backward compatibility.
 
