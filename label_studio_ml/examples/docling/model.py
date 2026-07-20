@@ -88,19 +88,8 @@ class Docling(LabelStudioMLBase):
         # from_name="docling" / to_name="docling" and reads task.data.image, so the
         # defaults below match — set these env vars only if your project overrides
         # those names.
-        # DOCLING_REACTCODE_FROM_NAME / _TO_NAME are the legacy env var names kept
-        # for backward compatibility; DOCLING_FROM_NAME / _TO_NAME are the preferred
-        # names going forward.
-        self._from_name = (
-            os.getenv("DOCLING_FROM_NAME")
-            or os.getenv("DOCLING_REACTCODE_FROM_NAME")
-            or "docling"
-        )
-        self._to_name = (
-            os.getenv("DOCLING_TO_NAME")
-            or os.getenv("DOCLING_REACTCODE_TO_NAME")
-            or "docling"
-        )
+        self._from_name = os.getenv("DOCLING_FROM_NAME") or "docling"
+        self._to_name = os.getenv("DOCLING_TO_NAME") or "docling"
         self._data_key = os.getenv("DOCLING_TASK_DATA_KEY") or "image"
 
         # HumanSignal Interfaces projects ship a near-empty ``<View></View>`` label_config

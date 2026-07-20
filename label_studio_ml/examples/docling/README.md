@@ -67,7 +67,7 @@ The three shape toggles below default to `true` (opt-out) because that's what ma
 - `DOCLING_INCLUDE_TABLE_STRUCTURE` — for every `TableItem`, emit one child rectangle per cell (`table_cell` / `column_header` / `row_header` / `row_section` / `table_merged_cell`) with `parentId` set to the enclosing table. Set to `false` to keep tables as a single flat rect.
 - `DOCLING_INCLUDE_RELATIONS` — emit `to_caption` / `to_footnote` / `to_value` linking polylines from `FloatingItem.captions` / `FloatingItem.footnotes` / `KeyValueItem.graph.links[TO_VALUE]`. Without these, captions become detached free-floating text and key/value fields lose their pairing. Set to `false` to skip.
 
-`DOCLING_FROM_NAME` / `DOCLING_TO_NAME` override the `from_name` / `to_name` on emitted predictions (defaults `"docling"` / `"docling"` — matches the interface). The older `DOCLING_REACTCODE_FROM_NAME` / `DOCLING_REACTCODE_TO_NAME` env var names are still read as fallbacks for backward compatibility.
+`DOCLING_FROM_NAME` / `DOCLING_TO_NAME` override the `from_name` / `to_name` on emitted predictions (defaults `"docling"` / `"docling"` — matches the interface).
 
 The **`docling`** PyPI package (**≥2.90**) provides **`DoclingServiceClient`**; behavior follows **your SaaS tenant**, not necessarily open-source Docling docs.
 
