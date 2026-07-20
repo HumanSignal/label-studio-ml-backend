@@ -44,15 +44,20 @@ services:
       # - DOCLING_SERVE_TIMEOUT=600
       # - DOCLING_HTTP_CONNECT_TIMEOUT=30
 
-      # Labeling-config overrides. Leave empty unless your project uses non-default tag/data names.
-      # - DOCLING_REACTCODE_FROM_NAME=docling
-      # - DOCLING_REACTCODE_TO_NAME=docling
-      # - DOCLING_TASK_DATA_KEY=undefined
+      # Labeling-config overrides. Leave empty unless your project overrides the defaults.
+      # The HumanSignal Interface (docling_interface.jsx) hardcodes
+      # from_name="docling" / to_name="docling" and reads task.data.image, so leave these blank.
+      # - DOCLING_FROM_NAME=docling
+      # - DOCLING_TO_NAME=docling
+      # - DOCLING_TASK_DATA_KEY=image
 
-      # Output filtering / enrichment
+      # Prediction shape toggles (all default ON — see README for rationale).
+      # Set to false to skip that portion of the emitted prediction.
       # - DOCLING_PAGE_NO=
-      # - DOCLING_PREDICT_READING_ORDER=false
+      # - DOCLING_PREDICT_READING_ORDER=true
       # - DOCLING_READING_ORDER_LEVEL=1
+      # - DOCLING_INCLUDE_TABLE_STRUCTURE=true
+      # - DOCLING_INCLUDE_RELATIONS=true
       # - DOCLING_CONTENT_LAYERS=
     ports:
       - "9090:9090"
