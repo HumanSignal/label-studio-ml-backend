@@ -37,6 +37,25 @@ logger = logging.getLogger(__name__)
 _PLACEHOLDER_URL_WARNED = False
 
 
+def _env_bool(name: str, *, default: bool) -> bool:
+    """Parse a boolean env var with an explicit default.
+
+    Truthy: ``1 / true / yes / on``. Falsy: ``0 / false / no / off``. Anything
+    else — including an unset or empty env var — returns ``default``. Used for
+    prediction-shape toggles so callers can opt OUT of features that are on by
+    default without having to remember to set them for every deployment.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    s = raw.strip().lower()
+    if s in ("1", "true", "yes", "on"):
+        return True
+    if s in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
 def _docling_service_client_base_url(raw: str) -> str:
     """IBM SaaS URLs look like ``…/<tenant>/v1``; ``DoclingServiceClient`` still prefixes routes with ``/v1``
     (yielding ``…/v1/v1/…`` and 404/400). Strip one trailing ``/v1`` so the client gets ``…/<tenant>``.
@@ -365,13 +384,17 @@ class Docling(LabelStudioMLBase):
             logger.error("Docling returned no document for task %s", task.get("id"))
             return None
 
-        # Optional conversion filters/toggles let users reduce output volume or include reading-order
-        # metadata without changing code.
+        # Optional conversion filters/toggles let users reduce output volume or drop
+        # secondary output types without changing code. All emission flags default to ON
+        # because that is what produces a prediction the interface can actually render out
+        # of the box (see docling_document_to_ls_results docstring for rationale).
         page_raw = os.getenv("DOCLING_PAGE_NO", "").strip()
         page_no: Optional[int] = int(page_raw) if page_raw.isdigit() else None
 
-        include_ro = os.getenv("DOCLING_PREDICT_READING_ORDER", "").lower() in ("1", "true", "yes")
+        include_ro = _env_bool("DOCLING_PREDICT_READING_ORDER", default=True)
         ro_level = int(os.getenv("DOCLING_READING_ORDER_LEVEL", "1") or "1")
+        include_table_structure = _env_bool("DOCLING_INCLUDE_TABLE_STRUCTURE", default=True)
+        include_relations = _env_bool("DOCLING_INCLUDE_RELATIONS", default=True)
         content_layers = os.getenv("DOCLING_CONTENT_LAYERS")
 
         # All the per-result fields (original_width / original_height / image_rotation) that
@@ -394,6 +417,8 @@ class Docling(LabelStudioMLBase):
             page_no=page_no,
             include_reading_order=include_ro,
             reading_order_level=ro_level,
+            include_table_structure=include_table_structure,
+            include_relations=include_relations,
             content_layers=content_layers,
             from_name=self._from_name,
             to_name=self._to_name,
