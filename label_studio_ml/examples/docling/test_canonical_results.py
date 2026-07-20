@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from docling_core.types.doc.base import BoundingBox, CoordOrigin, Size
 from docling_core.types.doc.document import ContentLayer
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel
 
 from docling_to_ls_results import docling_document_to_ls_results, page_raster_size
 
@@ -34,9 +34,22 @@ def _item(
     page_no: int = 1,
     text: str = "",
     content_layer: ContentLayer = ContentLayer.BODY,
+    self_ref: Optional[str] = None,
+    data: Any = None,
+    captions: Optional[List[Any]] = None,
+    footnotes: Optional[List[Any]] = None,
+    graph: Any = None,
 ) -> SimpleNamespace:
     return _multi_prov_item(
-        label=label, provs=[(page_no, bbox)], text=text, content_layer=content_layer
+        label=label,
+        provs=[(page_no, bbox)],
+        text=text,
+        content_layer=content_layer,
+        self_ref=self_ref,
+        data=data,
+        captions=captions,
+        footnotes=footnotes,
+        graph=graph,
     )
 
 
@@ -46,6 +59,11 @@ def _multi_prov_item(
     provs: List[Tuple[int, BoundingBox]],
     text: str = "",
     content_layer: ContentLayer = ContentLayer.BODY,
+    self_ref: Optional[str] = None,
+    data: Any = None,
+    captions: Optional[List[Any]] = None,
+    footnotes: Optional[List[Any]] = None,
+    graph: Any = None,
 ) -> SimpleNamespace:
     """An item with one provenance per page, as Docling reports for page-straddling items."""
     return SimpleNamespace(
@@ -54,19 +72,90 @@ def _multi_prov_item(
         text=text,
         content_layer=content_layer,
         meta=None,
+        self_ref=self_ref,
+        data=data,
+        captions=captions or [],
+        footnotes=footnotes or [],
+        graph=graph,
     )
 
 
+def _table_cell(
+    *,
+    bbox: Optional[BoundingBox],
+    text: str = "",
+    column_header: bool = False,
+    row_header: bool = False,
+    row_section: bool = False,
+    row_span: int = 1,
+    col_span: int = 1,
+) -> SimpleNamespace:
+    """Stand-in for ``docling_core.types.doc.document.TableCell``.
+
+    Real ``TableCell`` requires start/end row/col offsets we don't care about
+    here; SimpleNamespace exposes only the attrs the emitter reads
+    (``bbox`` / ``text`` / header flags / spans).
+    """
+    return SimpleNamespace(
+        bbox=bbox,
+        text=text,
+        column_header=column_header,
+        row_header=row_header,
+        row_section=row_section,
+        row_span=row_span,
+        col_span=col_span,
+    )
+
+
+class _Ref:
+    """Stand-in for ``docling_core.types.doc.document.RefItem``.
+
+    Resolves through the fake doc's ``_refs`` map, so tests don't have to
+    mimic the ``/tables/0`` JSON-pointer indirection.
+    """
+
+    def __init__(self, cref: str):
+        self.cref = cref
+
+    def resolve(self, doc: "_Doc") -> Any:
+        return doc._refs[self.cref]
+
+
 class _Doc:
-    """Minimal DoclingDocument stand-in: real pages/bboxes, stubbed iteration."""
+    """Minimal DoclingDocument stand-in: real pages/bboxes, stubbed iteration.
+
+    ``tables`` / ``pictures`` / ``key_value_items`` / ``form_items`` mirror the
+    real DoclingDocument collections and are what ``_emit_relations`` walks to
+    find captions / footnotes / to_value graph links.
+    """
 
     def __init__(
         self,
         items_with_levels: List[Tuple[Any, int]],
         pages: Optional[Dict[int, Any]] = None,
+        *,
+        tables: Optional[List[Any]] = None,
+        pictures: Optional[List[Any]] = None,
+        key_value_items: Optional[List[Any]] = None,
+        form_items: Optional[List[Any]] = None,
     ):
         self._items = items_with_levels
         self.pages: Dict[int, Any] = pages if pages is not None else {1: _page()}
+        self.tables = tables or []
+        self.pictures = pictures or []
+        self.key_value_items = key_value_items or []
+        self.form_items = form_items or []
+        # cref -> resolved item, populated from every stub carrying a self_ref.
+        self._refs: Dict[str, Any] = {}
+        for it, _ in self._items:
+            ref = getattr(it, "self_ref", None)
+            if isinstance(ref, str) and ref:
+                self._refs[ref] = it
+        for coll in (self.tables, self.pictures, self.key_value_items, self.form_items):
+            for it in coll:
+                ref = getattr(it, "self_ref", None)
+                if isinstance(ref, str) and ref:
+                    self._refs[ref] = it
 
     def iterate_items(self, **_kwargs):
         yield from self._items
@@ -364,3 +453,233 @@ def test_no_underscore_prefixed_keys_in_value() -> None:
     for r in out:
         for k in (r.get("value") or {}).keys():
             assert not k.startswith("_"), f"underscore-prefixed key {k!r} leaked into value"
+
+
+# --- table structure ----------------------------------------------------------------
+#
+# A TableItem's data.table_cells become per-cell rectangles parented to the table so
+# the interface can render the table structure without a human redrawing every cell.
+
+
+def test_table_structure_emits_child_cells_with_parent_id() -> None:
+    cells = [
+        _table_cell(bbox=_tl(10, 10, 30, 20), text="H1", column_header=True),
+        _table_cell(bbox=_tl(30, 10, 50, 20), text="H2", column_header=True),
+        _table_cell(bbox=_tl(10, 20, 30, 30), text="a"),
+        _table_cell(bbox=_tl(30, 20, 50, 30), text="b", col_span=2),
+    ]
+    table = _item(
+        label=DocItemLabel.TABLE,
+        bbox=_tl(10, 10, 50, 30),
+        self_ref="#/tables/0",
+        data=SimpleNamespace(table_cells=cells),
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(table, 1)], tables=[table]),
+        include_table_structure=True,
+    )
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    assert len(rects) == 5  # 1 table + 4 cells
+
+    table_rect = next(r for r in rects if r["value"]["rectanglelabels"] == ["table"])
+    cell_rects = [r for r in rects if r is not table_rect]
+    assert all(cr["value"]["parentId"] == table_rect["id"] for cr in cell_rects)
+
+    labels = [cr["value"]["rectanglelabels"][0] for cr in cell_rects]
+    assert labels.count("column_header") == 2
+    assert labels.count("table_cell") == 1
+    assert labels.count("table_merged_cell") == 1
+
+    # Cells sit one level deeper than the table in the sub-annotation tree.
+    for cr in cell_rects:
+        assert cr["value"]["level"] == 2
+
+
+def test_table_structure_default_off_matches_prior_behavior() -> None:
+    """Without include_table_structure=True the emitter keeps its pre-existing
+    "table as one flat rect" behavior; existing consumers can't accidentally start
+    seeing extra child rects they don't know how to handle."""
+    cells = [_table_cell(bbox=_tl(10, 10, 30, 20), text="only")]
+    table = _item(
+        label=DocItemLabel.TABLE,
+        bbox=_tl(10, 10, 50, 30),
+        self_ref="#/tables/0",
+        data=SimpleNamespace(table_cells=cells),
+    )
+    out = docling_document_to_ls_results(_Doc([(table, 1)], tables=[table]))
+    assert len(out) == 1
+    assert out[0]["value"]["rectanglelabels"] == ["table"]
+
+
+def test_table_cells_are_not_swept_into_reading_order() -> None:
+    """Reading order sequences top-level flow. Sweeping cells into it would produce a
+    polyline that zig-zags through every cell of every table on the page, drowning out
+    the document flow the polyline is supposed to represent."""
+    cells = [
+        _table_cell(bbox=_tl(10, 10, 20, 15), text="a"),
+        _table_cell(bbox=_tl(20, 10, 30, 15), text="b"),
+    ]
+    table = _item(
+        label=DocItemLabel.TABLE,
+        bbox=_tl(10, 10, 30, 15),
+        self_ref="#/tables/0",
+        data=SimpleNamespace(table_cells=cells),
+    )
+    # A second top-level item on the same page so reading order has 2 endpoints.
+    para = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 20, 90, 30), text="body")
+    out = docling_document_to_ls_results(
+        _Doc([(table, 1), (para, 1)], tables=[table]),
+        include_reading_order=True,
+        include_table_structure=True,
+    )
+    poly = next(r for r in out if r["type"] == "polygonlabels")
+    assert len(poly["value"]["points"]) == 2, "reading order must not include table cells"
+    rect_ids = [r["id"] for r in out if r["type"] == "rectanglelabels"]
+    # First two rects are table + first cell (in that order), then second cell, then para.
+    # Polyline connects table + para only.
+    assert poly["value"]["connectedRegions"][0] == rect_ids[0]  # table
+    assert poly["value"]["connectedRegions"][1] == rect_ids[-1]  # para (last rect)
+
+
+# --- relations: to_caption / to_footnote / to_value ---------------------------------
+#
+# FloatingItem captions / footnotes and KeyValueItem TO_VALUE graph links become
+# 2-point polylines, so predictions restore the field/figure structure the interface
+# would otherwise render as detached text.
+
+
+def test_to_caption_and_to_footnote_polylines_emitted_for_picture() -> None:
+    caption = _item(
+        label=DocItemLabel.CAPTION,
+        bbox=_tl(10, 60, 40, 65),
+        text="Fig. 1: Widget",
+        self_ref="#/texts/0",
+    )
+    footnote = _item(
+        label=DocItemLabel.FOOTNOTE,
+        bbox=_tl(10, 65, 40, 70),
+        text="* see appendix",
+        self_ref="#/texts/1",
+    )
+    picture = _item(
+        label=DocItemLabel.PICTURE,
+        bbox=_tl(10, 10, 40, 50),
+        self_ref="#/pictures/0",
+        captions=[_Ref("#/texts/0")],
+        footnotes=[_Ref("#/texts/1")],
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(picture, 1), (caption, 1), (footnote, 1)], pictures=[picture]),
+        include_relations=True,
+    )
+
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    labels = [p["value"]["polygonlabels"][0] for p in polys]
+    assert labels.count("to_caption") == 1
+    assert labels.count("to_footnote") == 1
+
+    picture_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["picture"]
+    )
+    caption_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["caption"]
+    )
+    footnote_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["footnote"]
+    )
+    to_cap = next(p for p in polys if p["value"]["polygonlabels"] == ["to_caption"])
+    to_foot = next(p for p in polys if p["value"]["polygonlabels"] == ["to_footnote"])
+    assert to_cap["value"]["connectedRegions"] == [picture_id, caption_id]
+    assert to_foot["value"]["connectedRegions"] == [picture_id, footnote_id]
+    assert len(to_cap["value"]["points"]) == 2
+    assert to_cap["value"]["closed"] is False
+
+
+def test_to_value_polyline_from_kv_graph_link() -> None:
+    """A TO_VALUE graph link becomes a key -> value polyline; both endpoints must
+    resolve to emitted rects via GraphCell.item_ref -> NodeItem.self_ref."""
+    key_item = _item(
+        label=DocItemLabel.FIELD_KEY,
+        bbox=_tl(10, 10, 30, 20),
+        text="Name",
+        self_ref="#/texts/0",
+    )
+    value_item = _item(
+        label=DocItemLabel.FIELD_VALUE,
+        bbox=_tl(35, 10, 60, 20),
+        text="Alice",
+        self_ref="#/texts/1",
+    )
+    key_cell = SimpleNamespace(cell_id=1, item_ref=_Ref("#/texts/0"))
+    value_cell = SimpleNamespace(cell_id=2, item_ref=_Ref("#/texts/1"))
+    link = SimpleNamespace(
+        label=GraphLinkLabel.TO_VALUE, source_cell_id=1, target_cell_id=2
+    )
+    graph = SimpleNamespace(cells=[key_cell, value_cell], links=[link])
+    kv = _item(
+        label=DocItemLabel.KEY_VALUE_REGION,
+        bbox=_tl(10, 10, 60, 20),
+        self_ref="#/key_value_items/0",
+        graph=graph,
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(kv, 1), (key_item, 2), (value_item, 2)], key_value_items=[kv]),
+        include_relations=True,
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    to_val = [p for p in polys if p["value"]["polygonlabels"] == ["to_value"]]
+    assert len(to_val) == 1
+    key_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["key"]
+    )
+    value_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["value"]
+    )
+    assert to_val[0]["value"]["connectedRegions"] == [key_id, value_id]
+
+
+def test_relations_silently_drop_when_an_endpoint_is_not_emitted() -> None:
+    """A caption ref pointing at an item that was filtered out (content_layer etc.) must
+    NOT produce a dangling polyline. Rendering one would put a link on the canvas
+    pointing at nothing, which is worse than losing the link."""
+    picture = _item(
+        label=DocItemLabel.PICTURE,
+        bbox=_tl(10, 10, 40, 50),
+        self_ref="#/pictures/0",
+        captions=[_Ref("#/texts/0")],
+    )
+    # Deliberately do NOT include the caption item in iterate_items or _refs.
+    out = docling_document_to_ls_results(
+        _Doc([(picture, 1)], pictures=[picture]),
+        include_relations=True,
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["to_caption"] for p in polys)
+
+
+def test_relations_default_off_matches_prior_behavior() -> None:
+    caption = _item(
+        label=DocItemLabel.CAPTION,
+        bbox=_tl(10, 60, 40, 65),
+        self_ref="#/texts/0",
+    )
+    picture = _item(
+        label=DocItemLabel.PICTURE,
+        bbox=_tl(10, 10, 40, 50),
+        self_ref="#/pictures/0",
+        captions=[_Ref("#/texts/0")],
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(picture, 1), (caption, 1)], pictures=[picture]),
+    )
+    labels = [
+        r["value"]["polygonlabels"][0]
+        for r in out
+        if r["type"] == "polygonlabels"
+    ]
+    assert "to_caption" not in labels

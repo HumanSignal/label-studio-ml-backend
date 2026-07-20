@@ -3,10 +3,15 @@
 The Docling Interface (``docling-ls-implementation/docling_interface.jsx``,
 a HumanSignal Interfaces project) reads predictions through its
 ``parseResults`` function and expects canonical Label Studio result shapes.
-This module emits the two that Docling can populate from a converted document:
+This module emits the shapes Docling can populate from a converted document:
 
-  * ``rectanglelabels`` for layout regions,
-  * ``polygonlabels`` for the reading-order polyline.
+  * ``rectanglelabels`` for layout regions, including per-cell rects for
+    ``TableItem`` structure (``table_cell`` / ``column_header`` /
+    ``row_header`` / ``row_section`` / ``table_merged_cell``) parented to
+    their enclosing table.
+  * ``polygonlabels`` for the reading-order polyline and for the
+    ``to_caption`` / ``to_footnote`` / ``to_value`` linking polylines that
+    connect a container to its caption / footnote and a key to its value.
 
 The interface understands two further shapes — ``textarea`` for the doclang XML
 snapshot and ``relation`` for region-to-region links — which only ever come from
@@ -22,10 +27,10 @@ from __future__ import annotations
 import logging
 import uuid
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from docling_core.types.doc.document import ContentLayer, DoclingDocument, NodeItem
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel
 
 logger = logging.getLogger(__name__)
 
@@ -104,29 +109,25 @@ def _page_raster_size(page: Any) -> Optional[Any]:
     return size
 
 
-def _bbox_to_percent_rect(
+def _bbox_page_to_percent(
     doc: DoclingDocument,
-    item: NodeItem,
-    prov_index: int = 0,
+    bbox: Any,
+    page_no: int,
 ) -> Optional[Tuple[float, float, float, float, int]]:
-    """Return ``(x%, y%, width%, height%, page_no)`` in top-left page raster coordinates.
+    """Return ``(x%, y%, w%, h%, page_no)`` for a raw bbox on a specific page.
 
-    Top-left / percentage coordinates match the interface's spatial-region
-    format, so predictions and manual edits share the same coordinate
-    convention and round-trip through the same code paths.
-
-    The rect is clipped to the page: a bbox that overhangs an edge is trimmed to
-    the page boundary rather than keeping its full extent, so ``x + width`` and
-    ``y + height`` always stay within 0–100. A bbox that lies entirely off the
-    page clips to nothing and returns ``None``.
+    Split out from ``_bbox_to_percent_rect`` so callers without a full
+    ``NodeItem.prov`` — table cells (``TableCell.bbox``), graph cells, any
+    future case — share the same top-left / raster-scale / clip / normalize
+    pipeline. All the invariants exercised by the master test suite (edge
+    clipping, edge sorting, sub-precision drop, degenerate-size guard) live
+    here so table cells and node items behave identically.
     """
-    if not item.prov or prov_index >= len(item.prov):
+    if bbox is None:
         return None
-    prov = item.prov[prov_index]
-    page = doc.pages.get(prov.page_no)
+    page = doc.pages.get(page_no)
     if page is None:
         return None
-
     # scale_to_size divides by old_size, so page.size must be non-degenerate too.
     if not page.size or not page.size.width or not page.size.height:
         return None
@@ -134,7 +135,10 @@ def _bbox_to_percent_rect(
     if target_size is None:
         return None
 
-    bbox_tl = prov.bbox.to_top_left_origin(page_height=page.size.height)
+    try:
+        bbox_tl = bbox.to_top_left_origin(page_height=page.size.height)
+    except Exception:
+        return None
     scaled = bbox_tl.scale_to_size(old_size=page.size, new_size=target_size)
     w_px, h_px = target_size.width, target_size.height
 
@@ -154,7 +158,28 @@ def _bbox_to_percent_rect(
         # Emitting it would put an invisible zero-area region on the canvas and a stray
         # point in the reading-order polyline.
         return None
-    return (x0, y0, round(x1 - x0, _PCT_DIGITS), round(y1 - y0, _PCT_DIGITS), prov.page_no)
+    return (x0, y0, round(x1 - x0, _PCT_DIGITS), round(y1 - y0, _PCT_DIGITS), page_no)
+
+
+def _bbox_to_percent_rect(
+    doc: DoclingDocument,
+    item: NodeItem,
+    prov_index: int = 0,
+) -> Optional[Tuple[float, float, float, float, int]]:
+    """Return ``(x%, y%, width%, height%, page_no)`` in top-left page raster coordinates.
+
+    Top-left / percentage coordinates match the interface's spatial-region
+    format, so predictions and manual edits share the same coordinate
+    convention and round-trip through the same code paths.
+
+    Delegates the geometry to :func:`_bbox_page_to_percent` so a raw
+    ``TableCell.bbox`` gets the same clipping / normalization treatment as
+    a top-level NodeItem's provenance bbox.
+    """
+    if not item.prov or prov_index >= len(item.prov):
+        return None
+    prov = item.prov[prov_index]
+    return _bbox_page_to_percent(doc, prov.bbox, prov.page_no)
 
 
 def _ls_label_for_item(item: NodeItem) -> str:
@@ -235,12 +260,275 @@ def _parse_content_layers(raw: Optional[str]) -> Optional[Set[ContentLayer]]:
     return out or None
 
 
+def _table_cell_label(cell: Any) -> str:
+    """Pick the interface label for a docling ``TableCell``.
+
+    Header / row-section / merged / plain — matching what an annotator would
+    draw manually. If a cell is both a header AND a merge, header wins (it's
+    the more informative label; the merged geometry is still preserved as a
+    single rectangle rather than N sub-cells).
+    """
+    if getattr(cell, "column_header", False):
+        return "column_header"
+    if getattr(cell, "row_header", False):
+        return "row_header"
+    if getattr(cell, "row_section", False):
+        return "row_section"
+    row_span = int(getattr(cell, "row_span", 1) or 1)
+    col_span = int(getattr(cell, "col_span", 1) or 1)
+    if row_span > 1 or col_span > 1:
+        return "table_merged_cell"
+    return "table_cell"
+
+
+def _make_rect_result(
+    *,
+    ls_label: str,
+    x_pct: float,
+    y_pct: float,
+    w_pct: float,
+    h_pct: float,
+    from_name: str,
+    to_name: str,
+    content_layer: str = "BODY",
+    level: int = 1,
+    picture_type: Optional[str] = None,
+    text: str = "",
+    parent_id: Optional[str] = None,
+    score: Optional[float] = None,
+    region_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build a canonical ``rectanglelabels`` result envelope.
+
+    Extracted so table cells share the exact same value-block shape as the
+    top-level items and don't drift from the ``parseResults`` contract.
+    Coordinates are trusted to already be clipped and rounded by
+    :func:`_bbox_page_to_percent`; rounding again here would reintroduce the
+    x + width > 100 drift the clipping exists to prevent.
+    """
+    rid = region_id or str(uuid.uuid4())
+    value: Dict[str, Any] = {
+        "x": x_pct,
+        "y": y_pct,
+        "width": w_pct,
+        "height": h_pct,
+        "rotation": 0,
+        "rectanglelabels": [ls_label],
+        "content_layer": content_layer,
+        "level": max(1, min(100, int(level) if level else 1)),
+        "picture_type": picture_type,
+        "text": text or "",
+        "parentId": parent_id,
+    }
+    out: Dict[str, Any] = {
+        "id": rid,
+        "from_name": from_name,
+        "to_name": to_name,
+        "type": "rectanglelabels",
+        "origin": "prediction",
+        "value": value,
+    }
+    if score is not None:
+        out["score"] = score
+    return out
+
+
+def _rect_center(rect: Dict[str, Any]) -> Tuple[float, float]:
+    """Return the (cx%, cy%) center of a ``rectanglelabels`` value block."""
+    v = rect.get("value") or {}
+    x = float(v.get("x", 0) or 0)
+    y = float(v.get("y", 0) or 0)
+    w = float(v.get("width", 0) or 0)
+    h = float(v.get("height", 0) or 0)
+    return x + w / 2.0, y + h / 2.0
+
+
+def _make_link_polyline(
+    *,
+    label: str,
+    src_rect: Dict[str, Any],
+    dst_rect: Dict[str, Any],
+    from_name: str,
+    to_name: str,
+    score: Optional[float] = None,
+    level: int = 1,
+) -> Dict[str, Any]:
+    """Build a 2-point ``polygonlabels`` result linking two rectangles.
+
+    Used for ``to_caption`` / ``to_footnote`` / ``to_value`` — the label
+    values the interface's ``LINK_RESTRICTIONS`` in ``docling_interface.jsx``
+    expects. Points are the geometric centers of each endpoint; the interface
+    snaps them to their enclosing rects on next drag anyway, but drawing at
+    the center gives a sensible initial visual.
+    """
+    sx, sy = _rect_center(src_rect)
+    dx, dy = _rect_center(dst_rect)
+    out: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "from_name": from_name,
+        "to_name": to_name,
+        "type": "polygonlabels",
+        "origin": "prediction",
+        "value": {
+            "points": [[round(sx, 4), round(sy, 4)], [round(dx, 4), round(dy, 4)]],
+            "polygonlabels": [label],
+            "connectedRegions": [src_rect["id"], dst_rect["id"]],
+            "level": max(1, min(100, int(level) if level else 1)),
+            "validationErrors": [],
+            "parentId": None,
+            "closed": False,
+        },
+    }
+    if score is not None:
+        out["score"] = score
+    return out
+
+
+def _floating_items(doc: DoclingDocument) -> Iterable[Any]:
+    """Yield the four FloatingItem collections that carry captions/footnotes.
+
+    Guarded with ``getattr`` fallbacks so a minimal test fixture (only
+    ``tables`` set, say) doesn't blow up.
+    """
+    for attr in ("tables", "pictures", "key_value_items", "form_items"):
+        for it in getattr(doc, attr, None) or ():
+            yield it
+
+
+def _resolve_ref_to_rect(
+    doc: DoclingDocument,
+    ref: Any,
+    ref_to_id: Dict[str, str],
+    rect_by_id: Dict[str, Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Resolve a docling ``RefItem`` (or any ``.self_ref`` carrier) to an emitted rect.
+
+    Returns ``None`` when the ref doesn't point at anything we emitted — the
+    likely reason is content-layer filtering (e.g. the caption sat in
+    ``FURNITURE`` and the caller only asked for ``BODY``), so silently
+    dropping the relation is the right behavior. Callers should NOT treat
+    None as an error.
+    """
+    if ref is None:
+        return None
+    resolved_ref: Optional[str] = None
+    cref = getattr(ref, "cref", None)
+    if isinstance(cref, str) and cref:
+        try:
+            resolved = ref.resolve(doc)
+        except Exception:
+            resolved = None
+        if resolved is not None:
+            resolved_ref = getattr(resolved, "self_ref", None)
+    if resolved_ref is None:
+        maybe = getattr(ref, "self_ref", None)
+        if isinstance(maybe, str) and maybe:
+            resolved_ref = maybe
+    if not resolved_ref:
+        return None
+    rid = ref_to_id.get(resolved_ref)
+    if rid is None:
+        return None
+    return rect_by_id.get(rid)
+
+
+def _emit_relations(
+    doc: DoclingDocument,
+    *,
+    ref_to_id: Dict[str, str],
+    rect_by_id: Dict[str, Dict[str, Any]],
+    from_name: str,
+    to_name: str,
+    score: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """Emit ``to_caption`` / ``to_footnote`` / ``to_value`` polylines.
+
+    Walks the four FloatingItem collections (``tables`` / ``pictures`` /
+    ``key_value_items`` / ``form_items``) that carry ``captions[]`` and
+    ``footnotes[]`` refs, plus the ``graph.links`` on KV / form items for
+    ``TO_VALUE`` pairs. Every link needs BOTH endpoints to have been emitted
+    as rects in the main iteration pass — otherwise the interface would
+    render a dangling polyline pointing at nothing. When an endpoint is
+    missing we silently drop the link.
+    """
+    out: List[Dict[str, Any]] = []
+    for floating in _floating_items(doc):
+        src_ref = getattr(floating, "self_ref", None)
+        src_rid = ref_to_id.get(src_ref) if isinstance(src_ref, str) else None
+        src_rect = rect_by_id.get(src_rid) if src_rid else None
+        if src_rect is None:
+            continue
+
+        for cap_ref in getattr(floating, "captions", None) or ():
+            dst_rect = _resolve_ref_to_rect(doc, cap_ref, ref_to_id, rect_by_id)
+            if dst_rect is None:
+                continue
+            out.append(
+                _make_link_polyline(
+                    label="to_caption",
+                    src_rect=src_rect,
+                    dst_rect=dst_rect,
+                    from_name=from_name,
+                    to_name=to_name,
+                    score=score,
+                )
+            )
+        for foot_ref in getattr(floating, "footnotes", None) or ():
+            dst_rect = _resolve_ref_to_rect(doc, foot_ref, ref_to_id, rect_by_id)
+            if dst_rect is None:
+                continue
+            out.append(
+                _make_link_polyline(
+                    label="to_footnote",
+                    src_rect=src_rect,
+                    dst_rect=dst_rect,
+                    from_name=from_name,
+                    to_name=to_name,
+                    score=score,
+                )
+            )
+
+        graph = getattr(floating, "graph", None)
+        if graph is None:
+            continue
+        cells = getattr(graph, "cells", None) or ()
+        cell_by_id = {int(getattr(c, "cell_id", -1)): c for c in cells}
+        for link in getattr(graph, "links", None) or ():
+            if getattr(link, "label", None) != GraphLinkLabel.TO_VALUE:
+                continue
+            src_cell = cell_by_id.get(int(getattr(link, "source_cell_id", -1)))
+            dst_cell = cell_by_id.get(int(getattr(link, "target_cell_id", -1)))
+            if src_cell is None or dst_cell is None:
+                continue
+            src_link_rect = _resolve_ref_to_rect(
+                doc, getattr(src_cell, "item_ref", None), ref_to_id, rect_by_id
+            )
+            dst_link_rect = _resolve_ref_to_rect(
+                doc, getattr(dst_cell, "item_ref", None), ref_to_id, rect_by_id
+            )
+            if src_link_rect is None or dst_link_rect is None:
+                continue
+            out.append(
+                _make_link_polyline(
+                    label="to_value",
+                    src_rect=src_link_rect,
+                    dst_rect=dst_link_rect,
+                    from_name=from_name,
+                    to_name=to_name,
+                    score=score,
+                )
+            )
+    return out
+
+
 def docling_document_to_ls_results(
     doc: DoclingDocument,
     *,
     page_no: Optional[int] = None,
     include_reading_order: bool = False,
     reading_order_level: int = 1,
+    include_table_structure: bool = False,
+    include_relations: bool = False,
     content_layers: Optional[str] = None,
     from_name: str = "docling",
     to_name: str = "docling",
@@ -255,12 +543,30 @@ def docling_document_to_ls_results(
     carries those per result rather than on the prediction as a whole. Use
     :func:`page_raster_size` for dimensions consistent with these percentages.
 
-    Returns:
+    What lands in the output:
+
       * ``rectanglelabels`` entries for every Docling layout item with a
         bounding box.
-      * ``polygonlabels`` entries (one per page) when ``include_reading_order``
-        is enabled — one polyline tracing the centroids of the page's items in
-        Docling's iteration order, labeled ``reading_order``.
+      * When ``include_table_structure`` is enabled: one extra
+        ``rectanglelabels`` per structural cell of every ``TableItem`` —
+        ``table_cell`` / ``column_header`` / ``row_header`` / ``row_section``
+        / ``table_merged_cell`` picked per cell, with ``parentId`` set to
+        the enclosing table's region id.
+      * When ``include_reading_order`` is enabled: one ``polygonlabels`` per
+        page tracing the centroids of that page's items in Docling's
+        iteration order, labeled ``reading_order``.
+      * When ``include_relations`` is enabled: ``to_caption`` / ``to_footnote``
+        / ``to_value`` 2-point ``polygonlabels`` for every ``FloatingItem``
+        caption/footnote ref and every ``KeyValueItem`` / ``FormItem``
+        ``TO_VALUE`` graph link, provided both endpoints were emitted as
+        rects (endpoints filtered out by ``content_layers`` are silently
+        dropped — no dangling links).
+
+    All three shape gates default OFF so callers pay only for what they ask
+    for. ``model.py`` opts in explicitly (all three on by default at that
+    layer) because the interface needs the reading-order polyline to render
+    anything at all, and captions/values without their links reduce to
+    disconnected text.
     """
     included = _parse_content_layers(content_layers)
     iter_kw: Dict[str, Any] = {
@@ -274,6 +580,12 @@ def docling_document_to_ls_results(
 
     results: List[Dict[str, Any]] = []
     reading_centers: Dict[int, List[Tuple[str, float, float]]] = defaultdict(list)
+    # NodeItem.self_ref -> region id, so the relations pass can link back to
+    # rects we already emitted. Rects without a self_ref (raw fixtures in
+    # tests, top-level items with the attr set to None) simply don't appear
+    # in the map and any relation targeting them silently no-ops.
+    ref_to_id: Dict[str, str] = {}
+    rect_by_id: Dict[str, Dict[str, Any]] = {}
 
     for item, level in doc.iterate_items(**iter_kw):
         if not item.prov:
@@ -325,11 +637,51 @@ def docling_document_to_ls_results(
         if score is not None:
             result["score"] = score
         results.append(result)
+        rect_by_id[region_id] = result
+        self_ref = getattr(item, "self_ref", None)
+        if isinstance(self_ref, str) and self_ref:
+            ref_to_id[self_ref] = region_id
 
         if include_reading_order:
             cx = x_pct + w_pct / 2.0
             cy = y_pct + h_pct / 2.0
             reading_centers[p_no].append((region_id, cx, cy))
+
+        # Table structure: emit one child rect per cell that has a bbox. Cells share
+        # the parent table's page (docling always puts the whole table on a single page)
+        # so we reuse p_no rather than trusting a potentially-missing prov on the cell.
+        # The cell rect is intentionally NOT swept into the reading-order polyline: the
+        # reading order sequences top-level flow, and a level-2 reading order inside a
+        # cell is a human affordance that we don't fabricate.
+        if (
+            include_table_structure
+            and ls_label == "table"
+            and getattr(item, "data", None) is not None
+        ):
+            for cell in getattr(item.data, "table_cells", None) or ():
+                cell_bbox = getattr(cell, "bbox", None)
+                if cell_bbox is None:
+                    continue
+                cell_rect = _bbox_page_to_percent(doc, cell_bbox, p_no)
+                if cell_rect is None:
+                    continue
+                cx_pct, cy_pct, cw_pct, ch_pct, _ = cell_rect
+                cell_result = _make_rect_result(
+                    ls_label=_table_cell_label(cell),
+                    x_pct=cx_pct,
+                    y_pct=cy_pct,
+                    w_pct=cw_pct,
+                    h_pct=ch_pct,
+                    from_name=from_name,
+                    to_name=to_name,
+                    content_layer=layer,
+                    level=item_level + 1,
+                    text=getattr(cell, "text", "") or "",
+                    parent_id=region_id,
+                    score=score,
+                )
+                results.append(cell_result)
+                rect_by_id[cell_result["id"]] = cell_result
 
     if include_reading_order:
         ro_level = max(1, min(100, int(reading_order_level)))
@@ -357,6 +709,18 @@ def docling_document_to_ls_results(
             if score is not None:
                 ro_result["score"] = score
             results.append(ro_result)
+
+    if include_relations:
+        results.extend(
+            _emit_relations(
+                doc,
+                ref_to_id=ref_to_id,
+                rect_by_id=rect_by_id,
+                from_name=from_name,
+                to_name=to_name,
+                score=score,
+            )
+        )
 
     return results
 
