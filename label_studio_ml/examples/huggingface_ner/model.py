@@ -143,7 +143,18 @@ class HuggingFaceNER(LabelStudioMLBase):
             logger.info(f"Skip training: event {event} is not supported")
             return
 
-        project_id = data['annotation']['project']
+        # Get project from annotation first if present, otherwise fall back to top-level project field
+        project = data.get('annotation', {}).get('project') or data.get('project')
+        # Handle both possible formats
+        if isinstance(project, dict):
+            project_id = project.get('id')
+        else:
+            project_id = project
+        # If project_id is still None, log and safely exit
+        if project_id is None:
+            logger.error(f"Cannot find project_id in webhook payload: {data}")
+            return
+        
         tasks = self._get_tasks(project_id)
 
         if len(tasks) % self.START_TRAINING_EACH_N_UPDATES != 0 and event != 'START_TRAINING':

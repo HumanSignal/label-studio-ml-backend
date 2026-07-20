@@ -40,6 +40,11 @@
   runs_on: ubuntu-latest-4c-16gb
   bypass:
     - pytests
+- backend_dir_name: segment_anything_video_interactive
+  backend_tag_prefix: sam2vi-
+  runs_on: ubuntu-latest-4c-16gb
+  bypass:
+    - pytests
 - backend_dir_name: sklearn_text_classifier
   backend_tag_prefix: sklearntxtclass-
 - backend_dir_name: spacy

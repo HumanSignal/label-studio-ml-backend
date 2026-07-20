@@ -200,3 +200,33 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
     # remove './results/finetuned_model' directory after testing
     import shutil
     shutil.rmtree(results_dir)
+
+def test_fit_missing_annotation(monkeypatch):
+    # Initialize the model
+    model = HuggingFaceNER()
+
+    # Mock label_interface to avoid AttributeError
+    model.label_interface = mock.MagicMock()
+    # Mock get_first_tag_occurence to return fake values
+    model.label_interface.get_first_tag_occurence.return_value = ('Labels', 'Text', 'text_field_name')
+
+    # Mock data payload with annotation missing, only project present
+    payload = {
+        "action": "ANNOTATION_UPDATED",
+        "project": {"id": 123, "name": "Test Project"}
+    }
+
+    # Monkeypatch _get_tasks to return one fake task
+    monkeypatch.setattr(model, "_get_tasks", lambda project_id: [
+        {
+            "id": "1",
+            "data": {"text_field_name": "Hello world"},
+            "annotations": []
+        }
+    ])
+
+    # Call fit()
+    try:
+        model.fit(event="ANNOTATION_UPDATED", data=payload)
+    except Exception as e:
+        pytest.fail(f"fit() raised an exception when annotation is missing: {e}")

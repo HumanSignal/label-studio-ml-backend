@@ -1,0 +1,8 @@
+[project]
+name = "segment_anything_video_interactive"
+
+[env]
+sources = [".env"]
+
+[secrets]
+required = []

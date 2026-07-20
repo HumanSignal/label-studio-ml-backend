@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  sam_video_interactive:
+    container_name: sam_video_interactive
+    image: humansignal/segment_anything_video_interactive:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      - LOG_LEVEL=INFO
+      - WORKERS=1
+      - THREADS=8
+      - MODEL_DIR=/data/models
+
+      # Device: cuda | mps | cpu
+      - DEVICE=cuda
+
+      # SAM 2.1 model config and checkpoint (resolved inside the segment-anything-2 repo).
+      # Config size must match the checkpoint size; 2.1 configs live under configs/sam2.1/.
+      - MODEL_CONFIG=configs/sam2.1/sam2.1_hiera_l.yaml
+      - MODEL_CHECKPOINT=sam2.1_hiera_large.pt
+
+      # Cache & memory caps
+      - WINDOW_SIZE=20
+      - MAX_CACHED_FRAMES_PER_TASK=500
+      - MAX_TASK_CACHE_MB=2048
+      - MAX_GLOBAL_CACHE_MB=8192
+      - TASK_CACHE_TTL_SECONDS=1800
+
+      # Label Studio access for pulling task assets
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
