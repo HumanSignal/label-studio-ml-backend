@@ -1,0 +1,18 @@
+# Local runtime data & secrets — never bake these into the image
+data/
+.env
+*.log
+
+# Python / tooling caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# VCS & editor
+.git/
+.gitignore
+.vscode/
+.idea/
