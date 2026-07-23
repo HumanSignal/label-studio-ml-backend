@@ -56,6 +56,6 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 
 COPY . ./
 
-WORKDIR ../sam2
+WORKDIR /sam2
 
-CMD ["../app/start.sh"]
+CMD ["gunicorn", "--bind", ":9090", "--workers", "${WORKERS}", "--threads", "${THREADS}", "--timeout", "0", "--pythonpath", "/app", "_wsgi:app"]
