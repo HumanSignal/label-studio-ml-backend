@@ -1,0 +1,5 @@
+Provide here labels that match Label Studio labeling setup.
+Each label name on separate line, like:
+car
+airplane
+cat
