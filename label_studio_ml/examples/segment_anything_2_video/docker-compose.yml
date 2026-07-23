@@ -8,6 +8,13 @@ services:
       context: .
       args:
         TEST_ENV: ${TEST_ENV}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            -   driver: nvidia
+                count: 1
+                capabilities: [ gpu ]
     environment:
       # specify these parameters if you want to use basic auth for the model server
       - BASIC_AUTH_USER=
@@ -24,9 +31,9 @@ services:
       # specify device
       - DEVICE=cuda  # or 'cpu' (coming soon)
       # SAM2 model config
-      - MODEL_CONFIG=sam2_hiera_l.yaml
+      - MODEL_CONFIG=configs/sam2.1/sam2.1_hiera_t.yaml
       # SAM2 checkpoint
-      - MODEL_CHECKPOINT=sam2_hiera_large.pt
+      - MODEL_CHECKPOINT=sam2.1_hiera_tiny.pt
 
       # Specify the Label Studio URL and API key to access
       # uploaded, local storage and cloud storage files.
