@@ -28,7 +28,7 @@ services:
       # - DOCLING_API_KEY=
 
       # Label Studio access (required for uploads, /storage-data/ URLs, and private cloud-storage files).
-      - LABEL_STUDIO_URL=http://host.docker.internal:8080
+      - LABEL_STUDIO_URL=https://app.humansignal.com
       - LABEL_STUDIO_API_KEY=
       # Backward-compatible aliases:
       # - LABEL_STUDIO_HOST=
@@ -58,7 +58,10 @@ services:
       # - DOCLING_READING_ORDER_LEVEL=1
       # - DOCLING_INCLUDE_TABLE_STRUCTURE=true
       # - DOCLING_INCLUDE_RELATIONS=true
-      # - DOCLING_CONTENT_LAYERS=
+      # Content-layer filter: default is a permissive body+furniture+background so page
+      # headers/footers (FURNITURE) and watermarks (BACKGROUND) show up in predictions.
+      # Set to `body` to drop chrome, or add `notes,invisible` for the full docling set.
+      # - DOCLING_CONTENT_LAYERS=body,furniture,background
     ports:
       - "9090:9090"
     volumes:

@@ -205,3 +205,46 @@ def test_original_size_falls_back_to_placeholder_without_a_raster(monkeypatch) -
     assert pred.result
     for r in pred.result:
         assert (r["original_width"], r["original_height"]) == (100, 100)
+
+
+def test_content_layers_default_includes_furniture_and_background(monkeypatch) -> None:
+    """FURNITURE items (page headers/footers) and BACKGROUND items (watermarks)
+    were previously dropped because the library defaults to BODY only. The
+    ML-backend layer now injects a permissive default so those items reach
+    predictions without the operator having to know DOCLING_CONTENT_LAYERS
+    exists."""
+    seen: Dict[str, Any] = {}
+
+    def _capture(doc, **kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(model_mod, "docling_document_to_ls_results", _capture)
+    _predict(monkeypatch, _doc({1: _page(100.0, 100.0)}))
+    assert seen["content_layers"] == "body,furniture,background"
+
+
+def test_content_layers_env_var_overrides_the_permissive_default(monkeypatch) -> None:
+    """Users who explicitly want a narrower filter — e.g. drop watermark text
+    from a template that lives on BACKGROUND — must still be able to."""
+    seen: Dict[str, Any] = {}
+
+    def _capture(doc, **kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(model_mod, "docling_document_to_ls_results", _capture)
+    _predict(monkeypatch, _doc({1: _page(100.0, 100.0)}), DOCLING_CONTENT_LAYERS="body")
+    assert seen["content_layers"] == "body"
+
+
+def test_zero_region_predictions_are_dropped_not_stored(monkeypatch) -> None:
+    """A Docling document with no iterable items (typically PARTIAL_SUCCESS
+    whose OCR model got RESOURCE_EXHAUSTED) used to return a PredictionValue
+    with result=[] and score=0.0, which Label Studio faithfully stores. The
+    operator would then see "N non-empty results" in the ML backend log and
+    zero regions in the UI, with no way to tell the ML backend from the LS
+    storage layer. We now return None so the empty prediction never lands."""
+    monkeypatch.setattr(model_mod, "docling_document_to_ls_results", lambda doc, **_kw: [])
+    pred = _predict(monkeypatch, _doc({1: _page(100.0, 100.0)}))
+    assert pred is None
