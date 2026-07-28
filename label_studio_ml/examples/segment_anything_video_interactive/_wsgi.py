@@ -3,6 +3,43 @@ import argparse
 import json
 import logging
 import logging.config
+import shlex
+
+
+def _load_local_env_file():
+    """Load this example's .env without requiring python-dotenv.
+
+    Flask only auto-loads .env files when python-dotenv is installed. The SAM2
+    example relies on LABEL_STUDIO_URL / LABEL_STUDIO_API_KEY for uploaded
+    files, so make the local dev server honor the colocated .env directly while
+    still letting real environment variables win.
+    """
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path) as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[len("export "):].lstrip()
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key or key in os.environ:
+                continue
+            try:
+                parsed = shlex.split(value, comments=True, posix=True)
+                value = parsed[0] if parsed else ""
+            except ValueError:
+                value = value.strip().strip('"').strip("'")
+            os.environ[key] = value
+
+
+_load_local_env_file()
 
 logging.config.dictConfig({
     "version": 1,

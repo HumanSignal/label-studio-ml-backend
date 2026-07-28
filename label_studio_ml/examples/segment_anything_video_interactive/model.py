@@ -78,6 +78,13 @@ TRACK_PROGRESS_BATCH_WINDOW_SECONDS = float(
 )
 TRACK_PROGRESS_MAX_BATCH = int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32"))
 
+# Label Studio's authenticated upload endpoints are not always reliable as
+# ffmpeg streaming inputs: local dev / nginx modes can return partial bodies,
+# and prewarm bursts can trigger 429s. Default to one authenticated download for
+# LS-hosted uploads, while still allowing explicit streaming for deployments
+# where range requests are known to work well.
+STREAM_LS_UPLOADS = os.getenv("LABEL_STUDIO_STREAM_LS_UPLOADS", "").lower() in {"1", "true", "yes", "on"}
+
 # Stop-tracking thresholds (see _run_tracking).
 # SAM2's mask decoder emits a per-frame object_score_logits; convention is
 # `> 0` = object present, `<= 0` = occluded/absent. We debounce across a few
@@ -723,18 +730,17 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _ls_host_token(self) -> Tuple[Optional[str], Optional[str]]:
         """Return (ls_host, ls_token) for authenticated LS asset fetches.
 
-        Host resolution is env first, then the cache populated from `/setup`.
-        Token resolution is cache first, then env. Either may be None; callers
-        pass them into `self.get_local_path(ls_host=..., ls_access_token=...)`
-        which lets the SDK skip its `http://localhost:8000` default fallback.
+        Host/token resolution is env first, then the cache populated from
+        `/setup`. Either may be None; callers pass them into
+        `self.get_local_path(ls_host=..., ls_access_token=...)` which lets the
+        SDK skip its `http://localhost:8000` default fallback.
 
-        LS's own `/setup` payload can carry `http://localhost:<port>` when
-        the LS side doesn't have `HOSTNAME` configured — that's useless to a
-        remote ML backend. The host remains env-var-first so operators can
-        override LS's guess via `.env` / `docker-compose`. The token is
-        cache-first: `/setup` sends the ML-backend access token that LS itself
-        wants us to use, while env tokens are often stale or a frontend refresh
-        JWT that this LS deployment may not accept for API/file downloads.
+        LS's own `/setup` payload can carry `http://localhost:<port>` when the
+        LS side doesn't have `HOSTNAME` configured — that's useless to a remote
+        ML backend. Keep both host and token env-var-first so an operator can
+        fix credentials by editing `.env` / `docker-compose` and restarting the
+        backend; otherwise an old `/setup` access token can shadow a freshly
+        configured `LABEL_STUDIO_API_KEY` and cause 401s on uploaded files.
         """
         env_host = (os.getenv("LABEL_STUDIO_URL") or os.getenv("LABEL_STUDIO_HOST") or "").rstrip("/")
         env_token = (
@@ -745,7 +751,7 @@ class SamVideoInteractive(LabelStudioMLBase):
         cached_host = (LS_CONTEXT.get("url") or "").rstrip("/")
         cached_token = LS_CONTEXT.get("token") or ""
         host = env_host or cached_host
-        token = cached_token or env_token
+        token = env_token or cached_token
         return (host or None, token or None)
 
     def _download_valid_video(self, raw_url: str, task_id: str) -> str:
@@ -780,11 +786,14 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _resolve_video_source(self, raw_url: str, task_id: str):
         """Resolve a task video URL to a streamable source + auth headers.
 
-        * Cloud storage URLs (don't look like LS's own host) → stream directly,
-          no headers.
-        * LS-hosted URLs, whether absolute or relative → attach the LS API
-          token; LS guards the /data/upload/* path and returns 401 without it.
-        * No LS url / key configured → fall back to local download.
+        * External HTTP(S) URLs (don't look like LS's own host) → stream
+          directly, no headers.
+        * LS-hosted upload URLs → authenticated local download by default;
+          direct ffmpeg streaming can be enabled with
+          `LABEL_STUDIO_STREAM_LS_UPLOADS=true` when the LS deployment supports
+          reliable range requests.
+        * Non-HTTP storage URIs / relative LS paths → authenticated local
+          download.
 
         Resolution order for the LS hostname:
           1. `LABEL_STUDIO_URL` env var (explicit operator override)
@@ -802,25 +811,24 @@ class SamVideoInteractive(LabelStudioMLBase):
             return ls_auth_headers(ls_url, api_key, target_url=target_url)
 
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
-            # Absolute URL — attach auth iff its host matches the known LS host
-            # (LS returns 404, not 401, to an unauthenticated /data or /upload
-            # fetch, which is how ffprobe streaming fails). Never attach to any
-            # other host: task data can carry external/presigned cloud URLs and
-            # we must not leak the LS token to them.
+            # Absolute URL — attach auth iff its host matches the known LS host.
+            # Never attach to any other host: task data can carry external /
+            # presigned cloud URLs and we must not leak the LS token to them.
             attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
+            if attach and not STREAM_LS_UPLOADS:
+                logger.info("LS-hosted video: downloading once instead of streaming (%s)", raw_url)
+                return self._download_valid_video(raw_url, task_id), None
             return raw_url, _auth_headers(raw_url) if attach else None
 
-        if ls_url and api_key:
+        if ls_url and api_key and STREAM_LS_UPLOADS and raw_url.startswith(("/data/", "/upload", "data/", "upload")):
             full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
             return full_url, _auth_headers(full_url)
 
-        logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
-        local_path = self.get_local_path(
-            raw_url,
-            task_id=task_id,
-            ls_host=ls_url_opt,
-            ls_access_token=ls_token_for_sdk(ls_url_opt, api_key_opt),
-        )
+        if not ls_url:
+            logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
+        else:
+            logger.info("video source requires Label Studio resolution; downloading once")
+        local_path = self._download_valid_video(raw_url, task_id)
         return local_path, None
 
     def _mask_response(self, mask, w, h, from_name, to_name):
@@ -925,6 +933,12 @@ class SamVideoInteractive(LabelStudioMLBase):
                 # as propagate_in_video walks through them — the wait for
                 # "encode all frames upfront" becomes "encode frame 0".
                 #
+                # MPS is the exception: SAM2's async JPEG loader can produce
+                # float64 CPU tensors and then move them to MPS before the
+                # subsequent `.float()` cast. MPS doesn't support float64, so
+                # load frames synchronously there; SAM2's sync path preallocates
+                # a float32 tensor and avoids the dtype hop.
+                #
                 # offload_video_to_cpu=True keeps the loaded frames on CPU so
                 # only the propagation thread touches the GPU. Without this
                 # the async loader pushes frames to the device with
@@ -934,7 +948,7 @@ class SamVideoInteractive(LabelStudioMLBase):
                 # mask "jumping" onto a different object.
                 inference_state = video_predictor.init_state(
                     video_path=frame_dir,
-                    async_loading_frames=True,
+                    async_loading_frames=(DEVICE != "mps"),
                     offload_video_to_cpu=True,
                 )
                 video_predictor.reset_state(inference_state)
