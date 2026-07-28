@@ -85,6 +85,11 @@ project's control tag.
   (`Authorization: Bearer …`), caching and auto-refreshing it before expiry.
   Requires `LABEL_STUDIO_URL` to be set so the refresh endpoint is reachable.
 
+Cloud-backed projects put the raw provider URI in task data (`s3://bucket/key.mp4`,
+`gs://…`, `azure-blob://…`). Those can't be streamed — only LS can resolve them,
+via `/tasks/<id>/presign/` — so the backend downloads them through the SDK and
+decodes locally. HTTP(S) assets, LS-hosted or not, are still range-streamed.
+
 ## Running locally (no Docker)
 
 1. Clone SAM2 next to this example:

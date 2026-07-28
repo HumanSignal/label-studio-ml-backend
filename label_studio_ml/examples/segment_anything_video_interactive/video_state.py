@@ -111,6 +111,29 @@ def _probe_video(source: str, headers: Optional[Dict[str, str]] = None) -> dict:
     return json.loads(result.stdout)
 
 
+def video_is_readable(path: str) -> Tuple[bool, str]:
+    """Can a downloaded video file actually be decoded? Returns (ok, reason).
+
+    ffprobe rather than cv2 because its error says *why*: a download truncated
+    by LS's storage proxy fails with "moov atom not found", which cv2 reports
+    exactly the same way as a codec its build doesn't support. Falls back to
+    cv2 when ffprobe isn't installed.
+    """
+    if not os.path.exists(path):
+        return False, "file does not exist"
+    size = os.path.getsize(path)
+    try:
+        _parse_probe(_probe_video(path))
+        return True, ""
+    except FileNotFoundError:  # no ffprobe on PATH
+        cap = cv2.VideoCapture(path)
+        ok = cap.isOpened() and cap.read()[0]
+        cap.release()
+        return (True, "") if ok else (False, f"cv2 could not decode it ({size} bytes)")
+    except Exception as e:
+        return False, f"{e} ({size} bytes)"
+
+
 def _parse_probe(info: dict) -> Tuple[int, int, int, float]:
     """Extract (width, height, frame_count, fps) from ffprobe output."""
     for stream in info.get("streams", []):
