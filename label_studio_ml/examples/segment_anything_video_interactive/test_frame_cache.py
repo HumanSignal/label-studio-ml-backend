@@ -1,3 +1,5 @@
+import threading
+
 from frame_cache import FrameCache
 
 
@@ -22,10 +24,69 @@ def test_replacing_embedding_keeps_byte_accounting_correct():
     cache = FrameCache(max_frames_per_task=10, max_task_mb=10, max_global_mb=10)
     try:
         task = cache._get_or_create("task")
-        cache._encode_and_store("task", 1, lambda _idx: FakeEmbedding(10))
-        cache._encode_and_store("task", 1, lambda _idx: FakeEmbedding(25))
+        cache._encode_and_store(task, 1, lambda _idx: FakeEmbedding(10))
+        cache._encode_and_store(task, 1, lambda _idx: FakeEmbedding(25))
 
         assert task.bytes_used == 25
         assert cache.stats()["bytes_total"] == 25
     finally:
         cache._pool.shutdown(wait=True)
+
+
+def test_drop_task_does_not_store_stale_running_encode():
+    cache = FrameCache(
+        max_frames_per_task=10,
+        max_task_mb=10,
+        max_global_mb=10,
+        encoder_workers=1,
+    )
+    started = threading.Event()
+    release = threading.Event()
+
+    def encode(_idx):
+        started.set()
+        assert release.wait(timeout=2)
+        return FakeEmbedding(10)
+
+    try:
+        cache.submit("task", [1], encode)
+        assert started.wait(timeout=1)
+
+        cache.drop_task("task")
+        cache.touch("task", 0)
+    finally:
+        release.set()
+        cache._pool.shutdown(wait=True)
+
+    assert not cache.has("task", 1)
+
+
+def test_drop_task_cancels_queued_encodes():
+    cache = FrameCache(
+        max_frames_per_task=10,
+        max_task_mb=10,
+        max_global_mb=10,
+        encoder_workers=1,
+    )
+    started = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def encode(idx):
+        calls.append(idx)
+        if idx == 1:
+            started.set()
+            assert release.wait(timeout=2)
+        return FakeEmbedding(10)
+
+    try:
+        cache.submit("task", [1, 2, 3], encode)
+        assert started.wait(timeout=1)
+
+        cache.drop_task("task")
+    finally:
+        release.set()
+        cache._pool.shutdown(wait=True)
+
+    assert calls == [1]
+    assert cache.stats()["tasks"] == 0

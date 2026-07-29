@@ -76,11 +76,13 @@ class FrameCache:
         max_task_mb: int = MAX_TASK_CACHE_MB,
         max_global_mb: int = MAX_GLOBAL_CACHE_MB,
         ttl_seconds: int = TASK_CACHE_TTL_SECONDS,
+        encoder_workers: int = FRAME_ENCODER_WORKERS,
     ):
         self.max_frames_per_task = max_frames_per_task
         self.max_task_bytes = max_task_mb * 1024 * 1024
         self.max_global_bytes = max_global_mb * 1024 * 1024
         self.ttl_seconds = ttl_seconds
+        self.encoder_workers = encoder_workers
 
         self._tasks: Dict[str, _TaskCache] = {}
         self._global_lock = threading.RLock()
@@ -88,7 +90,7 @@ class FrameCache:
         # encoder because SAM2 frame embedding is GPU-heavy; deployments can opt
         # into more workers with FRAME_ENCODER_WORKERS when memory allows.
         self._pool = ThreadPoolExecutor(
-            max_workers=max(1, FRAME_ENCODER_WORKERS),
+            max_workers=max(1, self.encoder_workers),
             thread_name_prefix="frame-encoder",
         )
 
@@ -149,7 +151,7 @@ class FrameCache:
                 if idx in task.pending:
                     scheduled.append(idx)
                     continue
-                future = self._pool.submit(self._encode_and_store, task_id, idx, encode_fn)
+                future = self._pool.submit(self._encode_and_store, task, idx, encode_fn)
                 task.pending[idx] = future
                 scheduled.append(idx)
             task.last_access = time.time()
@@ -170,7 +172,7 @@ class FrameCache:
                 return task.embeddings[frame_idx]
             future = task.pending.get(frame_idx)
             if future is None:
-                future = self._pool.submit(self._encode_and_store, task_id, frame_idx, encode_fn)
+                future = self._pool.submit(self._encode_and_store, task, frame_idx, encode_fn)
                 task.pending[frame_idx] = future
         future.result(timeout=timeout)
         with task.lock:
@@ -198,7 +200,9 @@ class FrameCache:
 
     def drop_task(self, task_id: str) -> None:
         with self._global_lock:
-            self._tasks.pop(task_id, None)
+            task = self._tasks.pop(task_id, None)
+        if task is not None:
+            self._discard_task(task)
 
     # --- internals -------------------------------------------------------
 
@@ -210,19 +214,31 @@ class FrameCache:
                 self._tasks[task_id] = task
             return task
 
-    def _encode_and_store(self, task_id: str, frame_idx: int, encode_fn: Callable[[int], object]) -> None:
+    def _discard_task(self, task: _TaskCache) -> None:
+        with task.lock:
+            pending = list(task.pending.values())
+            task.pending.clear()
+            task.embeddings.clear()
+            task.bytes_used = 0
+
+        for future in pending:
+            future.cancel()
+
+    def _encode_and_store(self, task: _TaskCache, frame_idx: int, encode_fn: Callable[[int], object]) -> None:
+        if not self._task_is_current(task):
+            return
+
         try:
             embedding = encode_fn(frame_idx)
         except Exception:
-            logger.exception("encode failed task=%s frame=%s", task_id, frame_idx)
-            task = self._tasks.get(task_id)
-            if task is not None:
-                with task.lock:
-                    task.pending.pop(frame_idx, None)
+            logger.exception("encode failed task=%s frame=%s", task.task_id, frame_idx)
+            with task.lock:
+                task.pending.pop(frame_idx, None)
             raise
 
-        task = self._tasks.get(task_id)
-        if task is None:
+        if not self._task_is_current(task):
+            with task.lock:
+                task.pending.pop(frame_idx, None)
             return
 
         with task.lock:
@@ -234,7 +250,11 @@ class FrameCache:
             task.bytes_used += _sizeof_embedding(embedding)
             task.last_access = time.time()
 
-        self._enforce_caps(task_id)
+        self._enforce_caps(task.task_id)
+
+    def _task_is_current(self, task: _TaskCache) -> bool:
+        with self._global_lock:
+            return self._tasks.get(task.task_id) is task
 
     def _enforce_caps(self, task_id: str) -> None:
         self._evict_expired_tasks()
@@ -244,6 +264,7 @@ class FrameCache:
     def _evict_expired_tasks(self) -> None:
         now = time.time()
         expired: List[str] = []
+        expired_tasks: List[_TaskCache] = []
         with self._global_lock:
             for tid, t in self._tasks.items():
                 if now - t.last_access > self.ttl_seconds and len(t.embeddings) > 0:
@@ -251,11 +272,16 @@ class FrameCache:
             for tid in expired:
                 t = self._tasks.pop(tid, None)
                 if t is not None:
-                    self._evictions_total += len(t.embeddings)
+                    frames = len(t.embeddings)
+                    bytes_used = t.bytes_used
+                    expired_tasks.append(t)
+                    self._evictions_total += frames
                     logger.info(
                         "evict task task_id=%s frames=%s bytes=%s reason=ttl",
-                        tid, len(t.embeddings), t.bytes_used,
+                        tid, frames, bytes_used,
                     )
+        for task in expired_tasks:
+            self._discard_task(task)
 
     def _evict_from_task_until_under_cap(self, task_id: str) -> None:
         task = self._tasks.get(task_id)

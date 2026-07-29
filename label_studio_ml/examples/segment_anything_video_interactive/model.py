@@ -23,7 +23,7 @@ import pathlib
 import tempfile
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -193,6 +193,7 @@ class TrackingSession:
         self.done = False
         self.error: Optional[str] = None
         self.cancelled = False
+        self.futures: List[Future] = []
         # Bidirectional tracking runs two producer threads sharing this
         # session; we only flip `done` after all of them report in.
         self._remaining_producers = max(1, producers)
@@ -235,10 +236,23 @@ class TrackingSession:
                 self.completed_at = time.time()
         self.new_data_event.set()
 
+    def add_future(self, future: Future) -> None:
+        with self.lock:
+            if self.cancelled:
+                future.cancel()
+                return
+            self.futures.append(future)
+
     def cancel(self):
         with self.lock:
             self.cancelled = True
-            self.last_access = time.time()
+            self.done = True
+            self._remaining_producers = 0
+            self.completed_at = time.time()
+            self.last_access = self.completed_at
+            futures = list(self.futures)
+        for future in futures:
+            future.cancel()
         self.new_data_event.set()
 
     def wait_for_new_data(self, timeout: float) -> bool:
@@ -282,6 +296,7 @@ def _drop_video_resolve_locks(task_id: str) -> None:
 def _cleanup_tracking_sessions() -> None:
     now = time.time()
     expired: List[str] = []
+    to_cancel: List[TrackingSession] = []
     with _tracking_lock:
         for session_id, session in list(_tracking_sessions.items()):
             with session.lock:
@@ -292,10 +307,12 @@ def _cleanup_tracking_sessions() -> None:
                 max_age = age > TRACK_SESSION_MAX_AGE_SECONDS
                 if done_ttl or cancelled_ttl or max_age:
                     if max_age and not session.done:
-                        session.cancel()
+                        to_cancel.append(session)
                     expired.append(session_id)
         for session_id in expired:
             _tracking_sessions.pop(session_id, None)
+    for session in to_cancel:
+        session.cancel()
     if expired:
         logger.info("cleaned up %d tracking sessions", len(expired))
 
@@ -980,11 +997,12 @@ class SamVideoInteractive(LabelStudioMLBase):
             _tracking_sessions[session_id] = session
 
         for d, start_frame, end_frame in ranges:
-            _tracking_executor.submit(
+            future = _tracking_executor.submit(
                 self._run_tracking,
                 session, video, prompts, start_frame, end_frame,
                 prompt_frame, max_frames, w, h, d,
             )
+            session.add_future(future)
 
         logger.info("track: started session=%s task=%s direction=%s ranges=%s",
                      session_id, task_id, direction, ranges)
@@ -1007,13 +1025,25 @@ class SamVideoInteractive(LabelStudioMLBase):
         """Background thread: extract frames, run SAM2 propagation, push
         mask PNGs into the session as they're produced."""
         try:
+            if session.cancelled:
+                logger.info("track bg: skipped cancelled session=%s", session.session_id)
+                return
+
             video_predictor = get_video_predictor()
             frame_count_needed = end_frame - start_frame
 
             with tempfile.TemporaryDirectory() as frame_dir:
+                if session.cancelled:
+                    logger.info("track bg: skipped cancelled session=%s", session.session_id)
+                    return
+
                 written = video.write_frame_range_as_jpegs(
                     start_frame, frame_count_needed, frame_dir)
                 logger.info("track bg: extracted %d frames to %s", written, frame_dir)
+
+                if session.cancelled:
+                    logger.info("track bg: cancelled after extraction session=%s", session.session_id)
+                    return
 
                 # async_loading_frames=True makes SAM2 return immediately from
                 # init_state and decode/normalize JPEGs in a background thread
@@ -1032,6 +1062,11 @@ class SamVideoInteractive(LabelStudioMLBase):
                     async_loading_frames=True,
                     offload_video_to_cpu=True,
                 )
+
+                if session.cancelled:
+                    logger.info("track bg: cancelled after SAM2 init session=%s", session.session_id)
+                    return
+
                 video_predictor.reset_state(inference_state)
 
                 relative_prompt_frame = prompt_frame - start_frame
@@ -1071,6 +1106,10 @@ class SamVideoInteractive(LabelStudioMLBase):
                             points=points_abs,
                             labels=box_labels,
                         )
+
+                if session.cancelled:
+                    logger.info("track bg: cancelled before propagation session=%s", session.session_id)
+                    return
 
                 total_pixels = w * h
                 consecutive_lost = 0
