@@ -163,6 +163,7 @@ class VideoHandle:
     fps: float
     is_streaming: bool = False
     headers: Optional[Dict[str, str]] = None
+    raw_url: Optional[str] = None
     lock: threading.RLock = field(default_factory=threading.RLock)
     _reader: Optional[cv2.VideoCapture] = None
     _last_frame_idx: int = -1
@@ -301,15 +302,35 @@ class VideoRegistry:
         self._handles: Dict[str, VideoHandle] = {}
         self._lock = threading.RLock()
 
+    def get(
+        self,
+        task_id: str,
+        raw_url: Optional[str] = None,
+    ) -> Optional[VideoHandle]:
+        with self._lock:
+            handle = self._handles.get(task_id)
+            if handle is None:
+                return None
+            if raw_url is not None and handle.raw_url != raw_url:
+                return None
+            if not handle.is_streaming and not os.path.exists(handle.source):
+                handle.close()
+                self._handles.pop(task_id, None)
+                return None
+            return handle
+
     def get_or_create(
         self,
         task_id: str,
         source: str,
         headers: Optional[Dict[str, str]] = None,
+        raw_url: Optional[str] = None,
     ) -> VideoHandle:
         with self._lock:
             handle = self._handles.get(task_id)
             if handle is not None and handle.source == source:
+                if raw_url is not None:
+                    handle.raw_url = raw_url
                 return handle
             if handle is not None:
                 handle.close()
@@ -338,6 +359,7 @@ class VideoRegistry:
                 fps=fps,
                 is_streaming=is_streaming,
                 headers=headers if is_streaming else None,
+                raw_url=raw_url,
             )
             self._handles[task_id] = handle
             mode = "streaming" if is_streaming else "local"

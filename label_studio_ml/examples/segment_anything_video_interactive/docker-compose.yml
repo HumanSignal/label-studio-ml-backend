@@ -30,6 +30,10 @@ services:
       - MAX_TASK_CACHE_MB=2048
       - MAX_GLOBAL_CACHE_MB=8192
       - TASK_CACHE_TTL_SECONDS=1800
+      - FRAME_ENCODER_WORKERS=1
+      - TRACK_SESSION_TTL_SECONDS=300
+      - TRACK_SESSION_MAX_AGE_SECONDS=1800
+      - TRACKING_WORKERS=1
 
       # Label Studio access for pulling task assets
       - LABEL_STUDIO_URL=

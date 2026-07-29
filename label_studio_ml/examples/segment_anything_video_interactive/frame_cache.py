@@ -35,6 +35,7 @@ MAX_CACHED_FRAMES_PER_TASK = _env_int("MAX_CACHED_FRAMES_PER_TASK", 500)
 MAX_TASK_CACHE_MB = _env_int("MAX_TASK_CACHE_MB", 2048)
 MAX_GLOBAL_CACHE_MB = _env_int("MAX_GLOBAL_CACHE_MB", 8192)
 TASK_CACHE_TTL_SECONDS = _env_int("TASK_CACHE_TTL_SECONDS", 1800)
+FRAME_ENCODER_WORKERS = _env_int("FRAME_ENCODER_WORKERS", 1)
 
 
 def _sizeof_embedding(embedding) -> int:
@@ -83,10 +84,13 @@ class FrameCache:
 
         self._tasks: Dict[str, _TaskCache] = {}
         self._global_lock = threading.RLock()
-        # One worker per task is created lazily below; a single shared pool keeps
-        # resource bookkeeping simple. Concurrency per task is enforced by the
-        # per-task lock around encode jobs.
-        self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="frame-encoder")
+        # A single shared pool keeps resource bookkeeping simple. Default to one
+        # encoder because SAM2 frame embedding is GPU-heavy; deployments can opt
+        # into more workers with FRAME_ENCODER_WORKERS when memory allows.
+        self._pool = ThreadPoolExecutor(
+            max_workers=max(1, FRAME_ENCODER_WORKERS),
+            thread_name_prefix="frame-encoder",
+        )
 
         self._evictions_total = 0
 
@@ -112,6 +116,20 @@ class FrameCache:
         with task.lock:
             task.last_access = time.time()
             return task.embeddings.get(frame_idx)
+
+    def missing(
+        self,
+        task_id: str,
+        frame_indices: Iterable[int],
+    ) -> List[int]:
+        """Return frames that are neither cached nor already queued."""
+        task = self._get_or_create(task_id)
+        with task.lock:
+            task.last_access = time.time()
+            return [
+                idx for idx in frame_indices
+                if idx not in task.embeddings and idx not in task.pending
+            ]
 
     def submit(
         self,
@@ -209,6 +227,9 @@ class FrameCache:
 
         with task.lock:
             task.pending.pop(frame_idx, None)
+            previous = task.embeddings.get(frame_idx)
+            if previous is not None:
+                task.bytes_used = max(0, task.bytes_used - _sizeof_embedding(previous))
             task.embeddings[frame_idx] = embedding
             task.bytes_used += _sizeof_embedding(embedding)
             task.last_access = time.time()

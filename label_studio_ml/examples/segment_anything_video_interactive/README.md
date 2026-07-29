@@ -72,6 +72,10 @@ project's control tag.
 | `MAX_TASK_CACHE_MB` | `2048` | hard byte ceiling per task |
 | `MAX_GLOBAL_CACHE_MB` | `8192` | hard byte ceiling across all tasks |
 | `TASK_CACHE_TTL_SECONDS` | `1800` | drop idle task caches after this long |
+| `FRAME_ENCODER_WORKERS` | `1` | max concurrent frame-embedding encodes; keep at 1 for one GPU to avoid memory spikes |
+| `TRACK_SESSION_TTL_SECONDS` | `300` | drop completed/cancelled tracking sessions after this idle period |
+| `TRACK_SESSION_MAX_AGE_SECONDS` | `1800` | cancel/drop abandoned tracking sessions after this absolute age |
+| `TRACKING_WORKERS` | `1` | max concurrent SAM2 video propagation jobs per process |
 | `LS_FETCH_RETRY_ATTEMPTS` | `4` | ffmpeg/ffprobe retries on an LS HTTP 429 |
 | `LS_FETCH_RETRY_BASE_DELAY` | `1.0` | base backoff (s) between 429 retries (exponential + jitter) |
 | `LS_FETCH_RETRY_MAX_DELAY` | `30.0` | cap (s) on a single backoff delay |

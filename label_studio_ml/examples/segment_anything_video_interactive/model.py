@@ -23,6 +23,7 @@ import pathlib
 import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -81,6 +82,9 @@ TRACK_PROGRESS_BATCH_WINDOW_SECONDS = float(
     os.getenv("TRACK_PROGRESS_BATCH_WINDOW_SECONDS", "0.25")
 )
 TRACK_PROGRESS_MAX_BATCH = int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32"))
+TRACK_SESSION_TTL_SECONDS = float(os.getenv("TRACK_SESSION_TTL_SECONDS", "300"))
+TRACK_SESSION_MAX_AGE_SECONDS = float(os.getenv("TRACK_SESSION_MAX_AGE_SECONDS", "1800"))
+TRACKING_WORKERS = int(os.getenv("TRACKING_WORKERS", "1"))
 
 # Stop-tracking thresholds (see _run_tracking).
 # SAM2's mask decoder emits a per-frame object_score_logits; convention is
@@ -182,7 +186,10 @@ class TrackingSession:
         self.session_id = session_id
         self.total_frames = total_frames
         self.frames: List[Dict[str, Any]] = []
-        self.cursor = 0  # how many frames the client has fetched
+        self.produced = 0
+        self.created_at = time.time()
+        self.last_access = self.created_at
+        self.completed_at: Optional[float] = None
         self.done = False
         self.error: Optional[str] = None
         self.cancelled = False
@@ -197,20 +204,23 @@ class TrackingSession:
     def append_frame(self, frame_data: Dict[str, Any]):
         with self.lock:
             self.frames.append(frame_data)
+            self.produced += 1
         self.new_data_event.set()
 
     def drain_new(self) -> Tuple[List[Dict[str, Any]], int, bool]:
-        """Return (new_frames, total_produced, is_done)."""
+        """Return (new_frames, total_produced, is_done), dropping drained payloads."""
         with self.lock:
-            new = self.frames[self.cursor:]
-            self.cursor = len(self.frames)
-            return new, len(self.frames), self.done
+            new = self.frames
+            self.frames = []
+            self.last_access = time.time()
+            return new, self.produced, self.done
 
     def finish(self):
         """Single-producer shorthand: mark the session done immediately."""
         with self.lock:
             self.done = True
             self._remaining_producers = 0
+            self.completed_at = time.time()
         self.new_data_event.set()
 
     def producer_done(self):
@@ -222,10 +232,13 @@ class TrackingSession:
             self._remaining_producers = max(0, self._remaining_producers - 1)
             if self._remaining_producers == 0:
                 self.done = True
+                self.completed_at = time.time()
         self.new_data_event.set()
 
     def cancel(self):
-        self.cancelled = True
+        with self.lock:
+            self.cancelled = True
+            self.last_access = time.time()
         self.new_data_event.set()
 
     def wait_for_new_data(self, timeout: float) -> bool:
@@ -241,6 +254,63 @@ class TrackingSession:
 
 _tracking_sessions: Dict[str, TrackingSession] = {}
 _tracking_lock = threading.RLock()
+_tracking_executor = ThreadPoolExecutor(
+    max_workers=max(1, TRACKING_WORKERS),
+    thread_name_prefix="sam2-track",
+)
+_video_resolve_locks: Dict[str, threading.RLock] = {}
+_video_resolve_locks_guard = threading.RLock()
+
+
+def _video_resolve_lock(task_id: str, raw_url: str) -> threading.RLock:
+    key = f"{task_id}:{raw_url}"
+    with _video_resolve_locks_guard:
+        lock = _video_resolve_locks.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _video_resolve_locks[key] = lock
+        return lock
+
+
+def _drop_video_resolve_locks(task_id: str) -> None:
+    prefix = f"{task_id}:"
+    with _video_resolve_locks_guard:
+        for key in [k for k in _video_resolve_locks if k.startswith(prefix)]:
+            _video_resolve_locks.pop(key, None)
+
+
+def _cleanup_tracking_sessions() -> None:
+    now = time.time()
+    expired: List[str] = []
+    with _tracking_lock:
+        for session_id, session in list(_tracking_sessions.items()):
+            with session.lock:
+                idle_for = now - session.last_access
+                age = now - session.created_at
+                done_ttl = session.done and idle_for > TRACK_SESSION_TTL_SECONDS
+                cancelled_ttl = session.cancelled and idle_for > TRACK_SESSION_TTL_SECONDS
+                max_age = age > TRACK_SESSION_MAX_AGE_SECONDS
+                if done_ttl or cancelled_ttl or max_age:
+                    if max_age and not session.done:
+                        session.cancel()
+                    expired.append(session_id)
+        for session_id in expired:
+            _tracking_sessions.pop(session_id, None)
+    if expired:
+        logger.info("cleaned up %d tracking sessions", len(expired))
+
+
+def _tracking_cleanup_loop() -> None:
+    interval = max(30.0, min(TRACK_SESSION_TTL_SECONDS, 300.0))
+    while True:
+        time.sleep(interval)
+        try:
+            _cleanup_tracking_sessions()
+        except Exception:
+            logger.exception("tracking session cleanup failed")
+
+
+threading.Thread(target=_tracking_cleanup_loop, name="tracking-session-cleanup", daemon=True).start()
 
 
 def _resolve_be_frame(context: Dict[str, Any], video) -> int:
@@ -608,6 +678,7 @@ class SamVideoInteractive(LabelStudioMLBase):
         if event == "release":
             FRAME_CACHE.drop_task(task_id)
             VIDEOS.drop(task_id)
+            _drop_video_resolve_locks(task_id)
             logger.info("release: cleared cache for task %s", task_id)
             return PredictionValue(result=[{
                 "value": {"status": "released"},
@@ -627,20 +698,28 @@ class SamVideoInteractive(LabelStudioMLBase):
         direction = context.get("direction", "forward")
 
         raw_url = self._image_url_from_task(task, to_name)
-        source, headers = self._resolve_video_source(raw_url, task_id)
-        try:
-            video = VIDEOS.get_or_create(task_id, source, headers=headers)
-        except Exception as e:
-            logger.warning("streaming failed (%s), falling back to download", e)
-            # A previously-resolved handle for the same task is still usable
-            # — don't force another probe / download cycle (which can 429 on
-            # the LS token-refresh endpoint under load).
-            cached = VIDEOS._handles.get(task_id)
-            if cached is not None:
-                video = cached
-            else:
-                local_path = self._download_valid_video(raw_url, task_id)
-                video = VIDEOS.get_or_create(task_id, local_path)
+        video = VIDEOS.get(task_id, raw_url=raw_url)
+        if video is None:
+            # Resolve/download/register as one critical section per task+URL.
+            # Otherwise concurrent prewarm/predict/track requests can all miss
+            # the SDK cache and download the same large upload at once.
+            with _video_resolve_lock(task_id, raw_url):
+                video = VIDEOS.get(task_id, raw_url=raw_url)
+                if video is None:
+                    source, headers = self._resolve_video_source(raw_url, task_id)
+                    try:
+                        video = VIDEOS.get_or_create(task_id, source, headers=headers, raw_url=raw_url)
+                    except Exception as e:
+                        logger.warning("streaming failed (%s), falling back to download", e)
+                        # A previously-resolved handle for the same task is still usable
+                        # — don't force another probe / download cycle (which can 429 on
+                        # the LS token-refresh endpoint under load).
+                        cached = VIDEOS.get(task_id, raw_url=raw_url)
+                        if cached is not None:
+                            video = cached
+                        else:
+                            local_path = self._download_valid_video(raw_url, task_id)
+                            video = VIDEOS.get_or_create(task_id, local_path, raw_url=raw_url)
 
         # Prefer `time` (seconds) — the only quantity FE and BE can agree on
         # without knowing each other's fps. Fall back to `frame` (FE 1-indexed)
@@ -651,11 +730,15 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         if event == "prewarm":
             frame_range = self._window_range(frame, window, direction, video.frame_count)
-            # Fetch the whole window in ONE ffmpeg pass (one HTTP request to LS)
-            # rather than one request per frame, which trips LS's rate limit.
+            # Only decode frames that are not already cached or queued. The old
+            # flow prefetched the whole window first, so repeated prewarms paid
+            # the RAM/ffmpeg cost even when submit() later reported cache hits.
+            missing = FRAME_CACHE.missing(task_id, frame_range)
+            # Fetch the missing window in ONE ffmpeg pass (one HTTP request to
+            # LS) rather than one request per frame, which trips LS's rate limit.
             # The encode step pulls decoded frames from this buffer, falling
             # back to a per-frame read only for any the prefetch missed.
-            prefetched = self._prefetch_window(video, frame_range)
+            prefetched = self._prefetch_window(video, missing)
 
             def _encode(idx, _video=video, _frames=prefetched):
                 bgr = _frames.get(idx)
@@ -863,6 +946,8 @@ class SamVideoInteractive(LabelStudioMLBase):
         the other continues until it also loses the object or hits the end
         of the video.
         """
+        _cleanup_tracking_sessions()
+
         prompts = _extract_prompts(context)
         max_duration_ms = context.get("max_duration_ms")
         if max_duration_ms is not None and video.fps:
@@ -895,13 +980,11 @@ class SamVideoInteractive(LabelStudioMLBase):
             _tracking_sessions[session_id] = session
 
         for d, start_frame, end_frame in ranges:
-            t = threading.Thread(
-                target=self._run_tracking,
-                args=(session, video, prompts, start_frame, end_frame,
-                      prompt_frame, max_frames, w, h, d),
-                daemon=True,
+            _tracking_executor.submit(
+                self._run_tracking,
+                session, video, prompts, start_frame, end_frame,
+                prompt_frame, max_frames, w, h, d,
             )
-            t.start()
 
         logger.info("track: started session=%s task=%s direction=%s ranges=%s",
                      session_id, task_id, direction, ranges)
@@ -1056,7 +1139,7 @@ class SamVideoInteractive(LabelStudioMLBase):
 
                     if stop:
                         logger.info("track bg: stopped at frame %d (produced %d frames)",
-                                    real_frame_idx, len(session.frames))
+                                    real_frame_idx, session.produced)
                         break
 
         except Exception as e:
@@ -1065,9 +1148,10 @@ class SamVideoInteractive(LabelStudioMLBase):
         finally:
             session.producer_done()
             logger.info("track bg: finished session=%s direction=%s frames=%d",
-                         session.session_id, direction, len(session.frames))
+                         session.session_id, direction, session.produced)
 
     def _handle_track_progress(self, context, from_name, to_name):
+        _cleanup_tracking_sessions()
         session_id = context.get("session_id", "")
         with _tracking_lock:
             session = _tracking_sessions.get(session_id)
@@ -1127,7 +1211,7 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _handle_track_cancel(self, context, from_name, to_name):
         session_id = context.get("session_id", "")
         with _tracking_lock:
-            session = _tracking_sessions.get(session_id)
+            session = _tracking_sessions.pop(session_id, None)
         if session:
             session.cancel()
         return PredictionValue(result=[{
@@ -1141,7 +1225,7 @@ class SamVideoInteractive(LabelStudioMLBase):
 
     def _encode_frame(self, task_id: str, frame_idx: int):
         """Decode + encode a single video frame into a SAM2 image embedding."""
-        video = VIDEOS._handles.get(task_id)
+        video = VIDEOS.get(task_id)
         if video is None:
             raise RuntimeError(f"no video handle for task {task_id}")
         return self._encode_bgr(video.read_frame(frame_idx))
