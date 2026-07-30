@@ -738,9 +738,10 @@ class SamVideoInteractive(LabelStudioMLBase):
         LS's own `/setup` payload can carry `http://localhost:<port>` when the
         LS side doesn't have `HOSTNAME` configured — that's useless to a remote
         ML backend. Keep both host and token env-var-first so an operator can
-        fix credentials by editing `.env` / `docker-compose` and restarting the
-        backend; otherwise an old `/setup` access token can shadow a freshly
-        configured `LABEL_STUDIO_API_KEY` and cause 401s on uploaded files.
+        fix credentials through the process environment / `docker-compose` and
+        restart the backend; otherwise an old `/setup` access token can shadow a
+        freshly configured `LABEL_STUDIO_API_KEY` and cause 401s on uploaded
+        files.
         """
         env_host = (os.getenv("LABEL_STUDIO_URL") or os.getenv("LABEL_STUDIO_HOST") or "").rstrip("/")
         env_token = (
