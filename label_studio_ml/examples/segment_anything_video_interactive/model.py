@@ -43,7 +43,7 @@ from mask_encoding import (
     mask_to_bitmap_png_base64,
     mask_to_polygons_percent,
 )
-from video_state import VideoRegistry
+from video_state import VideoRegistry, video_is_readable
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,10 @@ MODEL_CONFIG = os.getenv("MODEL_CONFIG", "configs/sam2.1/sam2.1_hiera_l.yaml")
 MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2.1_hiera_large.pt")
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
 MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
+
+# Schemes LS stores verbatim in task data for cloud-backed projects; kept in
+# sync with the SDK's own check in `label_studio_tools.core.utils.io`.
+CLOUD_URI_SCHEMES = ("s3://", "s3a://", "gs://", "azure-blob://")
 
 # How long a single `track_progress` call may hold the HTTP request waiting
 # for the *first* new frame before returning an empty batch. Long polling
@@ -759,9 +763,9 @@ class SamVideoInteractive(LabelStudioMLBase):
         """Download via the LS SDK, but verify the file actually decodes.
 
         `get_local_path` caches downloads by URL hash with no integrity check,
-        so a truncated download of a large video gets reused forever and cv2
-        then dies with an opaque "failed to open video" (surfaced as a 503).
-        On a bad cache hit, drop the file and re-download once.
+        so a truncated download of a large video gets reused forever and the
+        decoder then dies with an opaque "failed to open video" (surfaced as a
+        503). On a bad cache hit, drop the file and re-download once.
         """
         ls_host, ls_token = self._ls_host_token()
         sdk_token = ls_token_for_sdk(ls_host, ls_token)
@@ -769,32 +773,31 @@ class SamVideoInteractive(LabelStudioMLBase):
             local_path = self.get_local_path(
                 raw_url, task_id=task_id, ls_host=ls_host, ls_access_token=sdk_token,
             )
-            cap = cv2.VideoCapture(local_path)
-            ok = cap.isOpened() and cap.read()[0]
-            cap.release()
+            ok, reason = video_is_readable(local_path)
             if ok:
                 return local_path
             logger.warning(
-                "cached video unreadable (attempt %d/2), re-downloading: %s",
-                attempt + 1, local_path,
+                "cached video unreadable (attempt %d/2), re-downloading: %s — %s",
+                attempt + 1, local_path, reason,
             )
             try:
                 os.remove(local_path)
             except OSError:
                 pass
-        raise RuntimeError(f"video failed to decode after re-download: {raw_url}")
+        raise RuntimeError(
+            f"video failed to decode after re-download: {raw_url} ({reason})"
+        )
 
     def _resolve_video_source(self, raw_url: str, task_id: str):
         """Resolve a task video URL to a streamable source + auth headers.
 
         * External HTTP(S) URLs (don't look like LS's own host) → stream
           directly, no headers.
-        * LS-hosted upload URLs → authenticated local download by default;
-          direct ffmpeg streaming can be enabled with
+        * LS-hosted upload URLs / paths → authenticated local download by
+          default; direct ffmpeg streaming can be enabled with
           `LABEL_STUDIO_STREAM_LS_UPLOADS=true` when the LS deployment supports
           reliable range requests.
-        * Non-HTTP storage URIs / relative LS paths → authenticated local
-          download.
+        * Cloud-storage URIs → authenticated local download through the LS SDK.
 
         Resolution order for the LS hostname:
           1. `LABEL_STUDIO_URL` env var (explicit operator override)
@@ -817,11 +820,27 @@ class SamVideoInteractive(LabelStudioMLBase):
             # presigned cloud URLs and we must not leak the LS token to them.
             attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
             if attach and not STREAM_LS_UPLOADS:
-                logger.info("LS-hosted video: downloading once instead of streaming (%s)", raw_url)
+                logger.info(
+                    "LS-hosted video: downloading once instead of streaming (%s)",
+                    raw_url,
+                )
                 return self._download_valid_video(raw_url, task_id), None
             return raw_url, _auth_headers(raw_url) if attach else None
 
-        if ls_url and api_key and STREAM_LS_UPLOADS and raw_url.startswith(("/data/", "/upload", "data/", "upload")):
+        if raw_url.startswith(CLOUD_URI_SCHEMES):
+            # A cloud-storage URI is not a URL — only LS knows which storage it
+            # belongs to and holds the credentials, so it can't be streamed and
+            # must not be joined onto the LS host (that yields
+            # `https://<ls-host>/s3://bucket/…`, which 404s). The SDK resolves
+            # it through `/tasks/<id>/presign/` and downloads the result.
+            return self._download_valid_video(raw_url, task_id), None
+
+        if (
+            ls_url
+            and api_key
+            and STREAM_LS_UPLOADS
+            and raw_url.startswith(("/data/", "/upload", "data/", "upload"))
+        ):
             full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
             return full_url, _auth_headers(full_url)
 
