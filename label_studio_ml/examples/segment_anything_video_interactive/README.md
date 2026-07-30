@@ -92,7 +92,10 @@ project's control tag.
 Cloud-backed projects put the raw provider URI in task data (`s3://bucket/key.mp4`,
 `gs://…`, `azure-blob://…`). Those can't be streamed — only LS can resolve them,
 via `/tasks/<id>/presign/` — so the backend downloads them through the SDK and
-decodes locally. HTTP(S) assets, LS-hosted or not, are still range-streamed.
+decodes locally. External HTTP(S) assets are still range-streamed. LS-hosted
+HTTP(S) uploads are downloaded once by default; set
+`LABEL_STUDIO_STREAM_LS_UPLOADS=true` only for deployments where direct range
+streaming is reliable.
 
 ## Running locally (no Docker)
 
