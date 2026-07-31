@@ -76,14 +76,9 @@ project's control tag.
 | `TRACK_SESSION_TTL_SECONDS` | `300` | drop completed/cancelled tracking sessions after this idle period |
 | `TRACK_SESSION_MAX_AGE_SECONDS` | `1800` | cancel/drop abandoned tracking sessions after this absolute age |
 | `TRACKING_WORKERS` | `1` | max concurrent SAM2 video propagation jobs per process |
-| `TRACKING_RELEASE_MEMORY` | `1` | after each tracking job, tear down SAM2 state and trim allocator caches so RSS can drop |
+| `TRACKING_RELEASE_MEMORY` | `1` | after each tracking job, tear down SAM2 state and trim PyTorch allocator caches so RSS can drop |
 | `TRACKING_ON_DEMAND_FRAMES` | `1` | decode SAM2 tracking frames on demand with a tiny LRU instead of caching every resized frame tensor |
 | `TRACKING_FRAME_CACHE_SIZE` | `2` | number of normalized frame tensors to keep during on-demand tracking |
-| `TRACKING_PRUNE_STATE` | `1` | prune old SAM2 non-conditioning memory outputs while tracking so the memory bank stays bounded |
-| `DROP_TASK_STATE_AFTER_TRACKING` | `1` | drop the task's prewarm frame cache and video handle as soon as tracking is done/cancelled |
-| `UNLOAD_MODELS_AFTER_TRACKING` | `0` | unload SAM2 weights after tracking/release when no sessions are active; lowers idle RSS but makes the next interaction a cold start |
-| `LABEL_STUDIO_STREAM_UPLOADED_FILES` | `1` | stream LS uploaded files through `/storage-data/uploaded/` (LSE streamer/nginx path) instead of SDK-downloading them first |
-| `LABEL_STUDIO_STREAM_LS_UPLOADS` | `0` | stream other LS-hosted HTTP URLs directly; normally leave off unless that deployment's range handling is reliable |
 | `LS_FETCH_RETRY_ATTEMPTS` | `4` | ffmpeg/ffprobe retries on an LS HTTP 429 |
 | `LS_FETCH_RETRY_BASE_DELAY` | `1.0` | base backoff (s) between 429 retries (exponential + jitter) |
 | `LS_FETCH_RETRY_MAX_DELAY` | `30.0` | cap (s) on a single backoff delay |
@@ -100,15 +95,10 @@ project's control tag.
 Cloud-backed projects put the raw provider URI in task data (`s3://bucket/key.mp4`,
 `gs://…`, `azure-blob://…`). Those can't be streamed — only LS can resolve them,
 via `/tasks/<id>/presign/` — so the backend downloads them through the SDK and
-decodes locally. External HTTP(S) assets are still range-streamed. LS uploaded
-files (`/data/upload/...`, `upload/...`, or `/storage-data/uploaded/?filepath=...`)
-stream through the authenticated storage-proxy endpoint by default. In LSE that
-route is fronted by the Go streamer service, so S3-backed uploaded files support
-Range requests without this ML backend downloading the whole video first. If the
-stream probe fails, the backend falls back to the SDK download path. Set
-`LABEL_STUDIO_STREAM_UPLOADED_FILES=false` to force that old path;
-`LABEL_STUDIO_STREAM_LS_UPLOADS=true` is only for other LS-hosted HTTP URLs where
-direct range streaming is known to be reliable.
+decodes locally. LS-hosted uploads are also downloaded through the SDK rather
+than streamed with auth headers: ffmpeg forwards custom headers across redirects,
+which can leak the LS token if the response redirects to another origin. External
+HTTP(S) assets are still range-streamed without LS auth.
 
 ## Running locally (no Docker)
 
@@ -116,7 +106,7 @@ direct range streaming is known to be reliable.
    ```bash
    cd label_studio_ml/examples/segment_anything_video_interactive
    git clone https://github.com/facebookresearch/segment-anything-2.git
-   (cd segment-anything-2 && pip install -e . && cd checkpoints && ./download_ckpts.sh)
+   (cd segment-anything-2 && git checkout 2b90b9f5ceec907a1c18123530e92e794ad901a4 && pip install -e . && cd checkpoints && ./download_ckpts.sh)
    ```
 2. Install backend requirements (from the repo root):
    ```bash

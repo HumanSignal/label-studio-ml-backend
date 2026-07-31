@@ -20,6 +20,33 @@ def test_missing_excludes_cached_and_pending():
         cache._pool.shutdown(wait=True)
 
 
+def test_schedule_missing_reserves_before_batch_encode():
+    cache = FrameCache(max_frames_per_task=10, max_task_mb=10, max_global_mb=10)
+    started = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def encode_batch(indices):
+        calls.append(tuple(indices))
+        started.set()
+        assert release.wait(timeout=2)
+        return {idx: FakeEmbedding(10) for idx in indices}
+
+    try:
+        cached1, pending1 = cache.schedule_missing("task", [1, 2, 3], encode_batch)
+        assert started.wait(timeout=1)
+        cached2, pending2 = cache.schedule_missing("task", [1, 2, 3], encode_batch)
+    finally:
+        release.set()
+        cache._pool.shutdown(wait=True)
+
+    assert cached1 == []
+    assert pending1 == [1, 2, 3]
+    assert cached2 == []
+    assert pending2 == [1, 2, 3]
+    assert calls == [(1, 2, 3)]
+
+
 def test_replacing_embedding_keeps_byte_accounting_correct():
     cache = FrameCache(max_frames_per_task=10, max_task_mb=10, max_global_mb=10)
     try:

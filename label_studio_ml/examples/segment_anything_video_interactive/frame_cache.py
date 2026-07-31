@@ -157,6 +157,52 @@ class FrameCache:
             task.last_access = time.time()
         return already, scheduled
 
+    def schedule_missing(
+        self,
+        task_id: str,
+        frame_indices: Iterable[int],
+        encode_batch_fn: Callable[[List[int]], Dict[int, object]],
+        on_scheduled: Optional[Callable[[], Callable[[], None]]] = None,
+    ) -> Tuple[List[int], List[int]]:
+        """Atomically reserve missing frames and encode them as one batch.
+
+        This closes the race where two prewarm requests both call ``missing()``,
+        both decode the same frame window, and only then record pending work.
+        Newly-missing frames are marked pending under the task lock before the
+        batch worker can perform any decode/network/GPU work.
+        """
+        task = self._get_or_create(task_id)
+        already: List[int] = []
+        pending_or_scheduled: List[int] = []
+        to_schedule: List[int] = []
+        with task.lock:
+            for idx in frame_indices:
+                if idx in task.embeddings:
+                    already.append(idx)
+                elif idx in task.pending:
+                    pending_or_scheduled.append(idx)
+                else:
+                    to_schedule.append(idx)
+                    pending_or_scheduled.append(idx)
+            if to_schedule:
+                release = on_scheduled() if on_scheduled is not None else None
+                future = self._pool.submit(
+                    self._encode_batch_and_store,
+                    task,
+                    list(to_schedule),
+                    encode_batch_fn,
+                    release,
+                )
+                if release is not None:
+                    future.add_done_callback(
+                        lambda done_future, release=release: release()
+                        if done_future.cancelled() else None
+                    )
+                for idx in to_schedule:
+                    task.pending[idx] = future
+            task.last_access = time.time()
+        return already, pending_or_scheduled
+
     def ensure_encoded(
         self,
         task_id: str,
@@ -204,6 +250,9 @@ class FrameCache:
         if task is not None:
             self._discard_task(task)
 
+    def expire_idle(self) -> None:
+        self._evict_expired_tasks()
+
     # --- internals -------------------------------------------------------
 
     def _get_or_create(self, task_id: str) -> _TaskCache:
@@ -241,13 +290,60 @@ class FrameCache:
                 task.pending.pop(frame_idx, None)
             return
 
+        self._store_embeddings(task, {frame_idx: embedding}, [frame_idx])
+
+    def _encode_batch_and_store(
+        self,
+        task: _TaskCache,
+        frame_indices: List[int],
+        encode_batch_fn: Callable[[List[int]], Dict[int, object]],
+        release: Optional[Callable[[], None]] = None,
+    ) -> None:
+        try:
+            if not self._task_is_current(task):
+                return
+
+            try:
+                embeddings = encode_batch_fn(frame_indices)
+            except Exception:
+                logger.exception(
+                    "batch encode failed task=%s frames=%s",
+                    task.task_id,
+                    frame_indices,
+                )
+                with task.lock:
+                    for idx in frame_indices:
+                        task.pending.pop(idx, None)
+                raise
+
+            if not self._task_is_current(task):
+                with task.lock:
+                    for idx in frame_indices:
+                        task.pending.pop(idx, None)
+                return
+
+            self._store_embeddings(task, embeddings, frame_indices)
+        finally:
+            if release is not None:
+                release()
+
+    def _store_embeddings(
+        self,
+        task: _TaskCache,
+        embeddings: Dict[int, object],
+        frame_indices: List[int],
+    ) -> None:
         with task.lock:
-            task.pending.pop(frame_idx, None)
-            previous = task.embeddings.get(frame_idx)
-            if previous is not None:
-                task.bytes_used = max(0, task.bytes_used - _sizeof_embedding(previous))
-            task.embeddings[frame_idx] = embedding
-            task.bytes_used += _sizeof_embedding(embedding)
+            for frame_idx in frame_indices:
+                task.pending.pop(frame_idx, None)
+                if frame_idx not in embeddings:
+                    continue
+                previous = task.embeddings.get(frame_idx)
+                if previous is not None:
+                    task.bytes_used = max(0, task.bytes_used - _sizeof_embedding(previous))
+                embedding = embeddings[frame_idx]
+                task.embeddings[frame_idx] = embedding
+                task.bytes_used += _sizeof_embedding(embedding)
             task.last_access = time.time()
 
         self._enforce_caps(task.task_id)

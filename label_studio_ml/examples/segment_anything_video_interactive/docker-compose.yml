@@ -37,15 +37,10 @@ services:
       - TRACKING_RELEASE_MEMORY=1
       - TRACKING_ON_DEMAND_FRAMES=1
       - TRACKING_FRAME_CACHE_SIZE=2
-      - TRACKING_PRUNE_STATE=1
-      - DROP_TASK_STATE_AFTER_TRACKING=1
-      - UNLOAD_MODELS_AFTER_TRACKING=0
 
       # Label Studio access for pulling task assets
       - LABEL_STUDIO_URL=
       - LABEL_STUDIO_API_KEY=
-      - LABEL_STUDIO_STREAM_UPLOADED_FILES=1
-      - LABEL_STUDIO_STREAM_LS_UPLOADS=0
     ports:
       - "9090:9090"
     volumes:
