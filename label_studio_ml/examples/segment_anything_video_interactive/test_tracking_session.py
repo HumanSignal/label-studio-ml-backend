@@ -135,9 +135,39 @@ def test_track_returns_busy_when_session_capacity_is_exhausted(monkeypatch):
 
     assert response.result[0]["type"] == "track_busy"
     assert response.result[0]["value"]["max_sessions"] == 1
+    assert response.result[0]["value"]["active_or_queued"] == 1
 
     with model._tracking_lock:
         model._tracking_sessions.clear()
+
+
+def test_tracking_capacity_sweeps_expired_sessions_before_reserving(monkeypatch):
+    os.environ.setdefault("MODEL_DIR", tempfile.mkdtemp(prefix="sam2-test-cache-"))
+    _drop_dependency_stub("cv2")
+    _drop_dependency_stub("numpy")
+    import model
+
+    expired = model.TrackingSession("expired", total_frames=0, task_id="task")
+    expired.created_at = 1_000.0
+    expired.last_access = 1_000.0
+    expired.done = True
+    expired.completed_at = 1_000.0
+    with model._tracking_lock:
+        model._tracking_sessions.clear()
+        model._tracking_sessions["expired"] = expired
+
+    monkeypatch.setattr(model, "MAX_TRACKING_SESSIONS", 1)
+    monkeypatch.setattr(model.time, "time", lambda: 2_000.0)
+    monkeypatch.setattr(model.FRAME_CACHE, "expire_idle", lambda: None)
+    monkeypatch.setattr(model.VIDEOS, "expire_idle", lambda: None)
+
+    with model._tracking_capacity_reservation() as (token, resident):
+        assert token is not None
+        assert resident == 0
+
+    with model._tracking_lock:
+        assert model._tracking_sessions == {}
+        model._tracking_reservations.clear()
 
 
 def test_completed_session_with_queued_results_still_consumes_capacity(monkeypatch):
@@ -339,7 +369,7 @@ def test_accelerator_slot_enters_cuda_autocast_in_calling_thread(monkeypatch):
     assert entered_threads == worker_thread
 
 
-def test_mps_initialization_does_not_enable_upstream_async_loader(monkeypatch):
+def test_mps_initialization_bootstraps_from_one_frame_without_async_loader(monkeypatch, tmp_path):
     os.environ.setdefault("MODEL_DIR", tempfile.mkdtemp(prefix="sam2-test-cache-"))
     _drop_dependency_stub("cv2")
     _drop_dependency_stub("numpy")
@@ -352,19 +382,30 @@ def test_mps_initialization_does_not_enable_upstream_async_loader(monkeypatch):
 
     class FakePredictor:
         def init_state(self, **kwargs):
-            calls.append(kwargs)
+            calls.append(
+                {
+                    **kwargs,
+                    "bootstrap_files": sorted(os.listdir(kwargs["video_path"])),
+                }
+            )
             raise StopAfterInit
 
     monkeypatch.setattr(model, "DEVICE", "mps")
+    frame_dir = tmp_path / "frames"
+    frame_dir.mkdir()
+    (frame_dir / "00000.jpg").write_bytes(b"frame-zero")
+    (frame_dir / "00001.jpg").write_bytes(b"frame-one")
 
     with pytest.raises(StopAfterInit):
         model._init_tracking_inference_state(
             FakePredictor(),
-            "/unused",
+            str(frame_dir),
             use_on_demand_frames=True,
         )
 
     assert calls[0]["async_loading_frames"] is False
+    assert calls[0]["video_path"] != str(frame_dir)
+    assert calls[0]["bootstrap_files"] == ["00000.jpg"]
 
 
 def test_release_sam2_inference_state_closes_loader_and_clears_state():

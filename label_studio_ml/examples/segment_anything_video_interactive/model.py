@@ -22,6 +22,7 @@ import logging
 import os
 import pathlib
 import queue
+import shutil
 import tempfile
 import threading
 import time
@@ -289,14 +290,36 @@ def _sam2_jpeg_paths(frame_dir: str) -> List[str]:
 
 
 def _init_tracking_inference_state(video_predictor, frame_dir: str, use_on_demand_frames: bool):
-    inference_state = video_predictor.init_state(
-        video_path=frame_dir,
-        # The pinned SAM2 async loader creates float64 frame tensors and its
-        # init_state warmup moves frame zero to the target device before this
-        # backend can replace the loader. MPS cannot perform that transfer.
-        async_loading_frames=(DEVICE != "mps"),
-        offload_video_to_cpu=True,
-    )
+    bootstrap_dir = None
+    init_video_path = frame_dir
+    if use_on_demand_frames and DEVICE == "mps":
+        # The pinned async loader creates float64 tensors that MPS cannot move
+        # during init_state's frame-zero warmup. Synchronous initialization is
+        # dtype-safe but normally loads every frame, defeating the bounded
+        # loader. Bootstrap SAM2 from one copied frame, then install the full
+        # on-demand sequence below.
+        frame_paths = _sam2_jpeg_paths(frame_dir)
+        if not frame_paths:
+            raise RuntimeError("no images found for SAM2 tracking")
+        bootstrap_dir = tempfile.TemporaryDirectory()
+        shutil.copyfile(
+            frame_paths[0],
+            os.path.join(bootstrap_dir.name, "00000.jpg"),
+        )
+        init_video_path = bootstrap_dir.name
+
+    try:
+        inference_state = video_predictor.init_state(
+            video_path=init_video_path,
+            # The pinned SAM2 async loader creates float64 frame tensors and its
+            # init_state warmup moves frame zero to the target device before this
+            # backend can replace the loader. MPS cannot perform that transfer.
+            async_loading_frames=(DEVICE != "mps"),
+            offload_video_to_cpu=True,
+        )
+    finally:
+        if bootstrap_dir is not None:
+            bootstrap_dir.cleanup()
     if not use_on_demand_frames:
         return inference_state
 
@@ -456,6 +479,7 @@ _tracking_executor = ThreadPoolExecutor(
 @contextmanager
 def _tracking_capacity_reservation():
     """Reserve tracking capacity before resolving or downloading task media."""
+    _cleanup_tracking_sessions()
     token: Optional[str] = None
     with _tracking_lock:
         resident = len(_tracking_sessions) + len(_tracking_reservations)
@@ -1352,6 +1376,8 @@ class SamVideoInteractive(LabelStudioMLBase):
             "track_busy",
             {
                 "error": "tracking capacity exhausted",
+                # Preserve the established response field for existing clients.
+                "active_or_queued": resident_sessions,
                 "resident_sessions": resident_sessions,
                 "max_sessions": MAX_TRACKING_SESSIONS,
             },
