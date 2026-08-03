@@ -61,7 +61,16 @@ SEGMENT_ANYTHING_2_REPO_PATH = os.getenv("SEGMENT_ANYTHING_2_REPO_PATH", "segmen
 MODEL_CONFIG = os.getenv("MODEL_CONFIG", "configs/sam2.1/sam2.1_hiera_l.yaml")
 MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2.1_hiera_large.pt")
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
-MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
+MAX_PREWARM_WINDOW = max(0, int(os.getenv("MAX_PREWARM_WINDOW", str(WINDOW_SIZE))))
+MAX_FRAMES_TO_TRACK = max(0, int(os.getenv("MAX_FRAMES_TO_TRACK", "300")))
+MAX_BATCH_DECODE_FRAMES = max(1, int(os.getenv("MAX_BATCH_DECODE_FRAMES", "16")))
+
+try:
+    SERVER_WORKERS = int(os.getenv("WORKERS", "1"))
+except ValueError as e:
+    raise RuntimeError("WORKERS must be an integer; this single-GPU backend requires WORKERS=1") from e
+if SERVER_WORKERS != 1:
+    raise RuntimeError("This single-GPU SAM2 backend requires WORKERS=1")
 
 # Schemes LS stores verbatim in task data for cloud-backed projects; kept in
 # sync with the SDK's own check in `label_studio_tools.core.utils.io`.
@@ -90,6 +99,7 @@ TRACK_PROGRESS_MAX_BATCH = int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32"))
 TRACK_SESSION_TTL_SECONDS = float(os.getenv("TRACK_SESSION_TTL_SECONDS", "300"))
 TRACK_SESSION_MAX_AGE_SECONDS = float(os.getenv("TRACK_SESSION_MAX_AGE_SECONDS", "1800"))
 TRACKING_WORKERS = int(os.getenv("TRACKING_WORKERS", "1"))
+MAX_TRACKING_SESSIONS = max(1, int(os.getenv("MAX_TRACKING_SESSIONS", str(max(1, TRACKING_WORKERS)))))
 TRACKING_RELEASE_MEMORY = os.getenv("TRACKING_RELEASE_MEMORY", "1").lower() in {"1", "true", "yes", "on"}
 TRACKING_ON_DEMAND_FRAMES = os.getenv("TRACKING_ON_DEMAND_FRAMES", "1").lower() in {"1", "true", "yes", "on"}
 TRACKING_FRAME_CACHE_SIZE = int(os.getenv("TRACKING_FRAME_CACHE_SIZE", "2"))
@@ -335,7 +345,7 @@ class TrackingSession:
     """Holds state for an async tracking job. The background thread appends
     frame masks; the frontend polls for new ones via track_progress."""
 
-    def __init__(self, session_id: str, total_frames: int, producers: int = 1, task_id: Optional[str] = None):
+    def __init__(self, session_id: str, total_frames: int, task_id: Optional[str] = None):
         self.session_id = session_id
         self.task_id = task_id
         self.total_frames = total_frames
@@ -350,9 +360,7 @@ class TrackingSession:
         self.error: Optional[str] = None
         self.cancelled = False
         self.futures: List[Future] = []
-        # Bidirectional tracking runs two producer threads sharing this
-        # session; we only flip `done` after all of them report in.
-        self._remaining_producers = max(1, producers)
+        self._remaining_producers = 1
         self.lock = threading.RLock()
         # Signaled whenever there's something new for a poller to see:
         # a frame was appended, the session finished, errored, or was cancelled.
@@ -372,10 +380,11 @@ class TrackingSession:
             self.produced += 1
         self.new_data_event.set()
 
-    def drain_new(self) -> Tuple[List[Dict[str, Any]], int, bool]:
-        """Return (new_frames, total_produced, is_done), dropping drained payloads."""
+    def drain_new(self, limit: int = TRACK_PROGRESS_MAX_BATCH) -> Tuple[List[Dict[str, Any]], int, bool]:
+        """Return up to limit new frames, total produced, and visible done state."""
+        limit = max(0, limit)
         new: List[Dict[str, Any]] = []
-        while len(new) < TRACK_PROGRESS_MAX_BATCH:
+        while len(new) < limit:
             try:
                 new.append(self.frames.get_nowait())
             except queue.Empty:
@@ -394,10 +403,7 @@ class TrackingSession:
         self.new_data_event.set()
 
     def producer_done(self):
-        """One of N parallel producers reports completion. The session only
-        flips to `done=True` after every producer has called this — the FE
-        long-poller keeps getting fresh frames from any still-running
-        direction until then."""
+        """Mark the single tracking producer finished."""
         with self.lock:
             self._remaining_producers = max(0, self._remaining_producers - 1)
             if self._remaining_producers == 0:
@@ -613,6 +619,48 @@ def _contiguous_runs(indices: List[int]) -> List[List[int]]:
         else:
             runs.append([idx])
     return runs
+
+
+def _chunks(items: List[int], chunk_size: int) -> List[List[int]]:
+    return [items[i: i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def _parse_bounded_int(
+    context: Dict[str, Any],
+    key: str,
+    default: int,
+    max_value: int,
+    *,
+    min_value: int = 0,
+) -> int:
+    raw = context.get(key, default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"{key} must be an integer") from e
+    if value < min_value:
+        raise ValueError(f"{key} must be >= {min_value}")
+    return min(value, max_value)
+
+
+def _parse_tracking_frame_limit(context: Dict[str, Any], fps: float) -> int:
+    if "max_duration_ms" in context and context.get("max_duration_ms") is not None:
+        try:
+            duration_ms = float(context.get("max_duration_ms"))
+        except (TypeError, ValueError) as e:
+            raise ValueError("max_duration_ms must be a number") from e
+        if duration_ms < 0:
+            raise ValueError("max_duration_ms must be >= 0")
+        requested = int(round((duration_ms / 1000.0) * fps)) if fps else MAX_FRAMES_TO_TRACK
+    else:
+        requested = _parse_bounded_int(
+            context,
+            "max_frames",
+            MAX_FRAMES_TO_TRACK,
+            MAX_FRAMES_TO_TRACK,
+            min_value=0,
+        )
+    return min(requested, MAX_FRAMES_TO_TRACK)
 
 
 def _resolve_be_frame(context: Dict[str, Any], video) -> int:
@@ -993,7 +1041,24 @@ class SamVideoInteractive(LabelStudioMLBase):
             return self._handle_track_cancel(task_id, context, from_name, to_name)
 
         # Events below need video handle
-        window = int(context.get("window", WINDOW_SIZE))
+        if event == "prewarm":
+            try:
+                window = _parse_bounded_int(
+                    context,
+                    "window",
+                    WINDOW_SIZE,
+                    MAX_PREWARM_WINDOW,
+                    min_value=0,
+                )
+            except ValueError as e:
+                return self._value_response(
+                    "prewarm_ack",
+                    {"status": "error", "error": str(e)},
+                    from_name,
+                    to_name,
+                )
+        else:
+            window = WINDOW_SIZE
         direction = context.get("direction", "forward")
 
         raw_url = self._image_url_from_task(task, to_name)
@@ -1071,7 +1136,11 @@ class SamVideoInteractive(LabelStudioMLBase):
                     "original_size": image_predictor._orig_hw,
                     "is_image_set": True,
                 }
-                FRAME_CACHE.submit(task_id, [frame], lambda idx: features_snapshot)
+                FRAME_CACHE.schedule_missing(
+                    task_id,
+                    [frame],
+                    lambda _indices, snapshot=features_snapshot: {frame: snapshot},
+                )
                 logger.debug("predict: cache miss task=%s frame=%s, encoded + cached", task_id, frame)
 
             masks, scores, _ = image_predictor.predict(
@@ -1199,6 +1268,16 @@ class SamVideoInteractive(LabelStudioMLBase):
         local_path = self._download_valid_video(raw_url, task_id)
         return local_path, None
 
+    def _value_response(self, response_type: str, value: Dict[str, Any], from_name: str, to_name: str):
+        return PredictionValue(result=[{
+            "id": str(uuid4())[:8],
+            "from_name": from_name,
+            "to_name": to_name,
+            "type": response_type,
+            "origin": "manual",
+            "value": value,
+        }])
+
     def _mask_response(self, mask, w, h, from_name, to_name):
         """Return a mask PNG as a prediction using `bitmask` — a recognized
         LS result type — so the editor won't reject it."""
@@ -1230,11 +1309,15 @@ class SamVideoInteractive(LabelStudioMLBase):
         _cleanup_tracking_sessions()
 
         prompts = _extract_prompts(context)
-        max_duration_ms = context.get("max_duration_ms")
-        if max_duration_ms is not None and video.fps:
-            max_frames = int(round((float(max_duration_ms) / 1000.0) * video.fps))
-        else:
-            max_frames = int(context.get("max_frames", MAX_FRAMES_TO_TRACK))
+        try:
+            max_frames = _parse_tracking_frame_limit(context, video.fps)
+        except ValueError as e:
+            return self._value_response(
+                "track_error",
+                {"error": str(e), "done": True},
+                from_name,
+                to_name,
+            )
         direction = context.get("direction", "forward")
         if direction not in ("forward", "backward", "both"):
             direction = "forward"
@@ -1255,23 +1338,34 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         total = sum(end - start for _, start, end in ranges)
         session_id = str(uuid4())[:12]
-        session = TrackingSession(session_id, total, producers=len(ranges), task_id=task_id)
+        session = TrackingSession(session_id, total, task_id=task_id)
 
         with _tracking_lock:
+            active_or_queued = sum(not existing.done for existing in _tracking_sessions.values())
+            if active_or_queued >= MAX_TRACKING_SESSIONS:
+                return self._value_response(
+                    "track_busy",
+                    {
+                        "error": "tracking capacity exhausted",
+                        "active_or_queued": active_or_queued,
+                        "max_sessions": MAX_TRACKING_SESSIONS,
+                    },
+                    from_name,
+                    to_name,
+                )
             _tracking_sessions[session_id] = session
 
-        for d, start_frame, end_frame in ranges:
-            release_video = VIDEOS.retain(video)
-            future = _tracking_executor.submit(
-                self._run_tracking,
-                session, video, release_video, prompts, start_frame, end_frame,
-                prompt_frame, max_frames, w, h, d,
-            )
-            future.add_done_callback(
-                lambda done_future, release=release_video: release()
-                if done_future.cancelled() else None
-            )
-            session.add_future(future)
+        release_video = VIDEOS.retain(video)
+        future = _tracking_executor.submit(
+            self._run_tracking,
+            session, video, release_video, prompts, ranges,
+            prompt_frame, max_frames, w, h,
+        )
+        future.add_done_callback(
+            lambda done_future, release=release_video: release()
+            if done_future.cancelled() else None
+        )
+        session.add_future(future)
 
         logger.info("track: started session=%s task=%s direction=%s ranges=%s",
                      session_id, task_id, direction, ranges)
@@ -1289,8 +1383,26 @@ class SamVideoInteractive(LabelStudioMLBase):
             },
         }])
 
-    def _run_tracking(self, session, video, release_video, prompts, start_frame, end_frame,
-                      prompt_frame, max_frames, w, h, direction="forward"):
+    def _run_tracking(self, session, video, release_video, prompts, ranges,
+                      prompt_frame, max_frames, w, h):
+        """Background thread: process one or more tracking ranges sequentially."""
+        try:
+            for direction, start_frame, end_frame in ranges:
+                if session.cancelled:
+                    break
+                self._run_tracking_range(
+                    session, video, prompts, start_frame, end_frame,
+                    prompt_frame, max_frames, w, h, direction,
+                )
+                if session.error or session.cancelled:
+                    break
+        finally:
+            session.producer_done()
+            release_video()
+            logger.info("track bg: finished session=%s frames=%d", session.session_id, session.produced)
+
+    def _run_tracking_range(self, session, video, prompts, start_frame, end_frame,
+                            prompt_frame, max_frames, w, h, direction="forward"):
         """Background thread: extract frames, run SAM2 propagation, push
         mask PNGs into the session as they're produced."""
         video_predictor = None
@@ -1481,9 +1593,7 @@ class SamVideoInteractive(LabelStudioMLBase):
             inference_state = None
             video_predictor = None
             _release_tracking_allocator_memory()
-            session.producer_done()
-            release_video()
-            logger.info("track bg: finished session=%s direction=%s frames=%d",
+            logger.info("track bg: finished range session=%s direction=%s frames=%d",
                          session.session_id, direction, session.produced)
 
     def _handle_track_progress(self, context, from_name, to_name):
@@ -1522,7 +1632,8 @@ class SamVideoInteractive(LabelStudioMLBase):
                     break
                 if not session.wait_for_new_data(remaining):
                     break  # timeout
-                more, total_produced, done = session.drain_new()
+                remaining_batch = TRACK_PROGRESS_MAX_BATCH - len(new_frames)
+                more, total_produced, done = session.drain_new(remaining_batch)
                 new_frames.extend(more)
                 if done or session.error is not None or session.cancelled:
                     break
@@ -1565,13 +1676,6 @@ class SamVideoInteractive(LabelStudioMLBase):
 
     # --- helpers ---------------------------------------------------------
 
-    def _encode_frame(self, task_id: str, frame_idx: int):
-        """Decode + encode a single video frame into a SAM2 image embedding."""
-        video = VIDEOS.get(task_id)
-        if video is None:
-            raise RuntimeError(f"no video handle for task {task_id}")
-        return self._encode_bgr(video.read_frame(frame_idx))
-
     def _encode_bgr(self, frame_bgr):
         """Encode an already-decoded BGR frame into a SAM2 image embedding."""
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
@@ -1588,14 +1692,17 @@ class SamVideoInteractive(LabelStudioMLBase):
         """Decode sparse frame indices in contiguous runs, then encode them."""
         encoded: Dict[int, Any] = {}
         for run in _contiguous_runs(sorted(set(frame_indices))):
-            start = run[0]
-            try:
-                frames = video.read_frame_range(start, len(run))
-            except Exception as e:
-                logger.warning("batch frame read failed (%s); falling back to per-frame", e)
-                frames = [video.read_frame(idx) for idx in run]
-            for idx, frame_bgr in zip(run, frames):
-                encoded[idx] = self._encode_bgr(frame_bgr)
+            for chunk in _chunks(run, MAX_BATCH_DECODE_FRAMES):
+                start = chunk[0]
+                try:
+                    frames = video.read_frame_range(start, len(chunk))
+                    if len(frames) < len(chunk):
+                        frames.extend(video.read_frame(idx) for idx in chunk[len(frames):])
+                except Exception as e:
+                    logger.warning("batch frame read failed (%s); falling back to per-frame", e)
+                    frames = [video.read_frame(idx) for idx in chunk]
+                for idx, frame_bgr in zip(chunk, frames):
+                    encoded[idx] = self._encode_bgr(frame_bgr)
         return encoded
 
     def _window_range(self, frame: int, window: int, direction: str, frame_count: int):

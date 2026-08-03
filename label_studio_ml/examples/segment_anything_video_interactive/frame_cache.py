@@ -119,44 +119,6 @@ class FrameCache:
             task.last_access = time.time()
             return task.embeddings.get(frame_idx)
 
-    def missing(
-        self,
-        task_id: str,
-        frame_indices: Iterable[int],
-    ) -> List[int]:
-        """Return frames that are neither cached nor already queued."""
-        task = self._get_or_create(task_id)
-        with task.lock:
-            task.last_access = time.time()
-            return [
-                idx for idx in frame_indices
-                if idx not in task.embeddings and idx not in task.pending
-            ]
-
-    def submit(
-        self,
-        task_id: str,
-        frame_indices: Iterable[int],
-        encode_fn: Callable[[int], object],
-    ) -> Tuple[List[int], List[int]]:
-        """Schedule encoding for the given frames. Returns (already_cached, scheduled)."""
-        task = self._get_or_create(task_id)
-        already: List[int] = []
-        scheduled: List[int] = []
-        with task.lock:
-            for idx in frame_indices:
-                if idx in task.embeddings:
-                    already.append(idx)
-                    continue
-                if idx in task.pending:
-                    scheduled.append(idx)
-                    continue
-                future = self._pool.submit(self._encode_and_store, task, idx, encode_fn)
-                task.pending[idx] = future
-                scheduled.append(idx)
-            task.last_access = time.time()
-        return already, scheduled
-
     def schedule_missing(
         self,
         task_id: str,
@@ -202,27 +164,6 @@ class FrameCache:
                     task.pending[idx] = future
             task.last_access = time.time()
         return already, pending_or_scheduled
-
-    def ensure_encoded(
-        self,
-        task_id: str,
-        frame_idx: int,
-        encode_fn: Callable[[int], object],
-        timeout: Optional[float] = None,
-    ) -> object:
-        """Block until frame_idx is encoded; schedule inline if not already pending."""
-        task = self._get_or_create(task_id)
-        with task.lock:
-            if frame_idx in task.embeddings:
-                task.last_access = time.time()
-                return task.embeddings[frame_idx]
-            future = task.pending.get(frame_idx)
-            if future is None:
-                future = self._pool.submit(self._encode_and_store, task, frame_idx, encode_fn)
-                task.pending[frame_idx] = future
-        future.result(timeout=timeout)
-        with task.lock:
-            return task.embeddings[frame_idx]
 
     def stats(self) -> dict:
         with self._global_lock:
@@ -272,25 +213,6 @@ class FrameCache:
 
         for future in pending:
             future.cancel()
-
-    def _encode_and_store(self, task: _TaskCache, frame_idx: int, encode_fn: Callable[[int], object]) -> None:
-        if not self._task_is_current(task):
-            return
-
-        try:
-            embedding = encode_fn(frame_idx)
-        except Exception:
-            logger.exception("encode failed task=%s frame=%s", task.task_id, frame_idx)
-            with task.lock:
-                task.pending.pop(frame_idx, None)
-            raise
-
-        if not self._task_is_current(task):
-            with task.lock:
-                task.pending.pop(frame_idx, None)
-            return
-
-        self._store_embeddings(task, {frame_idx: embedding}, [frame_idx])
 
     def _encode_batch_and_store(
         self,
@@ -363,8 +285,10 @@ class FrameCache:
         expired_tasks: List[_TaskCache] = []
         with self._global_lock:
             for tid, t in self._tasks.items():
-                if now - t.last_access > self.ttl_seconds and len(t.embeddings) > 0:
-                    expired.append(tid)
+                with t.lock:
+                    idle = now - t.last_access > self.ttl_seconds
+                    if idle and not t.pending:
+                        expired.append(tid)
             for tid in expired:
                 t = self._tasks.pop(tid, None)
                 if t is not None:

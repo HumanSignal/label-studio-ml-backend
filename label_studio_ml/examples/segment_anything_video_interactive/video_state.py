@@ -334,34 +334,6 @@ class VideoRegistry:
         finally:
             self._release_entry(key, entry)
 
-    def get(
-        self,
-        task_id: str,
-        raw_url: Optional[str] = None,
-    ) -> Optional[VideoHandle]:
-        with self._lock:
-            for (entry_task_id, entry_raw_url), entry in self._entries.items():
-                if entry_task_id != task_id:
-                    continue
-                if raw_url is not None and entry_raw_url != raw_url:
-                    continue
-                if entry.future.done() and entry.future.exception() is None:
-                    handle = entry.future.result()
-                    if self._handle_missing(handle):
-                        continue
-                    entry.last_access = time.time()
-                    return handle
-            return None
-
-    def get_or_create(
-        self,
-        task_id: str,
-        source: str,
-        headers: Optional[Dict[str, str]] = None,
-        raw_url: Optional[str] = None,
-    ) -> VideoHandle:
-        return self.open_handle(task_id, source, headers=headers, raw_url=raw_url)
-
     def open_handle(
         self,
         task_id: str,
