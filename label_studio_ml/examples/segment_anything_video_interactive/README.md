@@ -68,14 +68,28 @@ project's control tag.
 | `MODEL_CONFIG` | `configs/sam2.1/sam2.1_hiera_l.yaml` | SAM2 config name (Hydra path inside the SAM2 repo). Size must match the checkpoint |
 | `MODEL_CHECKPOINT` | `sam2.1_hiera_large.pt` | SAM2 checkpoint filename. For tiny: config `configs/sam2.1/sam2.1_hiera_t.yaml` + checkpoint `sam2.1_hiera_tiny.pt` |
 | `WINDOW_SIZE` | `20` | default prewarm window if client omits `window` |
+| `MAX_PREWARM_WINDOW` | `20` | hard cap for client-requested prewarm `window` |
+| `MAX_BATCH_DECODE_FRAMES` | `16` | max contiguous raw frames decoded per prewarm batch before splitting work |
 | `MAX_CACHED_FRAMES_PER_TASK` | `500` | hard frame-count ceiling per task |
 | `MAX_TASK_CACHE_MB` | `2048` | hard byte ceiling per task |
 | `MAX_GLOBAL_CACHE_MB` | `8192` | hard byte ceiling across all tasks |
 | `TASK_CACHE_TTL_SECONDS` | `1800` | drop idle task caches after this long |
+| `FRAME_ENCODER_WORKERS` | `1` | max concurrent frame-embedding encodes; keep at 1 for one GPU to avoid memory spikes |
+| `TRACK_SESSION_TTL_SECONDS` | `300` | drop completed/cancelled tracking sessions after this idle period |
+| `TRACK_SESSION_MAX_AGE_SECONDS` | `1800` | cancel/drop abandoned tracking sessions after this absolute age |
+| `TRACKING_WORKERS` | `1` | max concurrent SAM2 video propagation jobs per process |
+| `MAX_TRACKING_SESSIONS` | `1` | max active + queued tracking sessions; extra track requests return busy |
+| `TRACKING_RELEASE_MEMORY` | `1` | after each tracking job, tear down SAM2 state and trim PyTorch allocator caches so RSS can drop |
+| `TRACKING_ON_DEMAND_FRAMES` | `1` | decode SAM2 tracking frames on demand with a tiny LRU instead of caching every resized frame tensor |
+| `TRACKING_FRAME_CACHE_SIZE` | `2` | number of normalized frame tensors to keep during on-demand tracking |
 | `LS_FETCH_RETRY_ATTEMPTS` | `4` | ffmpeg/ffprobe retries on an LS HTTP 429 |
 | `LS_FETCH_RETRY_BASE_DELAY` | `1.0` | base backoff (s) between 429 retries (exponential + jitter) |
 | `LS_FETCH_RETRY_MAX_DELAY` | `30.0` | cap (s) on a single backoff delay |
 | `LABEL_STUDIO_URL` / `LABEL_STUDIO_API_KEY` | — | needed to fetch task assets from LS |
+
+The backend enforces `WORKERS=1` at startup because the model, accelerator
+semaphore, video registry, and frame cache are process-local and this example is
+intended for a single GPU.
 
 `LABEL_STUDIO_API_KEY` accepts either token type:
 
@@ -88,10 +102,10 @@ project's control tag.
 Cloud-backed projects put the raw provider URI in task data (`s3://bucket/key.mp4`,
 `gs://…`, `azure-blob://…`). Those can't be streamed — only LS can resolve them,
 via `/tasks/<id>/presign/` — so the backend downloads them through the SDK and
-decodes locally. External HTTP(S) assets are still range-streamed. LS-hosted
-HTTP(S) uploads are downloaded once by default; set
-`LABEL_STUDIO_STREAM_LS_UPLOADS=true` only for deployments where direct range
-streaming is reliable.
+decodes locally. LS-hosted uploads are also downloaded through the SDK rather
+than streamed with auth headers: ffmpeg forwards custom headers across redirects,
+which can leak the LS token if the response redirects to another origin. External
+HTTP(S) assets are still range-streamed without LS auth.
 
 ## Running locally (no Docker)
 
@@ -99,7 +113,7 @@ streaming is reliable.
    ```bash
    cd label_studio_ml/examples/segment_anything_video_interactive
    git clone https://github.com/facebookresearch/segment-anything-2.git
-   (cd segment-anything-2 && pip install -e . && cd checkpoints && ./download_ckpts.sh)
+   (cd segment-anything-2 && git checkout 2b90b9f5ceec907a1c18123530e92e794ad901a4 && pip install -e . && cd checkpoints && ./download_ckpts.sh)
    ```
 2. Install backend requirements (from the repo root):
    ```bash

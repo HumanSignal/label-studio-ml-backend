@@ -39,13 +39,17 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements.txt
 
-# Install segment-anything-2. Override SAM2_REF with a branch/tag/commit for reproducible builds.
-ARG SAM2_REF=main
-RUN git clone --depth 1 --branch "${SAM2_REF}" --single-branch \
-        https://github.com/facebookresearch/segment-anything-2.git "${SEGMENT_ANYTHING_2_REPO_PATH}"
-WORKDIR ${SEGMENT_ANYTHING_2_REPO_PATH}
+# Install segment-anything-2 at a tested commit. Override SAM2_REF only when
+# intentionally validating a newer SAM2 build.
+ARG SAM2_REF=2b90b9f5ceec907a1c18123530e92e794ad901a4
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip install -e .
+    git init "${SEGMENT_ANYTHING_2_REPO_PATH}" \
+    && git -C "${SEGMENT_ANYTHING_2_REPO_PATH}" remote add origin \
+        https://github.com/facebookresearch/segment-anything-2.git \
+    && git -C "${SEGMENT_ANYTHING_2_REPO_PATH}" fetch --depth 1 origin "${SAM2_REF}" \
+    && git -C "${SEGMENT_ANYTHING_2_REPO_PATH}" checkout --detach FETCH_HEAD \
+    && pip install -e "${SEGMENT_ANYTHING_2_REPO_PATH}" \
+    && rm -rf "${SEGMENT_ANYTHING_2_REPO_PATH}/.git"
 
 # Download only the checkpoint the server actually uses (MODEL_CHECKPOINT in docker-compose.yml /
 # model.py defaults to sam2.1_hiera_large). Override SAM2_CHECKPOINT_URL for a different size, or

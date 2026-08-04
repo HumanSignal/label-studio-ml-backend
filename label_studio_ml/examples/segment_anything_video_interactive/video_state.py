@@ -15,8 +15,10 @@ import random
 import subprocess
 import threading
 import time
+from concurrent.futures import Future
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import cv2
@@ -163,6 +165,7 @@ class VideoHandle:
     fps: float
     is_streaming: bool = False
     headers: Optional[Dict[str, str]] = None
+    raw_url: Optional[str] = None
     lock: threading.RLock = field(default_factory=threading.RLock)
     _reader: Optional[cv2.VideoCapture] = None
     _last_frame_idx: int = -1
@@ -294,62 +297,204 @@ class VideoHandle:
         return written
 
 
-class VideoRegistry:
-    """Maps task_id to a VideoHandle. Supports local files and HTTP streaming."""
+@dataclass
+class _VideoEntry:
+    task_id: str
+    raw_url: str
+    future: Future
+    handle: Optional[VideoHandle] = None
+    leases: int = 0
+    drop_requested: bool = False
+    last_access: float = field(default_factory=time.time)
 
-    def __init__(self):
-        self._handles: Dict[str, VideoHandle] = {}
+
+class VideoRegistry:
+    """Lease-safe per-task video registry with single-flight resolution."""
+
+    def __init__(self, ttl_seconds: float = 1800):
+        self.ttl_seconds = ttl_seconds
+        self._entries: Dict[Tuple[str, str], _VideoEntry] = {}
         self._lock = threading.RLock()
 
-    def get_or_create(
+    @contextmanager
+    def acquire(
+        self,
+        task_id: str,
+        raw_url: str,
+        resolve_fn: Callable[[], VideoHandle],
+    ) -> Iterator[VideoHandle]:
+        key = (task_id, raw_url)
+        entry, creator = self._entry_for_acquire(key, resolve_fn)
+        try:
+            handle = entry.future.result()
+            with self._lock:
+                entry.handle = handle
+                entry.last_access = time.time()
+            yield handle
+        finally:
+            self._release_entry(key, entry)
+
+    def open_handle(
         self,
         task_id: str,
         source: str,
         headers: Optional[Dict[str, str]] = None,
+        raw_url: Optional[str] = None,
     ) -> VideoHandle:
+        is_streaming = source.startswith("http://") or source.startswith("https://")
+
+        if is_streaming:
+            info = _probe_video(source, headers)
+            w, h, frame_count, fps = _parse_probe(info)
+        else:
+            cap = cv2.VideoCapture(source)
+            if not cap.isOpened():
+                raise RuntimeError(f"failed to open video: {source}")
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = float(cap.get(cv2.CAP_PROP_FPS)) or 0.0
+            cap.release()
+
+        handle = VideoHandle(
+            task_id=task_id,
+            source=source,
+            width=w,
+            height=h,
+            frame_count=frame_count,
+            fps=fps,
+            is_streaming=is_streaming,
+            headers=headers if is_streaming else None,
+            raw_url=raw_url,
+        )
+        mode = "streaming" if is_streaming else "local"
+        source_kind = "url" if is_streaming else "local"
+        logger.info(
+            "video registered [%s] task_id=%s source_kind=%s w=%s h=%s frames=%s fps=%.2f",
+            mode, task_id, source_kind, w, h, frame_count, fps,
+        )
+        return handle
+
+    def retain(self, handle: VideoHandle) -> Callable[[], None]:
+        """Hold a lease for background work that outlives request handling."""
+        retained_key: Optional[Tuple[str, str]] = None
+        retained_entry: Optional[_VideoEntry] = None
         with self._lock:
-            handle = self._handles.get(task_id)
-            if handle is not None and handle.source == source:
-                return handle
-            if handle is not None:
-                handle.close()
+            for key, entry in self._entries.items():
+                resolved = self._resolved_handle(entry)
+                if resolved is handle:
+                    entry.leases += 1
+                    entry.last_access = time.time()
+                    retained_key = key
+                    retained_entry = entry
+                    break
+        if retained_key is None or retained_entry is None:
+            return lambda: None
 
-            is_streaming = source.startswith("http://") or source.startswith("https://")
+        released = False
+        release_lock = threading.Lock()
 
-            if is_streaming:
-                info = _probe_video(source, headers)
-                w, h, frame_count, fps = _parse_probe(info)
-            else:
-                cap = cv2.VideoCapture(source)
-                if not cap.isOpened():
-                    raise RuntimeError(f"failed to open video: {source}")
-                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                fps = float(cap.get(cv2.CAP_PROP_FPS)) or 0.0
-                cap.release()
+        def release() -> None:
+            nonlocal released
+            with release_lock:
+                if released:
+                    return
+                released = True
+            self._release_entry(retained_key, retained_entry)
 
-            handle = VideoHandle(
-                task_id=task_id,
-                source=source,
-                width=w,
-                height=h,
-                frame_count=frame_count,
-                fps=fps,
-                is_streaming=is_streaming,
-                headers=headers if is_streaming else None,
-            )
-            self._handles[task_id] = handle
-            mode = "streaming" if is_streaming else "local"
-            source_kind = "url" if is_streaming else "local"
-            logger.info(
-                "video registered [%s] task_id=%s source_kind=%s w=%s h=%s frames=%s fps=%.2f",
-                mode, task_id, source_kind, w, h, frame_count, fps,
-            )
-            return handle
+        return release
 
     def drop(self, task_id: str) -> None:
+        to_close: List[VideoHandle] = []
         with self._lock:
-            handle = self._handles.pop(task_id, None)
-            if handle is not None:
-                handle.close()
+            for key, entry in list(self._entries.items()):
+                if key[0] != task_id:
+                    continue
+                entry.drop_requested = True
+                if entry.leases == 0:
+                    self._entries.pop(key, None)
+                    handle = self._resolved_handle(entry)
+                    if handle is not None:
+                        to_close.append(handle)
+        for handle in to_close:
+            handle.close()
+
+    def expire_idle(self, ttl_seconds: Optional[float] = None) -> None:
+        ttl = self.ttl_seconds if ttl_seconds is None else ttl_seconds
+        now = time.time()
+        to_close: List[VideoHandle] = []
+        with self._lock:
+            for key, entry in list(self._entries.items()):
+                if entry.leases > 0 or now - entry.last_access <= ttl:
+                    continue
+                self._entries.pop(key, None)
+                handle = self._resolved_handle(entry)
+                if handle is not None:
+                    to_close.append(handle)
+        for handle in to_close:
+            handle.close()
+
+    def _entry_for_acquire(
+        self,
+        key: Tuple[str, str],
+        resolve_fn: Callable[[], VideoHandle],
+    ) -> Tuple[_VideoEntry, bool]:
+        with self._lock:
+            entry = self._entries.get(key)
+            stale = (
+                entry is not None
+                and entry.leases == 0
+                and (entry.drop_requested or self._entry_is_missing(entry))
+            )
+            if entry is None or stale:
+                if entry is not None:
+                    handle = self._resolved_handle(entry)
+                    if handle is not None:
+                        handle.close()
+                future: Future = Future()
+                entry = _VideoEntry(task_id=key[0], raw_url=key[1], future=future)
+                self._entries[key] = entry
+                creator = True
+            else:
+                creator = False
+            entry.leases += 1
+            entry.last_access = time.time()
+
+        if creator:
+            try:
+                handle = resolve_fn()
+            except Exception as exc:
+                with self._lock:
+                    self._entries.pop(key, None)
+                entry.future.set_exception(exc)
+                raise
+            else:
+                entry.handle = handle
+                entry.future.set_result(handle)
+        return entry, creator
+
+    def _release_entry(self, key: Tuple[str, str], entry: _VideoEntry) -> None:
+        handle_to_close: Optional[VideoHandle] = None
+        with self._lock:
+            entry.leases = max(0, entry.leases - 1)
+            entry.last_access = time.time()
+            if entry.leases == 0 and entry.drop_requested:
+                self._entries.pop(key, None)
+                handle_to_close = self._resolved_handle(entry)
+        if handle_to_close is not None:
+            handle_to_close.close()
+
+    def _entry_is_missing(self, entry: _VideoEntry) -> bool:
+        handle = self._resolved_handle(entry)
+        return handle is not None and self._handle_missing(handle)
+
+    def _resolved_handle(self, entry: _VideoEntry) -> Optional[VideoHandle]:
+        if not entry.future.done() or entry.future.cancelled():
+            return entry.handle
+        try:
+            return entry.future.result()
+        except Exception:
+            return entry.handle
+
+    def _handle_missing(self, handle: VideoHandle) -> bool:
+        return not handle.is_streaming and not os.path.exists(handle.source)

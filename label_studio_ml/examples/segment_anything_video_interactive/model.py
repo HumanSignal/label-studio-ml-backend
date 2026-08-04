@@ -17,12 +17,18 @@ polygonlabels / videorectangle).
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
 import pathlib
+import queue
+import shutil
 import tempfile
 import threading
 import time
+from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager, nullcontext
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -32,11 +38,12 @@ import torch
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.response import ModelResponse
 from label_studio_sdk.label_interface.objects import PredictionValue
+from PIL import Image
 
 from control_detect import control_to_type, detect_control
 from frame_cache import FrameCache
 from frame_resolve import resolve_frame_index
-from ls_auth import ls_auth_headers, ls_token_for_sdk
+from ls_auth import ls_token_for_sdk
 from url_auth import should_attach_ls_auth
 from mask_encoding import (
     mask_to_bbox_percent,
@@ -55,7 +62,16 @@ SEGMENT_ANYTHING_2_REPO_PATH = os.getenv("SEGMENT_ANYTHING_2_REPO_PATH", "segmen
 MODEL_CONFIG = os.getenv("MODEL_CONFIG", "configs/sam2.1/sam2.1_hiera_l.yaml")
 MODEL_CHECKPOINT = os.getenv("MODEL_CHECKPOINT", "sam2.1_hiera_large.pt")
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "20"))
-MAX_FRAMES_TO_TRACK = int(os.getenv("MAX_FRAMES_TO_TRACK", "300"))
+MAX_PREWARM_WINDOW = max(0, int(os.getenv("MAX_PREWARM_WINDOW", str(WINDOW_SIZE))))
+MAX_FRAMES_TO_TRACK = max(0, int(os.getenv("MAX_FRAMES_TO_TRACK", "300")))
+MAX_BATCH_DECODE_FRAMES = max(1, int(os.getenv("MAX_BATCH_DECODE_FRAMES", "16")))
+
+try:
+    SERVER_WORKERS = int(os.getenv("WORKERS", "1"))
+except ValueError as e:
+    raise RuntimeError("WORKERS must be an integer; this single-GPU backend requires WORKERS=1") from e
+if SERVER_WORKERS != 1:
+    raise RuntimeError("This single-GPU SAM2 backend requires WORKERS=1")
 
 # Schemes LS stores verbatim in task data for cloud-backed projects; kept in
 # sync with the SDK's own check in `label_studio_tools.core.utils.io`.
@@ -80,14 +96,19 @@ TRACK_PROGRESS_WAIT_SECONDS = float(os.getenv("TRACK_PROGRESS_WAIT_SECONDS", "5.
 TRACK_PROGRESS_BATCH_WINDOW_SECONDS = float(
     os.getenv("TRACK_PROGRESS_BATCH_WINDOW_SECONDS", "0.25")
 )
-TRACK_PROGRESS_MAX_BATCH = int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32"))
+TRACK_PROGRESS_MAX_BATCH = max(1, int(os.getenv("TRACK_PROGRESS_MAX_BATCH", "32")))
+TRACK_SESSION_TTL_SECONDS = float(os.getenv("TRACK_SESSION_TTL_SECONDS", "300"))
+TRACK_SESSION_MAX_AGE_SECONDS = float(os.getenv("TRACK_SESSION_MAX_AGE_SECONDS", "1800"))
+TRACKING_WORKERS = int(os.getenv("TRACKING_WORKERS", "1"))
+MAX_TRACKING_SESSIONS = max(1, int(os.getenv("MAX_TRACKING_SESSIONS", str(max(1, TRACKING_WORKERS)))))
+TRACKING_RELEASE_MEMORY = os.getenv("TRACKING_RELEASE_MEMORY", "1").lower() in {"1", "true", "yes", "on"}
+TRACKING_ON_DEMAND_FRAMES = os.getenv("TRACKING_ON_DEMAND_FRAMES", "1").lower() in {"1", "true", "yes", "on"}
+TRACKING_FRAME_CACHE_SIZE = int(os.getenv("TRACKING_FRAME_CACHE_SIZE", "2"))
 
-# Label Studio's authenticated upload endpoints are not always reliable as
-# ffmpeg streaming inputs: local dev / nginx modes can return partial bodies,
-# and prewarm bursts can trigger 429s. Default to one authenticated download for
-# LS-hosted uploads, while still allowing explicit streaming for deployments
-# where range requests are known to work well.
-STREAM_LS_UPLOADS = os.getenv("LABEL_STUDIO_STREAM_LS_UPLOADS", "").lower() in {"1", "true", "yes", "on"}
+# Authenticated LS-hosted videos are intentionally downloaded through the SDK.
+# ffmpeg forwards custom headers across redirects, so streaming them directly
+# can leak the LS Authorization header to a redirected origin. External HTTP(S)
+# videos still stream without LS auth.
 
 # Stop-tracking thresholds (see _run_tracking).
 # SAM2's mask decoder emits a per-frame object_score_logits; convention is
@@ -102,17 +123,16 @@ MAX_FOREGROUND_RATIO = float(os.getenv("SAM_MAX_FOREGROUND_RATIO", "0.7"))
 # SAM2 model loading
 # ---------------------------------------------------------------------------
 
-
 def _build_models():
-    """Lazily build the SAM2 models (weights only, shared across threads).
+    """Lazily build the SAM2 model (weights only, shared across threads).
 
-    Returns (image_model, video_predictor). The image_model is wrapped in a
-    per-call SAM2ImagePredictor at use sites — no shared mutable state.
+    Returns (image_model, video_predictor). The image predictor can use the
+    video predictor because SAM2VideoPredictor is a SAM2Base subclass. Sharing
+    that one module avoids keeping two full SAM2-L copies resident.
     """
-    from sam2.build_sam import build_sam2, build_sam2_video_predictor
+    from sam2.build_sam import build_sam2_video_predictor
 
     if DEVICE == "cuda" and torch.cuda.is_available():
-        torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
         if torch.cuda.get_device_properties(0).major >= 8:
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
@@ -120,8 +140,8 @@ def _build_models():
     ckpt = str(
         pathlib.Path(__file__).parent / SEGMENT_ANYTHING_2_REPO_PATH / "checkpoints" / MODEL_CHECKPOINT
     )
-    image_model = build_sam2(MODEL_CONFIG, ckpt, device=DEVICE)
     video_predictor = build_sam2_video_predictor(MODEL_CONFIG, ckpt, device=DEVICE)
+    image_model = video_predictor
 
     # Pre-warm torch.jit.script by creating one throwaway predictor on the
     # main thread. Subsequent SAM2ImagePredictor() calls reuse the cached
@@ -134,6 +154,24 @@ def _build_models():
 
 _models: Optional[Tuple[Any, Any]] = None
 _models_lock = threading.Lock()
+_ACCELERATOR = threading.BoundedSemaphore(1)
+
+
+@contextmanager
+def _accelerator_slot():
+    """Serialize GPU/MPS-heavy SAM2 calls across request and worker threads."""
+    _ACCELERATOR.acquire()
+    try:
+        if DEVICE == "cuda" and torch.cuda.is_available():
+            # Autocast state is thread-local, so it must be entered in the
+            # request/executor thread performing inference rather than once
+            # during model construction.
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                yield
+        else:
+            yield
+    finally:
+        _ACCELERATOR.release()
 
 
 def get_models():
@@ -158,6 +196,155 @@ def get_video_predictor():
     return video_predictor
 
 
+def _load_sam2_jpeg_as_tensor(img_path: str, image_size: int) -> Tuple[torch.Tensor, int, int]:
+    """Load one extracted JPEG like SAM2's utility, but as float32."""
+    with Image.open(img_path) as img_pil:
+        video_width, video_height = img_pil.size
+        img_np = np.array(img_pil.convert("RGB").resize((image_size, image_size)))
+    if img_np.dtype != np.uint8:
+        raise RuntimeError(f"Unknown image dtype: {img_np.dtype} on {img_path}")
+    img_np = img_np.astype(np.float32) / 255.0
+    img = torch.from_numpy(img_np).permute(2, 0, 1)
+    return img, video_height, video_width
+
+
+class _OnDemandSam2FrameLoader:
+    """Small LRU frame loader for SAM2 tracking.
+
+    Upstream AsyncVideoFrameLoader eventually stores every resized frame tensor
+    in memory. For tracking, SAM2 only needs the current image; temporal memory
+    comes from maskmem outputs, not old RGB frames. This loader keeps a tiny LRU
+    of normalized frame tensors and decodes the rest on demand.
+    """
+
+    def __init__(
+        self,
+        img_paths: List[str],
+        image_size: int,
+        offload_video_to_cpu: bool,
+        img_mean: torch.Tensor,
+        img_std: torch.Tensor,
+        compute_device,
+        cache_size: int,
+    ):
+        if not img_paths:
+            raise RuntimeError("no images found for SAM2 tracking")
+        self.img_paths = img_paths
+        self.image_size = image_size
+        self.offload_video_to_cpu = offload_video_to_cpu
+        self.img_mean = img_mean
+        self.img_std = img_std
+        self.compute_device = compute_device
+        self.cache_size = max(0, cache_size)
+        self._cache = OrderedDict()
+        self._closed = False
+        self._lock = threading.RLock()
+        with Image.open(img_paths[0]) as img_pil:
+            self.video_width, self.video_height = img_pil.size
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, index: int):
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("SAM2 frame loader is closed")
+            cached = self._cache.get(index)
+            if cached is not None:
+                self._cache.move_to_end(index)
+                return cached
+
+        img, video_height, video_width = _load_sam2_jpeg_as_tensor(
+            self.img_paths[index], self.image_size
+        )
+        self.video_height = video_height
+        self.video_width = video_width
+        img -= self.img_mean
+        img /= self.img_std
+        if not self.offload_video_to_cpu:
+            img = img.to(self.compute_device, non_blocking=True)
+
+        with self._lock:
+            if self._closed:
+                return img
+            if self.cache_size > 0:
+                self._cache[index] = img
+                self._cache.move_to_end(index)
+                while len(self._cache) > self.cache_size:
+                    self._cache.popitem(last=False)
+        return img
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            self._cache.clear()
+
+
+def _sam2_jpeg_paths(frame_dir: str) -> List[str]:
+    names = [
+        name for name in os.listdir(frame_dir)
+        if os.path.splitext(name)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
+    ]
+    names.sort(key=lambda name: int(os.path.splitext(name)[0]))
+    return [os.path.join(frame_dir, name) for name in names]
+
+
+def _init_tracking_inference_state(video_predictor, frame_dir: str, use_on_demand_frames: bool):
+    bootstrap_dir = None
+    init_video_path = frame_dir
+    if use_on_demand_frames and DEVICE == "mps":
+        # The pinned async loader creates float64 tensors that MPS cannot move
+        # during init_state's frame-zero warmup. Synchronous initialization is
+        # dtype-safe but normally loads every frame, defeating the bounded
+        # loader. Bootstrap SAM2 from one copied frame, then install the full
+        # on-demand sequence below.
+        frame_paths = _sam2_jpeg_paths(frame_dir)
+        if not frame_paths:
+            raise RuntimeError("no images found for SAM2 tracking")
+        bootstrap_dir = tempfile.TemporaryDirectory()
+        shutil.copyfile(
+            frame_paths[0],
+            os.path.join(bootstrap_dir.name, "00000.jpg"),
+        )
+        init_video_path = bootstrap_dir.name
+
+    try:
+        inference_state = video_predictor.init_state(
+            video_path=init_video_path,
+            # The pinned SAM2 async loader creates float64 frame tensors and its
+            # init_state warmup moves frame zero to the target device before this
+            # backend can replace the loader. MPS cannot perform that transfer.
+            async_loading_frames=(DEVICE != "mps"),
+            offload_video_to_cpu=True,
+        )
+    finally:
+        if bootstrap_dir is not None:
+            bootstrap_dir.cleanup()
+    if not use_on_demand_frames:
+        return inference_state
+
+    old_images = inference_state.get("images")
+    compute_device = video_predictor.device
+    img_mean = torch.tensor((0.485, 0.456, 0.406), dtype=torch.float32)[:, None, None]
+    img_std = torch.tensor((0.229, 0.224, 0.225), dtype=torch.float32)[:, None, None]
+    images = _OnDemandSam2FrameLoader(
+        _sam2_jpeg_paths(frame_dir),
+        video_predictor.image_size,
+        offload_video_to_cpu=True,
+        img_mean=img_mean,
+        img_std=img_std,
+        compute_device=compute_device,
+        cache_size=TRACKING_FRAME_CACHE_SIZE,
+    )
+    inference_state["images"] = images
+    inference_state["num_frames"] = len(images)
+    inference_state["video_height"] = images.video_height
+    inference_state["video_width"] = images.video_width
+    inference_state["cached_features"] = {}
+    _stop_sam2_frame_loader(old_images)
+    return inference_state
+
+
 # ---------------------------------------------------------------------------
 # Shared per-process state
 # ---------------------------------------------------------------------------
@@ -178,61 +365,95 @@ except Exception as e:
 # Tracking sessions — background SAM2 propagation with poll-based progress
 # ---------------------------------------------------------------------------
 
-from collections import deque
 
 
 class TrackingSession:
     """Holds state for an async tracking job. The background thread appends
     frame masks; the frontend polls for new ones via track_progress."""
 
-    def __init__(self, session_id: str, total_frames: int, producers: int = 1):
+    def __init__(self, session_id: str, total_frames: int, task_id: Optional[str] = None):
         self.session_id = session_id
+        self.task_id = task_id
         self.total_frames = total_frames
-        self.frames: List[Dict[str, Any]] = []
-        self.cursor = 0  # how many frames the client has fetched
+        self.frames: queue.Queue[Dict[str, Any]] = queue.Queue(
+            maxsize=max(1, TRACK_PROGRESS_MAX_BATCH * 4)
+        )
+        self.produced = 0
+        self.created_at = time.time()
+        self.last_access = self.created_at
+        self.completed_at: Optional[float] = None
         self.done = False
         self.error: Optional[str] = None
         self.cancelled = False
-        # Bidirectional tracking runs two producer threads sharing this
-        # session; we only flip `done` after all of them report in.
-        self._remaining_producers = max(1, producers)
+        self.futures: List[Future] = []
+        self._remaining_producers = 1
         self.lock = threading.RLock()
         # Signaled whenever there's something new for a poller to see:
         # a frame was appended, the session finished, errored, or was cancelled.
         self.new_data_event = threading.Event()
 
     def append_frame(self, frame_data: Dict[str, Any]):
+        while True:
+            with self.lock:
+                if self.cancelled:
+                    return
+            try:
+                self.frames.put(frame_data, timeout=0.5)
+                break
+            except queue.Full:
+                continue
         with self.lock:
-            self.frames.append(frame_data)
+            self.produced += 1
         self.new_data_event.set()
 
-    def drain_new(self) -> Tuple[List[Dict[str, Any]], int, bool]:
-        """Return (new_frames, total_produced, is_done)."""
+    def drain_new(self, limit: int = TRACK_PROGRESS_MAX_BATCH) -> Tuple[List[Dict[str, Any]], int, bool]:
+        """Return up to limit new frames, total produced, and visible done state."""
+        limit = max(0, limit)
+        new: List[Dict[str, Any]] = []
+        while len(new) < limit:
+            try:
+                new.append(self.frames.get_nowait())
+            except queue.Empty:
+                break
         with self.lock:
-            new = self.frames[self.cursor:]
-            self.cursor = len(self.frames)
-            return new, len(self.frames), self.done
+            self.last_access = time.time()
+            done = self.done and self.frames.empty()
+            return new, self.produced, done
 
     def finish(self):
         """Single-producer shorthand: mark the session done immediately."""
         with self.lock:
             self.done = True
             self._remaining_producers = 0
+            self.completed_at = time.time()
         self.new_data_event.set()
 
     def producer_done(self):
-        """One of N parallel producers reports completion. The session only
-        flips to `done=True` after every producer has called this — the FE
-        long-poller keeps getting fresh frames from any still-running
-        direction until then."""
+        """Mark the single tracking producer finished."""
         with self.lock:
             self._remaining_producers = max(0, self._remaining_producers - 1)
             if self._remaining_producers == 0:
                 self.done = True
+                self.completed_at = time.time()
         self.new_data_event.set()
 
+    def add_future(self, future: Future) -> None:
+        with self.lock:
+            if self.cancelled:
+                future.cancel()
+                return
+            self.futures.append(future)
+
     def cancel(self):
-        self.cancelled = True
+        with self.lock:
+            self.cancelled = True
+            self.done = True
+            self._remaining_producers = 0
+            self.completed_at = time.time()
+            self.last_access = self.completed_at
+            futures = list(self.futures)
+        for future in futures:
+            future.cancel()
         self.new_data_event.set()
 
     def wait_for_new_data(self, timeout: float) -> bool:
@@ -247,7 +468,262 @@ class TrackingSession:
 
 
 _tracking_sessions: Dict[str, TrackingSession] = {}
+_tracking_reservations: set[str] = set()
 _tracking_lock = threading.RLock()
+_tracking_executor = ThreadPoolExecutor(
+    max_workers=max(1, TRACKING_WORKERS),
+    thread_name_prefix="sam2-track",
+)
+
+
+@contextmanager
+def _tracking_capacity_reservation():
+    """Reserve tracking capacity before resolving or downloading task media."""
+    _cleanup_tracking_sessions()
+    token: Optional[str] = None
+    with _tracking_lock:
+        resident = len(_tracking_sessions) + len(_tracking_reservations)
+        if resident < MAX_TRACKING_SESSIONS:
+            token = str(uuid4())
+            _tracking_reservations.add(token)
+    try:
+        yield token, resident
+    finally:
+        if token is not None:
+            with _tracking_lock:
+                _tracking_reservations.discard(token)
+
+
+def _cleanup_tracking_sessions() -> None:
+    now = time.time()
+    expired: List[str] = []
+    to_cancel: List[TrackingSession] = []
+    with _tracking_lock:
+        for session_id, session in list(_tracking_sessions.items()):
+            with session.lock:
+                age = now - session.created_at
+                completed_at = session.completed_at or session.last_access
+                done_ttl = session.done and now - completed_at > TRACK_SESSION_TTL_SECONDS
+                max_age = age > TRACK_SESSION_MAX_AGE_SECONDS
+                if done_ttl or max_age:
+                    if max_age and not session.done:
+                        to_cancel.append(session)
+                    expired.append(session_id)
+        for session_id in expired:
+            _tracking_sessions.pop(session_id, None)
+    for session in to_cancel:
+        session.cancel()
+    FRAME_CACHE.expire_idle()
+    VIDEOS.expire_idle()
+    if expired:
+        logger.info("cleaned up %d tracking sessions", len(expired))
+
+
+def _tracking_cleanup_loop() -> None:
+    interval = max(30.0, min(TRACK_SESSION_TTL_SECONDS, 300.0))
+    while True:
+        time.sleep(interval)
+        try:
+            _cleanup_tracking_sessions()
+        except Exception:
+            logger.exception("tracking session cleanup failed")
+
+
+threading.Thread(target=_tracking_cleanup_loop, name="tracking-session-cleanup", daemon=True).start()
+
+
+def _stop_sam2_frame_loader(images: Any) -> None:
+    close = getattr(images, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            logger.debug("failed to close SAM2 frame loader", exc_info=True)
+        return
+
+    if hasattr(images, "images"):
+        # Upstream AsyncVideoFrameLoader does not expose close(). Signal the
+        # thread to stop, wait briefly, then clear loaded tensors.
+        try:
+            images.exception = RuntimeError("SAM2 frame loader closed")
+        except Exception:
+            pass
+        thread = getattr(images, "thread", None)
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+        if thread is None or not thread.is_alive():
+            try:
+                images.images = []
+            except Exception:
+                logger.debug("failed to clear SAM2 async frame loader", exc_info=True)
+
+
+def _release_sam2_inference_state(video_predictor: Any, inference_state: Optional[Dict[str, Any]]) -> None:
+    """Drop all per-track SAM2 state, including async-loaded frame tensors.
+
+    SAM2's video predictor keeps the resized video frames, cached backbone
+    features, and per-frame memory outputs inside the caller-owned
+    inference_state. In normal Python control flow those objects are released
+    when _run_tracking returns, but explicit teardown matters here because the
+    async frame loader can otherwise continue filling its tensor list after we
+    have already stopped tracking.
+    """
+    if not inference_state:
+        return
+
+    try:
+        if video_predictor is not None:
+            with _accelerator_slot():
+                video_predictor.reset_state(inference_state)
+    except Exception:
+        logger.debug("failed to reset SAM2 tracking state before release", exc_info=True)
+
+    _stop_sam2_frame_loader(inference_state.get("images"))
+
+    for key in (
+        "images",
+        "cached_features",
+        "constants",
+        "point_inputs_per_obj",
+        "mask_inputs_per_obj",
+        "output_dict_per_obj",
+        "temp_output_dict_per_obj",
+        "frames_tracked_per_obj",
+    ):
+        value = inference_state.get(key)
+        if hasattr(value, "clear"):
+            try:
+                value.clear()
+            except Exception:
+                pass
+        inference_state.pop(key, None)
+    inference_state.clear()
+
+
+def _release_tracking_allocator_memory() -> None:
+    """Best-effort return of allocator-held memory after a large tracking run."""
+    if not TRACKING_RELEASE_MEMORY:
+        return
+
+    gc.collect()
+
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+    except Exception:
+        logger.debug("failed to empty CUDA cache after tracking", exc_info=True)
+
+    try:
+        mps = getattr(torch, "mps", None)
+        if mps is not None and getattr(mps, "is_available", lambda: False)():
+            mps.empty_cache()
+    except Exception:
+        logger.debug("failed to empty MPS cache after tracking", exc_info=True)
+
+
+
+def _release_task_runtime_state(task_id: Optional[str], reason: str) -> None:
+    """Drop non-model runtime state associated with a task/video asset."""
+    if not task_id:
+        return
+    cache_stats = FRAME_CACHE.stats()
+    task_stats = cache_stats.get("per_task", {}).get(task_id, {})
+    FRAME_CACHE.drop_task(task_id)
+    VIDEOS.drop(task_id)
+    logger.info(
+        "released task runtime state task=%s reason=%s frame_cache_frames=%s frame_cache_bytes=%s",
+        task_id,
+        reason,
+        task_stats.get("frames", 0),
+        task_stats.get("bytes", 0),
+    )
+    _release_tracking_allocator_memory()
+
+
+def _contiguous_runs(indices: List[int]) -> List[List[int]]:
+    if not indices:
+        return []
+    runs: List[List[int]] = [[indices[0]]]
+    for idx in indices[1:]:
+        if idx == runs[-1][-1] + 1:
+            runs[-1].append(idx)
+        else:
+            runs.append([idx])
+    return runs
+
+
+def _chunks(items: List[int], chunk_size: int) -> List[List[int]]:
+    return [items[i: i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def _parse_bounded_int(
+    context: Dict[str, Any],
+    key: str,
+    default: int,
+    max_value: int,
+    *,
+    min_value: int = 0,
+) -> int:
+    raw = context.get(key, default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"{key} must be an integer") from e
+    if value < min_value:
+        raise ValueError(f"{key} must be >= {min_value}")
+    return min(value, max_value)
+
+
+def _parse_tracking_frame_limit(context: Dict[str, Any], fps: float) -> int:
+    if "max_duration_ms" in context and context.get("max_duration_ms") is not None:
+        try:
+            duration_ms = float(context.get("max_duration_ms"))
+        except (TypeError, ValueError) as e:
+            raise ValueError("max_duration_ms must be a number") from e
+        if duration_ms < 0:
+            raise ValueError("max_duration_ms must be >= 0")
+        requested = int(round((duration_ms / 1000.0) * fps)) if fps else MAX_FRAMES_TO_TRACK
+    else:
+        requested = _parse_bounded_int(
+            context,
+            "max_frames",
+            MAX_FRAMES_TO_TRACK,
+            MAX_FRAMES_TO_TRACK,
+            min_value=0,
+        )
+    return min(requested, MAX_FRAMES_TO_TRACK)
+
+
+def _build_tracking_ranges(
+    prompt_frame: int,
+    max_frames: int,
+    frame_count: int,
+    direction: str,
+) -> Tuple[List[Tuple[str, int, int, Optional[int]]], int]:
+    """Build tracking ranges and mark any frame that must not be emitted twice."""
+    fwd_start, fwd_end = prompt_frame, min(frame_count, prompt_frame + max_frames + 1)
+    bwd_start, bwd_end = max(0, prompt_frame - max_frames), prompt_frame + 1
+
+    if direction == "forward":
+        ranges = [("forward", fwd_start, fwd_end, None)]
+    elif direction == "backward":
+        ranges = [("backward", bwd_start, bwd_end, None)]
+    else:
+        # Both SAM2 passes need the prompt frame for initialization. Emit it
+        # from the forward pass only so progress and total_frames stay unique.
+        ranges = [
+            ("forward", fwd_start, fwd_end, None),
+            ("backward", bwd_start, bwd_end, prompt_frame),
+        ]
+
+    total = sum(end - start for _, start, end, _ in ranges)
+    total -= sum(
+        1
+        for _, start, end, skipped_frame in ranges
+        if skipped_frame is not None and start <= skipped_frame < end
+    )
+    return ranges, total
 
 
 def _resolve_be_frame(context: Dict[str, Any], video) -> int:
@@ -567,7 +1043,6 @@ class SamVideoInteractive(LabelStudioMLBase):
         if prompts["points"] is None and prompts["box"] is None:
             return PredictionValue(result=[])
 
-        image_predictor = make_image_predictor()
         image_url = self._image_url_from_task(task, to_name)
         ls_host, ls_token = self._ls_host_token()
         local_path = self.get_local_path(
@@ -583,17 +1058,18 @@ class SamVideoInteractive(LabelStudioMLBase):
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
         h, w = rgb.shape[:2]
 
-        image_predictor.set_image(rgb)
-
         points_abs = (prompts["points"] * np.array([w, h], dtype=np.float32)) if prompts["points"] is not None else None
         box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)) if prompts["box"] is not None else None
 
-        masks, scores, _ = image_predictor.predict(
-            point_coords=points_abs,
-            point_labels=prompts["labels"] if prompts["labels"] is not None else None,
-            box=box_abs,
-            multimask_output=True,
-        )
+        with _accelerator_slot():
+            image_predictor = make_image_predictor()
+            image_predictor.set_image(rgb)
+            masks, scores, _ = image_predictor.predict(
+                point_coords=points_abs,
+                point_labels=prompts["labels"] if prompts["labels"] is not None else None,
+                box=box_abs,
+                multimask_output=True,
+            )
         mask = _clean_mask(_pick_best_mask(masks, scores))
         return self._mask_response(mask, w, h, from_name, to_name)
 
@@ -613,9 +1089,7 @@ class SamVideoInteractive(LabelStudioMLBase):
     def _handle_video(self, task, task_id, context, event, from_name, to_name, control_type):
         # Lightweight events — no video setup needed
         if event == "release":
-            FRAME_CACHE.drop_task(task_id)
-            VIDEOS.drop(task_id)
-            logger.info("release: cleared cache for task %s", task_id)
+            _release_task_runtime_state(task_id, reason="release")
             return PredictionValue(result=[{
                 "value": {"status": "released"},
                 "from_name": from_name, "to_name": to_name,
@@ -624,72 +1098,88 @@ class SamVideoInteractive(LabelStudioMLBase):
             }])
 
         if event == "track_progress":
-            return self._handle_track_progress(context, from_name, to_name)
+            return self._handle_track_progress(task_id, context, from_name, to_name)
 
         if event == "track_cancel":
-            return self._handle_track_cancel(context, from_name, to_name)
+            return self._handle_track_cancel(task_id, context, from_name, to_name)
 
         # Events below need video handle
-        window = int(context.get("window", WINDOW_SIZE))
+        if event == "prewarm":
+            try:
+                window = _parse_bounded_int(
+                    context,
+                    "window",
+                    WINDOW_SIZE,
+                    MAX_PREWARM_WINDOW,
+                    min_value=0,
+                )
+            except ValueError as e:
+                return self._value_response(
+                    "prewarm_ack",
+                    {"status": "error", "error": str(e)},
+                    from_name,
+                    to_name,
+                )
+        else:
+            window = WINDOW_SIZE
         direction = context.get("direction", "forward")
 
-        raw_url = self._image_url_from_task(task, to_name)
-        source, headers = self._resolve_video_source(raw_url, task_id)
-        try:
-            video = VIDEOS.get_or_create(task_id, source, headers=headers)
-        except Exception as e:
-            logger.warning("streaming failed (%s), falling back to download", e)
-            # A previously-resolved handle for the same task is still usable
-            # — don't force another probe / download cycle (which can 429 on
-            # the LS token-refresh endpoint under load).
-            cached = VIDEOS._handles.get(task_id)
-            if cached is not None:
-                video = cached
-            else:
-                local_path = self._download_valid_video(raw_url, task_id)
-                video = VIDEOS.get_or_create(task_id, local_path)
-
-        # Prefer `time` (seconds) — the only quantity FE and BE can agree on
-        # without knowing each other's fps. Fall back to `frame` (FE 1-indexed)
-        # for legacy callers that don't send time.
-        frame = _resolve_be_frame(context, video)
-
-        FRAME_CACHE.touch(task_id, frame)
-
-        if event == "prewarm":
-            frame_range = self._window_range(frame, window, direction, video.frame_count)
-            # Fetch the whole window in ONE ffmpeg pass (one HTTP request to LS)
-            # rather than one request per frame, which trips LS's rate limit.
-            # The encode step pulls decoded frames from this buffer, falling
-            # back to a per-frame read only for any the prefetch missed.
-            prefetched = self._prefetch_window(video, frame_range)
-
-            def _encode(idx, _video=video, _frames=prefetched):
-                bgr = _frames.get(idx)
-                if bgr is None:
-                    bgr = _video.read_frame(idx)
-                return self._encode_bgr(bgr)
-
-            cached, pending = FRAME_CACHE.submit(task_id, frame_range, _encode)
-            return PredictionValue(result=[{
-                "value": {"status": "ok", "cached": cached, "pending": pending,
-                          "frame_count": video.frame_count},
-                "from_name": from_name, "to_name": to_name,
-                "type": "prewarm_ack", "origin": "manual",
-                "id": str(uuid4())[:8],
-            }])
-
-        if event == "track":
-            return self._handle_track(
-                task_id, context, video, frame,
-                from_name, to_name, control_type,
-            )
-
-        # Single-frame predict: return mask PNG for the frontend preview.
-        return self._predict_single_frame(
-            task_id, context, video, frame,
-            from_name, to_name,
+        capacity_context = (
+            _tracking_capacity_reservation()
+            if event == "track"
+            else nullcontext((None, 0))
         )
+        with capacity_context as (tracking_reservation, resident_sessions):
+            if event == "track" and tracking_reservation is None:
+                return self._track_busy_response(
+                    resident_sessions,
+                    from_name,
+                    to_name,
+                )
+
+            raw_url = self._image_url_from_task(task, to_name)
+            with VIDEOS.acquire(
+                task_id,
+                raw_url,
+                lambda: self._open_video_handle(task_id, raw_url),
+            ) as video:
+                # Prefer `time` (seconds) — the only quantity FE and BE can agree on
+                # without knowing each other's fps. Fall back to `frame` (FE 1-indexed)
+                # for legacy callers that don't send time.
+                frame = _resolve_be_frame(context, video)
+
+                FRAME_CACHE.touch(task_id, frame)
+
+                if event == "prewarm":
+                    frame_range = self._window_range(frame, window, direction, video.frame_count)
+                    # Reserve missing frames before any decode/network I/O so concurrent
+                    # prewarms share the same pending work instead of duplicating it.
+                    cached, pending = FRAME_CACHE.schedule_missing(
+                        task_id,
+                        frame_range,
+                        lambda indices, _video=video: self._encode_frame_batch(_video, indices),
+                        on_scheduled=lambda _video=video: VIDEOS.retain(_video),
+                    )
+                    return PredictionValue(result=[{
+                        "value": {"status": "ok", "cached": cached, "pending": pending,
+                                  "frame_count": video.frame_count},
+                        "from_name": from_name, "to_name": to_name,
+                        "type": "prewarm_ack", "origin": "manual",
+                        "id": str(uuid4())[:8],
+                    }])
+
+                if event == "track":
+                    return self._handle_track(
+                        task_id, context, video, frame,
+                        from_name, to_name, control_type,
+                        reservation=tracking_reservation,
+                    )
+
+                # Single-frame predict: return mask PNG for the frontend preview.
+                return self._predict_single_frame(
+                    task_id, context, video, frame,
+                    from_name, to_name,
+                )
 
     def _predict_single_frame(self, task_id, context, video, frame,
                               from_name, to_name):
@@ -697,37 +1187,45 @@ class SamVideoInteractive(LabelStudioMLBase):
         if prompts["points"] is None and prompts["box"] is None:
             return PredictionValue(result=[])
 
-        image_predictor = make_image_predictor()
         h, w = video.height, video.width
 
         # Try to restore from frame cache (pre-encoded by prewarm)
         cached = FRAME_CACHE.get(task_id, frame)
-        if cached is not None and cached.get("features") is not None:
-            image_predictor._features = cached["features"]
-            image_predictor._orig_hw = cached["original_size"]
-            image_predictor._is_image_set = True
-            logger.debug("predict: cache hit task=%s frame=%s", task_id, frame)
-        else:
+        frame_rgb = None
+        if cached is None or cached.get("features") is None:
             frame_bgr = video.read_frame(frame)
-            rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-            h, w = rgb.shape[:2]
-            image_predictor.set_image(rgb)
-            features_snapshot = {
-                "features": image_predictor._features,
-                "original_size": image_predictor._orig_hw,
-                "is_image_set": True,
-            }
-            FRAME_CACHE.submit(task_id, [frame], lambda idx: features_snapshot)
-            logger.debug("predict: cache miss task=%s frame=%s, encoded + cached", task_id, frame)
+            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            h, w = frame_rgb.shape[:2]
 
         points_abs = (prompts["points"] * np.array([w, h], dtype=np.float32)) if prompts["points"] is not None else None
         box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)) if prompts["box"] is not None else None
-        masks, scores, _ = image_predictor.predict(
-            point_coords=points_abs,
-            point_labels=prompts["labels"] if prompts["labels"] is not None else None,
-            box=box_abs,
-            multimask_output=True,
-        )
+        with _accelerator_slot():
+            image_predictor = make_image_predictor()
+            if cached is not None and cached.get("features") is not None:
+                image_predictor._features = cached["features"]
+                image_predictor._orig_hw = cached["original_size"]
+                image_predictor._is_image_set = True
+                logger.debug("predict: cache hit task=%s frame=%s", task_id, frame)
+            else:
+                image_predictor.set_image(frame_rgb)
+                features_snapshot = {
+                    "features": image_predictor._features,
+                    "original_size": image_predictor._orig_hw,
+                    "is_image_set": True,
+                }
+                FRAME_CACHE.schedule_missing(
+                    task_id,
+                    [frame],
+                    lambda _indices, snapshot=features_snapshot: {frame: snapshot},
+                )
+                logger.debug("predict: cache miss task=%s frame=%s, encoded + cached", task_id, frame)
+
+            masks, scores, _ = image_predictor.predict(
+                point_coords=points_abs,
+                point_labels=prompts["labels"] if prompts["labels"] is not None else None,
+                box=box_abs,
+                multimask_output=True,
+            )
         mask = _clean_mask(_pick_best_mask(masks, scores))
         return self._mask_response(mask, w, h, from_name, to_name)
 
@@ -758,6 +1256,15 @@ class SamVideoInteractive(LabelStudioMLBase):
         host = env_host or cached_host
         token = env_token or cached_token
         return (host or None, token or None)
+
+    def _open_video_handle(self, task_id: str, raw_url: str):
+        source, headers = self._resolve_video_source(raw_url, task_id)
+        try:
+            return VIDEOS.open_handle(task_id, source, headers=headers, raw_url=raw_url)
+        except Exception as e:
+            logger.warning("video open failed (%s), falling back to SDK download", e)
+            local_path = self._download_valid_video(raw_url, task_id)
+            return VIDEOS.open_handle(task_id, local_path, raw_url=raw_url)
 
     def _download_valid_video(self, raw_url: str, task_id: str) -> str:
         """Download via the LS SDK, but verify the file actually decodes.
@@ -793,10 +1300,9 @@ class SamVideoInteractive(LabelStudioMLBase):
 
         * External HTTP(S) URLs (don't look like LS's own host) → stream
           directly, no headers.
-        * LS-hosted upload URLs / paths → authenticated local download by
-          default; direct ffmpeg streaming can be enabled with
-          `LABEL_STUDIO_STREAM_LS_UPLOADS=true` when the LS deployment supports
-          reliable range requests.
+        * LS-hosted URLs / paths → authenticated local download through the
+          LS SDK. We deliberately do not pass LS Authorization headers to
+          ffmpeg because it forwards custom headers across redirects.
         * Cloud-storage URIs → authenticated local download through the LS SDK.
 
         Resolution order for the LS hostname:
@@ -809,23 +1315,18 @@ class SamVideoInteractive(LabelStudioMLBase):
         ls_url = ls_url_opt or ""
         api_key = api_key_opt or ""
 
-        def _auth_headers(target_url: str):
-            # Reuses the LS SDK token/header handling for streaming ffmpeg
-            # requests, including refresh-JWT normalization.
-            return ls_auth_headers(ls_url, api_key, target_url=target_url)
-
         if raw_url.startswith("http://") or raw_url.startswith("https://"):
             # Absolute URL — attach auth iff its host matches the known LS host.
             # Never attach to any other host: task data can carry external /
             # presigned cloud URLs and we must not leak the LS token to them.
             attach = should_attach_ls_auth(raw_url, ls_url, bool(api_key))
-            if attach and not STREAM_LS_UPLOADS:
+            if attach:
                 logger.info(
                     "LS-hosted video: downloading once instead of streaming (%s)",
                     raw_url,
                 )
                 return self._download_valid_video(raw_url, task_id), None
-            return raw_url, _auth_headers(raw_url) if attach else None
+            return raw_url, None
 
         if raw_url.startswith(CLOUD_URI_SCHEMES):
             # A cloud-storage URI is not a URL — only LS knows which storage it
@@ -835,21 +1336,24 @@ class SamVideoInteractive(LabelStudioMLBase):
             # it through `/tasks/<id>/presign/` and downloads the result.
             return self._download_valid_video(raw_url, task_id), None
 
-        if (
-            ls_url
-            and api_key
-            and STREAM_LS_UPLOADS
-            and raw_url.startswith(("/data/", "/upload", "data/", "upload"))
-        ):
-            full_url = f"{ls_url}{raw_url}" if raw_url.startswith("/") else f"{ls_url}/{raw_url}"
-            return full_url, _auth_headers(full_url)
-
         if not ls_url:
-            logger.warning("streaming not available (no LABEL_STUDIO_URL), falling back to download")
+            logger.warning(
+                "streaming not available (no LABEL_STUDIO_URL), falling back to download"
+            )
         else:
             logger.info("video source requires Label Studio resolution; downloading once")
         local_path = self._download_valid_video(raw_url, task_id)
         return local_path, None
+
+    def _value_response(self, response_type: str, value: Dict[str, Any], from_name: str, to_name: str):
+        return PredictionValue(result=[{
+            "id": str(uuid4())[:8],
+            "from_name": from_name,
+            "to_name": to_name,
+            "type": response_type,
+            "origin": "manual",
+            "value": value,
+        }])
 
     def _mask_response(self, mask, w, h, from_name, to_name):
         """Return a mask PNG as a prediction using `bitmask` — a recognized
@@ -867,8 +1371,22 @@ class SamVideoInteractive(LabelStudioMLBase):
             },
         }])
 
+    def _track_busy_response(self, resident_sessions, from_name, to_name):
+        return self._value_response(
+            "track_busy",
+            {
+                "error": "tracking capacity exhausted",
+                # Preserve the established response field for existing clients.
+                "active_or_queued": resident_sessions,
+                "resident_sessions": resident_sessions,
+                "max_sessions": MAX_TRACKING_SESSIONS,
+            },
+            from_name,
+            to_name,
+        )
+
     def _handle_track(self, task_id, context, video, prompt_frame,
-                      from_name, to_name, control_type):
+                      from_name, to_name, control_type, reservation=None):
         """Start async SAM2 video propagation. Returns a session_id immediately;
         the frontend polls track_progress to get results incrementally.
 
@@ -879,45 +1397,70 @@ class SamVideoInteractive(LabelStudioMLBase):
         the other continues until it also loses the object or hits the end
         of the video.
         """
+        _cleanup_tracking_sessions()
+
         prompts = _extract_prompts(context)
-        max_duration_ms = context.get("max_duration_ms")
-        if max_duration_ms is not None and video.fps:
-            max_frames = int(round((float(max_duration_ms) / 1000.0) * video.fps))
-        else:
-            max_frames = int(context.get("max_frames", MAX_FRAMES_TO_TRACK))
+        try:
+            max_frames = _parse_tracking_frame_limit(context, video.fps)
+        except ValueError as e:
+            return self._value_response(
+                "track_error",
+                {"error": str(e), "done": True},
+                from_name,
+                to_name,
+            )
         direction = context.get("direction", "forward")
         if direction not in ("forward", "backward", "both"):
             direction = "forward"
 
         h, w = video.height, video.width
 
-        # Each direction gets its own frame range. "both" covers the full
-        # [prompt - max_frames, prompt + max_frames] span.
-        fwd_start, fwd_end = prompt_frame, min(video.frame_count, prompt_frame + max_frames + 1)
-        bwd_start, bwd_end = max(0, prompt_frame - max_frames), prompt_frame + 1
-
-        if direction == "forward":
-            ranges = [("forward", fwd_start, fwd_end)]
-        elif direction == "backward":
-            ranges = [("backward", bwd_start, bwd_end)]
-        else:  # "both"
-            ranges = [("forward", fwd_start, fwd_end), ("backward", bwd_start, bwd_end)]
-
-        total = sum(end - start for _, start, end in ranges)
+        ranges, total = _build_tracking_ranges(
+            prompt_frame,
+            max_frames,
+            video.frame_count,
+            direction,
+        )
         session_id = str(uuid4())[:12]
-        session = TrackingSession(session_id, total, producers=len(ranges))
+        session = TrackingSession(session_id, total, task_id=task_id)
 
         with _tracking_lock:
+            if reservation is None:
+                resident_sessions = len(_tracking_sessions) + len(_tracking_reservations)
+                if resident_sessions >= MAX_TRACKING_SESSIONS:
+                    return self._track_busy_response(
+                        resident_sessions,
+                        from_name,
+                        to_name,
+                    )
+            elif reservation not in _tracking_reservations:
+                return self._track_busy_response(
+                    len(_tracking_sessions) + len(_tracking_reservations),
+                    from_name,
+                    to_name,
+                )
+            else:
+                _tracking_reservations.discard(reservation)
             _tracking_sessions[session_id] = session
 
-        for d, start_frame, end_frame in ranges:
-            t = threading.Thread(
-                target=self._run_tracking,
-                args=(session, video, prompts, start_frame, end_frame,
-                      prompt_frame, max_frames, w, h, d),
-                daemon=True,
+        release_video = VIDEOS.retain(video)
+        try:
+            future = _tracking_executor.submit(
+                self._run_tracking,
+                session, video, release_video, prompts, ranges,
+                prompt_frame, max_frames, w, h,
             )
-            t.start()
+        except Exception:
+            release_video()
+            with _tracking_lock:
+                _tracking_sessions.pop(session_id, None)
+            session.cancel()
+            raise
+        future.add_done_callback(
+            lambda done_future, release=release_video: release()
+            if done_future.cancelled() else None
+        )
+        session.add_future(future)
 
         logger.info("track: started session=%s task=%s direction=%s ranges=%s",
                      session_id, task_id, direction, ranges)
@@ -935,91 +1478,135 @@ class SamVideoInteractive(LabelStudioMLBase):
             },
         }])
 
-    def _run_tracking(self, session, video, prompts, start_frame, end_frame,
-                      prompt_frame, max_frames, w, h, direction="forward"):
+    def _run_tracking(self, session, video, release_video, prompts, ranges,
+                      prompt_frame, max_frames, w, h):
+        """Background thread: process one or more tracking ranges sequentially."""
+        try:
+            for direction, start_frame, end_frame, skip_output_frame in ranges:
+                if session.cancelled:
+                    break
+                self._run_tracking_range(
+                    session, video, prompts, start_frame, end_frame,
+                    prompt_frame, max_frames, w, h, direction,
+                    skip_output_frame=skip_output_frame,
+                )
+                if session.error or session.cancelled:
+                    break
+        finally:
+            session.producer_done()
+            release_video()
+            logger.info("track bg: finished session=%s frames=%d", session.session_id, session.produced)
+
+    def _run_tracking_range(self, session, video, prompts, start_frame, end_frame,
+                            prompt_frame, max_frames, w, h, direction="forward",
+                            skip_output_frame=None):
         """Background thread: extract frames, run SAM2 propagation, push
         mask PNGs into the session as they're produced."""
+        video_predictor = None
+        inference_state = None
+        propagation = None
+        out_mask_logits = None
+        mask = None
         try:
+            if session.cancelled:
+                logger.info("track bg: skipped cancelled session=%s", session.session_id)
+                return
+
             video_predictor = get_video_predictor()
             frame_count_needed = end_frame - start_frame
 
             with tempfile.TemporaryDirectory() as frame_dir:
+                if session.cancelled:
+                    logger.info("track bg: skipped cancelled session=%s", session.session_id)
+                    return
+
                 written = video.write_frame_range_as_jpegs(
                     start_frame, frame_count_needed, frame_dir)
                 logger.info("track bg: extracted %d frames to %s", written, frame_dir)
 
-                # async_loading_frames=True makes SAM2 return immediately from
-                # init_state and decode/normalize JPEGs in a background thread
-                # as propagate_in_video walks through them — the wait for
-                # "encode all frames upfront" becomes "encode frame 0".
-                #
-                # MPS is the exception: SAM2's async JPEG loader can produce
-                # float64 CPU tensors and then move them to MPS before the
-                # subsequent `.float()` cast. MPS doesn't support float64, so
-                # load frames synchronously there; SAM2's sync path preallocates
-                # a float32 tensor and avoids the dtype hop.
-                #
-                # offload_video_to_cpu=True keeps the loaded frames on CPU so
-                # only the propagation thread touches the GPU. Without this
-                # the async loader pushes frames to the device with
-                # non_blocking=True while propagation is concurrently running
-                # the backbone — the two streams race and SAM2 sometimes
-                # processes partly-copied tensors, which shows up as the
-                # mask "jumping" onto a different object.
-                inference_state = video_predictor.init_state(
-                    video_path=frame_dir,
-                    async_loading_frames=(DEVICE != "mps"),
-                    offload_video_to_cpu=True,
-                )
-                video_predictor.reset_state(inference_state)
+                if session.cancelled:
+                    logger.info("track bg: cancelled after extraction session=%s", session.session_id)
+                    return
+
+                # Use a small on-demand JPEG loader by default. Upstream SAM2's
+                # async loader eventually stores every resized frame tensor in
+                # RAM; for long tracking ranges that alone can be multi-GB.
+                # Tracking only needs the current image because temporal state
+                # lives in maskmem outputs, so a tiny LRU is enough.
+                with _accelerator_slot():
+                    inference_state = _init_tracking_inference_state(
+                        video_predictor,
+                        frame_dir,
+                        use_on_demand_frames=TRACKING_ON_DEMAND_FRAMES,
+                    )
+
+                if session.cancelled:
+                    logger.info("track bg: cancelled after SAM2 init session=%s", session.session_id)
+                    return
 
                 relative_prompt_frame = prompt_frame - start_frame
-                if prompts["points"] is not None:
-                    points_abs = prompts["points"] * np.array([w, h], dtype=np.float32)
-                    video_predictor.add_new_points(
-                        inference_state=inference_state,
-                        frame_idx=relative_prompt_frame,
-                        obj_id=0,
-                        points=points_abs,
-                        labels=prompts["labels"],
-                    )
-                elif prompts["box"] is not None:
-                    box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)).astype(np.float32)
-                    # Prefer the modern SAM2 API which takes `box` as a
-                    # dedicated parameter. The legacy "two points with
-                    # labels [2, 3]" encoding is interpreted as two
-                    # unknown-label points by current SAM2 builds — that
-                    # was producing a degenerate mask at the prompt
-                    # frame, which then propagated as a tiny region at
-                    # the top-left of the video.
-                    if hasattr(video_predictor, "add_new_points_or_box"):
-                        video_predictor.add_new_points_or_box(
-                            inference_state=inference_state,
-                            frame_idx=relative_prompt_frame,
-                            obj_id=0,
-                            box=box_abs,
-                        )
-                    else:
-                        x1, y1, x2, y2 = box_abs
-                        points_abs = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
-                        box_labels = np.array([2, 3], dtype=np.int32)
+                with _accelerator_slot():
+                    video_predictor.reset_state(inference_state)
+                    if prompts["points"] is not None:
+                        points_abs = prompts["points"] * np.array([w, h], dtype=np.float32)
                         video_predictor.add_new_points(
                             inference_state=inference_state,
                             frame_idx=relative_prompt_frame,
                             obj_id=0,
                             points=points_abs,
-                            labels=box_labels,
+                            labels=prompts["labels"],
                         )
+                    elif prompts["box"] is not None:
+                        box_abs = (prompts["box"] * np.array([w, h, w, h], dtype=np.float32)).astype(np.float32)
+                        # Prefer the modern SAM2 API which takes `box` as a
+                        # dedicated parameter. The legacy "two points with
+                        # labels [2, 3]" encoding is interpreted as two
+                        # unknown-label points by current SAM2 builds — that
+                        # was producing a degenerate mask at the prompt
+                        # frame, which then propagated as a tiny region at
+                        # the top-left of the video.
+                        if hasattr(video_predictor, "add_new_points_or_box"):
+                            video_predictor.add_new_points_or_box(
+                                inference_state=inference_state,
+                                frame_idx=relative_prompt_frame,
+                                obj_id=0,
+                                box=box_abs,
+                            )
+                        else:
+                            x1, y1, x2, y2 = box_abs
+                            points_abs = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
+                            box_labels = np.array([2, 3], dtype=np.int32)
+                            video_predictor.add_new_points(
+                                inference_state=inference_state,
+                                frame_idx=relative_prompt_frame,
+                                obj_id=0,
+                                points=points_abs,
+                                labels=box_labels,
+                            )
+
+                if session.cancelled:
+                    logger.info("track bg: cancelled before propagation session=%s", session.session_id)
+                    return
 
                 total_pixels = w * h
                 consecutive_lost = 0
 
-                for out_frame_idx, out_obj_ids, out_mask_logits in video_predictor.propagate_in_video(
+                propagation = video_predictor.propagate_in_video(
                     inference_state=inference_state,
                     start_frame_idx=relative_prompt_frame,
                     max_frame_num_to_track=max_frames,
                     reverse=(direction == "backward"),
-                ):
+                )
+                while True:
+                    if session.cancelled:
+                        logger.info("track bg: cancelled session=%s", session.session_id)
+                        break
+                    try:
+                        with _accelerator_slot():
+                            out_frame_idx, out_obj_ids, out_mask_logits = next(propagation)
+                    except StopIteration:
+                        break
+
                     if session.cancelled:
                         logger.info("track bg: cancelled session=%s", session.session_id)
                         break
@@ -1049,8 +1636,10 @@ class SamVideoInteractive(LabelStudioMLBase):
                                     fg_count, consecutive_lost, real_frame_idx,
                                 )
                                 stop = True
+                                mask = None
                                 break
                             # Skip emitting this low-confidence frame; keep propagating.
+                            mask = None
                             continue
 
                         consecutive_lost = 0
@@ -1062,8 +1651,14 @@ class SamVideoInteractive(LabelStudioMLBase):
                                 fg_ratio, MAX_FOREGROUND_RATIO, real_frame_idx,
                             )
                             stop = True
+                            mask = None
                             break
 
+                        if real_frame_idx == skip_output_frame:
+                            mask = None
+                            continue
+
+                        image_data_url = f"data:image/png;base64,{mask_to_bitmap_png_base64(mask)}"
                         session.append_frame({
                             "frame": real_frame_idx,
                             # Emit time (ms) so the FE can recompute its own
@@ -1071,29 +1666,43 @@ class SamVideoInteractive(LabelStudioMLBase):
                             # avoids frame drift when FE and BE see different
                             # fps for the same video.
                             "time_ms": (real_frame_idx * 1000.0 / video.fps) if video.fps else 0.0,
-                            "imageDataURL": f"data:image/png;base64,{mask_to_bitmap_png_base64(mask)}",
+                            "imageDataURL": image_data_url,
                             "width": int(w),
                             "height": int(h),
                         })
+                        mask = None
 
+                    out_mask_logits = None
                     if stop:
                         logger.info("track bg: stopped at frame %d (produced %d frames)",
-                                    real_frame_idx, len(session.frames))
+                                    real_frame_idx, session.produced)
                         break
 
         except Exception as e:
             logger.exception("track bg: error session=%s direction=%s", session.session_id, direction)
             session.error = str(e)
         finally:
-            session.producer_done()
-            logger.info("track bg: finished session=%s direction=%s frames=%d",
-                         session.session_id, direction, len(session.frames))
+            if propagation is not None:
+                try:
+                    propagation.close()
+                except Exception:
+                    logger.debug("failed to close SAM2 propagation iterator", exc_info=True)
+            propagation = None
+            out_mask_logits = None
+            mask = None
+            _release_sam2_inference_state(video_predictor, inference_state)
+            inference_state = None
+            video_predictor = None
+            _release_tracking_allocator_memory()
+            logger.info("track bg: finished range session=%s direction=%s frames=%d",
+                         session.session_id, direction, session.produced)
 
-    def _handle_track_progress(self, context, from_name, to_name):
+    def _handle_track_progress(self, task_id, context, from_name, to_name):
+        _cleanup_tracking_sessions()
         session_id = context.get("session_id", "")
         with _tracking_lock:
             session = _tracking_sessions.get(session_id)
-        if not session:
+        if not session or session.task_id != task_id:
             return PredictionValue(result=[{
                 "id": str(uuid4())[:8],
                 "from_name": from_name, "to_name": to_name,
@@ -1124,7 +1733,8 @@ class SamVideoInteractive(LabelStudioMLBase):
                     break
                 if not session.wait_for_new_data(remaining):
                     break  # timeout
-                more, total_produced, done = session.drain_new()
+                remaining_batch = TRACK_PROGRESS_MAX_BATCH - len(new_frames)
+                more, total_produced, done = session.drain_new(remaining_batch)
                 new_frames.extend(more)
                 if done or session.error is not None or session.cancelled:
                     break
@@ -1146,60 +1756,56 @@ class SamVideoInteractive(LabelStudioMLBase):
             },
         }])
 
-    def _handle_track_cancel(self, context, from_name, to_name):
+    def _handle_track_cancel(self, task_id, context, from_name, to_name):
         session_id = context.get("session_id", "")
         with _tracking_lock:
             session = _tracking_sessions.get(session_id)
+            if session is not None and session.task_id == task_id:
+                _tracking_sessions.pop(session_id, None)
+            else:
+                session = None
         if session:
             session.cancel()
+            # Keep reusable task/video state until the explicit release event
+            # or idle TTL. The queued/running future owns its video lease and
+            # releases it through its cancellation callback/finally block.
         return PredictionValue(result=[{
             "id": str(uuid4())[:8],
             "from_name": from_name, "to_name": to_name,
             "type": "track_cancel_ack", "origin": "manual",
-            "value": {"status": "cancelled"},
+            "value": {"status": "cancelled" if session else "not_found"},
         }])
 
     # --- helpers ---------------------------------------------------------
 
-    def _encode_frame(self, task_id: str, frame_idx: int):
-        """Decode + encode a single video frame into a SAM2 image embedding."""
-        video = VIDEOS._handles.get(task_id)
-        if video is None:
-            raise RuntimeError(f"no video handle for task {task_id}")
-        return self._encode_bgr(video.read_frame(frame_idx))
-
     def _encode_bgr(self, frame_bgr):
-        """Encode an already-decoded BGR frame into a SAM2 image embedding.
-        Split out from `_encode_frame` so prewarm can fetch a whole window in
-        one ffmpeg pass (one HTTP request) and feed the frames in here, instead
-        of one network read per frame (which trips LS rate limits)."""
+        """Encode an already-decoded BGR frame into a SAM2 image embedding."""
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        image_predictor = make_image_predictor()
-        image_predictor.set_image(rgb)
-        return {
-            "features": image_predictor._features,
-            "original_size": image_predictor._orig_hw,
-            "is_image_set": True,
-        }
+        with _accelerator_slot():
+            image_predictor = make_image_predictor()
+            image_predictor.set_image(rgb)
+            return {
+                "features": image_predictor._features,
+                "original_size": image_predictor._orig_hw,
+                "is_image_set": True,
+            }
 
-    def _prefetch_window(self, video, frame_range: List[int]) -> Dict[int, Any]:
-        """Fetch a contiguous frame window in a single ffmpeg pass to collapse
-        one-HTTP-request-per-frame into one request for the whole window.
-
-        Best-effort: returns {frame_idx: bgr_frame}; on any failure returns the
-        frames it managed to get (possibly empty) and the encode step falls back
-        to per-frame reads for the rest.
-        """
-        if not frame_range:
-            return {}
-        start = min(frame_range)
-        count = max(frame_range) - start + 1
-        try:
-            frames = video.read_frame_range(start, count)
-        except Exception as e:
-            logger.warning("window prefetch failed (%s); falling back to per-frame", e)
-            return {}
-        return {start + i: f for i, f in enumerate(frames)}
+    def _encode_frame_batch(self, video, frame_indices: List[int]) -> Dict[int, Any]:
+        """Decode sparse frame indices in contiguous runs, then encode them."""
+        encoded: Dict[int, Any] = {}
+        for run in _contiguous_runs(sorted(set(frame_indices))):
+            for chunk in _chunks(run, MAX_BATCH_DECODE_FRAMES):
+                start = chunk[0]
+                try:
+                    frames = video.read_frame_range(start, len(chunk))
+                    if len(frames) < len(chunk):
+                        frames.extend(video.read_frame(idx) for idx in chunk[len(frames):])
+                except Exception as e:
+                    logger.warning("batch frame read failed (%s); falling back to per-frame", e)
+                    frames = [video.read_frame(idx) for idx in chunk]
+                for idx, frame_bgr in zip(chunk, frames):
+                    encoded[idx] = self._encode_bgr(frame_bgr)
+        return encoded
 
     def _window_range(self, frame: int, window: int, direction: str, frame_count: int):
         if direction == "backward":

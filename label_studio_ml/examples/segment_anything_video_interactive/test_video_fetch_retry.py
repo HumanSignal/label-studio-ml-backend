@@ -83,6 +83,71 @@ def test_gives_up_after_max_attempts():
     assert sleep.call_count == 2  # no sleep after the final failed attempt
 
 
+def test_video_registry_single_flights_concurrent_resolve():
+    registry = video_state.VideoRegistry()
+    started = video_state.threading.Event()
+    release = video_state.threading.Event()
+    calls = []
+
+    handle = video_state.VideoHandle(
+        task_id="task",
+        source="/tmp/video.mp4",
+        width=10,
+        height=10,
+        frame_count=3,
+        fps=30.0,
+    )
+
+    def resolve():
+        calls.append("resolve")
+        started.set()
+        assert release.wait(timeout=2)
+        return handle
+
+    results = []
+
+    def acquire():
+        with registry.acquire("task", "raw", resolve) as acquired:
+            results.append(acquired)
+
+    t1 = video_state.threading.Thread(target=acquire)
+    t2 = video_state.threading.Thread(target=acquire)
+    t1.start()
+    assert started.wait(timeout=1)
+    t2.start()
+    release.set()
+    t1.join(timeout=2)
+    t2.join(timeout=2)
+
+    assert calls == ["resolve"]
+    assert results == [handle, handle]
+
+
+def test_video_registry_drop_waits_for_active_lease():
+    registry = video_state.VideoRegistry()
+    closed = []
+
+    class Handle(video_state.VideoHandle):
+        def close(self):
+            closed.append(self.source)
+
+    handle = Handle(
+        task_id="task",
+        source="/tmp/video.mp4",
+        width=10,
+        height=10,
+        frame_count=3,
+        fps=30.0,
+    )
+
+    with registry.acquire("task", "raw", lambda: handle) as acquired:
+        assert acquired is handle
+        registry.drop("task")
+        assert closed == []
+
+    assert closed == ["/tmp/video.mp4"]
+
+
 def test_backoff_delay_is_capped():
     fail = _proc(1, b"429 Too Many Requests")
     delays = []
