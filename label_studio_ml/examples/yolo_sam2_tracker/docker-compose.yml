@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  MOT_yolo_sam_tracker:
+    container_name: MOT_yolo_sam_tracker
+    image: humansignal/mot_yolo_sam_tracker:v0
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            -   driver: nvidia
+                count: 1
+                capabilities: [ gpu ]
+    environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=INFO
+      # any other parameters that you want to pass to the model server
+      - ANY=PARAMETER
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+      # specify device
+      - DEVICE=cuda  # or 'cpu' (coming soon)
+      # SAM2 model config
+      - MODEL_CONFIG=./configs/sam2.1/sam2.1_hiera_l.yaml
+      - SEGMENT_ANYTHING_2_REPO_PATH=./sam2
+      # SAM2 checkpoint
+      - MODEL_CHECKPOINT=sam2.1_hiera_large.pt
+      - MAX_FRAMES_TO_TRACK=2000
+      - VIDEO_FRAME_RATE=24
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=
+      - LABEL_STUDIO_API_KEY=
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
+      - ./models:/app/models  # Mount the local 'models' directory
+      - "./cache_dir:/app/cache_dir"
