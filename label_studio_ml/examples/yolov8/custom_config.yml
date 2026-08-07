@@ -1,0 +1,7 @@
+names:
+  0: taxi
+  1: other
+path: ./temp
+test: null
+train: images
+val: images
