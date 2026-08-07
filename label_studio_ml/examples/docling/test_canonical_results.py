@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from docling_core.types.doc.base import BoundingBox, CoordOrigin, Size
 from docling_core.types.doc.document import ContentLayer
-from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel
+from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel, GroupLabel
 
 from docling_to_ls_results import docling_document_to_ls_results, page_raster_size
 
@@ -89,12 +89,19 @@ def _table_cell(
     row_section: bool = False,
     row_span: int = 1,
     col_span: int = 1,
+    start_row: int = 0,
+    end_row: int = 1,
+    start_col: int = 0,
+    end_col: int = 1,
 ) -> SimpleNamespace:
     """Stand-in for ``docling_core.types.doc.document.TableCell``.
 
-    Real ``TableCell`` requires start/end row/col offsets we don't care about
-    here; SimpleNamespace exposes only the attrs the emitter reads
-    (``bbox`` / ``text`` / header flags / spans).
+    Grid offsets default to a single 1×1 cell at (row 0, col 0); tests that
+    exercise the row/column strip derivation MUST override these — the row/
+    column emission logic reads ``start_row_offset_idx`` / ``end_row_offset_idx``
+    (and the column equivalents) to decide which cells define a row's/column's
+    exact geometry, so leaving them at zero would collapse every cell onto
+    the same grid position.
     """
     return SimpleNamespace(
         bbox=bbox,
@@ -104,6 +111,10 @@ def _table_cell(
         row_section=row_section,
         row_span=row_span,
         col_span=col_span,
+        start_row_offset_idx=start_row,
+        end_row_offset_idx=end_row,
+        start_col_offset_idx=start_col,
+        end_col_offset_idx=end_col,
     )
 
 
@@ -138,6 +149,7 @@ class _Doc:
         pictures: Optional[List[Any]] = None,
         key_value_items: Optional[List[Any]] = None,
         form_items: Optional[List[Any]] = None,
+        groups: Optional[List[Any]] = None,
     ):
         self._items = items_with_levels
         self.pages: Dict[int, Any] = pages if pages is not None else {1: _page()}
@@ -145,6 +157,10 @@ class _Doc:
         self.pictures = pictures or []
         self.key_value_items = key_value_items or []
         self.form_items = form_items or []
+        # ``groups`` mirrors ``DoclingDocument.groups`` — the flat list of every
+        # ListGroup / InlineGroup / plain GroupItem the document carries. The
+        # emitter reads this for InlineGroup → merge polyline mapping.
+        self.groups = groups or []
         # cref -> resolved item, populated from every stub carrying a self_ref.
         self._refs: Dict[str, Any] = {}
         for it, _ in self._items:
@@ -457,73 +473,166 @@ def test_no_underscore_prefixed_keys_in_value() -> None:
 
 # --- table structure ----------------------------------------------------------------
 #
-# A TableItem's data.table_cells become per-cell rectangles parented to the table so
-# the interface can render the table structure without a human redrawing every cell.
+# The interface's ``emitTable`` walker rebuilds table markup from FOUR kinds
+# of children on a ``table`` rect:
+#
+#   * ``table_row`` strips — full-table-width, one per grid row
+#   * ``table_column`` strips — full-table-height, one per grid column
+#   * ``table_merged_cell`` overlays — one per cell with row_span or col_span > 1
+#   * Content children (``text`` / ``picture`` / …) at each non-empty cell's bbox
+#
+# Semantic role overlays (``column_header`` / ``row_header`` / ``row_section``)
+# ride on top of the same per-cell geometry when a cell has that role flag.
 
 
-def test_table_structure_emits_child_cells_with_parent_id() -> None:
+def test_table_structure_emits_rows_columns_merged_and_text() -> None:
+    # 2 x 2 header row + one merged cell that spans both columns on row 1.
+    #   H1 | H2
+    #   [ merged, col_span=2 ]
+    # Layout in top-left coords: (l, t, r, b).
     cells = [
-        _table_cell(bbox=_tl(10, 10, 30, 20), text="H1", column_header=True),
-        _table_cell(bbox=_tl(30, 10, 50, 20), text="H2", column_header=True),
-        _table_cell(bbox=_tl(10, 20, 30, 30), text="a"),
-        _table_cell(bbox=_tl(30, 20, 50, 30), text="b", col_span=2),
+        _table_cell(
+            bbox=_tl(10, 10, 30, 20), text="H1",
+            column_header=True,
+            start_row=0, end_row=1, start_col=0, end_col=1,
+        ),
+        _table_cell(
+            bbox=_tl(30, 10, 50, 20), text="H2",
+            column_header=True,
+            start_row=0, end_row=1, start_col=1, end_col=2,
+        ),
+        _table_cell(
+            bbox=_tl(10, 20, 50, 30), text="wide",
+            col_span=2,
+            start_row=1, end_row=2, start_col=0, end_col=2,
+        ),
     ]
     table = _item(
         label=DocItemLabel.TABLE,
         bbox=_tl(10, 10, 50, 30),
         self_ref="#/tables/0",
-        data=SimpleNamespace(table_cells=cells),
+        data=SimpleNamespace(table_cells=cells, num_rows=2, num_cols=2),
     )
     out = docling_document_to_ls_results(
         _Doc([(table, 1)], tables=[table]),
         include_table_structure=True,
     )
     rects = [r for r in out if r["type"] == "rectanglelabels"]
-    assert len(rects) == 5  # 1 table + 4 cells
 
     table_rect = next(r for r in rects if r["value"]["rectanglelabels"] == ["table"])
-    cell_rects = [r for r in rects if r is not table_rect]
-    assert all(cr["value"]["parentId"] == table_rect["id"] for cr in cell_rects)
-
-    labels = [cr["value"]["rectanglelabels"][0] for cr in cell_rects]
-    assert labels.count("column_header") == 2
-    assert labels.count("table_cell") == 1
-    assert labels.count("table_merged_cell") == 1
-
-    # Cells sit one level deeper than the table in the sub-annotation tree.
-    for cr in cell_rects:
+    children = [r for r in rects if r is not table_rect]
+    # Every non-table rect is parented to the table (so the interface renders
+    # them under its sub-annotation tree, not as flat top-level content).
+    assert all(cr["value"]["parentId"] == table_rect["id"] for cr in children)
+    # ...and one level deeper than the table itself.
+    for cr in children:
         assert cr["value"]["level"] == 2
+
+    labels = [cr["value"]["rectanglelabels"][0] for cr in children]
+    # 2 rows + 2 columns + 1 merged overlay + 2 column_header overlays + 3 text cells.
+    assert labels.count("table_row") == 2
+    assert labels.count("table_column") == 2
+    assert labels.count("table_merged_cell") == 1
+    assert labels.count("column_header") == 2
+    assert labels.count("text") == 3
+    # The old per-cell "table_cell" label is gone — content is expressed via
+    # cell-geometry `text` rects that the JSX emitTable assigns to the origin
+    # cell by bbox overlap, so the interface never has to invent a label for
+    # a cell that carries only content.
+    assert "table_cell" not in labels
+
+    # Row strips are full table width; column strips are full table height.
+    tv = table_rect["value"]
+    for r in children:
+        if r["value"]["rectanglelabels"] == ["table_row"]:
+            assert r["value"]["x"] == tv["x"]
+            assert r["value"]["width"] == tv["width"]
+        if r["value"]["rectanglelabels"] == ["table_column"]:
+            assert r["value"]["y"] == tv["y"]
+            assert r["value"]["height"] == tv["height"]
+
+    # The merged cell overlays sit on the merged geometry, NOT split into
+    # per-column halves — that's the whole point of preserving the merge.
+    merged = next(r for r in children if r["value"]["rectanglelabels"] == ["table_merged_cell"])
+    assert merged["value"]["x"] == 10.0
+    assert merged["value"]["width"] == 40.0
+
+    # Cell text rides as a separate `text` child at the same per-cell bbox.
+    # The interface's emitTable() assigns it to the origin cell by bbox overlap.
+    text_rects = [r for r in children if r["value"]["rectanglelabels"] == ["text"]]
+    text_bodies = sorted(r["value"]["text"] for r in text_rects)
+    assert text_bodies == ["H1", "H2", "wide"]
+
+
+def test_table_structure_skips_when_grid_indices_are_missing() -> None:
+    """No grid indices → we can't derive row/column bands, so emit nothing
+    beyond the parent table rect. Better than fabricating a bogus 1×1 grid
+    from cells whose true positions we don't know."""
+    cells = [_table_cell(bbox=_tl(10, 10, 30, 20), text="only")]  # default indices, no num_rows/cols
+    table = _item(
+        label=DocItemLabel.TABLE,
+        bbox=_tl(10, 10, 50, 30),
+        self_ref="#/tables/0",
+        # SimpleNamespace with only table_cells — no num_rows / num_cols.
+        data=SimpleNamespace(table_cells=cells),
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(table, 1)], tables=[table]),
+        include_table_structure=True,
+    )
+    # Just the table rect: the single cell has default indices (0..1, 0..1)
+    # so num_rows=1, num_cols=1 gets inferred — but with only ONE cell in a
+    # 1×1 grid, we get 1 row + 1 column + 1 text child.
+    labels = [r["value"]["rectanglelabels"][0] for r in out if r["type"] == "rectanglelabels"]
+    assert labels.count("table") == 1
+    # The 1x1 fallback path IS exercised — this cell has default (0,1,0,1) so
+    # it does define a valid 1x1 grid.
+    assert labels.count("table_row") == 1
+    assert labels.count("table_column") == 1
+    assert labels.count("text") == 1
 
 
 def test_table_structure_default_off_matches_prior_behavior() -> None:
     """Without include_table_structure=True the emitter keeps its pre-existing
     "table as one flat rect" behavior; existing consumers can't accidentally start
     seeing extra child rects they don't know how to handle."""
-    cells = [_table_cell(bbox=_tl(10, 10, 30, 20), text="only")]
+    cells = [
+        _table_cell(
+            bbox=_tl(10, 10, 30, 20), text="only",
+            start_row=0, end_row=1, start_col=0, end_col=1,
+        ),
+    ]
     table = _item(
         label=DocItemLabel.TABLE,
         bbox=_tl(10, 10, 50, 30),
         self_ref="#/tables/0",
-        data=SimpleNamespace(table_cells=cells),
+        data=SimpleNamespace(table_cells=cells, num_rows=1, num_cols=1),
     )
     out = docling_document_to_ls_results(_Doc([(table, 1)], tables=[table]))
     assert len(out) == 1
     assert out[0]["value"]["rectanglelabels"] == ["table"]
 
 
-def test_table_cells_are_not_swept_into_reading_order() -> None:
-    """Reading order sequences top-level flow. Sweeping cells into it would produce a
-    polyline that zig-zags through every cell of every table on the page, drowning out
-    the document flow the polyline is supposed to represent."""
+def test_table_structure_children_are_not_swept_into_reading_order() -> None:
+    """Reading order sequences top-level flow. Sweeping every row / column /
+    merged / cell-text child into it would produce a polyline that zig-zags
+    through every cell of every table on the page, drowning out the document
+    flow the polyline is supposed to represent."""
     cells = [
-        _table_cell(bbox=_tl(10, 10, 20, 15), text="a"),
-        _table_cell(bbox=_tl(20, 10, 30, 15), text="b"),
+        _table_cell(
+            bbox=_tl(10, 10, 20, 15), text="a",
+            start_row=0, end_row=1, start_col=0, end_col=1,
+        ),
+        _table_cell(
+            bbox=_tl(20, 10, 30, 15), text="b",
+            start_row=0, end_row=1, start_col=1, end_col=2,
+        ),
     ]
     table = _item(
         label=DocItemLabel.TABLE,
         bbox=_tl(10, 10, 30, 15),
         self_ref="#/tables/0",
-        data=SimpleNamespace(table_cells=cells),
+        data=SimpleNamespace(table_cells=cells, num_rows=1, num_cols=2),
     )
     # A second top-level item on the same page so reading order has 2 endpoints.
     para = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 20, 90, 30), text="body")
@@ -533,12 +642,68 @@ def test_table_cells_are_not_swept_into_reading_order() -> None:
         include_table_structure=True,
     )
     poly = next(r for r in out if r["type"] == "polygonlabels")
-    assert len(poly["value"]["points"]) == 2, "reading order must not include table cells"
-    rect_ids = [r["id"] for r in out if r["type"] == "rectanglelabels"]
-    # First two rects are table + first cell (in that order), then second cell, then para.
-    # Polyline connects table + para only.
-    assert poly["value"]["connectedRegions"][0] == rect_ids[0]  # table
-    assert poly["value"]["connectedRegions"][1] == rect_ids[-1]  # para (last rect)
+    assert len(poly["value"]["points"]) == 2, (
+        "reading order must not include table_row / table_column / merged / cell-text children"
+    )
+    # Reading order references the top-level items only: the table and the paragraph.
+    table_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["table"]
+    )
+    para_id = next(
+        r["id"] for r in out
+        if r["type"] == "rectanglelabels" and r["value"]["rectanglelabels"] == ["text"]
+        and r["value"]["parentId"] is None
+    )
+    assert poly["value"]["connectedRegions"] == [table_id, para_id]
+
+
+def test_semantic_and_merged_overlays_coexist_on_the_same_cell() -> None:
+    """A merged column-header cell contributes BOTH a table_merged_cell overlay
+    (structural: "this cell spans multiple columns") AND a column_header overlay
+    (semantic: "this cell is a heading"). The two live on the same underlying
+    geometry — the JSX interface renders them on separate display layers and
+    the DocLang emitter reads them independently, so dropping either would
+    lose information."""
+    cells = [
+        _table_cell(
+            bbox=_tl(10, 10, 50, 20), text="Country",
+            column_header=True, col_span=2,
+            start_row=0, end_row=1, start_col=0, end_col=2,
+        ),
+        _table_cell(
+            bbox=_tl(10, 20, 30, 30), text="US",
+            start_row=1, end_row=2, start_col=0, end_col=1,
+        ),
+        _table_cell(
+            bbox=_tl(30, 20, 50, 30), text="EU",
+            start_row=1, end_row=2, start_col=1, end_col=2,
+        ),
+    ]
+    table = _item(
+        label=DocItemLabel.TABLE,
+        bbox=_tl(10, 10, 50, 30),
+        self_ref="#/tables/0",
+        data=SimpleNamespace(table_cells=cells, num_rows=2, num_cols=2),
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(table, 1)], tables=[table]),
+        include_table_structure=True,
+    )
+    labels = [r["value"]["rectanglelabels"][0] for r in out if r["type"] == "rectanglelabels"]
+    assert labels.count("table_merged_cell") == 1
+    assert labels.count("column_header") == 1
+    # And they land on the SAME geometry (10, 10, 40, 10 ← width=40 spanning both cols).
+    merged = next(
+        r for r in out if r["type"] == "rectanglelabels"
+        and r["value"]["rectanglelabels"] == ["table_merged_cell"]
+    )
+    header = next(
+        r for r in out if r["type"] == "rectanglelabels"
+        and r["value"]["rectanglelabels"] == ["column_header"]
+    )
+    for k in ("x", "y", "width", "height"):
+        assert merged["value"][k] == header["value"][k]
 
 
 # --- relations: to_caption / to_footnote / to_value ---------------------------------
@@ -683,3 +848,293 @@ def test_relations_default_off_matches_prior_behavior() -> None:
         if r["type"] == "polygonlabels"
     ]
     assert "to_caption" not in labels
+
+
+# --- merge polylines from InlineGroup ------------------------------------------------
+#
+# An InlineGroup is Docling's representation of inline text runs that belong to
+# ONE logical element split across columns / pages / line breaks. The interface
+# uses a `merge` polyline to express the same idea (connected rects share a
+# thread_id in the emitted DocLang), so predictions map InlineGroup 1:1 to
+# a merge polyline over its resolved children.
+
+
+def test_inline_group_emits_merge_polyline_connecting_children() -> None:
+    a = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 10, 30, 20), text="left", self_ref="#/texts/0")
+    b = _item(label=DocItemLabel.TEXT, bbox=_tl(60, 10, 80, 20), text="right", self_ref="#/texts/1")
+    inline = SimpleNamespace(
+        label=GroupLabel.INLINE,
+        self_ref="#/groups/0",
+        children=[_Ref("#/texts/0"), _Ref("#/texts/1")],
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(a, 1), (b, 1)], groups=[inline]),
+        include_relations=True,
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    merges = [p for p in polys if p["value"]["polygonlabels"] == ["merge"]]
+    assert len(merges) == 1
+    m = merges[0]
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    a_id = next(r["id"] for r in rects if r["value"]["text"] == "left")
+    b_id = next(r["id"] for r in rects if r["value"]["text"] == "right")
+    assert m["value"]["connectedRegions"] == [a_id, b_id]
+    # Centroids of the two rects, one per endpoint, in the same order as connectedRegions.
+    assert m["value"]["points"] == [[20.0, 15.0], [70.0, 15.0]]
+    assert m["value"]["closed"] is False
+    # `merge` is a polyline path, not a bounded region — parentId is always None.
+    assert m["value"]["parentId"] is None
+
+
+def test_inline_group_skipped_when_children_dont_resolve() -> None:
+    """When an InlineGroup's children weren't emitted (typically because
+    ``content_layers`` filtered them out), the merge polyline would connect
+    nothing — silently drop it rather than emitting a dangling shape."""
+    a = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 10, 30, 20), self_ref="#/texts/0")
+    inline = SimpleNamespace(
+        label=GroupLabel.INLINE,
+        self_ref="#/groups/0",
+        children=[_Ref("#/texts/0"), _Ref("#/texts/dropped")],  # 2nd never emitted
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(a, 1)], groups=[inline]),
+        include_relations=True,
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in polys)
+
+
+def test_non_inline_groups_do_not_emit_merge_polylines() -> None:
+    """A generic SECTION / CHAPTER / SLIDE GroupItem is a semantic container,
+    not a visual-merge hint — overloading `merge` for those would drown the
+    annotator in false positives. Only InlineGroup (label=INLINE) maps to
+    a merge polyline."""
+    a = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 10, 30, 20), self_ref="#/texts/0")
+    b = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 20, 30, 30), self_ref="#/texts/1")
+    section = SimpleNamespace(
+        label=GroupLabel.SECTION,
+        self_ref="#/groups/0",
+        children=[_Ref("#/texts/0"), _Ref("#/texts/1")],
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(a, 1), (b, 1)], groups=[section]),
+        include_relations=True,
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in polys)
+
+
+def test_inline_group_merge_polyline_off_when_relations_disabled() -> None:
+    """Merge polylines are gated under ``include_relations`` (same gate as
+    to_caption / to_footnote / to_value) since they express a cross-region
+    link. With the flag off, no polyline shape gets emitted."""
+    a = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 10, 30, 20), self_ref="#/texts/0")
+    b = _item(label=DocItemLabel.TEXT, bbox=_tl(60, 10, 80, 20), self_ref="#/texts/1")
+    inline = SimpleNamespace(
+        label=GroupLabel.INLINE,
+        self_ref="#/groups/0",
+        children=[_Ref("#/texts/0"), _Ref("#/texts/1")],
+    )
+    out = docling_document_to_ls_results(
+        _Doc([(a, 1), (b, 1)], groups=[inline]),
+        # include_relations defaults to False
+    )
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in polys)
+
+
+# ----- multi-prov items (one NodeItem, several bboxes on the same page) -----
+#
+# Docling represents "one logical element split across columns on the same
+# page" as a single NodeItem whose ``prov`` list has two entries — NOT as an
+# InlineGroup. The emitter must therefore emit one rect per prov AND emit a
+# merge polyline connecting them. Before this pass the code silently took
+# prov[0] and dropped the rest, which in the field showed up as "the middle
+# column of a wrapped paragraph is missing from the prediction".
+
+
+def test_multi_prov_item_on_same_page_emits_one_rect_per_prov() -> None:
+    """The core round-trip: two provs on the same page → two rects, sharing
+    the item's text/label/level/etc. No page filter, no gate needed."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 10, 30, 20)), (1, _tl(60, 10, 80, 20))],
+        text="wraps across columns",
+        self_ref="#/texts/0",
+    )
+    out = docling_document_to_ls_results(_Doc([(item, 1)]))
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    assert len(rects) == 2, "each prov must yield its own rect"
+    # Same logical element → identical semantic fields on every constituent.
+    assert {r["value"]["text"] for r in rects} == {"wraps across columns"}
+    assert {tuple(r["value"]["rectanglelabels"]) for r in rects} == {("text",)}
+    # Geometry differs, one rect per prov, in prov order.
+    geoms = [(r["value"]["x"], r["value"]["y"], r["value"]["width"], r["value"]["height"]) for r in rects]
+    assert geoms == [(10.0, 10.0, 20.0, 10.0), (60.0, 10.0, 20.0, 10.0)]
+
+
+def test_multi_prov_item_emits_merge_polyline_connecting_all_provs() -> None:
+    """The whole point of splitting into N rects: the merge polyline is what
+    tells the DocLang emitter these N rects are one <thread_id> element."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 10, 30, 20)), (1, _tl(60, 10, 80, 20))],
+        text="wraps across columns",
+        self_ref="#/texts/0",
+    )
+    out = docling_document_to_ls_results(_Doc([(item, 1)]), include_relations=True)
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    rect_ids = [r["id"] for r in rects]
+    merges = [
+        p for p in out
+        if p["type"] == "polygonlabels" and p["value"]["polygonlabels"] == ["merge"]
+    ]
+    assert len(merges) == 1
+    m = merges[0]
+    # Every emitted rect must be an endpoint, in prov order, so the DocLang
+    # emitter's thread_id assignment matches Docling's own prov ordering.
+    assert m["value"]["connectedRegions"] == rect_ids
+    # Two endpoints, centroids of the two rects.
+    assert m["value"]["points"] == [[20.0, 15.0], [70.0, 15.0]]
+    assert m["value"]["closed"] is False
+    assert m["value"]["parentId"] is None
+
+
+def test_multi_prov_merge_polyline_off_when_relations_disabled() -> None:
+    """Same gate as InlineGroup merges: without include_relations, only the
+    rects are emitted — the annotator can still see all constituent regions,
+    just without the visual link between them."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 10, 30, 20)), (1, _tl(60, 10, 80, 20))],
+        text="wraps",
+        self_ref="#/texts/0",
+    )
+    out = docling_document_to_ls_results(_Doc([(item, 1)]))
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    assert len(rects) == 2  # rects still emitted
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in polys)
+
+
+def test_multi_prov_reading_order_uses_primary_prov_centroid_only() -> None:
+    """A multi-prov item is ONE reading-order stop, at its primary (first)
+    prov's centroid. Threading through every constituent rect would zigzag
+    the reading order polyline (left col → right col → next paragraph's
+    left col → ...) and make it unreadable.
+    """
+    a = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 10, 30, 20)), (1, _tl(60, 10, 80, 20))],
+        text="wraps",
+        self_ref="#/texts/0",
+    )
+    b = _item(label=DocItemLabel.TEXT, bbox=_tl(10, 40, 30, 50), text="next", self_ref="#/texts/1")
+    out = docling_document_to_ls_results(_Doc([(a, 1), (b, 1)]), include_reading_order=True)
+    ro = next(r for r in out if r["type"] == "polygonlabels" and r["value"]["polygonlabels"] == ["reading_order"])
+    # 3 rects total but only 2 reading-order stops: primary prov of `a`,
+    # then `b`. The `60,10,80,20` prov of `a` is intentionally NOT visited.
+    assert len(ro["value"]["points"]) == 2
+    # Primary prov centroid of `a` = (20, 15); centroid of `b` = (20, 45).
+    assert ro["value"]["points"] == [[20.0, 15.0], [20.0, 45.0]]
+
+
+def test_multi_prov_primary_prov_is_the_caption_target() -> None:
+    """When a picture's caption is a multi-prov item, the ``to_caption`` link
+    must land on the caption's PRIMARY rect — not on some arbitrary constituent
+    picked by dict iteration. The primary prov is the caption's entry point.
+    """
+    caption = _multi_prov_item(
+        label=DocItemLabel.CAPTION,
+        provs=[(1, _tl(10, 60, 40, 70)), (1, _tl(50, 60, 90, 70))],
+        text="wrapped caption",
+        self_ref="#/texts/0",
+    )
+    picture = SimpleNamespace(
+        prov=[SimpleNamespace(page_no=1, bbox=_tl(10, 10, 90, 50))],
+        label=DocItemLabel.PICTURE,
+        text="",
+        content_layer=ContentLayer.BODY,
+        meta=None,
+        self_ref="#/pictures/0",
+        data=None,
+        captions=[_Ref("#/texts/0")],
+        footnotes=[],
+        graph=None,
+    )
+    doc = _Doc([(picture, 1), (caption, 1)], pictures=[picture])
+    out = docling_document_to_ls_results(doc, include_relations=True)
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    caption_rects = [r for r in rects if r["value"]["text"] == "wrapped caption"]
+    picture_id = next(r["id"] for r in rects if r["value"]["rectanglelabels"] == ["picture"])
+    # Primary prov comes first in emission order.
+    primary_caption_id = caption_rects[0]["id"]
+    secondary_caption_id = caption_rects[1]["id"]
+    to_caption = next(
+        r for r in out
+        if r["type"] == "polygonlabels" and r["value"]["polygonlabels"] == ["to_caption"]
+    )
+    assert to_caption["value"]["connectedRegions"] == [picture_id, primary_caption_id]
+    assert secondary_caption_id not in to_caption["value"]["connectedRegions"]
+
+
+def test_multi_prov_item_survives_partial_off_page_prov() -> None:
+    """One prov entirely off-page shouldn't drop the whole item — the surviving
+    prov(s) still emit, just without a merge polyline (nothing to merge with)."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 10, 30, 20)), (1, _tl(110, 10, 130, 20))],  # 2nd off-page
+        text="partly on page",
+        self_ref="#/texts/0",
+    )
+    out = docling_document_to_ls_results(_Doc([(item, 1)]), include_relations=True)
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    assert len(rects) == 1
+    # Only one rect survived → no merge to emit.
+    polys = [r for r in out if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in polys)
+
+
+def test_page_straddling_item_still_emits_only_the_requested_page_prov() -> None:
+    """The page_no filter is orthogonal to same-page multi-prov: when the
+    caller asks for page 2, they get page 2's prov(s) only. This is the
+    original ``test_page_no_filter_measures_the_provenance_on_the_requested_page``
+    contract; it must survive the multi-prov refactor unchanged."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[(1, _tl(10, 80, 30, 100)), (2, _tl(40, 0, 60, 20))],
+        text="straddles",
+    )
+    doc = _Doc([(item, 1)], pages={1: _page(), 2: _page()})
+
+    on_p1 = docling_document_to_ls_results(doc, page_no=1, include_relations=True)
+    p1_rects = [r for r in on_p1 if r["type"] == "rectanglelabels"]
+    assert len(p1_rects) == 1
+    # No merge — only one prov applies to page 1.
+    p1_polys = [r for r in on_p1 if r["type"] == "polygonlabels"]
+    assert not any(p["value"]["polygonlabels"] == ["merge"] for p in p1_polys)
+
+
+def test_within_page_multi_prov_with_page_filter_emits_all_matching_provs() -> None:
+    """The other half of the page filter contract: when BOTH provs are on the
+    requested page, both survive and are merged. A page filter must not
+    accidentally re-introduce the "prov[0] only" bug for same-page multi-prov."""
+    item = _multi_prov_item(
+        label=DocItemLabel.TEXT,
+        provs=[
+            (1, _tl(10, 10, 30, 20)),
+            (1, _tl(60, 10, 80, 20)),
+            (2, _tl(10, 10, 30, 20)),  # different page, must be excluded
+        ],
+        text="wraps on page 1",
+        self_ref="#/texts/0",
+    )
+    doc = _Doc([(item, 1)], pages={1: _page(), 2: _page()})
+    out = docling_document_to_ls_results(doc, page_no=1, include_relations=True)
+    rects = [r for r in out if r["type"] == "rectanglelabels"]
+    assert len(rects) == 2
+    merges = [
+        p for p in out
+        if p["type"] == "polygonlabels" and p["value"]["polygonlabels"] == ["merge"]
+    ]
+    assert len(merges) == 1
