@@ -85,6 +85,8 @@ class PPOCR(LabelStudioMLBase):
         'th',  # Thai
     }
 
+    # Process-wide pipeline cache. The API creates a new PPOCR instance per /predict
+    # request, so this must be stored on the class (not the instance) to load once.
     _pipeline = None
 
     def _lazy_init(self):
@@ -190,7 +192,8 @@ class PPOCR(LabelStudioMLBase):
             pp_option.run_mode = 'paddle'
             logger.info(f"  Run mode: paddle (GPU)")
 
-        self._pipeline = create_pipeline(config=config, device=self.DEVICE, pp_option=pp_option)
+        # Cache on the class so every per-request instance reuses the same pipeline.
+        PPOCR._pipeline = create_pipeline(config=config, device=self.DEVICE, pp_option=pp_option)
         logger.info(f"{version_tag} pipeline initialized successfully")
 
     def setup(self):
