@@ -123,7 +123,7 @@ def _model(monkeypatch, doc, **env) -> Docling:
         monkeypatch.setenv(k, v)
     _stub_convert(monkeypatch, doc)
     m = Docling.__new__(Docling)  # skip __init__: it builds SDK/label-config state we do not need
-    m._data_key, m._from_name, m._to_name = "image", "docling", "docling"
+    m._data_key, m._from_name, m._to_name = "image", "doclang", "doclang"
     return m
 
 

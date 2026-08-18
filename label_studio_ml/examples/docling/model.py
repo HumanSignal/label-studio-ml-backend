@@ -1,7 +1,7 @@
 """Docling SaaS (IBM) via DoclingServiceClient -> Label Studio predictions.
 
-Predictions target the **HumanSignal Interfaces** Docling annotator
-(``docling-ls-implementation/docling_interface.jsx``), which reads results
+Predictions target the **HumanSignal Interfaces** Doclang annotator
+(``doclang/Screen.jsx``), which reads results
 through ``parseResults``. Output is canonical Label Studio result shapes —
 ``rectanglelabels`` and ``polygonlabels`` — built by
 :mod:`docling_to_ls_results`.
@@ -84,12 +84,12 @@ class Docling(LabelStudioMLBase):
     _client: Optional[DoclingServiceClient] = None
 
     def __init__(self, project_id: Optional[str] = None, label_config: Optional[str] = None, **kwargs):
-        # Optional overrides. The Docling Interface (docling_interface.jsx) hardcodes
-        # from_name="docling" / to_name="docling" and reads task.data.image, so the
+        # Optional overrides. The Doclang Interface (doclang/Screen.jsx) hardcodes
+        # from_name="doclang" / to_name="doclang" and reads task.data.image, so the
         # defaults below match — set these env vars only if your project overrides
         # those names.
-        self._from_name = os.getenv("DOCLING_FROM_NAME") or "docling"
-        self._to_name = os.getenv("DOCLING_TO_NAME") or "docling"
+        self._from_name = os.getenv("DOCLING_FROM_NAME") or "doclang"
+        self._to_name = os.getenv("DOCLING_TO_NAME") or "doclang"
         self._data_key = os.getenv("DOCLING_TASK_DATA_KEY") or "image"
 
         # HumanSignal Interfaces projects ship a near-empty ``<View></View>`` label_config
@@ -163,7 +163,7 @@ class Docling(LabelStudioMLBase):
         return client.convert(source=source, headers=headers or None)
 
     def _task_file_url(self, task: Dict[str, Any]) -> Optional[str]:
-        # Match docling_interface.jsx's resolveImageUrl fallback chain so the ML backend reads from
+        # Match the Doclang interface's (Screen.jsx) resolveImageUrl fallback chain so the ML backend reads from
         # the same place the labeling iframe does — including LSE's ``$undefined$`` direct-upload key
         # (lowercase, with a leading and trailing dollar sign).
         data = task.get("data") or {}
@@ -414,7 +414,7 @@ class Docling(LabelStudioMLBase):
             )
 
         # Canonical Label Studio result shapes (rectanglelabels / polygonlabels),
-        # matching docling_interface.jsx's parseResults contract.
+        # matching the Doclang interface's (Screen.jsx) parseResults contract.
         canonical_results = docling_document_to_ls_results(
             doc,
             page_no=page_no,
