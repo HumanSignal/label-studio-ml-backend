@@ -1,0 +1,13 @@
+label-studio-ml
+Jinja2
+boto3
+click
+itsdangerous
+opencv-contrib-python-headless
+paddlepaddle==2.5.2
+paddleocr==2.7.0.3
+rq
+supervisor
+werkzeug
+gunicorn
+numpy
