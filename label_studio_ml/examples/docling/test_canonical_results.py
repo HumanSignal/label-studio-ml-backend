@@ -197,6 +197,18 @@ def test_rectanglelabels_envelope_shape() -> None:
     assert v["parentId"] is None
 
 
+def test_default_from_and_to_name_are_doclang() -> None:
+    """Pin the converter's default from_name/to_name. The envelope-shape test above
+    passes them in explicitly and echoes them back, so it stays green for any string;
+    calling with defaults omitted exercises docling_to_ls_results.py's actual defaults
+    and fails if they regress from "doclang" back to "docling"."""
+    item = _item(label=DocItemLabel.SECTION_HEADER, bbox=_tl(10, 20, 30, 40), text="Hello")
+    out = docling_document_to_ls_results(_Doc([(item, 1)]))
+
+    assert len(out) == 1
+    assert out[0]["from_name"] == out[0]["to_name"] == "doclang"
+
+
 def test_bottom_left_origin_bbox_is_flipped_to_top_left() -> None:
     """Docling reports PDF provenance bottom-left; LS wants top-left."""
     # On a 100-high page, a box spanning y=60..80 from the bottom is y=20..40 from the top.
