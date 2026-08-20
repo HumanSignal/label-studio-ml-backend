@@ -45,10 +45,10 @@ services:
       # - DOCLING_HTTP_CONNECT_TIMEOUT=30
 
       # Labeling-config overrides. Leave empty unless your project overrides the defaults.
-      # The HumanSignal Interface (docling_interface.jsx) hardcodes
-      # from_name="docling" / to_name="docling" and reads task.data.image, so leave these blank.
-      # - DOCLING_FROM_NAME=docling
-      # - DOCLING_TO_NAME=docling
+      # The HumanSignal Doclang Interface (doclang/Screen.jsx) hardcodes
+      # from_name="doclang" / to_name="doclang" and reads task.data.image, so leave these blank.
+      # - DOCLING_FROM_NAME=doclang
+      # - DOCLING_TO_NAME=doclang
       # - DOCLING_TASK_DATA_KEY=image
 
       # Prediction shape toggles (all default ON — see README for rationale).

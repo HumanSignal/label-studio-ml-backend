@@ -63,6 +63,25 @@ def test_no_data_returns_none() -> None:
     assert _url({}) is None
 
 
+def test_default_names_come_from_init(monkeypatch) -> None:
+    """A default-constructed model (no DOCLING_FROM_NAME/DOCLING_TO_NAME set) must
+    wire _from_name/_to_name to "doclang". This exercises __init__'s env-var
+    defaults (model.py) directly — the _model() fixture below hand-assigns the
+    names onto a Docling.__new__() instance, so it would stay green even if those
+    defaults regressed back to "docling", which is the exact regression this PR
+    exists to prevent."""
+    for name in ("DOCLING_FROM_NAME", "DOCLING_TO_NAME", "DOCLING_TASK_DATA_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    # Neutralize the heavy base __init__ (model-server / SDK wiring we don't need here);
+    # the default-name assignment in Docling.__init__ runs before super().__init__().
+    monkeypatch.setattr(model_mod.LabelStudioMLBase, "__init__", lambda self, *a, **k: None)
+
+    m = Docling(project_id="1", label_config=None)
+
+    assert m._from_name == m._to_name == "doclang"
+    assert m._data_key == "image"
+
+
 # --- prediction assembly -------------------------------------------------------------
 #
 # These drive predict_single with the Docling client stubbed out, in both of the modes
@@ -123,7 +142,7 @@ def _model(monkeypatch, doc, **env) -> Docling:
         monkeypatch.setenv(k, v)
     _stub_convert(monkeypatch, doc)
     m = Docling.__new__(Docling)  # skip __init__: it builds SDK/label-config state we do not need
-    m._data_key, m._from_name, m._to_name = "image", "docling", "docling"
+    m._data_key, m._from_name, m._to_name = "image", "doclang", "doclang"
     return m
 
 

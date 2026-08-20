@@ -7,7 +7,7 @@ PDF provenance bbox actually goes through. Only ``iterate_items`` is stubbed, to
 keep the tests independent of IBM Docling SaaS.
 
 They assert the *result envelope shape*, which is the contract that
-``docling-ls-implementation/docling_interface.jsx`` ``parseResults`` reads.
+the Doclang interface's ``doclang/Screen.jsx`` ``parseResults`` reads.
 """
 
 from __future__ import annotations
@@ -172,13 +172,13 @@ def _tl(l: float, t: float, r: float, b: float) -> BoundingBox:
 
 def test_rectanglelabels_envelope_shape() -> None:
     item = _item(label=DocItemLabel.SECTION_HEADER, bbox=_tl(10, 20, 30, 40), text="Hello")
-    out = docling_document_to_ls_results(_Doc([(item, 1)]), from_name="docling", to_name="docling")
+    out = docling_document_to_ls_results(_Doc([(item, 1)]), from_name="doclang", to_name="doclang")
 
     assert len(out) == 1
     r = out[0]
     assert r["type"] == "rectanglelabels"
-    assert r["from_name"] == "docling"
-    assert r["to_name"] == "docling"
+    assert r["from_name"] == "doclang"
+    assert r["to_name"] == "doclang"
     assert r["origin"] == "prediction"
     assert isinstance(r["id"], str) and r["id"]
 
@@ -195,6 +195,18 @@ def test_rectanglelabels_envelope_shape() -> None:
     assert v["picture_type"] is None
     assert v["text"] == "Hello"
     assert v["parentId"] is None
+
+
+def test_default_from_and_to_name_are_doclang() -> None:
+    """Pin the converter's default from_name/to_name. The envelope-shape test above
+    passes them in explicitly and echoes them back, so it stays green for any string;
+    calling with defaults omitted exercises docling_to_ls_results.py's actual defaults
+    and fails if they regress from "doclang" back to "docling"."""
+    item = _item(label=DocItemLabel.SECTION_HEADER, bbox=_tl(10, 20, 30, 40), text="Hello")
+    out = docling_document_to_ls_results(_Doc([(item, 1)]))
+
+    assert len(out) == 1
+    assert out[0]["from_name"] == out[0]["to_name"] == "doclang"
 
 
 def test_bottom_left_origin_bbox_is_flipped_to_top_left() -> None:

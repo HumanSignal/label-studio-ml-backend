@@ -1,6 +1,6 @@
 """Map DoclingDocument items to canonical Label Studio result entries.
 
-The Docling Interface (``docling-ls-implementation/docling_interface.jsx``,
+The Doclang Interface (``doclang/Screen.jsx``,
 a HumanSignal Interfaces project) reads predictions through its
 ``parseResults`` function and expects canonical Label Studio result shapes.
 This module emits the shapes Docling can populate from a converted document:
@@ -34,7 +34,7 @@ from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel
 
 logger = logging.getLogger(__name__)
 
-# DoclingDocument labels -> canonical labels used in docling_interface.jsx LABEL_CATEGORIES.
+# DoclingDocument labels -> canonical labels used in the Doclang interface's (Screen.jsx) LABEL_CATEGORIES.
 DOCLING_LABEL_TO_LS: Dict[DocItemLabel, str] = {
     DocItemLabel.TITLE: "section_header",
     DocItemLabel.SECTION_HEADER: "section_header",
@@ -356,7 +356,7 @@ def _make_link_polyline(
     """Build a 2-point ``polygonlabels`` result linking two rectangles.
 
     Used for ``to_caption`` / ``to_footnote`` / ``to_value`` — the label
-    values the interface's ``LINK_RESTRICTIONS`` in ``docling_interface.jsx``
+    values the interface's ``LINK_RESTRICTIONS`` in ``doclang/Screen.jsx``
     expects. Points are the geometric centers of each endpoint; the interface
     snaps them to their enclosing rects on next drag anyway, but drawing at
     the center gives a sensible initial visual.
@@ -530,8 +530,8 @@ def docling_document_to_ls_results(
     include_table_structure: bool = False,
     include_relations: bool = False,
     content_layers: Optional[str] = None,
-    from_name: str = "docling",
-    to_name: str = "docling",
+    from_name: str = "doclang",
+    to_name: str = "doclang",
     score: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Build canonical Label Studio prediction results.
