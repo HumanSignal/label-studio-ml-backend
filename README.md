@@ -64,6 +64,7 @@ Check the **Required parameters** column to see if you need to set any additiona
 | [tesseract](/label_studio_ml/examples/tesseract)                                           | Interactive OCR. [Details](https://github.com/tesseract-ocr/tesseract)                                                                               | ❌              | ✅                | ❌        | None                       | Set (characters)                                                           | 
 | [timeseries_segmenter](/label_studio_ml/examples/timeseries_segmenter)             | Time series segmentation using a small LSTM network | ✅              | ✅                | ✅        | None   | Set |
 | [watsonX](/label_studio_ml/exampels/watsonx)| LLM inference with [WatsonX](https://www.ibm.com/products/watsonx-ai) and integration with [WatsonX.data](watsonx.data)| ✅ | ✅| ❌ | None| Arbitrary|
+| [whisper](/label_studio_ml/examples/whisper)                                               | Speech ASR with [Whisper](https://github.com/SYSTRAN/faster-whisper), whole file or timestamped segments                                             | ✅              | ❌                | ❌        | None                       | Arbitrary |
 | [yolo](/label_studio_ml/examples/yolo)                                                     | All YOLO tasks are supported: [YOLO](https://docs.ultralytics.com/tasks/) | ✅ | ❌ | ❌ | None | Arbitrary |
 
 # (Advanced usage) Develop your model

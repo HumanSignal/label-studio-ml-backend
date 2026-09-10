@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  whisper:
+    container_name: whisper
+    image: heartexlabs/label-studio-ml-backend:whisper-master
+    init: true
+    build:
+      context: .
+      args:
+        TEST_ENV: ${TEST_ENV}
+    environment:
+      # specify these parameters if you want to use basic auth for the model server
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      # set the log level for the model server
+      - LOG_LEVEL=DEBUG
+      # whisper settings
+      - WHISPER_MODEL=base
+      - WHISPER_DEVICE=cpu
+      - WHISPER_COMPUTE_TYPE=int8
+      # leave empty to let whisper detect the language
+      - WHISPER_LANGUAGE=
+      - WHISPER_BEAM_SIZE=5
+      # label applied to every segment when the config has a Labels tag
+      - WHISPER_SEGMENT_LABEL=Speech
+      # specify the number of workers and threads for the model server
+      - WORKERS=1
+      - THREADS=8
+      # specify the model directory (likely you don't need to change this)
+      - MODEL_DIR=/data/models
+
+      # Specify the Label Studio URL and API key to access
+      # uploaded, local storage and cloud storage files.
+      # Do not use 'localhost' as it does not work within Docker containers.
+      # Use prefix 'http://' or 'https://' for the URL always.
+      # Determine the actual IP using 'ifconfig' (Linux/Mac) or 'ipconfig' (Windows).
+      - LABEL_STUDIO_URL=http://localhost:8080
+      - LABEL_STUDIO_API_KEY=
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./data/server:/data"
