@@ -1,0 +1,21 @@
+services:
+  proxy:
+    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    entrypoint: ["/bin/sh", "/etc/nebius/start.sh"]
+    restart: unless-stopped
+    environment:
+      NEBIUS_ENDPOINT_HOST: ${NEBIUS_ENDPOINT_HOST:?Set the managed HTTPS hostname}
+    ports:
+      # Existing HTTPS ingress must forward to this loopback listener.
+      - "127.0.0.1:9091:8080"
+    volumes:
+      - ./nginx.conf.template:/etc/nebius/nginx.conf.template:ro
+      - ./start.sh:/etc/nebius/start.sh:ro
+    secrets:
+      - endpoint_token
+      - htpasswd
+secrets:
+  endpoint_token:
+    file: ./secrets/endpoint_token
+  htpasswd:
+    file: ./secrets/htpasswd

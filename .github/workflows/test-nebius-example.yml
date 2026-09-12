@@ -1,0 +1,32 @@
+name: Nebius deployment example
+on:
+  pull_request:
+    paths:
+      - 'deploy/nebius/**'
+      - '.github/workflows/test-nebius-example.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'deploy/nebius/**'
+      - '.github/workflows/test-nebius-example.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install -r deploy/nebius/requirements.lock pytest==9.1.1
+          python -m pip install --no-deps -e .
+      - name: API and real NGINX contract tests (no cloud credentials)
+        env:
+          PYTHONPATH: ${{ github.workspace }}/deploy/nebius
+          MODEL_DIR: ${{ runner.temp }}/label-studio-nebius
+          RUN_PROXY_TESTS: '1'
+        run: python -m pytest deploy/nebius/tests/test_app.py deploy/nebius/tests/test_proxy.py -q

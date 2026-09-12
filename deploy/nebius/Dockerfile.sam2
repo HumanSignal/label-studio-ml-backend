@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime@sha256:c16f4c749e2d9e96878875cdf6cc45cddda1d1a36fddd371dd6f2360f1b6e2a2
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1 \
+    SAM2_BUILD_CUDA=0 DEVICE=cuda MODEL_DIR=/data/models \
+    MODEL_CONFIG=configs/sam2.1/sam2.1_hiera_t.yaml \
+    MODEL_CHECKPOINT=sam2.1_hiera_tiny.pt \
+    MODEL_VERSION=sam2.1-tiny-7402e0d864fa-sdk-58fe284b \
+    XDG_CACHE_HOME=/data/cache XDG_DATA_HOME=/data/local
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY deploy/nebius/requirements.lock /tmp/requirements.lock
+RUN pip install -r /tmp/requirements.lock
+
+# Optional connected-component CUDA postprocessing is omitted; inference still uses CUDA.
+RUN git init /sam2 && git -C /sam2 remote add origin https://github.com/facebookresearch/sam2.git \
+    && git -C /sam2 fetch --depth 1 origin 2b90b9f5ceec907a1c18123530e92e794ad901a4 \
+    && git -C /sam2 checkout FETCH_HEAD \
+    && pip install --no-build-isolation --no-deps /sam2 \
+    && rm -rf /sam2/.git
+ADD --checksum=sha256:7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69 \
+    https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt \
+    /sam2/checkpoints/sam2.1_hiera_tiny.pt
+
+COPY label_studio_ml /backend/label_studio_ml
+COPY setup.py requirements.txt README.md LICENSE /backend/
+RUN pip install --no-deps /backend && pip check
+COPY label_studio_ml/examples/segment_anything_2_image/model.py /app/model.py
+COPY deploy/nebius/app.py /app/app.py
+RUN mkdir -p /data/models /data/cache /data/local && chmod -R a+rX /sam2/checkpoints \
+    && chown -R 10001:10001 /data
+USER 10001:10001
+WORKDIR /sam2
+EXPOSE 9090
+CMD ["gunicorn", "--bind", "0.0.0.0:9090", "--workers", "1", "--threads", "1", "--worker-class", "sync", "--timeout", "75", "--pythonpath", "/app", "app:create_app()"]

@@ -1,0 +1,6 @@
+<View>
+  <Image name="image" value="$image" zoom="true"/>
+  <BrushLabels name="mask" toName="image"><Label value="Object"/></BrushLabels>
+  <KeyPointLabels name="point" toName="image" smart="true"><Label value="Object"/></KeyPointLabels>
+  <RectangleLabels name="box" toName="image" smart="true"><Label value="Object"/></RectangleLabels>
+</View>

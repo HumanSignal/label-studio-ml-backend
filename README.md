@@ -193,6 +193,12 @@ To modify the port, use the `-p` parameter:
 label-studio-ml start my_ml_backend -p 9091
 ```
 
+# Deploy your ML backend to Nebius Serverless
+
+See the [SAM2 image deployment example](deploy/nebius/README.md) for a synchronous GPU Endpoint,
+authenticated Label Studio uploads, and an external Basic-to-Bearer proxy.
+Label Studio remains external. The example includes local tests and a live-validation checklist.
+
 # Deploy your ML backend to GCP
 
 Before you start:

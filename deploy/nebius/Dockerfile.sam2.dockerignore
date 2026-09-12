@@ -1,0 +1,6 @@
+.git
+**/__pycache__
+**/.pytest_cache
+deploy/nebius/proxy/secrets
+**/*.receipt.*
+**/.env

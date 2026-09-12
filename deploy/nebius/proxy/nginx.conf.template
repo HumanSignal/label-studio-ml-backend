@@ -1,0 +1,48 @@
+limit_conn_zone $server_name zone=predictions:10m;
+
+server {
+    listen 8080;
+    server_name nebius-label-studio;
+    server_tokens off;
+    access_log off;
+    error_log /dev/stderr warn;
+    client_max_body_size 256k;
+    client_body_timeout 10s;
+    send_timeout 15s;
+
+    auth_basic "Label Studio ML backend";
+    auth_basic_user_file /etc/nginx/htpasswd;
+    proxy_set_header Authorization "Bearer ${ENDPOINT_BEARER_TOKEN}";
+    proxy_set_header Host "${NEBIUS_ENDPOINT_HOST}";
+    proxy_set_header Cookie "";
+    proxy_ssl_server_name on;
+    proxy_ssl_name "${NEBIUS_ENDPOINT_HOST}";
+    proxy_ssl_verify on;
+    # Managed ingress can send two intermediates before the trusted root.
+    proxy_ssl_verify_depth 3;
+    proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 90s;
+    proxy_send_timeout 15s;
+    proxy_next_upstream off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+
+    location = /health {
+        limit_except GET { deny all; }
+        proxy_read_timeout 10s;
+        proxy_pass https://${NEBIUS_ENDPOINT_HOST}:${NEBIUS_ENDPOINT_PORT};
+    }
+    location = /setup {
+        limit_except POST { deny all; }
+        proxy_read_timeout 15s;
+        proxy_pass https://${NEBIUS_ENDPOINT_HOST}:${NEBIUS_ENDPOINT_PORT};
+    }
+    location = /predict {
+        limit_except POST { deny all; }
+        limit_conn predictions 1;
+        limit_conn_status 429;
+        proxy_pass https://${NEBIUS_ENDPOINT_HOST}:${NEBIUS_ENDPOINT_PORT};
+    }
+    location / { return 404; }
+}

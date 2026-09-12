@@ -1,0 +1,6 @@
+{
+  "project": "1.0",
+  "tasks": [{"id": 1, "data": {"image": "/data/upload/1/example.png"}}],
+  "label_config": "<View><Image name=\"image\" value=\"$image\"/><BrushLabels name=\"mask\" toName=\"image\"><Label value=\"Object\"/></BrushLabels></View>",
+  "params": {"context": {"result": [{"original_width": 64, "original_height": 64, "type": "keypointlabels", "is_positive": true, "value": {"x": 50, "y": 50, "keypointlabels": ["Object"]}}]}}
+}

@@ -1,0 +1,3 @@
+proxy/secrets/
+*.receipt.*
+.env
