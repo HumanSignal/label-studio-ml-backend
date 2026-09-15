@@ -48,10 +48,11 @@ print(
 )
 
 # A fresh denied upload must fail without serializing the media URL/credential.
-payload['tasks'][0]['data']['image'] = '/data/upload/1/denied.png?signature=private-test-marker'
+payload['tasks'][0]['data']['image'] = '/storage-data/uploaded/?filepath=upload/1/denied.png&signature=private-test-marker'
 with requests_mock.Mocker() as media:
     media.get(requests_mock.ANY, status_code=403)
     denied = client.post('/predict', json=payload)
+    assert media.called, 'the denied upload must reach the media download'
     assert denied.status_code == 500
     assert 'private-test-marker' not in denied.get_data(as_text=True)
     assert 'cpu-test-credential' not in denied.get_data(as_text=True)

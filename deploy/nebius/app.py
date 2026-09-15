@@ -8,6 +8,8 @@ from urllib.parse import urlsplit
 from flask import jsonify, request
 
 MAX_PIXELS = 2048 * 2048
+# Label Studio converts box offsets and sizes separately, so an edge-aligned box can sum to 100.00000000000001.
+MAX_PERCENT = 100 + 1e-6
 
 
 def validate_media_url(url: str, origin: str) -> None:
@@ -21,6 +23,9 @@ def validate_media_url(url: str, origin: str) -> None:
     if not parsed.path.startswith(('/data/upload/', '/storage-data/uploaded/')):
         raise ValueError('This example supports Label Studio uploads only')
     if parsed.username or parsed.password or parsed.fragment or '%' in parsed.path:
+        raise ValueError('Unsupported upload URL')
+    # The SDK reads '/data/...?d=<path>' from the local filesystem instead of Label Studio.
+    if parsed.query and not parsed.path.startswith('/storage-data/uploaded/'):
         raise ValueError('Unsupported upload URL')
     if any(part in ('.', '..') for part in parsed.path.split('/')):
         raise ValueError('Unsupported upload path')
@@ -44,7 +49,7 @@ def valid_context(context: dict) -> bool:
             return False
         keys = ('x', 'y', 'width', 'height') if item['type'] == 'rectanglelabels' else ('x', 'y')
         if any(
-            type(value.get(k)) not in (int, float) or not math.isfinite(value[k]) or not 0 <= value[k] <= 100
+            type(value.get(k)) not in (int, float) or not math.isfinite(value[k]) or not 0 <= value[k] <= MAX_PERCENT
             for k in keys
         ):
             return False
@@ -53,8 +58,8 @@ def valid_context(context: dict) -> bool:
         if item['type'] == 'rectanglelabels' and (
             value['width'] <= 0
             or value['height'] <= 0
-            or value['x'] + value['width'] > 100
-            or value['y'] + value['height'] > 100
+            or value['x'] + value['width'] > MAX_PERCENT
+            or value['y'] + value['height'] > MAX_PERCENT
         ):
             return False
     return True
@@ -119,7 +124,8 @@ def create_app(model_class=None):
         model_class = EndpointModel
 
     app = init_app(model_class)
-    app.config['MAX_CONTENT_LENGTH'] = 256 * 1024
+    # Interactive requests include the task's saved annotations, drafts and predictions (brush RLE).
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
     @app.before_request
     def validate_request():

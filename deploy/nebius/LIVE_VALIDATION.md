@@ -24,7 +24,7 @@ not a comprehensive network penetration test or production SLA.
 |---|---|
 | Native authentication | Missing token, wrong token and Basic auth: 401; correct Bearer token: health 200 |
 | Proxy authentication/routing | Missing/wrong Basic: 401; authenticated health/setup: 200; webhook/train/delete: 404 |
-| Request admission | 257 KiB body: 413; malformed JSON: 400; five concurrent predictions: one 200, four 429 |
+| Request admission | 257 KiB body: 413 (the limit was later raised to 16 MiB); malformed JSON: 400; five concurrent predictions: one 200, four 429 |
 | First GPU prediction | HTTP 200 in 0.731 s; peak PyTorch allocated memory 583,890,944 bytes (557 MiB), reserved 679,477,248 bytes |
 | Warm point predictions | 0.239, 0.189, 0.190 s through the HTTPS proxy |
 | Warm box predictions | 0.189, 0.199, 0.211 s through the HTTPS proxy |

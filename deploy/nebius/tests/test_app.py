@@ -51,7 +51,7 @@ def test_connect_setup_and_interactive_prediction(client, payload):
     'change',
     [
         {'tasks': []},
-        {'tasks': [{}, {}]},
+        {'tasks': [{'data': {}}, {'data': {}}]},
         {'project': '2.0'},
         {'tasks': [1]},
         {'params': []},
@@ -71,7 +71,16 @@ def test_no_training_or_management_routes(client, path):
 
 
 def test_bounded_json_body(client):
-    assert client.post('/predict', data=b'x' * (257 * 1024), content_type='application/json').status_code == 413
+    body = b'x' * (16 * 1024 * 1024 + 1024)
+    assert client.post('/predict', data=body, content_type='application/json').status_code == 413
+
+
+def test_accepts_task_with_saved_brush_annotations(client, payload):
+    # Label Studio sends saved annotations, drafts and predictions with interactive requests.
+    rle = list(range(100_000))
+    payload['tasks'][0]['annotations'] = [{'result': [{'type': 'brushlabels', 'value': {'rle': rle}}]}]
+    assert len(json.dumps(payload)) > 512 * 1024
+    assert client.post('/predict', json=payload).status_code == 200
 
 
 @pytest.mark.parametrize('dimension', [None, -1, 0, 5000, '64'])
@@ -91,6 +100,7 @@ def test_reject_invalid_image_dimensions(client, payload, dimension):
         '//other.example/data/upload/a.png',
         '/data/upload/../secret',
         '/data/upload/%2e%2e/secret',
+        '/data/upload/1/a.png?d=/etc/passwd',
         'https://user:password@label.example/data/upload/1/a.png',
     ],
 )
@@ -99,7 +109,14 @@ def test_media_boundary_rejects_local_and_foreign_urls(url):
         validate_media_url(url, 'https://label.example')
 
 
-@pytest.mark.parametrize('url', ['/data/upload/1/a.png', 'https://label.example/data/upload/1/a.png'])
+@pytest.mark.parametrize(
+    'url',
+    [
+        '/data/upload/1/a.png',
+        'https://label.example/data/upload/1/a.png',
+        'https://label.example/storage-data/uploaded/?filepath=upload/1/a.png',
+    ],
+)
 def test_supports_relative_and_absolute_uploads(url):
     validate_media_url(url, 'https://label.example')
 
@@ -116,6 +133,14 @@ def test_setup_rejects_non_string_project(client, payload):
 
 def test_accepts_client_null_context(client, payload):
     payload['params']['context'] = None
+    assert client.post('/predict', json=payload).status_code == 200
+
+
+def test_accepts_box_at_image_edge_with_float_rounding(client, payload):
+    item = payload['params']['context']['result'][0]
+    item['type'] = 'rectanglelabels'
+    item['value'] = {'x': 6.4, 'y': 0, 'width': 93.60000000000001, 'height': 100, 'rectanglelabels': ['Object']}
+    assert item['value']['x'] + item['value']['width'] > 100
     assert client.post('/predict', json=payload).status_code == 200
 
 

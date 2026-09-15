@@ -6,7 +6,7 @@ server {
     server_tokens off;
     access_log off;
     error_log /dev/stderr warn;
-    client_max_body_size 256k;
+    client_max_body_size 16m;
     client_body_timeout 10s;
     send_timeout 15s;
 
@@ -40,6 +40,10 @@ server {
     }
     location = /predict {
         limit_except POST { deny all; }
+        # limit_conn runs before auth_basic; try_files runs after it, so only authenticated requests take the slot.
+        try_files /nebius-no-such-file @predict;
+    }
+    location @predict {
         limit_conn predictions 1;
         limit_conn_status 429;
         proxy_pass https://${NEBIUS_ENDPOINT_HOST}:${NEBIUS_ENDPOINT_PORT};

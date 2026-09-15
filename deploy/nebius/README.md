@@ -155,16 +155,17 @@ docker compose up -d
 
 Forward an existing **HTTPS** virtual host to `http://127.0.0.1:9091`. Keep that loopback
 binding; do not expose plaintext Basic auth on a public interface. Configure your
-outer ingress for requests up to 256 KiB and a timeout greater than 100 seconds.
+outer ingress for requests up to 16 MiB and a timeout greater than 100 seconds. Label Studio
+sends the task's saved annotations, drafts and predictions (brush masks) with each request.
 Do not log Authorization headers, request bodies or response bodies at either ingress.
 
 The proxy authenticates Basic, replaces Authorization with the Endpoint Bearer token,
 removes Cookie, checks upstream TLS certificates and SNI with verification depth 3
 (to support the managed ingress's two-intermediate chain), and forwards only `/health`,
 `/setup` and `/predict`. Training/webhook/management routes return 404. It permits one
-active prediction and returns 429 for overlapping predictions. It does not retry or cache
-inference responses. The startup script accepts only a DNS-style hostname and a 64-hex
-Endpoint token. Rendered configuration contains the token; do not publish `nginx -T` output.
+active authenticated prediction and returns 429 for overlapping predictions. It does not
+retry or cache inference responses. The startup script accepts only a DNS-style hostname
+and a 64-hex Endpoint token. Rendered configuration contains the token; do not publish `nginx -T` output.
 
 After rotating a secret, recreate the proxy container to reload the file. Endpoint-side
 secret rotation/restart behavior requires validation; changing a file on the proxy does
@@ -212,9 +213,10 @@ project ID, task ID, image URL and dimensions with actual task values before usi
 `results`, each with a Label Studio `result` array, model version and score. An empty
 interactive context returns no predictions. Exactly one task is required.
 
-Use inputs of at most 4,194,304 pixels, and enforce a small upload-byte limit on Label
-Studio (for example 10 MiB). The current SDK downloader has no explicit request timeout
-or streaming byte cap. The worker watchdog is a final failure bound, not an efficient
+Use inputs of at most 4,194,304 pixels without EXIF rotation; the backend rejects prompts
+whose dimensions differ from the stored pixels, which includes rotated phone photos.
+Enforce a small upload-byte limit on Label Studio (for example 10 MiB). The current SDK
+downloader has no explicit request timeout or streaming byte cap. The worker watchdog is a final failure bound, not an efficient
 large-file downloader. This is why the recipe is limited to trusted uploads.
 
 ### Deadlines, failure handling and persistence

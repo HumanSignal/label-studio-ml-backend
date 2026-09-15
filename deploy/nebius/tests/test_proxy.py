@@ -3,6 +3,7 @@
 import concurrent.futures
 import os
 import secrets
+import socket
 import subprocess
 import time
 import uuid
@@ -191,7 +192,10 @@ def test_routes_payload_limit_and_upstream_errors(proxy):
         assert requests.post(url + '/' + route, json={}, auth=auth, timeout=5).status_code == 404
     assert requests.get(url + '/predict', auth=auth, timeout=5).status_code == 403
     assert requests.post(url + '/health', json={}, auth=auth, timeout=5).status_code == 403
-    assert requests.post(url + '/predict', data=b'x' * (257 * 1024), auth=auth, timeout=5).status_code == 413
+    body = b'x' * (16 * 1024 * 1024 + 1024)
+    assert requests.post(url + '/predict', data=body, auth=auth, timeout=5).status_code == 413
+    # Tasks with saved brush annotations exceed a few hundred KiB.
+    assert requests.post(url + '/predict', json={'rle': list(range(100_000))}, auth=auth, timeout=5).status_code == 200
     assert requests.post(url + '/predict', json={'status': 503}, auth=auth, timeout=5).status_code == 503
 
 
@@ -206,6 +210,16 @@ def test_one_active_prediction_and_no_secret_in_logs(proxy):
     assert sorted(results) == [200, 429]
     logs = docker('logs', container)
     assert token not in logs and auth[1] not in logs
+
+
+def test_unauthenticated_request_does_not_take_prediction_slot(proxy):
+    url, auth, _, _, _ = proxy
+    host, port = url.removeprefix('http://').split(':')
+    with socket.create_connection((host, int(port)), timeout=5) as held:
+        # NGINX answers 401 but keeps the request open while it discards the unfinished body.
+        held.sendall(b'POST /predict HTTP/1.1\r\nHost: proxy\r\nContent-Length: 10\r\n\r\nab')
+        assert held.recv(64).startswith(b'HTTP/1.1 401')
+        assert requests.post(url + '/predict', json={}, auth=auth, timeout=5).status_code == 200
 
 
 @pytest.mark.parametrize('host,trust', [('wrongname', True), ('upstream', False)])
