@@ -1,0 +1,11 @@
+torch
+torchvision
+numpy==1.26.4
+faster-coco-eval>=1.6.5
+PyYAML
+tensorboard
+scipy
+calflops
+transformers
+loguru
+opencv-python-headless

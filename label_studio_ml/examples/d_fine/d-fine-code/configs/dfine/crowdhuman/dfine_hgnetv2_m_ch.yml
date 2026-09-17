@@ -1,0 +1,60 @@
+__include__: [
+  '../../dataset/crowdhuman_detection.yml',
+  '../../runtime.yml',
+  '../include/dataloader.yml',
+  '../include/optimizer.yml',
+  '../include/dfine_hgnetv2.yml',
+]
+
+output_dir: ./output/dfine_hgnetv2_m_crowdhuman
+
+
+DFINE:
+  backbone: HGNetv2
+
+HGNetv2:
+  name: 'B2'
+  return_idx: [1, 2, 3]
+  freeze_at: -1
+  freeze_norm: False
+  use_lab: True
+
+DFINETransformer:
+  num_layers: 4  # 5 6
+  eval_idx: -1  # -2 -3
+
+HybridEncoder:
+  in_channels: [384, 768, 1536]
+  hidden_dim: 256
+  depth_mult: 0.67
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.000025
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.000025
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.00025
+  betas: [0.9, 0.999]
+  weight_decay: 0.000125
+
+
+# Increase to search for the optimal ema
+epochs: 220
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 200
+  collate_fn:
+    stop_epoch: 200
+    ema_restart_decay: 0.9999
+    base_size_repeat: 6
