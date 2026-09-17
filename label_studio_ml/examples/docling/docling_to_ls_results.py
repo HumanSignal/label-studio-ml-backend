@@ -5,13 +5,26 @@ a HumanSignal Interfaces project) reads predictions through its
 ``parseResults`` function and expects canonical Label Studio result shapes.
 This module emits the shapes Docling can populate from a converted document:
 
-  * ``rectanglelabels`` for layout regions, including per-cell rects for
-    ``TableItem`` structure (``table_cell`` / ``column_header`` /
-    ``row_header`` / ``row_section`` / ``table_merged_cell``) parented to
-    their enclosing table.
-  * ``polygonlabels`` for the reading-order polyline and for the
+  * ``rectanglelabels`` for layout regions.
+  * ``rectanglelabels`` for table structure — ``table_row`` / ``table_column``
+    strips derived from the docling grid, ``table_merged_cell`` at each cell
+    with ``row_span`` or ``col_span`` > 1, semantic overlays
+    (``column_header`` / ``row_header`` / ``row_section``) at their per-cell
+    geometry, and ``text`` content children at each non-empty cell's bbox.
+    The row and column strips OVERLAP by design: the JSX ``emitTable`` walker
+    computes each cell as ``intersect(row_bbox, col_bbox)``, and then assigns
+    every content child to its origin cell by bbox overlap — so the
+    row/column geometry rebuilds the grid AND the cell text rides on the
+    grid without knowing its (r, c) index up front.
+  * ``polygonlabels`` for the reading-order polyline, for the
     ``to_caption`` / ``to_footnote`` / ``to_value`` linking polylines that
-    connect a container to its caption / footnote and a key to its value.
+    connect a container to its caption / footnote and a key to its value,
+    and for ``merge`` polylines emitted in both cases Docling uses to
+    represent a single logical element split across columns / pages / line
+    breaks: (1) an ``InlineGroup`` wrapping multiple items, and (2) a
+    single item whose ``prov`` list has more than one entry on the same
+    page (typical for a paragraph that wraps between two columns). Both
+    become a shared ``merge`` polyline connecting the constituent rects.
 
 The interface understands two further shapes — ``textarea`` for the doclang XML
 snapshot and ``relation`` for region-to-region links — which only ever come from
@@ -30,7 +43,7 @@ from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from docling_core.types.doc.document import ContentLayer, DoclingDocument, NodeItem
-from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel
+from docling_core.types.doc.labels import DocItemLabel, GraphLinkLabel, GroupLabel
 
 logger = logging.getLogger(__name__)
 
@@ -260,25 +273,259 @@ def _parse_content_layers(raw: Optional[str]) -> Optional[Set[ContentLayer]]:
     return out or None
 
 
-def _table_cell_label(cell: Any) -> str:
-    """Pick the interface label for a docling ``TableCell``.
+def _cell_grid_extent(cell: Any) -> Tuple[int, int, int, int]:
+    """Return ``(start_row, end_row, start_col, end_col)`` for a ``TableCell``.
 
-    Header / row-section / merged / plain — matching what an annotator would
-    draw manually. If a cell is both a header AND a merge, header wins (it's
-    the more informative label; the merged geometry is still preserved as a
-    single rectangle rather than N sub-cells).
+    Reads the four ``*_offset_idx`` fields the real ``docling_core.TableCell``
+    exposes. Fixture cells that omit them (SimpleNamespace with only bbox +
+    text) get zeros, which combined with the ``num_rows``/``num_cols``
+    fallback in :func:`_emit_table_structure` means such fixtures produce no
+    structural overlays — the row/column geometry is not derivable without
+    grid indices, so silently skipping is safer than fabricating a 1×1 layout.
     """
-    if getattr(cell, "column_header", False):
-        return "column_header"
-    if getattr(cell, "row_header", False):
-        return "row_header"
-    if getattr(cell, "row_section", False):
-        return "row_section"
-    row_span = int(getattr(cell, "row_span", 1) or 1)
-    col_span = int(getattr(cell, "col_span", 1) or 1)
-    if row_span > 1 or col_span > 1:
-        return "table_merged_cell"
-    return "table_cell"
+    return (
+        int(getattr(cell, "start_row_offset_idx", 0) or 0),
+        int(getattr(cell, "end_row_offset_idx", 0) or 0),
+        int(getattr(cell, "start_col_offset_idx", 0) or 0),
+        int(getattr(cell, "end_col_offset_idx", 0) or 0),
+    )
+
+
+def _emit_table_structure(
+    doc: DoclingDocument,
+    table_item: NodeItem,
+    *,
+    table_rect: Dict[str, Any],
+    table_page_no: int,
+    from_name: str,
+    to_name: str,
+    content_layer: str,
+    item_level: int,
+    score: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """Rebuild a Docling table into the interface's expected structural overlays.
+
+    Docling SaaS ships a flat list of ``TableCell`` rectangles with grid
+    coordinates and header/section flags. The interface's ``emitTable``
+    (``docling-ls-implementation/docling_interface.jsx``) does NOT read
+    per-cell rects; it walks children of the table looking for THREE kinds
+    of structural overlays plus content children:
+
+      * ``table_row`` — one horizontal strip per grid row, full table width
+      * ``table_column`` — one vertical strip per grid column, full table height
+        (row × column intersect = individual cell geometry — this is why the
+        two must OVERLAP, and why we anchor them to the parent table's bbox
+        rather than clipping to the cell union)
+      * ``table_merged_cell`` — a per-cell overlay for cells with ``row_span``
+        or ``col_span`` > 1, at the cell's own (already-merged) bbox
+      * Semantic role overlays (``column_header`` / ``row_header`` /
+        ``row_section``) at the same per-cell geometry as the merged overlay,
+        so a merged column-header cell contributes BOTH a ``table_merged_cell``
+        AND a ``column_header`` rect. The interface renders these on separate
+        display layers and DocLang XML build cares about both dimensions.
+      * ``text`` — one per non-empty cell, at the cell's exact bbox with
+        ``parentId`` set to the table. The interface's ``emitTable`` assigns
+        every content child to the origin cell whose bbox overlaps it most;
+        emitting cell text as an independent content child rather than as a
+        ``table_cell`` label preserves the docling round-trip AND makes the
+        cell's OCR string visible to downstream DocLang emitters.
+
+    Row bands are derived from cells that do NOT span multiple rows (row_span
+    == 1) — those cells define the row's exact vertical extent. Same idea
+    for column bands. A row/column with no single-span cell falls back to
+    the union of all cells covering that grid position, which is the widest
+    band consistent with the geometry available.
+
+    Skips emission (returns []) when ``num_rows``/``num_cols`` is not
+    derivable, when no cell has a bbox, or when the table rect itself has
+    no geometry — every failure mode leaves the table as a single flat rect
+    the annotator can rebuild by hand, which is the safe default rather
+    than fabricating an incorrect grid.
+    """
+    data = getattr(table_item, "data", None)
+    if data is None:
+        return []
+    cells = getattr(data, "table_cells", None) or ()
+    if not cells:
+        return []
+
+    # Prefer TableData's own grid dimensions; fall back to inferring from cell
+    # end-offset indices so fixtures without an explicit num_rows/num_cols
+    # setting still work when they DO set the offsets on each cell.
+    num_rows = int(getattr(data, "num_rows", 0) or 0)
+    num_cols = int(getattr(data, "num_cols", 0) or 0)
+    if num_rows < 1 or num_cols < 1:
+        derived_rows = 0
+        derived_cols = 0
+        for cell in cells:
+            _, er, _, ec = _cell_grid_extent(cell)
+            derived_rows = max(derived_rows, er)
+            derived_cols = max(derived_cols, ec)
+        num_rows = num_rows if num_rows >= 1 else derived_rows
+        num_cols = num_cols if num_cols >= 1 else derived_cols
+    if num_rows < 1 or num_cols < 1:
+        return []
+
+    # Convert every cell's bbox to page-percent once. Store the raw cell
+    # alongside so semantic and text overlays can read text / header flags
+    # without a second lookup.
+    cell_infos: List[Dict[str, Any]] = []
+    for cell in cells:
+        bbox = getattr(cell, "bbox", None)
+        if bbox is None:
+            continue
+        rect = _bbox_page_to_percent(doc, bbox, table_page_no)
+        if rect is None:
+            continue
+        x, y, w, h, _ = rect
+        sr, er, sc, ec = _cell_grid_extent(cell)
+        cell_infos.append(
+            {"cell": cell, "x": x, "y": y, "w": w, "h": h, "sr": sr, "er": er, "sc": sc, "ec": ec}
+        )
+    if not cell_infos:
+        return []
+
+    tv = table_rect["value"]
+    tx = float(tv.get("x") or 0.0)
+    ty = float(tv.get("y") or 0.0)
+    tw = float(tv.get("width") or 0.0)
+    th = float(tv.get("height") or 0.0)
+    table_rect_id = table_rect["id"]
+
+    out: List[Dict[str, Any]] = []
+
+    # Row bands: full-width strips at each grid row's Y range.
+    for r in range(num_rows):
+        strict = [ci for ci in cell_infos if ci["sr"] == r and ci["er"] == r + 1]
+        pool = strict or [ci for ci in cell_infos if ci["sr"] <= r < ci["er"]]
+        if not pool:
+            continue
+        top = min(ci["y"] for ci in pool)
+        bottom = max(ci["y"] + ci["h"] for ci in pool)
+        height = max(bottom - top, 0.0)
+        if height <= 0:
+            continue
+        out.append(
+            _make_rect_result(
+                ls_label="table_row",
+                x_pct=round(tx, _PCT_DIGITS),
+                y_pct=round(top, _PCT_DIGITS),
+                w_pct=round(tw, _PCT_DIGITS),
+                h_pct=round(height, _PCT_DIGITS),
+                from_name=from_name,
+                to_name=to_name,
+                content_layer=content_layer,
+                level=item_level + 1,
+                parent_id=table_rect_id,
+                score=score,
+            )
+        )
+
+    # Column bands: full-height strips at each grid column's X range.
+    for c in range(num_cols):
+        strict = [ci for ci in cell_infos if ci["sc"] == c and ci["ec"] == c + 1]
+        pool = strict or [ci for ci in cell_infos if ci["sc"] <= c < ci["ec"]]
+        if not pool:
+            continue
+        left = min(ci["x"] for ci in pool)
+        right = max(ci["x"] + ci["w"] for ci in pool)
+        width = max(right - left, 0.0)
+        if width <= 0:
+            continue
+        out.append(
+            _make_rect_result(
+                ls_label="table_column",
+                x_pct=round(left, _PCT_DIGITS),
+                y_pct=round(ty, _PCT_DIGITS),
+                w_pct=round(width, _PCT_DIGITS),
+                h_pct=round(th, _PCT_DIGITS),
+                from_name=from_name,
+                to_name=to_name,
+                content_layer=content_layer,
+                level=item_level + 1,
+                parent_id=table_rect_id,
+                score=score,
+            )
+        )
+
+    # Per-cell overlays: merged geometry AND semantic role coexist on the
+    # same cell (a merged column-header contributes two overlapping rects).
+    for ci in cell_infos:
+        cell = ci["cell"]
+        row_span = int(getattr(cell, "row_span", 1) or 1)
+        col_span = int(getattr(cell, "col_span", 1) or 1)
+
+        if row_span > 1 or col_span > 1:
+            out.append(
+                _make_rect_result(
+                    ls_label="table_merged_cell",
+                    x_pct=ci["x"],
+                    y_pct=ci["y"],
+                    w_pct=ci["w"],
+                    h_pct=ci["h"],
+                    from_name=from_name,
+                    to_name=to_name,
+                    content_layer=content_layer,
+                    level=item_level + 1,
+                    text="",
+                    parent_id=table_rect_id,
+                    score=score,
+                )
+            )
+
+        # Semantic role — priority column_header > row_header > row_section,
+        # matching how real docling data flags cells (mutually exclusive in
+        # practice on the tables the SaaS emits).
+        role_label: Optional[str] = None
+        if getattr(cell, "column_header", False):
+            role_label = "column_header"
+        elif getattr(cell, "row_header", False):
+            role_label = "row_header"
+        elif getattr(cell, "row_section", False):
+            role_label = "row_section"
+        if role_label is not None:
+            out.append(
+                _make_rect_result(
+                    ls_label=role_label,
+                    x_pct=ci["x"],
+                    y_pct=ci["y"],
+                    w_pct=ci["w"],
+                    h_pct=ci["h"],
+                    from_name=from_name,
+                    to_name=to_name,
+                    content_layer=content_layer,
+                    level=item_level + 1,
+                    text="",
+                    parent_id=table_rect_id,
+                    score=score,
+                )
+            )
+
+        # Cell text — an independent content child, INDEPENDENT of row/column
+        # placement. The interface's emitTable then assigns it to whichever
+        # origin cell its bbox overlaps most, which recovers the (r, c) home
+        # from the geometry alone. Empty-text cells are skipped so the
+        # interface doesn't render a stack of invisible text rects.
+        cell_text = getattr(cell, "text", "") or ""
+        if cell_text.strip():
+            out.append(
+                _make_rect_result(
+                    ls_label="text",
+                    x_pct=ci["x"],
+                    y_pct=ci["y"],
+                    w_pct=ci["w"],
+                    h_pct=ci["h"],
+                    from_name=from_name,
+                    to_name=to_name,
+                    content_layer=content_layer,
+                    level=item_level + 1,
+                    text=cell_text,
+                    parent_id=table_rect_id,
+                    score=score,
+                )
+            )
+
+    return out
 
 
 def _make_rect_result(
@@ -521,6 +768,151 @@ def _emit_relations(
     return out
 
 
+def _make_merge_polyline(
+    *,
+    region_ids: List[str],
+    rect_by_id: Dict[str, Dict[str, Any]],
+    from_name: str,
+    to_name: str,
+    score: Optional[float] = None,
+    level: int = 1,
+) -> Optional[Dict[str, Any]]:
+    """Build one ``merge`` polyline connecting the given region ids.
+
+    Returns ``None`` when fewer than 2 anchored region ids remain (a merge
+    with one endpoint carries no information the annotator can act on).
+    Missing rects are filtered — same reasoning as the caption/footnote
+    emitter: a dangling polyline pointing at nothing is worse than no
+    polyline at all.
+    """
+    kept: List[str] = []
+    for rid in region_ids:
+        if rid in rect_by_id and rid not in kept:
+            kept.append(rid)
+    if len(kept) < 2:
+        return None
+    points: List[List[float]] = []
+    for rid in kept:
+        cx, cy = _rect_center(rect_by_id[rid])
+        points.append([round(cx, 4), round(cy, 4)])
+    out: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "from_name": from_name,
+        "to_name": to_name,
+        "type": "polygonlabels",
+        "origin": "prediction",
+        "value": {
+            "points": points,
+            "polygonlabels": ["merge"],
+            "connectedRegions": kept,
+            "level": max(1, min(100, int(level) if level else 1)),
+            "validationErrors": [],
+            "parentId": None,
+            "closed": False,
+        },
+    }
+    if score is not None:
+        out["score"] = score
+    return out
+
+
+def _emit_multi_prov_merges(
+    *,
+    multi_prov_groups: List[List[str]],
+    rect_by_id: Dict[str, Dict[str, Any]],
+    from_name: str,
+    to_name: str,
+    score: Optional[float] = None,
+    level: int = 1,
+) -> List[Dict[str, Any]]:
+    """Emit a ``merge`` polyline for every multi-prov Docling item.
+
+    Docling's layout model uses TWO shapes to say "one logical element split
+    across columns / pages": (1) an InlineGroup wrapping multiple items, and
+    (2) a single item with multiple ``prov`` entries (typical for a paragraph
+    that wraps between two columns of the same page). This helper handles
+    case (2); ``_emit_inline_group_merges`` handles case (1). Both emit the
+    same ``merge`` polyline shape, so the DocLang round-trip is identical
+    regardless of which Docling representation triggered it.
+    """
+    out: List[Dict[str, Any]] = []
+    for group in multi_prov_groups:
+        poly = _make_merge_polyline(
+            region_ids=group,
+            rect_by_id=rect_by_id,
+            from_name=from_name,
+            to_name=to_name,
+            score=score,
+            level=level,
+        )
+        if poly is not None:
+            out.append(poly)
+    return out
+
+
+def _emit_inline_group_merges(
+    doc: DoclingDocument,
+    *,
+    ref_to_id: Dict[str, str],
+    rect_by_id: Dict[str, Dict[str, Any]],
+    from_name: str,
+    to_name: str,
+    score: Optional[float] = None,
+    level: int = 1,
+) -> List[Dict[str, Any]]:
+    """Emit ``merge`` polylines for every Docling ``InlineGroup``.
+
+    An ``InlineGroup`` is Docling's representation of inline text runs that
+    the layout model determined belong to ONE logical element split across
+    column / page / line breaks (e.g. a paragraph that wraps between two
+    columns). The interface's DocLang emitter treats a ``merge`` polyline
+    exactly the same way — connected rects form one logical element with a
+    shared ``thread_id`` — so mapping InlineGroup → merge polyline round-trips
+    the split-element structure that would otherwise be lost between predict
+    and manual annotation.
+
+    Skips groups whose children don't map to any emitted rect (typically
+    because a content-layer filter dropped the children upstream), and skips
+    groups that resolve to fewer than 2 anchored rects (a merge with one
+    endpoint carries no information the annotator can act on).
+
+    Non-inline ``GroupItem`` kinds (SECTION / CHAPTER / SLIDE / etc.) are
+    NOT emitted here — those are semantic containers, not visual-merge
+    hints, so overloading the ``merge`` label would drown the annotator in
+    false positives. If we ever need to surface them, they belong on the
+    separate ``group`` polyline path type (which is a different design
+    conversation about what "group" means when the annotator sees it).
+    """
+    groups = getattr(doc, "groups", None) or ()
+    out: List[Dict[str, Any]] = []
+    for group in groups:
+        # Duck-typed check: match on the GroupLabel value rather than the
+        # concrete InlineGroup class so SimpleNamespace test fixtures don't
+        # have to import the real docling_core type. The label is the
+        # discriminant Docling uses in its own group.label field, so this
+        # is not a workaround — it IS the semantic check.
+        if getattr(group, "label", None) != GroupLabel.INLINE:
+            continue
+        children = getattr(group, "children", None) or ()
+        child_ids: List[str] = []
+        for ref in children:
+            cref = getattr(ref, "cref", None)
+            rid = ref_to_id.get(cref) if isinstance(cref, str) else None
+            if rid and rid in rect_by_id and rid not in child_ids:
+                child_ids.append(rid)
+        poly = _make_merge_polyline(
+            region_ids=child_ids,
+            rect_by_id=rect_by_id,
+            from_name=from_name,
+            to_name=to_name,
+            score=score,
+            level=level,
+        )
+        if poly is not None:
+            out.append(poly)
+    return out
+
+
 def docling_document_to_ls_results(
     doc: DoclingDocument,
     *,
@@ -547,11 +939,18 @@ def docling_document_to_ls_results(
 
       * ``rectanglelabels`` entries for every Docling layout item with a
         bounding box.
-      * When ``include_table_structure`` is enabled: one extra
-        ``rectanglelabels`` per structural cell of every ``TableItem`` —
-        ``table_cell`` / ``column_header`` / ``row_header`` / ``row_section``
-        / ``table_merged_cell`` picked per cell, with ``parentId`` set to
-        the enclosing table's region id.
+      * When ``include_table_structure`` is enabled: per-table children the
+        interface's ``emitTable`` walker expects — ``table_row`` strips
+        (full table width, at each grid row's Y range), ``table_column``
+        strips (full table height, at each grid column's X range),
+        ``table_merged_cell`` overlays at every cell whose ``row_span`` or
+        ``col_span`` > 1, semantic overlays (``column_header`` /
+        ``row_header`` / ``row_section``) at their per-cell geometry, and
+        ``text`` content children at each non-empty cell's bbox. All child
+        rects carry ``parentId`` set to the enclosing table's region id.
+        Rows / columns / merged / semantic overlays / cell text CO-EXIST
+        on the same underlying geometry — see ``_emit_table_structure`` for
+        the full contract.
       * When ``include_reading_order`` is enabled: one ``polygonlabels`` per
         page tracing the centroids of that page's items in Docling's
         iteration order, labeled ``reading_order``.
@@ -560,7 +959,19 @@ def docling_document_to_ls_results(
         caption/footnote ref and every ``KeyValueItem`` / ``FormItem``
         ``TO_VALUE`` graph link, provided both endpoints were emitted as
         rects (endpoints filtered out by ``content_layers`` are silently
-        dropped — no dangling links).
+        dropped — no dangling links). Also emits ``merge`` polylines in both
+        cases Docling uses to represent one logical element split across
+        columns / pages / line breaks: multi-prov items (one NodeItem with
+        several bboxes on the same page — typical for a paragraph wrapping
+        between two columns) AND ``InlineGroup``s (a wrapper around several
+        items). The interface's DocLang emitter maps a ``merge`` polyline
+        to a shared ``thread_id`` so the split-element structure round-trips.
+
+    Multi-prov items ALWAYS emit one rect per prov (not just prov[0]) —
+    dropping the extra provs used to silently lose the second column of
+    every cross-column paragraph, showing up as "missing text box" in the
+    UI. The primary (first) prov's rect is the reading-order anchor and
+    the target for caption/footnote/to_value links pointed at the item.
 
     All three shape gates default OFF so callers pay only for what they ask
     for. ``model.py`` opts in explicitly (all three on by default at that
@@ -580,108 +991,142 @@ def docling_document_to_ls_results(
 
     results: List[Dict[str, Any]] = []
     reading_centers: Dict[int, List[Tuple[str, float, float]]] = defaultdict(list)
-    # NodeItem.self_ref -> region id, so the relations pass can link back to
-    # rects we already emitted. Rects without a self_ref (raw fixtures in
-    # tests, top-level items with the attr set to None) simply don't appear
-    # in the map and any relation targeting them silently no-ops.
+    # NodeItem.self_ref -> region id of the PRIMARY (first) prov's rect, so the
+    # relations pass can link back to a stable handle even when an item has
+    # multiple provs (see multi_prov_groups below). Rects without a self_ref
+    # (raw fixtures in tests, top-level items with the attr set to None) simply
+    # don't appear in the map and any relation targeting them silently no-ops.
     ref_to_id: Dict[str, str] = {}
     rect_by_id: Dict[str, Dict[str, Any]] = {}
+    # Items whose prov[] has >1 entry on the requested page(s) render as one
+    # rect per prov PLUS a shared ``merge`` polyline connecting them. This is
+    # Docling's own model for "one logical element split across columns /
+    # pages" — the layout model emits a single NodeItem with multiple provs
+    # rather than a group. The interface's DocLang emitter turns a merge
+    # polyline into a shared ``thread_id`` on each member's ``<location>``,
+    # which is exactly the round-trip we want. Without this pass, the
+    # ``prov_index=0`` code path silently dropped the second half of every
+    # cross-column paragraph — visible in the UI as "missing text box".
+    multi_prov_groups: List[List[str]] = []
 
     for item, level in doc.iterate_items(**iter_kw):
         if not item.prov:
             continue
-        # An item straddling a page break carries one provenance per page, and
-        # iterate_items(page_no=N) yields it if *any* of them is on page N. Measure the
-        # provenance actually on the requested page instead of assuming it is prov[0].
-        prov_index = 0
+        # Which provenance entries apply? An item straddling a page break
+        # carries one prov per page, and iterate_items(page_no=N) yields it if
+        # *any* of them is on page N — so we must measure the prov(s) actually
+        # on the requested page and emit ONE rect per prov, not just prov[0].
+        # A single-column single-page item just falls out of this loop with
+        # one rect, identical to the old single-prov behavior.
         if page_no is not None:
-            prov_index = next(
-                (i for i, p in enumerate(item.prov) if p.page_no == page_no), -1
-            )
-            if prov_index < 0:
-                continue
-        rect = _bbox_to_percent_rect(doc, item, prov_index=prov_index)
-        if rect is None:
+            prov_indices = [i for i, p in enumerate(item.prov) if p.page_no == page_no]
+        else:
+            prov_indices = list(range(len(item.prov)))
+        if not prov_indices:
             continue
-        x_pct, y_pct, w_pct, h_pct, p_no = rect
 
         ls_label = _ls_label_for_item(item)
         layer = _content_layer_to_ls(getattr(item, "content_layer", ContentLayer.BODY))
         if layer not in LS_CONTENT_LAYERS:
             layer = "BODY"
         item_level = max(1, min(100, int(level) if level else 1))
+        item_text = _item_text(item)
+        picture_type = _picture_type(item, ls_label)
 
-        region_id = str(uuid.uuid4())
-        result: Dict[str, Any] = {
-            "id": region_id,
-            "from_name": from_name,
-            "to_name": to_name,
-            "type": "rectanglelabels",
-            "origin": "prediction",
-            "value": {
-                # Already clipped and rounded by _bbox_to_percent_rect; rounding again here
-                # would reintroduce the x + width > 100 drift it exists to prevent.
-                "x": x_pct,
-                "y": y_pct,
-                "width": w_pct,
-                "height": h_pct,
-                "rotation": 0,
-                "rectanglelabels": [ls_label],
-                "content_layer": layer,
-                "level": item_level,
-                "picture_type": _picture_type(item, ls_label),
-                "text": _item_text(item),
-                "parentId": None,
-            },
-        }
-        if score is not None:
-            result["score"] = score
-        results.append(result)
-        rect_by_id[region_id] = result
+        # Emit one rect per applicable prov. All rects share the item's label,
+        # text, level, content layer, and picture_type — they're literally the
+        # same logical element in different regions, so they must not disagree
+        # about what they are. Skips (bbox off-page, degenerate size, etc.)
+        # come from _bbox_to_percent_rect; a partial skip is fine as long as
+        # at least one prov survived to anchor relations against.
+        per_prov_rects: List[Dict[str, Any]] = []
+        per_prov_pages: List[int] = []
+        for pi in prov_indices:
+            rect = _bbox_to_percent_rect(doc, item, prov_index=pi)
+            if rect is None:
+                continue
+            x_pct, y_pct, w_pct, h_pct, p_no = rect
+            region_id = str(uuid.uuid4())
+            result: Dict[str, Any] = {
+                "id": region_id,
+                "from_name": from_name,
+                "to_name": to_name,
+                "type": "rectanglelabels",
+                "origin": "prediction",
+                "value": {
+                    # Already clipped and rounded by _bbox_to_percent_rect; rounding again here
+                    # would reintroduce the x + width > 100 drift it exists to prevent.
+                    "x": x_pct,
+                    "y": y_pct,
+                    "width": w_pct,
+                    "height": h_pct,
+                    "rotation": 0,
+                    "rectanglelabels": [ls_label],
+                    "content_layer": layer,
+                    "level": item_level,
+                    "picture_type": picture_type,
+                    "text": item_text,
+                    "parentId": None,
+                },
+            }
+            if score is not None:
+                result["score"] = score
+            results.append(result)
+            rect_by_id[region_id] = result
+            per_prov_rects.append(result)
+            per_prov_pages.append(p_no)
+
+        if not per_prov_rects:
+            continue
+
+        # Primary rect = first successful prov. Docling emits provs in
+        # reading order (top-to-bottom, left-to-right for LTR scripts), so
+        # the first prov is where a reader would enter the item. That makes
+        # it the natural anchor for the reading-order polyline and for
+        # caption/footnote/to_value links that target this item.
+        primary = per_prov_rects[0]
+        primary_page = per_prov_pages[0]
         self_ref = getattr(item, "self_ref", None)
         if isinstance(self_ref, str) and self_ref:
-            ref_to_id[self_ref] = region_id
+            ref_to_id[self_ref] = primary["id"]
 
         if include_reading_order:
-            cx = x_pct + w_pct / 2.0
-            cy = y_pct + h_pct / 2.0
-            reading_centers[p_no].append((region_id, cx, cy))
+            pv = primary["value"]
+            cx = float(pv["x"]) + float(pv["width"]) / 2.0
+            cy = float(pv["y"]) + float(pv["height"]) / 2.0
+            reading_centers[primary_page].append((primary["id"], cx, cy))
 
-        # Table structure: emit one child rect per cell that has a bbox. Cells share
-        # the parent table's page (docling always puts the whole table on a single page)
-        # so we reuse p_no rather than trusting a potentially-missing prov on the cell.
-        # The cell rect is intentionally NOT swept into the reading-order polyline: the
-        # reading order sequences top-level flow, and a level-2 reading order inside a
-        # cell is a human affordance that we don't fabricate.
-        if (
-            include_table_structure
-            and ls_label == "table"
-            and getattr(item, "data", None) is not None
-        ):
-            for cell in getattr(item.data, "table_cells", None) or ():
-                cell_bbox = getattr(cell, "bbox", None)
-                if cell_bbox is None:
-                    continue
-                cell_rect = _bbox_page_to_percent(doc, cell_bbox, p_no)
-                if cell_rect is None:
-                    continue
-                cx_pct, cy_pct, cw_pct, ch_pct, _ = cell_rect
-                cell_result = _make_rect_result(
-                    ls_label=_table_cell_label(cell),
-                    x_pct=cx_pct,
-                    y_pct=cy_pct,
-                    w_pct=cw_pct,
-                    h_pct=ch_pct,
-                    from_name=from_name,
-                    to_name=to_name,
-                    content_layer=layer,
-                    level=item_level + 1,
-                    text=getattr(cell, "text", "") or "",
-                    parent_id=region_id,
-                    score=score,
-                )
-                results.append(cell_result)
-                rect_by_id[cell_result["id"]] = cell_result
+        # Multi-prov item → record for a ``merge`` polyline at the end. Emit
+        # only when we actually kept ≥2 rects (a partial skip could leave a
+        # multi-prov item with just one rect, which needs no merge).
+        if len(per_prov_rects) > 1:
+            multi_prov_groups.append([r["id"] for r in per_prov_rects])
+
+        # Table structure: rebuild the interface's expected overlays from the
+        # docling TableData grid. See :func:`_emit_table_structure` for the
+        # full contract; TL;DR: emit table_row / table_column strips, plus
+        # merged-cell + semantic-role overlays, plus one `text` content child
+        # per non-empty cell. The child rects are intentionally NOT swept
+        # into the reading-order polyline: the reading order sequences top-
+        # level flow, and a level-2 reading order inside a cell is a human
+        # affordance that we don't fabricate. Tables in practice never
+        # straddle pages, so anchoring the structure to the primary rect
+        # covers the shape without needing to duplicate cells across provs.
+        if include_table_structure and ls_label == "table":
+            children = _emit_table_structure(
+                doc,
+                item,
+                table_rect=primary,
+                table_page_no=primary_page,
+                from_name=from_name,
+                to_name=to_name,
+                content_layer=layer,
+                item_level=item_level,
+                score=score,
+            )
+            for child in children:
+                results.append(child)
+                rect_by_id[child["id"]] = child
 
     if include_reading_order:
         ro_level = max(1, min(100, int(reading_order_level)))
@@ -719,6 +1164,32 @@ def docling_document_to_ls_results(
                 from_name=from_name,
                 to_name=to_name,
                 score=score,
+            )
+        )
+        # Multi-prov items (one NodeItem, several bboxes on the same page)
+        # emit their merge polyline BEFORE InlineGroup merges. Order only
+        # matters cosmetically — the interface renders polylines in emit
+        # order — but keeping multi-prov first mirrors how they were
+        # collected during the main iteration.
+        results.extend(
+            _emit_multi_prov_merges(
+                multi_prov_groups=multi_prov_groups,
+                rect_by_id=rect_by_id,
+                from_name=from_name,
+                to_name=to_name,
+                score=score,
+                level=reading_order_level,
+            )
+        )
+        results.extend(
+            _emit_inline_group_merges(
+                doc,
+                ref_to_id=ref_to_id,
+                rect_by_id=rect_by_id,
+                from_name=from_name,
+                to_name=to_name,
+                score=score,
+                level=reading_order_level,
             )
         )
 
