@@ -1,0 +1,63 @@
+FROM nvidia/cuda:11.2.2-cudnn8-devel-ubuntu18.04
+
+ENV TZ 'Europe/Moscow'
+RUN echo $TZ > /etc/timezone
+
+RUN apt-get update && apt-get install -y locales sudo
+RUN sed -i -e 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
+    update-locale LANG=ru_RU.UTF-8
+ENV LANG ru_RU.UTF-8
+ENV LANGUAGE ru_RU
+ENV LC_ALL ru_RU.UTF-8
+
+RUN apt-get update && apt-get install -y python3.8 python3.8-dev python3-pip git
+#RUN apt-get upgrade python3-pip
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+
+RUN apt-get install -y ffmpeg libsm6 libxext6 libgl1-mesa-glx libgl1
+RUN apt-get install -y wget nano sudo
+RUN wget https://bootstrap.pypa.io/get-pip.py && python3.8 get-pip.py
+RUN apt-get clean
+
+RUN useradd -ms /bin/bash testuser && \
+    echo "testuser:testuser" | chpasswd && \
+    usermod -aG sudo testuser && \
+    chmod 777 -R /root
+
+WORKDIR /home/testuser
+
+USER testuser
+ENV PATH="/home/testuser/.local/bin:${PATH}"
+
+RUN mkdir -p /home/testuser/.jupyter/lab/user-settings/@jupyterlab/terminal-extension
+COPY --chown=testuser plugin.jupyterlab-settings /home/testuser/.jupyter/lab/user-settings/@jupyterlab/terminal-extension/
+COPY --chown=testuser jupyter_lab_config.py /home/testuser/.jupyter/
+
+RUN openssl req -x509 -sha256 -nodes -days 3650 -newkey rsa:4096 -keyout .jupyter/jupyter.key -out .jupyter/jupyter.pem \
+ -subj "/C=RU/ST=Uranopolis/L=Karyes/O=Space/OU=DS/CN=agion.oros"
+
+RUN python3.8 -m pip install nvidia-pyindex
+RUN python3.8 -m pip install pytorch-quantization==2.1.2
+COPY requirements.txt .
+RUN python3.8 -m pip install -U -r requirements.txt
+RUN python3.8 -m pip install super-gradients==3.1.2
+
+############
+## add-ons for late package installs
+############
+#RUN python3.8 -m pip install redis rq label-studio-ml
+
+# setting up token string
+# you must run the build with command
+# docker build --build-arg token_string=<whatever your token is> . -t torch_custom
+ARG token_string
+ENV JUPYTER_TOKEN=${token_string}
+
+ENV SHELL="/bin/bash"
+
+RUN mkdir /home/testuser/.clearml && mkdir /home/testuser/.ssh
+RUN ln -s /usr/bin/python3 ~/.local/bin/python
+WORKDIR /home/testuser
+
+CMD ["jupyter", "lab"] 
