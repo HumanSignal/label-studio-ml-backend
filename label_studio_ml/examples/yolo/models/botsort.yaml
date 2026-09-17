@@ -17,3 +17,4 @@ gmc_method: sparseOptFlow # method of global motion compensation
 proximity_thresh: 0.5
 appearance_thresh: 0.25
 with_reid: False
+model: auto # (str) ReID model name/path; "auto" uses detector features if available
