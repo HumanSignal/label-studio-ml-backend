@@ -58,25 +58,27 @@ def upload_to_watsonx():
             if action == "ANNOTATION_CREATED":
                 # upload new annotation to watsonx
                 values = tuple([data[key] for key in table_info_keys])
-                insert_command = f"""INSERT INTO {table} VALUES {values}"""
+                placeholders = ", ".join(["?"] * len(values))
+                insert_command = f"""INSERT INTO {table} VALUES ({placeholders})"""
                 _server.logger.debug(insert_command)
-                cur.execute(insert_command)
+                cur.execute(insert_command, values)
 
             elif action == "ANNOTATION_UPDATED":
                 # update existing annotation in watsonx by deleting the old one and uploading a new one
-                delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
+                delete = f"""DELETE from {table} WHERE ID=?"""
                 _server.logger.debug(delete)
-                cur.execute(delete)
+                cur.execute(delete, (data["ID"],))
                 values = tuple([data[key] for key in table_info_keys])
-                insert_command = f"""INSERT INTO {table} VALUES {values}"""
-                _server.logger.debugint(insert_command)
-                cur.execute(insert_command)
+                placeholders = ", ".join(["?"] * len(values))
+                insert_command = f"""INSERT INTO {table} VALUES ({placeholders})"""
+                _server.logger.debug(insert_command)
+                cur.execute(insert_command, values)
 
             elif action == "ANNOTATIONS_DELETED":
                 # delete existing annotation in watsonx
-                delete = f"""DELETE from {table} WHERE ID={data["ID"]}"""
+                delete = f"""DELETE from {table} WHERE ID=?"""
                 _server.logger.debug(delete)
-                cur.execute(delete)
+                cur.execute(delete, (data["ID"],))
 
             conn.commit()
     except Exception as e:
