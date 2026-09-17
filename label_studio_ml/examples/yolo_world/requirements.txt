@@ -1,0 +1,13 @@
+# base
+gunicorn==20.1.0
+label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git
+Flask~=2.3
+colorama~=0.4
+requests~=2.31
+dill==0.3.8
+boto3==1.34.29
+label-studio-tools
+
+# yolo-world
+torch==2.0.1
+ultralytics==8.1.15
