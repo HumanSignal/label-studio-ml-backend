@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 
 CACHE = create_cache(
     os.getenv('CACHE_TYPE', 'sqlite'),
-    path=os.getenv('MODEL_DIR', '.'))
+    path=os.getenv('CACHE_DIR', os.getenv('MODEL_DIR', '.'))
+)
 
 
 # Decorator to register predict function
