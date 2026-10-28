@@ -42,7 +42,7 @@ class NewModel(LabelStudioMLBase):
     """Custom ML Backend model
     """
 
-    def get_results(self, masks, probs, width, height, from_name, to_name, label):
+    def get_results(self, masks, probs, width, height, from_name, to_name, label, item_index):
         results = []
         total_prob = 0
         for mask, prob in zip(masks, probs):
@@ -52,7 +52,7 @@ class NewModel(LabelStudioMLBase):
             mask = mask * 255
             rle = brush.mask2rle(mask)
             total_prob += prob
-            results.append({
+            annotation_result = {
                 'id': label_id,
                 'from_name': from_name,
                 'to_name': to_name,
@@ -67,7 +67,13 @@ class NewModel(LabelStudioMLBase):
                 'score': prob,
                 'type': 'brushlabels',
                 'readonly': False
-            })
+            }
+
+
+            if item_index is not None:
+                annotation_result['item_index'] = item_index
+
+            results.append(annotation_result)
 
         return [{
             'result': results,
@@ -138,6 +144,11 @@ class NewModel(LabelStudioMLBase):
         print(f'Point coords are {point_coords}, point labels are {point_labels}, input box is {input_box}')
 
         img_url = tasks[0]['data'][value]
+        if isinstance(img_url, list):
+            item_index = context['result'][0]['item_index']
+            img_url = img_url[item_index]
+        else:
+            item_index = None
         predictor_results = self._sam_predict(
             img_url=img_url,
             point_coords=point_coords or None,
@@ -153,6 +164,7 @@ class NewModel(LabelStudioMLBase):
             height=image_height,
             from_name=from_name,
             to_name=to_name,
-            label=selected_label)
+            label=selected_label,
+            item_index=item_index)
         
         return ModelResponse(predictions=predictions)
