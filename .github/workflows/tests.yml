@@ -61,16 +61,16 @@ jobs:
           echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF})" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: "${{ env.GITHUB_SHA }}"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         name: Configure pip cache
         id: pip-cache
         with:
@@ -133,7 +133,7 @@ jobs:
 
       - name: "Upload general coverage to Codecov"
         if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v5.5.2
+        uses: codecov/codecov-action@v7.1.1
         with:
           name: codecov-general
           files: ./tests/${{ matrix.backend_dir_name }}_coverage.xml
@@ -142,7 +142,7 @@ jobs:
 
       - name: "Upload ml-backend ${{ matrix.backend_dir_name }} coverage to Codecov"
         if: ${{ matrix.backend_dir_name == 'the_simplest_backend' }}
-        uses: codecov/codecov-action@v5.5.2
+        uses: codecov/codecov-action@v7.1.1
         with:
           name: codecov-${{ matrix.backend_dir_name }}
           files: ./label_studio_ml/examples/${{ matrix.backend_dir_name }}/coverage.xml
@@ -161,7 +161,7 @@ jobs:
 
       - name: Build matrix
         id: matrix
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BASE_REF: "${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD_REF: "${{ github.event.pull_request.head.sha || github.event.after || github.sha }}"
@@ -256,7 +256,7 @@ jobs:
     steps:
       - name: Send Slack Notification
         if: always()
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v4.0.0
         env:
           WORKFLOW: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow>"
         with:

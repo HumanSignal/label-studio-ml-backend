@@ -34,7 +34,7 @@ jobs:
       - uses: hmarr/debug-action@v3.0.0
 
       - name: Check user's membership
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         id: actor-membership
         env:
           ACTOR: ${{ github.actor }}
@@ -50,7 +50,7 @@ jobs:
             core.setOutput("state", membership.state);
             core.setOutput("active", membership.state == "active");
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: "${{ env.GITHUB_SHA }}"
           fetch-depth: 0
@@ -82,18 +82,18 @@ jobs:
           echo "image_branch_version=$image_branch_version" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.0.0
+        uses: docker/setup-buildx-action@v4.4.1
 
       - name: Login to DockerHub
         if: ${{ !github.event.pull_request.head.repo.fork }}
-        uses: docker/login-action@v4.1.0
+        uses: docker/login-action@v4.7.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Calculate Docker tags
         id: calculate-docker-tags
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           IMAGE_NAME: "${{ env.IMAGE_NAME }}"
           TAGS: "${{ steps.version.outputs.image_version }},${{ steps.version.outputs.image_branch_version }}"
@@ -111,7 +111,7 @@ jobs:
             core.setOutput("tags", tags);
 
       - name: Push Docker image
-        uses: docker/build-push-action@v7.1.0
+        uses: docker/build-push-action@v7.4.0
         id: docker_build_and_push
         env:
           DOCKER_BUILD_CHECKS_ANNOTATIONS: "false"
@@ -136,7 +136,7 @@ jobs:
 
       - name: Build matrix
         id: matrix
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BASE_REF: "${{ github.event.before }}"
           HEAD_REF: "${{ github.event.after || github.sha }}"
@@ -204,7 +204,7 @@ jobs:
     steps:
       - name: Send Slack Notification
         if: always()
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v4.0.0
         env:
           WORKFLOW: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow>"
         with:
