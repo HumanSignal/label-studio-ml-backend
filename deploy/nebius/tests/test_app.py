@@ -101,7 +101,7 @@ def test_reject_invalid_image_dimensions(client, payload, dimension):
         '/data/upload/../secret',
         '/data/upload/%2e%2e/secret',
         '/data/upload/1/a.png?d=/etc/passwd',
-        'https://user:password@label.example/data/upload/1/a.png',
+        'https://user:password@label.example/data/upload/1/a.png',  # trufflehog:ignore
     ],
 )
 def test_media_boundary_rejects_local_and_foreign_urls(url):
