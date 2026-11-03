@@ -15,7 +15,9 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-ENV PYTHONUNBUFFERED=1 \
+# pytorch/pytorch 2.14+ images install torch into the system Python (no conda).
+ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_CACHE_DIR=/.cache \
     PORT=9090 \
@@ -27,7 +29,7 @@ ENV PYTHONUNBUFFERED=1 \
 # this image is already built with cuda 12.1.1, so we don't need to install it again
 # RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y 
 
-ENV CUDA_HOME=/opt/conda \
+ENV CUDA_HOME=/usr/local/cuda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
 # install base requirements

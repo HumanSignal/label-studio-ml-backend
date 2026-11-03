@@ -16,7 +16,9 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-ENV PYTHONUNBUFFERED=1 \
+# pytorch/pytorch 2.14+ images install torch into the system Python (no conda).
+ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_CACHE_DIR=/.cache \
     PORT=9090 \
