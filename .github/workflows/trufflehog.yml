@@ -7,6 +7,9 @@ name: "TruffleHog"
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   ACTIONS_STEP_DEBUG: '${{ secrets.ACTIONS_STEP_DEBUG }}'
   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.after }}
