@@ -35,6 +35,10 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 # install GroundingDINO
 RUN cd / && git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /GroundingDINO
+# Newer torch (2.14 here) no longer accepts Tensor.type() in AT_DISPATCH_* macros; use scalar_type().
+RUN sed -i 's/AT_DISPATCH_FLOATING_TYPES(value\.type()/AT_DISPATCH_FLOATING_TYPES(value.scalar_type()/' \
+        groundingdino/models/GroundingDINO/csrc/MsDeformAttn/ms_deform_attn_cuda.cu \
+    && ! grep -n 'AT_DISPATCH_FLOATING_TYPES(value\.type()' groundingdino/models/GroundingDINO/csrc/MsDeformAttn/ms_deform_attn_cuda.cu
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip3 install --no-build-isolation -e .
 RUN mkdir weights
