@@ -1,4 +1,5 @@
 gunicorn==23.0.0
 label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git@master
 olefile==0.47
-accelerate==1.6.0
+accelerate==1.6.0# GroundingDINO calls BertModel.get_extended_attention_mask, removed in transformers 5
+transformers>=4.40,<5
