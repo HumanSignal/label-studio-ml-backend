@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/segment-anything-2.git
 WORKDIR /segment-anything-2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip3 install -e .
+    pip3 install --no-build-isolation -e .
 RUN cd checkpoints && ./download_ckpts.sh
 
 WORKDIR /app

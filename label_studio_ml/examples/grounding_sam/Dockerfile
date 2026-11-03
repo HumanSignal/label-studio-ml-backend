@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 RUN cd / && git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /GroundingDINO
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip3 install -e .
+    pip3 install --no-build-isolation -e .
 RUN mkdir weights
 WORKDIR /GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
