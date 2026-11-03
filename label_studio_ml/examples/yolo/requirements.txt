@@ -4,3 +4,4 @@ torchmetrics<1.8.0
 numpy>=2.3.2
 lap>=0.5.12
 
+joblib
