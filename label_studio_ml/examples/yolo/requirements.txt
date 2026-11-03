@@ -1,7 +1,7 @@
-ultralytics~=8.4.1
+# Test expectations were recorded with 8.4.1; later 8.4.x changed the classify head and outputs.
+ultralytics==8.4.1
 tqdm
 torchmetrics<1.8.0
 numpy>=2.3.2
 lap>=0.5.12
-
 joblib
