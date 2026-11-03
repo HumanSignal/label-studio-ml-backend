@@ -1,6 +1,7 @@
 gliner>=0.2.21
 torch==2.13.0
 accelerate>=0.26.0
-# transformers 5 needs these to load the DeBERTa-v3 tokenizer of the base GLiNER model
+# transformers 5 converts the base model's DeBERTa-v3 SentencePiece tokenizer;
+# that needs sentencepiece and protobuf (without protobuf it falls back to tiktoken and fails)
 sentencepiece
-tiktoken
+protobuf
