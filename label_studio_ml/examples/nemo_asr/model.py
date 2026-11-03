@@ -30,7 +30,7 @@ class NemoASR(LabelStudioMLBase):
             audio_paths.append(audio_path)
 
         # run ASR
-        transcriptions = _model.transcribe(paths2audio_files=audio_paths)
+        transcriptions = _model.transcribe(audio=audio_paths)
 
         predictions = []
         for transcription in transcriptions:
@@ -40,7 +40,8 @@ class NemoASR(LabelStudioMLBase):
                     'to_name': to_name,
                     'type': 'textarea',
                     'value': {
-                        'text': [transcription]
+                        # NeMo 2.x may return Hypothesis objects instead of plain strings
+                        'text': [getattr(transcription, 'text', transcription)]
                     }
                 }],
                 'score': 1.0,

@@ -1,18 +1,12 @@
-ARG PYTORCH="2.0.0"
-ARG CUDA="11.7"
-ARG CUDNN="8"
-FROM pytorch/pytorch:${PYTORCH}-cuda${CUDA}-cudnn${CUDNN}-devel
+# mmcv 2.1 ships prebuilt wheels only up to torch 2.1 / Python 3.11, so this example stays on 3.11.
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim AS python-base
 
 ARG TEST_ENV
+ARG TORCH_VERSION=2.1.2
+ARG TORCHVISION_VERSION=0.16.2
 
 WORKDIR /app
-
-# To fix GPG key error when running apt-get update
-RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub | gpg --dearmor -o /usr/share/keyrings/nvidia.gpg \
-    && wget -qO - https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/7fa2af80.pub | gpg --dearmor -o /usr/share/keyrings/nvidia-ml.gpg
 
 # Update the base OS
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
@@ -40,6 +34,11 @@ ENV PYTHONUNBUFFERED=1 \
  # Upgrade pip
 RUN --mount=type=cache,target=$PIP_CACHE_DIR \
     pip install -U pip
+
+# CPU torch; mim then resolves the matching mmcv wheel from the OpenMMLab index (cpu/torch2.1).
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} \
+        --index-url https://download.pytorch.org/whl/cpu
 
 # Install numpy early to avoid dependency conflicts
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \

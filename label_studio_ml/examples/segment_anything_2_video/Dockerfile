@@ -1,10 +1,10 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+# pytorch/pytorch CUDA images ship Python 3.12 (none ship 3.13+ as of 2.15).
+FROM pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
 WORKDIR /app
 
-RUN conda update conda -y
 
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \

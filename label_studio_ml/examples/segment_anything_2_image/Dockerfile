@@ -1,10 +1,11 @@
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+# pytorch/pytorch CUDA images ship Python 3.12 (none ship 3.13+ as of 2.15).
+# devel: provides nvcc to build the SAM2 CUDA extension.
+FROM pytorch/pytorch:2.14.1-cuda12.6-cudnn9-devel
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
 WORKDIR /app
 
-RUN mamba update conda -y
 
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
@@ -23,9 +24,8 @@ ENV PYTHONUNBUFFERED=1 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda
 
-RUN mamba install nvidia/label/cuda-12.4.0::cuda -y
 
-ENV CUDA_HOME=/opt/conda \
+ENV CUDA_HOME=/usr/local/cuda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
 # install base requirements

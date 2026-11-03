@@ -1,6 +1,6 @@
 ultralytics~=8.4.1
 tqdm
 torchmetrics<1.8.0
-numpy<2
-lap==0.5.12
+numpy>=2.3.2
+lap>=0.5.12
 
