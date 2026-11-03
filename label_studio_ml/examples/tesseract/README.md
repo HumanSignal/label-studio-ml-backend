@@ -124,6 +124,10 @@ Configure the backend and the MinIO server by editing the `MINIO_ROOT_USER` AND 
    own AWS cloud storage by setting those variables. Note that you may need to make additional software changes to the
    `tesseract.py` file to match your particular infrastructure configuration.
 
+   The MinIO service is behind a Compose profile, so start it explicitly with `docker compose --profile minio up`.
+   The `minio/minio` image is no longer published on Docker Hub; set `image:` in `docker-compose.yml` to a MinIO
+   image you can pull, or point `AWS_ENDPOINT` at any other S3-compatible storage.
+
 > Note: If you're using this method, remove `LABEL_STUDIO_ACCESS_TOKEN` from the `example.env` file or leave it empty.
 
 **Other remote storage**

@@ -6,7 +6,6 @@ import pathlib
 
 import label_studio_sdk
 from gliner import GLiNER
-from gliner.data_processing.collator import DataCollator
 from gliner.training import Trainer, TrainingArguments
 from label_studio_sdk.label_interface.objects import PredictionValue
 
@@ -171,14 +170,15 @@ class GLiNERModel(LabelStudioMLBase):
         else:
             model = model.to("cuda")
 
-        data_collator = DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
+        # gliner >= 0.2.30 picks the collator class per model architecture
+        data_collator = model.data_collator_class(model.config, data_processor=model.data_processor, prepare_labels=True)
 
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=train_data,
             eval_dataset=eval_data,
-            tokenizer=model.data_processor.transformer_tokenizer,
+            processing_class=model.data_processor.transformer_tokenizer,
             data_collator=data_collator,
         )
 
@@ -247,7 +247,7 @@ class GLiNERModel(LabelStudioMLBase):
                 focal_loss_alpha=0.75,
                 focal_loss_gamma=2,
                 num_train_epochs=num_epochs,
-                evaluation_strategy="steps",
+                eval_strategy="steps",
                 save_steps=100,
                 save_total_limit=10,
                 dataloader_num_workers=0,

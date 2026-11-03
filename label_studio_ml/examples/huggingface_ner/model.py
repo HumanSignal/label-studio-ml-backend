@@ -193,7 +193,7 @@ class HuggingFaceNER(LabelStudioMLBase):
                     all_spans.append({'label': no_label, 'start': last_end, 'end': len(text)})
 
                 # now tokenize chunks separately and add them to the dataset
-                item = {'id': task['id'], 'tokens': [], 'ner_tags': []}
+                item = {'id': str(task['id']), 'tokens': [], 'ner_tags': []}
                 for span in all_spans:
                     tokens = tokenizer.tokenize(text[span['start']:span['end']])
                     item['tokens'].extend(tokens)
@@ -210,6 +210,10 @@ class HuggingFaceNER(LabelStudioMLBase):
                                 label_to_id[label] = len(label_to_id)
                             item['ner_tags'].extend([label_to_id[label] for _ in range(1, len(tokens))])
                 ds_raw.append(item)
+
+        if not ds_raw:
+            logger.info("Skip training: no annotated tasks to train on")
+            return
 
         logger.debug(f"Dataset: {ds_raw}")
         # convert to huggingface dataset
@@ -239,14 +243,14 @@ class HuggingFaceNER(LabelStudioMLBase):
             per_device_train_batch_size=8,
             num_train_epochs=self.NUM_TRAIN_EPOCHS,
             weight_decay=self.WEIGHT_DECAY,
-            evaluation_strategy="no",
+            eval_strategy="no",
         )
 
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=tokenized_dataset,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             data_collator=data_collator,
         )
         trainer.train()

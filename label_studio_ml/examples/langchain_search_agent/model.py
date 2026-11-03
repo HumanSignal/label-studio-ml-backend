@@ -7,7 +7,7 @@ from label_studio_ml.model import LabelStudioMLBase
 
 
 # Import langchain components - use new API (v1.0+)
-from langchain_community.utilities import GoogleSearchAPIWrapper
+from langchain_google_community import GoogleSearchAPIWrapper
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
