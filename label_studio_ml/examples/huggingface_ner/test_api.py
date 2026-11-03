@@ -168,7 +168,8 @@ def test_fit(client, mock_get_labeled_tasks, mock_start_training, mock_baseline_
     import os
     from model import MODEL_DIR
     results_dir = os.path.join(MODEL_DIR, 'finetuned_model')
-    assert os.path.exists(os.path.join(results_dir, 'pytorch_model.bin'))
+    # transformers >= 5 always saves model.safetensors; older versions saved pytorch_model.bin
+    assert any(os.path.exists(os.path.join(results_dir, f)) for f in ('model.safetensors', 'pytorch_model.bin'))
 
     # now let's test whether the model is trained by running predict
     request = {

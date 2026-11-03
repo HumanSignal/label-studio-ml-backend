@@ -32,7 +32,7 @@ class HuggingFaceLLM(LabelStudioMLBase):
         predictions = []
         for task in tasks:
             text = self.preload_task_data(task, task['data'][value])
-            result = _model(text, max_length=self.MAX_LENGTH)
+            result = _model(text, max_length=self.MAX_LENGTH, do_sample=False)
             generated_text = result[0]['generated_text']
             # cut the `text` prefix
             generated_text = generated_text[len(text):].strip()

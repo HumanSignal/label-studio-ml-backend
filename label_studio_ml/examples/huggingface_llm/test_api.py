@@ -38,20 +38,18 @@ def test_predict(client):
         </View>'''
     }
 
-    expected_response = {
-        'results': [{
-            'model_version': 'HuggingFaceLLM-v0.0.1',
-            'score': 0.0,
-            'result': [{
-                'from_name': 'generated_text',
-                'to_name': 'input_text',
-                'type': 'textarea',
-                'value': {'text': ['"I am not walking on air"\nI\'m not sure if you\'re being sarcastic or not, but I think you\'re right.']}
-            }]
-        }]
-    }
-
     response = client.post('/predict', data=json.dumps(request), content_type='application/json')
     assert response.status_code == 200
     response = json.loads(response.data)
-    assert response == expected_response
+
+    # The generated text depends on the model and transformers version, so check the shape, not the exact string.
+    assert len(response['results']) == 1
+    prediction = response['results'][0]
+    assert prediction['model_version'] == 'HuggingFaceLLM-v0.0.1'
+    assert len(prediction['result']) == 1
+    region = prediction['result'][0]
+    assert region['from_name'] == 'generated_text'
+    assert region['to_name'] == 'input_text'
+    assert region['type'] == 'textarea'
+    assert len(region['value']['text']) == 1
+    assert isinstance(region['value']['text'][0], str) and region['value']['text'][0].strip()
