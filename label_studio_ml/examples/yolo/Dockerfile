@@ -11,7 +11,8 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     apt-get -y update \
     && apt-get install -y --no-install-recommends \
         git wget curl build-essential \
-        ffmpeg libgl1 libglib2.0-0 libsm6 libxext6
+        ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 \
+        libraqm0 libfribidi0  # Pillow text layout used when ultralytics draws labels
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
