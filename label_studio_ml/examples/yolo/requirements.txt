@@ -1,4 +1,5 @@
-# Test expectations were recorded with 8.4.1; later 8.4.x changed the classify head and outputs.
+# Test expectations were recorded with 8.4.1. With 8.4.201 the feature-extraction hook in
+# utils/neural_nets.py never fired and box outputs drifted past the test tolerance.
 ultralytics==8.4.1
 tqdm
 torchmetrics<1.8.0
