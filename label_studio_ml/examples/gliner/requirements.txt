@@ -1,5 +1,3 @@
-gliner==0.2.16
+gliner>=0.2.21
 torch==2.13.0
 accelerate>=0.26.0
-transformers==4.38.2
-huggingface-hub==0.21.4

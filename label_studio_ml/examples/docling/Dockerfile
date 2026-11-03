@@ -1,5 +1,5 @@
 # BuildKit required for RUN --mount below. Omitting `# syntax=docker/dockerfile:1` avoids extra frontend pulls that can trigger grpc errors on some hosts.
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.14
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
 ARG TEST_ENV

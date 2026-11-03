@@ -190,7 +190,7 @@ class BertClassifier(LabelStudioMLBase):
         training_args = TrainingArguments(
             output_dir=str(pathlib.Path(self.MODEL_DIR) / 'training_output'),
             learning_rate=2e-5,
-            evaluation_strategy="no",
+            eval_strategy="no",
             num_train_epochs=3,
             weight_decay=0.01,
             log_level='info'
@@ -202,7 +202,7 @@ class BertClassifier(LabelStudioMLBase):
             model=model,
             args=training_args,
             train_dataset=tokenized_datasets,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
         )
         logger.debug(f"Trainer: {trainer}")
 

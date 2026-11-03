@@ -32,9 +32,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"  # for macos and unix
 
+  # Optional S3-compatible storage for the demo; start it with `docker compose --profile minio up`.
+  # The minio/minio image is no longer published on Docker Hub, so it is off by default.
   minio:
     container_name: minio
     image: minio/minio:latest
+    profiles: ["minio"]
     environment:
       - MINIO_ROOT_USER=<admin username>
       - MINIO_ROOT_PASSWORD=<admin password>
