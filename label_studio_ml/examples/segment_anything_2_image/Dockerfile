@@ -1,10 +1,11 @@
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+# pytorch/pytorch CUDA images ship Python 3.12 (none ship 3.13+ as of 2.15).
+# devel: provides nvcc to build the SAM2 CUDA extension.
+FROM pytorch/pytorch:2.14.1-cuda12.6-cudnn9-devel
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
 WORKDIR /app
 
-RUN mamba update conda -y
 
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
@@ -15,7 +16,9 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-ENV PYTHONUNBUFFERED=1 \
+# pytorch/pytorch 2.14+ images install torch into the system Python (no conda).
+ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_CACHE_DIR=/.cache \
     PORT=9090 \
@@ -23,9 +26,8 @@ ENV PYTHONUNBUFFERED=1 \
     THREADS=4 \
     CUDA_HOME=/usr/local/cuda
 
-RUN mamba install nvidia/label/cuda-12.4.0::cuda -y
 
-ENV CUDA_HOME=/opt/conda \
+ENV CUDA_HOME=/usr/local/cuda \
     TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6+PTX;8.9;9.0"
 
 # install base requirements
@@ -41,7 +43,7 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 RUN cd / && git clone --depth 1 --branch main --single-branch https://github.com/facebookresearch/sam2.git
 WORKDIR /sam2
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip3 install -e .
+    pip3 install --no-build-isolation -e .
 RUN cd checkpoints && ./download_ckpts.sh
 
 WORKDIR /app

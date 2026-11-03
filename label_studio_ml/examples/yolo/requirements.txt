@@ -1,6 +1,10 @@
-ultralytics~=8.4.1
+# Test expectations were recorded with 8.4.1. With 8.4.201 the feature-extraction hook in
+# utils/neural_nets.py never fired and box outputs drifted past the test tolerance.
+ultralytics==8.4.1
+# With ultralytics 8.4.1, Pillow 13 fails in label drawing ("raqm_layout() failed").
+pillow>=11.3,<13
 tqdm
 torchmetrics<1.8.0
-numpy<2
-lap==0.5.12
-
+numpy>=2.3.2
+lap>=0.5.12
+joblib

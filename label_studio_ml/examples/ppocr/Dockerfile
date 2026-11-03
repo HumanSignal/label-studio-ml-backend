@@ -1,15 +1,22 @@
 # syntax=docker/dockerfile:1
 # PP-OCR ML Backend for Label Studio (CPU version)
 #
-# Uses the official PaddleX Docker image which includes
-# PaddlePaddle and PaddleX pre-installed.
+# Installs PaddlePaddle and PaddleX from PyPI on python:3.11-slim.
+# (The PaddleX CPU image ships Python 3.10, which label-studio-sdk no longer supports.)
 #
 # Build arguments:
 #   TEST_ENV: Set to "true" to install test dependencies
 
-ARG TEST_ENV
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim AS python-base
 
-FROM ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlex/paddlex:paddlex3.1.2-paddlepaddle3.0.0-cpu
+ARG TEST_ENV
+ARG PADDLEPADDLE_VERSION=3.0.0
+
+RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
+    --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends git libgl1 libglib2.0-0 libgomp1
 
 WORKDIR /app
 
@@ -25,6 +32,10 @@ ENV PYTHONUNBUFFERED=1 \
 COPY requirements-base.txt .
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install -r requirements-base.txt
+
+# Install PaddlePaddle (CPU)
+RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
+    pip install "paddlepaddle==${PADDLEPADDLE_VERSION}"
 
 # Install PaddleX OCR extra dependencies
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \

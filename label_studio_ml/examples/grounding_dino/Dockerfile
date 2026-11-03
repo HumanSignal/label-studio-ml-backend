@@ -1,10 +1,10 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+# pytorch/pytorch CUDA images ship Python 3.12 (none ship 3.13+ as of 2.15).
+FROM pytorch/pytorch:2.14.1-cuda12.6-cudnn9-devel
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TEST_ENV
 
 WORKDIR /app
 
-RUN conda update conda -y
 
 RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
@@ -15,7 +15,9 @@ RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
     libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev ninja-build \
     && apt-get -y install ffmpeg libsm6 libxext6 libffi-dev python3-dev python3-pip gcc
 
-ENV PYTHONUNBUFFERED=1 \
+# pytorch/pytorch 2.14+ images install torch into the system Python (no conda).
+ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_CACHE_DIR=/.cache \
     PORT=9090 \
@@ -33,8 +35,12 @@ RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
 # install GroundingDINO
 RUN cd / && git clone https://github.com/IDEA-Research/GroundingDINO.git
 WORKDIR /GroundingDINO
+# Newer torch (2.14 here) no longer accepts Tensor.type() in AT_DISPATCH_* macros; use scalar_type().
+RUN sed -i 's/AT_DISPATCH_FLOATING_TYPES(value\.type()/AT_DISPATCH_FLOATING_TYPES(value.scalar_type()/' \
+        groundingdino/models/GroundingDINO/csrc/MsDeformAttn/ms_deform_attn_cuda.cu \
+    && ! grep -n 'AT_DISPATCH_FLOATING_TYPES(value\.type()' groundingdino/models/GroundingDINO/csrc/MsDeformAttn/ms_deform_attn_cuda.cu
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
-    pip3 install -e .
+    pip3 install --no-build-isolation -e .
 RUN mkdir weights
 WORKDIR /GroundingDINO/weights
 RUN wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth

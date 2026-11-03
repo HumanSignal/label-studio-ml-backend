@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.14
 
 FROM python:${PYTHON_VERSION}-slim AS python-base
 ARG TEST_ENV
@@ -33,7 +33,7 @@ RUN bash /app/download_models.sh
 # Install numpy first to avoid conflicts with system numpy
 RUN --mount=type=cache,target=${PIP_CACHE_DIR},sharing=locked \
     pip install --upgrade pip && \
-    pip install "numpy>=2,<2.3.0"
+    pip install "numpy>=2.3.2"
 
 # install base requirements
 COPY requirements-base.txt .

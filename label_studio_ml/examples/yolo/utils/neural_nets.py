@@ -94,7 +94,8 @@ class BaseNN(nn.Module):
 
     @classmethod
     def load(cls, path) -> "BaseNN":
-        model = torch.load(path)
+        # The file is a whole pickled model written by save() above (torch >= 2.6 defaults to weights_only=True).
+        model = torch.load(path, weights_only=False)
         model.eval()  # Set the model to evaluation mode
         logger.info(f"Model loaded from {path}")
         return model
