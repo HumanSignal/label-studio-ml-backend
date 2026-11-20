@@ -33,7 +33,8 @@ class RectangleLabelsModel(ControlModel):
         return control.tag == cls.type
 
     def predict_regions(self, path) -> List[Dict]:
-        results = self.model.predict(path)
+        max_det = int(self.control.attr.get("model_max_det", 300))
+        results = self.model.predict(path, max_det=max_det)
         self.debug_plot(results[0].plot())
 
         # oriented bounding boxes are detected, but it should be processed by RectangleLabelsObbModel
