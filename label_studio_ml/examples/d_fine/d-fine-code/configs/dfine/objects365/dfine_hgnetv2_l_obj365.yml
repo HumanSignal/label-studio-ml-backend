@@ -1,0 +1,49 @@
+__include__: [
+  '../../dataset/obj365_detection.yml',
+  '../../runtime.yml',
+  '../include/dataloader.yml',
+  '../include/optimizer.yml',
+  '../include/dfine_hgnetv2.yml',
+]
+
+output_dir: ./output/dfine_hgnetv2_l_obj365
+
+
+DFINE:
+  backbone: HGNetv2
+
+HGNetv2:
+  name: 'B4'
+  return_idx: [1, 2, 3]
+  freeze_stem_only: True
+  freeze_at: 0
+  freeze_norm: True
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.0000125
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$'
+      weight_decay: 0.
+
+  lr: 0.00025
+  betas: [0.9, 0.999]
+  weight_decay: 0.000125
+#   weight_decay: 0.00005  # Faster convergence (optional)
+
+
+epochs: 24 # Early stop
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 500
+  collate_fn:
+    stop_epoch: 500
+    base_size_repeat: 4
+
+checkpoint_freq: 1
+print_freq: 1000
