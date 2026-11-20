@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+
+  paddleocr-backend:
+    container_name: paddleocr-backend
+    image: paddleocr-backend:latest
+    env_file:
+      - example.env
+    ports:
+      - 9090:9090
+    volumes:
+      - "./data/server:/data"
+      - "./logs:/tmp"
+  
+  minio:
+    container_name: minio
+    image: bitnami/minio:latest
+    env_file:
+      - example.env
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - ".data/storage:/data"
+    command: server /data --console-address ":9001"
+
