@@ -21,15 +21,15 @@ services:
 
       # IBM Docling SaaS (required). Paste the Workbench URL as-is (usually ends in /v1);
       # model.py strips trailing /v1 before creating DoclingServiceClient so routes are not doubled.
-      - DOCLING_SERVICE_URL=https://api.aws-c1.dcls.saas.ibm.com/YOUR_INSTANCE_SEGMENT/v1
-      - DOCLING_SERVE_API_KEY=your-docling-api-key
+      - DOCLING_SERVICE_URL=
+      - DOCLING_SERVE_API_KEY=
       # Backward-compatible aliases:
       # - DOCLING_SERVE_URL=
       # - DOCLING_API_KEY=
 
       # Label Studio access (required for uploads, /storage-data/ URLs, and private cloud-storage files).
-      - LABEL_STUDIO_URL=http://host.docker.internal:8080
-      - LABEL_STUDIO_API_KEY=your-label-studio-token
+      - LABEL_STUDIO_URL=https://app.humansignal.com
+      - LABEL_STUDIO_API_KEY=
       # Backward-compatible aliases:
       # - LABEL_STUDIO_HOST=
       # - LABEL_STUDIO_ACCESS_TOKEN=
@@ -58,7 +58,10 @@ services:
       # - DOCLING_READING_ORDER_LEVEL=1
       # - DOCLING_INCLUDE_TABLE_STRUCTURE=true
       # - DOCLING_INCLUDE_RELATIONS=true
-      # - DOCLING_CONTENT_LAYERS=
+      # Content-layer filter: default is a permissive body+furniture+background so page
+      # headers/footers (FURNITURE) and watermarks (BACKGROUND) show up in predictions.
+      # Set to `body` to drop chrome, or add `notes,invisible` for the full docling set.
+      # - DOCLING_CONTENT_LAYERS=body,furniture,background
     ports:
       - "9090:9090"
     volumes:

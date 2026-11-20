@@ -367,6 +367,37 @@ class Docling(LabelStudioMLBase):
             )
             return None
 
+        # PARTIAL_SUCCESS silently drops pages / models — most notably, when the
+        # OCR model receives an oversize image (RESOURCE_EXHAUSTED on the gRPC
+        # channel, ~64 MB decoded max) the doc still comes back with a body
+        # scaffold but zero ``texts`` / ``tables`` / ``pictures``. Without this
+        # warning the operator would see the ML backend report "predictions
+        # produced" and no regions in the UI, with no obvious way to diagnose
+        # the gap.
+        if result.status == ConversionStatus.PARTIAL_SUCCESS:
+            errors = getattr(result, "errors", None) or []
+            if errors:
+                err_repr = repr(errors)
+                logger.warning(
+                    "Docling PARTIAL_SUCCESS for task %s — %d component error(s) may have "
+                    "produced an incomplete document: %s",
+                    task.get("id"),
+                    len(errors),
+                    errors,
+                )
+                # Point directly at the most common failure mode so operators
+                # don't have to grok a gRPC stack trace to spot it.
+                if "RESOURCE_EXHAUSTED" in err_repr or "message larger than max" in err_repr:
+                    logger.warning(
+                        "Task %s hit Docling SaaS OCR's per-page message-size limit "
+                        "(RESOURCE_EXHAUSTED). The source page is too large for the OCR "
+                        "model's ~64 MB gRPC input. Options: (a) downscale the image "
+                        "before uploading to Label Studio (300 DPI is usually plenty for "
+                        "OCR); (b) split multi-page documents into single pages; "
+                        "(c) ask your Docling SaaS admin to raise the OCR gRPC limit.",
+                        task.get("id"),
+                    )
+
         doc = result.document
         if doc is None:
             logger.error("Docling returned no document for task %s", task.get("id"))
@@ -383,7 +414,15 @@ class Docling(LabelStudioMLBase):
         ro_level = int(os.getenv("DOCLING_READING_ORDER_LEVEL", "1") or "1")
         include_table_structure = _env_bool("DOCLING_INCLUDE_TABLE_STRUCTURE", default=True)
         include_relations = _env_bool("DOCLING_INCLUDE_RELATIONS", default=True)
-        content_layers = os.getenv("DOCLING_CONTENT_LAYERS")
+        # Content layers default to BODY + FURNITURE + BACKGROUND so page
+        # headers/footers/watermarks (which Docling emits on FURNITURE and
+        # BACKGROUND respectively) are visible in predictions. The library
+        # itself defaults to BODY-only (upstream docling behavior) — we
+        # override at the ML-backend layer because the interface renders
+        # each layer with its own opacity and annotators expect a
+        # complete first-pass over the page. Users who explicitly want a
+        # narrower filter can still set DOCLING_CONTENT_LAYERS=body.
+        content_layers = os.getenv("DOCLING_CONTENT_LAYERS") or "body,furniture,background"
 
         # original_width / original_height must describe the raster the percentages were
         # measured against, because LS-native consumers multiply the two back together to
@@ -440,9 +479,34 @@ class Docling(LabelStudioMLBase):
             )
         region_count = len(canonical_results)
 
+        # Zero-region docs happen when Docling returns a body scaffold with no
+        # iterable leaves — typically a PARTIAL_SUCCESS whose OCR model failed
+        # (see the PARTIAL_SUCCESS warning above), or a genuinely blank page.
+        # Returning None instead of an empty PredictionValue keeps Label Studio
+        # from stashing a hollow row that the operator would have no way to
+        # tell apart from a real (but useless) prediction: they'd see "the ML
+        # backend ran, no predictions in the UI" with no signal that something
+        # upstream broke. A None here surfaces as a zero-count in predict()'s
+        # summary log so operators can grep for it.
+        if region_count == 0:
+            logger.warning(
+                "Task %s: Docling document has no iterable items (0 regions). "
+                "If this was PARTIAL_SUCCESS see the errors logged above (common "
+                "cause: OCR model RESOURCE_EXHAUSTED on oversized images); "
+                "otherwise the page may genuinely contain no detectable content.",
+                task.get("id"),
+            )
+            return None
+
         # Use a simple confidence proxy so non-empty predictions sort above empty ones without implying
         # calibrated model probabilities.
-        score = min(1.0, 0.5 + 0.01 * region_count) if region_count else 0.0
+        score = min(1.0, 0.5 + 0.01 * region_count)
+        logger.info(
+            "Task %s: produced %d region(s) (score=%.2f)",
+            task.get("id"),
+            region_count,
+            score,
+        )
         return PredictionValue(result=ls_results, score=score)
 
     def predict(self, tasks: List[Dict[str, Any]], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
@@ -482,12 +546,25 @@ class Docling(LabelStudioMLBase):
         if tasks and not predictions:
             logger.warning(
                 "Docling produced zero predictions for %s task(s). "
-                "Check ERROR logs above; ensure LABEL_STUDIO_URL/API_KEY for uploads; "
+                "Check ERROR/WARNING logs above; ensure LABEL_STUDIO_URL/API_KEY for uploads; "
                 "or try DOCLING_CONVERT_REMOTE_URL_ONLY=true with a public HTTPS URL.",
                 len(tasks),
             )
         elif predictions:
-            logger.info("Docling predict finished: %s non-empty result(s)", len(predictions))
+            # Report the total region count across the batch — the old "N non-empty
+            # result(s)" phrasing was misleading because a PredictionValue with an
+            # empty result[] is still a truthy Python object, so it counted here
+            # even when the UI would show nothing. predict_single now returns None
+            # for a zero-region doc (see the guard there), so `len(predictions)`
+            # matches the number of tasks that DID produce regions, and the total
+            # region count is the actionable number for operators.
+            total_regions = sum(len(p.result or []) for p in predictions)
+            logger.info(
+                "Docling predict finished: %s/%s task(s) produced predictions, %s region(s) total",
+                len(predictions),
+                len(tasks),
+                total_regions,
+            )
 
         return ModelResponse(predictions=predictions, model_version=str(self.get("model_version") or ""))
 
