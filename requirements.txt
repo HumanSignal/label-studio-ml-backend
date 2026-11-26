@@ -2,5 +2,4 @@ Flask>2.3
 colorama~=0.4
 requests~=2.31
 semver~=3.0.2
-# label-studio-sdk==1.0.2
-label-studio-sdk @ git+https://github.com/HumanSignal/label-studio-sdk.git
+label-studio-sdk>=2.0.18,<3
