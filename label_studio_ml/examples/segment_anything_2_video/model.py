@@ -24,8 +24,13 @@ MODEL_CHECKPOINT = os.getenv('MODEL_CHECKPOINT', 'sam2_hiera_large.pt')
 MAX_FRAMES_TO_TRACK = int(os.getenv('MAX_FRAMES_TO_TRACK', 10))
 
 if DEVICE == 'cuda':
-    # use bfloat16 for the entire notebook
-    torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
+    # bfloat16 is only native on Ampere and newer. Older GPUs (T4, V100, RTX 20xx)
+    # emulate it, which is slower than fp32, so use float16 there instead.
+    if torch.cuda.get_device_properties(0).major >= 8:
+        autocast_dtype = torch.bfloat16
+    else:
+        autocast_dtype = torch.float16
+    torch.autocast(device_type="cuda", dtype=autocast_dtype).__enter__()
 
     if torch.cuda.get_device_properties(0).major >= 8:
         # turn on tfloat32 for Ampere GPUs (https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices)
