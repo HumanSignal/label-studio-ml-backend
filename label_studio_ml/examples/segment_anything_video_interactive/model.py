@@ -157,6 +157,12 @@ _models_lock = threading.Lock()
 _ACCELERATOR = threading.BoundedSemaphore(1)
 
 
+def _cuda_autocast_dtype():
+    """bfloat16 on Ampere and newer, float16 on older GPUs that only emulate bf16."""
+    major, _ = torch.cuda.get_device_capability()
+    return torch.bfloat16 if major >= 8 else torch.float16
+
+
 @contextmanager
 def _accelerator_slot():
     """Serialize GPU/MPS-heavy SAM2 calls across request and worker threads."""
@@ -166,7 +172,7 @@ def _accelerator_slot():
             # Autocast state is thread-local, so it must be entered in the
             # request/executor thread performing inference rather than once
             # during model construction.
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.autocast(device_type="cuda", dtype=_cuda_autocast_dtype()):
                 yield
         else:
             yield

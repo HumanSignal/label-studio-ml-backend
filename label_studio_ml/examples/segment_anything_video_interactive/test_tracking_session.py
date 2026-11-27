@@ -353,6 +353,7 @@ def test_accelerator_slot_enters_cuda_autocast_in_calling_thread(monkeypatch):
 
     monkeypatch.setattr(model, "DEVICE", "cuda")
     monkeypatch.setattr(model.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(model.torch.cuda, "get_device_capability", lambda: (8, 0))
     monkeypatch.setattr(model.torch, "autocast", lambda **_kwargs: FakeAutocast())
 
     worker_thread = []
@@ -367,6 +368,37 @@ def test_accelerator_slot_enters_cuda_autocast_in_calling_thread(monkeypatch):
     thread.join(timeout=2)
 
     assert entered_threads == worker_thread
+
+
+def test_accelerator_slot_uses_fp16_autocast_on_pre_ampere_gpus(monkeypatch):
+    os.environ.setdefault("MODEL_DIR", tempfile.mkdtemp(prefix="sam2-test-cache-"))
+    _drop_dependency_stub("cv2")
+    _drop_dependency_stub("numpy")
+    import model
+
+    class FakeAutocast:
+        def __enter__(self):
+            pass
+
+        def __exit__(self, *_args):
+            return False
+
+    dtypes = []
+
+    def fake_autocast(**kwargs):
+        dtypes.append(kwargs["dtype"])
+        return FakeAutocast()
+
+    monkeypatch.setattr(model, "DEVICE", "cuda")
+    monkeypatch.setattr(model.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(model.torch, "autocast", fake_autocast)
+
+    for capability in [(7, 5), (8, 0)]:
+        monkeypatch.setattr(model.torch.cuda, "get_device_capability", lambda: capability)
+        with model._accelerator_slot():
+            pass
+
+    assert dtypes == [model.torch.float16, model.torch.bfloat16]
 
 
 def test_mps_initialization_bootstraps_from_one_frame_without_async_loader(monkeypatch, tmp_path):
